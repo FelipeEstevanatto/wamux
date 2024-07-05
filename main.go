@@ -5,15 +5,25 @@ import (
 	"log"
 	"os"
 
+	chat_handler "github.com/Zapbox-API/evolution-go/pkg/chat/handler"
+	community_handler "github.com/Zapbox-API/evolution-go/pkg/community/handler"
 	"github.com/Zapbox-API/evolution-go/pkg/config"
-	instance_handler "github.com/Zapbox-API/evolution-go/pkg/instances/handler"
-	instance_model "github.com/Zapbox-API/evolution-go/pkg/instances/model"
-	instance_repository "github.com/Zapbox-API/evolution-go/pkg/instances/repository"
-	instance_service "github.com/Zapbox-API/evolution-go/pkg/instances/service"
-	message_model "github.com/Zapbox-API/evolution-go/pkg/messages/model"
-	message_repository "github.com/Zapbox-API/evolution-go/pkg/messages/repository"
-	"github.com/Zapbox-API/evolution-go/pkg/middlewares"
+	group_handler "github.com/Zapbox-API/evolution-go/pkg/group/handler"
+	instance_handler "github.com/Zapbox-API/evolution-go/pkg/instance/handler"
+	instance_model "github.com/Zapbox-API/evolution-go/pkg/instance/model"
+	instance_repository "github.com/Zapbox-API/evolution-go/pkg/instance/repository"
+	instance_service "github.com/Zapbox-API/evolution-go/pkg/instance/service"
+	label_handler "github.com/Zapbox-API/evolution-go/pkg/label/handler"
+	message_handler "github.com/Zapbox-API/evolution-go/pkg/message/handler"
+	message_model "github.com/Zapbox-API/evolution-go/pkg/message/model"
+	message_repository "github.com/Zapbox-API/evolution-go/pkg/message/repository"
+	auth_middleware "github.com/Zapbox-API/evolution-go/pkg/middleware"
+	newsletter_handler "github.com/Zapbox-API/evolution-go/pkg/newsletter/handler"
 	"github.com/Zapbox-API/evolution-go/pkg/routes"
+	send_handler "github.com/Zapbox-API/evolution-go/pkg/sendMessage/handler"
+	server_handler "github.com/Zapbox-API/evolution-go/pkg/server/handler"
+	user_handler "github.com/Zapbox-API/evolution-go/pkg/user/handler"
+	websocket_handler "github.com/Zapbox-API/evolution-go/pkg/websocket/handler"
 	whatsmeow_service "github.com/Zapbox-API/evolution-go/pkg/whatsmeow/service"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -38,6 +48,13 @@ func setupRouter(db *gorm.DB, config *config.Config) *gin.Engine {
 	)
 
 	routes.NewRouter(
+		auth_middleware.NewMiddleware(config, instance_service.NewInstanceService(
+			instanceRepository,
+			killChannel,
+			clientPointer,
+			linkingCodeEventChannel,
+			whatsmeowService,
+		)),
 		instance_handler.NewInstanceHandler(
 			instance_service.NewInstanceService(
 				instanceRepository,
@@ -46,13 +63,16 @@ func setupRouter(db *gorm.DB, config *config.Config) *gin.Engine {
 				linkingCodeEventChannel,
 				whatsmeowService,
 			), config),
-		middlewares.NewMiddleware(config, instance_service.NewInstanceService(
-			instanceRepository,
-			killChannel,
-			clientPointer,
-			linkingCodeEventChannel,
-			whatsmeowService,
-		)),
+		user_handler.NewUserHandler(),
+		send_handler.NewSendHandler(),
+		message_handler.NewMessageHandler(),
+		chat_handler.NewChatHandler(),
+		group_handler.NewGroupHandler(),
+		community_handler.NewCommunityHandler(),
+		label_handler.NewLabelHandler(),
+		newsletter_handler.NewNewsletterHandler(),
+		websocket_handler.NewWebsocketHandler(),
+		server_handler.NewServerHandler(),
 	).AssignRoutes(r)
 
 	if config.ConnectOnStartup {

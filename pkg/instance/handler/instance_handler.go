@@ -4,22 +4,22 @@ import (
 	"net/http"
 
 	"github.com/Zapbox-API/evolution-go/pkg/config"
-	instance_model "github.com/Zapbox-API/evolution-go/pkg/instances/model"
-	instance_service "github.com/Zapbox-API/evolution-go/pkg/instances/service"
+	instance_model "github.com/Zapbox-API/evolution-go/pkg/instance/model"
+	instance_service "github.com/Zapbox-API/evolution-go/pkg/instance/service"
 	"github.com/gin-gonic/gin"
 )
 
 type InstanceHandler interface {
-	Create(data *gin.Context)
-	Connect(data *gin.Context)
-	Disconnect(data *gin.Context)
-	Logout(data *gin.Context)
-	Delete(data *gin.Context)
-	Status(data *gin.Context)
-	Qr(data *gin.Context)
-	All(data *gin.Context)
-	Pair(data *gin.Context)
-	DeleteProxy(data *gin.Context)
+	Create(ctx *gin.Context)
+	Connect(ctx *gin.Context)
+	Disconnect(ctx *gin.Context)
+	Logout(ctx *gin.Context)
+	Delete(ctx *gin.Context)
+	Status(ctx *gin.Context)
+	Qr(ctx *gin.Context)
+	All(ctx *gin.Context)
+	Pair(ctx *gin.Context)
+	DeleteProxy(ctx *gin.Context)
 }
 
 type instanceHandler struct {

@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/Zapbox-API/evolution-go/pkg/config"
-	instance_model "github.com/Zapbox-API/evolution-go/pkg/instances/model"
-	instance_repository "github.com/Zapbox-API/evolution-go/pkg/instances/repository"
+	instance_model "github.com/Zapbox-API/evolution-go/pkg/instance/model"
+	instance_repository "github.com/Zapbox-API/evolution-go/pkg/instance/repository"
 	"github.com/Zapbox-API/evolution-go/pkg/utils"
 	whatsmeow_service "github.com/Zapbox-API/evolution-go/pkg/whatsmeow/service"
 	"github.com/gomessguii/logger"

@@ -1,7 +1,7 @@
 package instance_repository
 
 import (
-	instance_model "github.com/Zapbox-API/evolution-go/pkg/instances/model"
+	instance_model "github.com/Zapbox-API/evolution-go/pkg/instance/model"
 	"gorm.io/gorm"
 )
 
