@@ -93,15 +93,20 @@ func (i *instanceHandler) Connect(ctx *gin.Context) {
 		return
 	}
 
-	updateInstance, err := i.instanceService.Connect(data, instance)
+	instance, jid, eventString, err := i.instanceService.Connect(data, instance)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	ctx.Set("instance", updateInstance)
+	ctx.Set("instance", instance)
 
-	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": updateInstance})
+	responseData := gin.H{
+		"jid":         jid,
+		"eventString": eventString,
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
 }
 
 func (i *instanceHandler) Disconnect(ctx *gin.Context) {
@@ -121,7 +126,7 @@ func (i *instanceHandler) Disconnect(ctx *gin.Context) {
 
 	ctx.Set("instance", updateInstance)
 
-	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": updateInstance})
+	ctx.JSON(http.StatusOK, gin.H{"message": "success"})
 }
 
 func (i *instanceHandler) Logout(ctx *gin.Context) {
@@ -141,7 +146,7 @@ func (i *instanceHandler) Logout(ctx *gin.Context) {
 
 	ctx.Set("instance", updateInstance)
 
-	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": updateInstance})
+	ctx.JSON(http.StatusOK, gin.H{"message": "success"})
 }
 
 func (i *instanceHandler) Status(ctx *gin.Context) {

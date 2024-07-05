@@ -50,7 +50,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 		routes.Use(r.authMiddleware.Auth)
 		{
 			routes.POST("/connect", r.instanceHandler.Connect)       // ok
-			routes.GET("/connectionState", r.instanceHandler.Status) // ok
+			routes.GET("/status", r.instanceHandler.Status)          // ok
 			routes.POST("/disconnect", r.instanceHandler.Disconnect) // ok
 			routes.DELETE("/logout", r.instanceHandler.Logout)       // ok
 			routes.GET("/qr", r.instanceHandler.Qr)                  // ok

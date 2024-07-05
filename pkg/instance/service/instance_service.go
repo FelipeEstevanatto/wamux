@@ -17,7 +17,7 @@ import (
 
 type InstanceService interface {
 	Create(data *CreateStruct) error
-	Connect(data *ConnectStruct, instance *instance_model.Instance) (*instance_model.Instance, error)
+	Connect(data *ConnectStruct, instance *instance_model.Instance) (*instance_model.Instance, string, string, error)
 	Disconnect(instance *instance_model.Instance) (*instance_model.Instance, error)
 	Logout(instance *instance_model.Instance) (*instance_model.Instance, error)
 	Status(instance *instance_model.Instance) (*StatusStruct, error)
@@ -99,7 +99,7 @@ func (i instances) Create(data *CreateStruct) error {
 	return nil
 }
 
-func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instance) (*instance_model.Instance, error) {
+func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instance) (*instance_model.Instance, string, string, error) {
 
 	var subscribedEvents []string
 
@@ -124,7 +124,7 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 	err := i.instanceRepository.Update(instance)
 	if err != nil {
 		logger.LogError("Error updating instance: %s", err)
-		return nil, err
+		return nil, "", "", err
 	}
 
 	i.killChannel[instance.Id] = make(chan bool)
@@ -141,7 +141,7 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 		err := json.Unmarshal([]byte(instance.Proxy), &proxyConfig)
 		if err != nil {
 			logger.LogError("error unmarshalling proxy config")
-			return nil, err
+			return nil, "", "", err
 		}
 
 		if proxyConfig.Address != "" {
@@ -157,14 +157,14 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 
 		if i.clientPointer[instance.Id].WAClient != nil {
 			if !i.clientPointer[instance.Id].WAClient.IsConnected() {
-				return instance, fmt.Errorf("failed to connect")
+				return instance, "", "", fmt.Errorf("failed to connect")
 			}
 		} else {
-			return instance, fmt.Errorf("failed to connect")
+			return instance, "", "", fmt.Errorf("failed to connect")
 		}
 	}
 
-	return instance, nil
+	return instance, instance.Jid, eventString, nil
 }
 
 func (i instances) Disconnect(instance *instance_model.Instance) (*instance_model.Instance, error) {
