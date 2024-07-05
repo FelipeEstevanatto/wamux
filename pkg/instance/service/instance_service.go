@@ -418,6 +418,7 @@ func NewInstanceService(
 	clientPointer map[int]whatsmeow_service.ClientInfo,
 	linkingCodeEventChannel chan whatsmeow_service.LinkingCodeEvent,
 	whatsmeowService whatsmeow_service.WhatsmeowService,
+	config *config.Config,
 ) InstanceService {
 	return &instances{
 		instanceRepository:      instanceRepository,
@@ -425,5 +426,6 @@ func NewInstanceService(
 		clientPointer:           clientPointer,
 		linkingCodeEventChannel: linkingCodeEventChannel,
 		whatsmeowService:        whatsmeowService,
+		config:                  config,
 	}
 }

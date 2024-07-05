@@ -46,23 +46,18 @@ func setupRouter(db *gorm.DB, config *config.Config) *gin.Engine {
 		clientPointer,
 		linkingCodeEventChannel,
 	)
+	instanceService := instance_service.NewInstanceService(
+		instanceRepository,
+		killChannel,
+		clientPointer,
+		linkingCodeEventChannel,
+		whatsmeowService,
+		config,
+	)
 
 	routes.NewRouter(
-		auth_middleware.NewMiddleware(config, instance_service.NewInstanceService(
-			instanceRepository,
-			killChannel,
-			clientPointer,
-			linkingCodeEventChannel,
-			whatsmeowService,
-		)),
-		instance_handler.NewInstanceHandler(
-			instance_service.NewInstanceService(
-				instanceRepository,
-				killChannel,
-				clientPointer,
-				linkingCodeEventChannel,
-				whatsmeowService,
-			), config),
+		auth_middleware.NewMiddleware(config, instanceService),
+		instance_handler.NewInstanceHandler(instanceService, config),
 		user_handler.NewUserHandler(),
 		send_handler.NewSendHandler(),
 		message_handler.NewMessageHandler(),
