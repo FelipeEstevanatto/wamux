@@ -1,15 +1,15 @@
-package session_handler
+package instance_handler
 
 import (
 	"net/http"
 
 	"github.com/Zapbox-API/evolution-go/pkg/config"
 	instance_model "github.com/Zapbox-API/evolution-go/pkg/instances/model"
-	session_service "github.com/Zapbox-API/evolution-go/pkg/sessions/service"
+	instance_service "github.com/Zapbox-API/evolution-go/pkg/instances/service"
 	"github.com/gin-gonic/gin"
 )
 
-type SessionHandler interface {
+type InstanceHandler interface {
 	Create(data *gin.Context)
 	Connect(data *gin.Context)
 	Disconnect(data *gin.Context)
@@ -22,13 +22,13 @@ type SessionHandler interface {
 	DeleteProxy(data *gin.Context)
 }
 
-type sessionHandler struct {
-	config         *config.Config
-	sessionService session_service.SessionService
+type instanceHandler struct {
+	config          *config.Config
+	instanceService instance_service.InstanceService
 }
 
-func (s *sessionHandler) Create(ctx *gin.Context) {
-	var data *session_service.CreateStruct
+func (i *instanceHandler) Create(ctx *gin.Context) {
+	var data *instance_service.CreateStruct
 	err := ctx.ShouldBindBodyWithJSON(&data)
 
 	if err != nil {
@@ -68,7 +68,7 @@ func (s *sessionHandler) Create(ctx *gin.Context) {
 		}
 	}
 
-	err = s.sessionService.Create(data)
+	err = i.instanceService.Create(data)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -77,7 +77,7 @@ func (s *sessionHandler) Create(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": data})
 }
 
-func (s *sessionHandler) Connect(ctx *gin.Context) {
+func (i *instanceHandler) Connect(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
 	instance, ok := getInstance.(*instance_model.Instance)
@@ -86,14 +86,14 @@ func (s *sessionHandler) Connect(ctx *gin.Context) {
 		return
 	}
 
-	var data *session_service.ConnectStruct
+	var data *instance_service.ConnectStruct
 	err := ctx.ShouldBindBodyWithJSON(&data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	updateInstance, err := s.sessionService.Connect(data, instance)
+	updateInstance, err := i.instanceService.Connect(data, instance)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -104,7 +104,7 @@ func (s *sessionHandler) Connect(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": updateInstance})
 }
 
-func (s *sessionHandler) Disconnect(ctx *gin.Context) {
+func (i *instanceHandler) Disconnect(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
 	instance, ok := getInstance.(*instance_model.Instance)
@@ -113,7 +113,7 @@ func (s *sessionHandler) Disconnect(ctx *gin.Context) {
 		return
 	}
 
-	updateInstance, err := s.sessionService.Disconnect(instance)
+	updateInstance, err := i.instanceService.Disconnect(instance)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -124,7 +124,7 @@ func (s *sessionHandler) Disconnect(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": updateInstance})
 }
 
-func (s *sessionHandler) Logout(ctx *gin.Context) {
+func (i *instanceHandler) Logout(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
 	instance, ok := getInstance.(*instance_model.Instance)
@@ -133,7 +133,7 @@ func (s *sessionHandler) Logout(ctx *gin.Context) {
 		return
 	}
 
-	updateInstance, err := s.sessionService.Logout(instance)
+	updateInstance, err := i.instanceService.Logout(instance)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -144,7 +144,7 @@ func (s *sessionHandler) Logout(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": updateInstance})
 }
 
-func (s *sessionHandler) Status(ctx *gin.Context) {
+func (i *instanceHandler) Status(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
 	instance, ok := getInstance.(*instance_model.Instance)
@@ -153,7 +153,7 @@ func (s *sessionHandler) Status(ctx *gin.Context) {
 		return
 	}
 
-	status, err := s.sessionService.Status(instance)
+	status, err := i.instanceService.Status(instance)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -162,7 +162,7 @@ func (s *sessionHandler) Status(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": status})
 }
 
-func (s *sessionHandler) Qr(ctx *gin.Context) {
+func (i *instanceHandler) Qr(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
 	instance, ok := getInstance.(*instance_model.Instance)
@@ -171,7 +171,7 @@ func (s *sessionHandler) Qr(ctx *gin.Context) {
 		return
 	}
 
-	qrcode, err := s.sessionService.GetQr(instance)
+	qrcode, err := i.instanceService.GetQr(instance)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -180,7 +180,7 @@ func (s *sessionHandler) Qr(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": qrcode})
 }
 
-func (s *sessionHandler) Pair(ctx *gin.Context) {
+func (i *instanceHandler) Pair(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
 	instance, ok := getInstance.(*instance_model.Instance)
@@ -189,7 +189,7 @@ func (s *sessionHandler) Pair(ctx *gin.Context) {
 		return
 	}
 
-	var data *session_service.PairStruct
+	var data *instance_service.PairStruct
 	err := ctx.ShouldBindBodyWithJSON(&data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -201,7 +201,7 @@ func (s *sessionHandler) Pair(ctx *gin.Context) {
 		return
 	}
 
-	pairingCode, err := s.sessionService.Pair(data, instance)
+	pairingCode, err := i.instanceService.Pair(data, instance)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -210,8 +210,8 @@ func (s *sessionHandler) Pair(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": pairingCode})
 }
 
-func (s *sessionHandler) All(ctx *gin.Context) {
-	instances, err := s.sessionService.GetAll()
+func (i *instanceHandler) All(ctx *gin.Context) {
+	instances, err := i.instanceService.GetAll()
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -220,7 +220,7 @@ func (s *sessionHandler) All(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": instances})
 }
 
-func (s *sessionHandler) Delete(ctx *gin.Context) {
+func (i *instanceHandler) Delete(ctx *gin.Context) {
 	instanceName := ctx.Param("instanceName")
 
 	if instanceName == "" {
@@ -228,7 +228,7 @@ func (s *sessionHandler) Delete(ctx *gin.Context) {
 		return
 	}
 
-	err := s.sessionService.Delete(instanceName)
+	err := i.instanceService.Delete(instanceName)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -237,7 +237,7 @@ func (s *sessionHandler) Delete(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success"})
 }
 
-func (s *sessionHandler) DeleteProxy(ctx *gin.Context) {
+func (i *instanceHandler) DeleteProxy(ctx *gin.Context) {
 	instanceName := ctx.Param("instanceName")
 
 	if instanceName == "" {
@@ -245,7 +245,7 @@ func (s *sessionHandler) DeleteProxy(ctx *gin.Context) {
 		return
 	}
 
-	err := s.sessionService.RemoveProxy(instanceName)
+	err := i.instanceService.RemoveProxy(instanceName)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -254,6 +254,6 @@ func (s *sessionHandler) DeleteProxy(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success"})
 }
 
-func NewSessionHandler(sessionService session_service.SessionService, config *config.Config) SessionHandler {
-	return &sessionHandler{sessionService: sessionService, config: config}
+func NewInstanceHandler(instanceService instance_service.InstanceService, config *config.Config) InstanceHandler {
+	return &instanceHandler{instanceService: instanceService, config: config}
 }

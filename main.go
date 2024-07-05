@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/Zapbox-API/evolution-go/pkg/config"
+	instance_handler "github.com/Zapbox-API/evolution-go/pkg/instances/handler"
 	instance_model "github.com/Zapbox-API/evolution-go/pkg/instances/model"
 	instance_repository "github.com/Zapbox-API/evolution-go/pkg/instances/repository"
 	instance_service "github.com/Zapbox-API/evolution-go/pkg/instances/service"
@@ -13,8 +14,6 @@ import (
 	message_repository "github.com/Zapbox-API/evolution-go/pkg/messages/repository"
 	"github.com/Zapbox-API/evolution-go/pkg/middlewares"
 	"github.com/Zapbox-API/evolution-go/pkg/routes"
-	session_handler "github.com/Zapbox-API/evolution-go/pkg/sessions/handler"
-	session_service "github.com/Zapbox-API/evolution-go/pkg/sessions/service"
 	whatsmeow_service "github.com/Zapbox-API/evolution-go/pkg/whatsmeow/service"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -39,15 +38,21 @@ func setupRouter(db *gorm.DB, config *config.Config) *gin.Engine {
 	)
 
 	routes.NewRouter(
-		session_handler.NewSessionHandler(
-			session_service.NewSessionService(
+		instance_handler.NewInstanceHandler(
+			instance_service.NewInstanceService(
 				instanceRepository,
 				killChannel,
 				clientPointer,
 				linkingCodeEventChannel,
 				whatsmeowService,
 			), config),
-		middlewares.NewMiddleware(config, instance_service.NewInstanceService(instanceRepository)),
+		middlewares.NewMiddleware(config, instance_service.NewInstanceService(
+			instanceRepository,
+			killChannel,
+			clientPointer,
+			linkingCodeEventChannel,
+			whatsmeowService,
+		)),
 	).AssignRoutes(r)
 
 	if config.ConnectOnStartup {

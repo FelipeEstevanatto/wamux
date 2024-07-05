@@ -3,14 +3,14 @@ package routes
 import (
 	"net/http"
 
+	instance_handler "github.com/Zapbox-API/evolution-go/pkg/instances/handler"
 	"github.com/Zapbox-API/evolution-go/pkg/middlewares"
-	sessions_handler "github.com/Zapbox-API/evolution-go/pkg/sessions/handler"
 	"github.com/gin-gonic/gin"
 )
 
 type Routes struct {
-	sessionHandler sessions_handler.SessionHandler
-	middleware     middlewares.Middleware
+	instanceHandler instance_handler.InstanceHandler
+	middleware      middlewares.Middleware
 }
 
 func (r *Routes) AssignRoutes(eng *gin.Engine) {
@@ -21,26 +21,26 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 	{
 		routes.Use(r.middleware.AuthAdmin)
 		{
-			routes.POST("/create", r.sessionHandler.Create)
-			routes.GET("/fetchInstances", r.sessionHandler.All)
-			routes.DELETE("/delete/:instanceName", r.sessionHandler.Delete)
-			routes.DELETE("/proxy/:instanceName", r.sessionHandler.DeleteProxy)
+			routes.POST("/create", r.instanceHandler.Create)
+			routes.GET("/fetchInstances", r.instanceHandler.All)
+			routes.DELETE("/delete/:instanceName", r.instanceHandler.Delete)
+			routes.DELETE("/proxy/:instanceName", r.instanceHandler.DeleteProxy)
 		}
 
 		routes.Use(r.middleware.Auth)
 		{
-			routes.POST("/connect", r.sessionHandler.Connect)
-			routes.GET("/connectionState", r.sessionHandler.Status)
-			routes.POST("/disconnect", r.sessionHandler.Disconnect)
-			routes.DELETE("/logout", r.sessionHandler.Logout)
-			routes.GET("/qr", r.sessionHandler.Qr)
-			routes.POST("/pair", r.sessionHandler.Pair)
+			routes.POST("/connect", r.instanceHandler.Connect)
+			routes.GET("/connectionState", r.instanceHandler.Status)
+			routes.POST("/disconnect", r.instanceHandler.Disconnect)
+			routes.DELETE("/logout", r.instanceHandler.Logout)
+			routes.GET("/qr", r.instanceHandler.Qr)
+			routes.POST("/pair", r.instanceHandler.Pair)
 		}
 
 	}
 
 }
 
-func NewRouter(sessionHandler sessions_handler.SessionHandler, middleware middlewares.Middleware) *Routes {
-	return &Routes{sessionHandler: sessionHandler, middleware: middleware}
+func NewRouter(instanceHandler instance_handler.InstanceHandler, middleware middlewares.Middleware) *Routes {
+	return &Routes{instanceHandler: instanceHandler, middleware: middleware}
 }
