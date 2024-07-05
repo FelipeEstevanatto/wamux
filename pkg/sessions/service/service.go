@@ -11,11 +11,15 @@ import (
 	"github.com/Zapbox-API/evolution-go/pkg/utils"
 	whatsmeow_service "github.com/Zapbox-API/evolution-go/pkg/whatsmeow/service"
 	"github.com/gomessguii/logger"
+	"go.mau.fi/whatsmeow/types"
 )
 
 type SessionService interface {
 	Init(data *InitStruct) error
 	Connect(data *ConnectStruct, instance *instance_model.Instance) (*instance_model.Instance, error)
+	Disconnect(instance *instance_model.Instance) (*instance_model.Instance, error)
+	Logout(instance *instance_model.Instance) (*instance_model.Instance, error)
+	Status(instance *instance_model.Instance) (*StatusStruct, error)
 }
 
 type sessions struct {
@@ -43,6 +47,17 @@ type ConnectStruct struct {
 	Subscribe []string
 	Immediate bool
 	Phone     string
+}
+
+type StatusStruct struct {
+	Connected bool
+	LoggedIn  bool
+	myJid     *types.JID
+	Name      string
+}
+
+type PairStruct struct {
+	Phone string
 }
 
 func (s sessions) Init(data *InitStruct) error {
@@ -133,6 +148,90 @@ func (s sessions) Connect(data *ConnectStruct, instance *instance_model.Instance
 	}
 
 	return instance, nil
+}
+
+func (s sessions) Disconnect(instance *instance_model.Instance) (*instance_model.Instance, error) {
+	if s.clientPointer[instance.Id].WAClient == nil {
+		return instance, fmt.Errorf("no session found")
+	}
+
+	if s.clientPointer[instance.Id].WAClient.IsConnected() {
+		if s.clientPointer[instance.Id].WAClient.IsLoggedIn() {
+			logger.LogInfo("Disconnection successful")
+			s.killChannel[instance.Id] <- true
+
+			instance.Events = ""
+
+			err := s.instanceRepository.Update(instance)
+			if err != nil {
+				return instance, err
+			}
+
+			return instance, nil
+		}
+	}
+
+	logger.LogWarn("Ignoring disconnect as it was not connected")
+	return instance, nil
+}
+
+func (s sessions) Logout(instance *instance_model.Instance) (*instance_model.Instance, error) {
+	if s.clientPointer[instance.Id].WAClient == nil {
+		return instance, fmt.Errorf("no session found")
+	}
+
+	if s.clientPointer[instance.Id].WAClient.IsLoggedIn() && s.clientPointer[instance.Id].WAClient.IsConnected() {
+		err := s.clientPointer[instance.Id].WAClient.Logout()
+		if err != nil {
+			return instance, err
+		}
+
+		instance.Jid = ""
+
+		err = s.instanceRepository.Update(instance)
+		if err != nil {
+			return instance, err
+		}
+
+		logger.LogInfo("Logout successful")
+		s.killChannel[instance.Id] <- true
+	} else {
+		if s.clientPointer[instance.Id].WAClient.IsConnected() {
+			logger.LogWarn("Ignoring logout as it was not logged in")
+			return instance, fmt.Errorf("Ignoring logout as it was not logged in")
+		} else {
+			logger.LogWarn("Ignoring logout as it was not connected")
+			return instance, fmt.Errorf("Ignoring logout as it was not connected")
+
+		}
+	}
+
+	return instance, nil
+}
+
+func (s sessions) Status(instance *instance_model.Instance) (*StatusStruct, error) {
+	if s.clientPointer[instance.Id].WAClient == nil {
+		return nil, fmt.Errorf("no session found")
+	}
+
+	isConnected := s.clientPointer[instance.Id].WAClient.IsConnected()
+	isLoggedIn := s.clientPointer[instance.Id].WAClient.IsLoggedIn()
+
+	var myJid *types.JID
+	var name string
+	if isLoggedIn {
+		myJid = s.clientPointer[instance.Id].WAClient.Store.ID
+		name = s.clientPointer[instance.Id].WAClient.Store.PushName
+	}
+
+	status := &StatusStruct{
+		Connected: isConnected,
+		LoggedIn:  isLoggedIn,
+		myJid:     myJid,
+		Name:      name,
+	}
+
+	return status, nil
 }
 
 func NewSessionService(

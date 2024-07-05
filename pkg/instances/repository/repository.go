@@ -11,6 +11,7 @@ type InstanceRepository interface {
 	Update(*instance_model.Instance) error
 	UpdateConnected(userId int, status bool) error
 	UpdateJid(userId int, jid string) error
+	GetAllConnectedInstances() ([]*instance_model.Instance, error)
 }
 
 type instanceRepository struct {
@@ -41,6 +42,16 @@ func (i *instanceRepository) UpdateConnected(userId int, status bool) error {
 
 func (i *instanceRepository) UpdateJid(userId int, jid string) error {
 	return i.db.Model(&instance_model.Instance{}).Where("id = ?", userId).Update("jid", jid).Error
+}
+
+func (i *instanceRepository) GetAllConnectedInstances() ([]*instance_model.Instance, error) {
+	var instances []*instance_model.Instance
+	err := i.db.Where("connected = ?", true).Find(&instances).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return instances, nil
 }
 
 func NewInstanceRepository(db *gorm.DB) InstanceRepository {

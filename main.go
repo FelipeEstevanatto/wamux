@@ -30,6 +30,13 @@ func setupRouter(db *gorm.DB, config *config.Config) *gin.Engine {
 	clientPointer := make(map[int]whatsmeow_service.ClientInfo)
 	linkingCodeEventChannel := make(chan whatsmeow_service.LinkingCodeEvent)
 	instanceRepository := instance_repository.NewInstanceRepository(db)
+	whatsmeowService := whatsmeow_service.NewWhatsmeowService(instanceRepository,
+		message_repository.NewMessageRepository(db),
+		config,
+		killChannel,
+		clientPointer,
+		linkingCodeEventChannel,
+	)
 
 	routes.NewRouter(
 		session_handler.NewSessionHandler(
@@ -37,17 +44,14 @@ func setupRouter(db *gorm.DB, config *config.Config) *gin.Engine {
 				instanceRepository,
 				killChannel,
 				clientPointer,
-				whatsmeow_service.NewWhatsmeowService(
-					instanceRepository,
-					message_repository.NewMessageRepository(db),
-					config,
-					killChannel,
-					clientPointer,
-					linkingCodeEventChannel,
-				),
+				whatsmeowService,
 			), config),
 		middlewares.NewMiddleware(config, instance_service.NewInstanceService(instanceRepository)),
 	).AssignRoutes(r)
+
+	if config.ConnectOnStartup {
+		whatsmeowService.ConnectOnStartup()
+	}
 
 	return r
 }

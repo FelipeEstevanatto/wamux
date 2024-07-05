@@ -107,47 +107,90 @@ func (s *sessionHandler) Connect(ctx *gin.Context) {
 
 	ctx.Set("instance", updateInstance)
 
-	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": data})
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": updateInstance})
 
 }
 
+func (s *sessionHandler) Disconnect(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	updateInstance, err := s.sessionService.Disconnect(instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.Set("instance", updateInstance)
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": updateInstance})
+}
+
+func (s *sessionHandler) Logout(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	updateInstance, err := s.sessionService.Logout(instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.Set("instance", updateInstance)
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": updateInstance})
+}
+
+func (s *sessionHandler) Status(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	status, err := s.sessionService.Status(instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": status})
+}
+
 // All implements SessionHandler.
-func (s *sessionHandler) All(data *gin.Context) {
+func (s *sessionHandler) All(ctx *gin.Context) {
 	panic("unimplemented")
 }
 
 // Delete implements SessionHandler.
-func (s *sessionHandler) Delete(data *gin.Context) {
+func (s *sessionHandler) Delete(ctx *gin.Context) {
 	panic("unimplemented")
 }
 
 // DeleteProxy implements SessionHandler.
-func (s *sessionHandler) DeleteProxy(data *gin.Context) {
-	panic("unimplemented")
-}
-
-// Disconnect implements SessionHandler.
-func (s *sessionHandler) Disconnect(data *gin.Context) {
-	panic("unimplemented")
-}
-
-// Logout implements SessionHandler.
-func (s *sessionHandler) Logout(data *gin.Context) {
+func (s *sessionHandler) DeleteProxy(ctx *gin.Context) {
 	panic("unimplemented")
 }
 
 // Pair implements SessionHandler.
-func (s *sessionHandler) Pair(data *gin.Context) {
+func (s *sessionHandler) Pair(ctx *gin.Context) {
 	panic("unimplemented")
 }
 
 // Qr implements SessionHandler.
-func (s *sessionHandler) Qr(data *gin.Context) {
-	panic("unimplemented")
-}
-
-// Status implements SessionHandler.
-func (s *sessionHandler) Status(data *gin.Context) {
+func (s *sessionHandler) Qr(ctx *gin.Context) {
 	panic("unimplemented")
 }
 

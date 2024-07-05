@@ -9,12 +9,13 @@ import (
 )
 
 type Config struct {
-	PostgresAuthDB  string
-	postgresUsersDB string
-	GlobalApiKey    string
-	WaDebug         string
-	LogType         string
-	WebhookFiles    bool
+	PostgresAuthDB   string
+	postgresUsersDB  string
+	GlobalApiKey     string
+	WaDebug          string
+	LogType          string
+	WebhookFiles     bool
+	ConnectOnStartup bool
 }
 
 func (c Config) CreateAuthDB() (*gorm.DB, error) {
@@ -43,12 +44,13 @@ func (c Config) CreateUsersDB() (*gorm.DB, error) {
 
 func Load() *Config {
 	const (
-		POSTGRES_AUTH_DB  = "POSTGRES_AUTH_DB"
-		POSTGRES_USERS_DB = "POSTGRES_USERS_DB"
-		GLOBAL_API_KEY    = "GLOBAL_API_KEY"
-		WA_DEBUG          = "DEBUG_ENABLED"
-		LOGTYPE           = "LOG_TYPE"
-		WEBHOOKFILES      = "WEBHOOK_FILES"
+		POSTGRES_AUTH_DB   = "POSTGRES_AUTH_DB"
+		POSTGRES_USERS_DB  = "POSTGRES_USERS_DB"
+		GLOBAL_API_KEY     = "GLOBAL_API_KEY"
+		WA_DEBUG           = "DEBUG_ENABLED"
+		LOGTYPE            = "LOG_TYPE"
+		WEBHOOKFILES       = "WEBHOOK_FILES"
+		CONNECT_ON_STARTUP = "CONNECT_ON_STARTUP"
 	)
 
 	postgresAuthDB := os.Getenv(POSTGRES_AUTH_DB)
@@ -69,13 +71,19 @@ func Load() *Config {
 		webhookFiles = "true"
 	}
 
+	connectOnStartup := os.Getenv(CONNECT_ON_STARTUP)
+	if connectOnStartup == "" {
+		connectOnStartup = "false"
+	}
+
 	return &Config{
-		PostgresAuthDB:  postgresAuthDB,
-		postgresUsersDB: postgresUsersDB,
-		GlobalApiKey:    globalApiKey,
-		WaDebug:         waDebug,
-		LogType:         logType,
-		WebhookFiles:    webhookFiles == "true",
+		PostgresAuthDB:   postgresAuthDB,
+		postgresUsersDB:  postgresUsersDB,
+		GlobalApiKey:     globalApiKey,
+		WaDebug:          waDebug,
+		LogType:          logType,
+		WebhookFiles:     webhookFiles == "true",
+		ConnectOnStartup: connectOnStartup == "true",
 	}
 }
 

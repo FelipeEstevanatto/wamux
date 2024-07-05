@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -38,6 +39,7 @@ import (
 
 type WhatsmeowService interface {
 	StartClient(clientData *ClientData)
+	ConnectOnStartup()
 }
 
 type whatsmeowService struct {
@@ -725,6 +727,72 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	// }
 
 	// go callWehbook(values)
+}
+
+func (w whatsmeowService) ConnectOnStartup() {
+	instances, err := w.instanceRepository.GetAllConnectedInstances()
+	if err != nil {
+		logger.LogError("Error getting all connected instances: %s", err)
+		return
+	}
+
+	for _, instance := range instances {
+		logger.LogInfo("Starting client for user '%d'", instance.Id)
+
+		v := Values{map[string]string{
+			"Id":     strconv.Itoa(instance.Id),
+			"Jid":    instance.Jid,
+			"Token":  instance.Token,
+			"Events": instance.Events,
+			"osName": instance.OsName,
+			"Proxy":  instance.Proxy,
+		}}
+
+		w.userInfoCache.Set(instance.Token, v, cache.NoExpiration)
+
+		eventArray := strings.Split(instance.Events, ",")
+
+		var subscribedEvents []string
+
+		if len(eventArray) < 1 {
+			subscribedEvents = append(subscribedEvents, "MESSAGE")
+		} else {
+			for _, arg := range eventArray {
+				if !utils.ValidateEvent(arg) {
+					logger.LogWarn("Message type discarded '%s'", arg)
+					continue
+				}
+				if !utils.Find(subscribedEvents, arg) {
+					subscribedEvents = append(subscribedEvents, arg)
+				}
+
+			}
+		}
+
+		w.killChannel[instance.Id] = make(chan bool)
+
+		clientData := &ClientData{
+			Instance:      instance,
+			Subscriptions: subscribedEvents,
+			Phone:         "",
+			IsProxy:       false,
+		}
+
+		if instance.Proxy != "" {
+			var proxyConfig ProxyConfig
+			err := json.Unmarshal([]byte(instance.Proxy), &proxyConfig)
+			if err != nil {
+				logger.LogError("error unmarshalling proxy config")
+				return
+			}
+
+			if proxyConfig.Address != "" {
+				clientData.IsProxy = true
+			}
+		}
+
+		go w.StartClient(clientData)
+	}
 }
 
 func NewWhatsmeowService(
