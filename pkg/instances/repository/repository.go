@@ -7,11 +7,14 @@ import (
 
 type InstanceRepository interface {
 	Create(instance_model.Instance) error
+	GetInstanceByID(instanceId string) (*instance_model.Instance, error)
 	GetInstanceByToken(token string) (*instance_model.Instance, error)
 	Update(*instance_model.Instance) error
 	UpdateConnected(userId int, status bool) error
 	UpdateJid(userId int, jid string) error
 	GetAllConnectedInstances() ([]*instance_model.Instance, error)
+	GetAll() ([]*instance_model.Instance, error)
+	Delete(instanceId string) error
 }
 
 type instanceRepository struct {
@@ -25,6 +28,16 @@ func (i *instanceRepository) Create(instance instance_model.Instance) error {
 func (i *instanceRepository) GetInstanceByToken(token string) (*instance_model.Instance, error) {
 	var instance instance_model.Instance
 	err := i.db.Where("token = ?", token).First(&instance).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &instance, nil
+}
+
+func (i *instanceRepository) GetInstanceByID(instanceId string) (*instance_model.Instance, error) {
+	var instance instance_model.Instance
+	err := i.db.Where("id = ?", instanceId).First(&instance).Error
 	if err != nil {
 		return nil, err
 	}
@@ -52,6 +65,20 @@ func (i *instanceRepository) GetAllConnectedInstances() ([]*instance_model.Insta
 	}
 
 	return instances, nil
+}
+
+func (i *instanceRepository) GetAll() ([]*instance_model.Instance, error) {
+	var instances []*instance_model.Instance
+	err := i.db.Find(&instances).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return instances, nil
+}
+
+func (i *instanceRepository) Delete(instanceId string) error {
+	return i.db.Delete(&instance_model.Instance{}, instanceId).Error
 }
 
 func NewInstanceRepository(db *gorm.DB) InstanceRepository {

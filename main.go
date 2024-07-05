@@ -44,6 +44,7 @@ func setupRouter(db *gorm.DB, config *config.Config) *gin.Engine {
 				instanceRepository,
 				killChannel,
 				clientPointer,
+				linkingCodeEventChannel,
 				whatsmeowService,
 			), config),
 		middlewares.NewMiddleware(config, instance_service.NewInstanceService(instanceRepository)),

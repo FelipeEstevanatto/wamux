@@ -21,18 +21,18 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 	{
 		session.Use(r.middleware.AuthAdmin)
 		{
-			session.POST("/init", r.sessionHandler.Init) // ok
+			session.POST("/init", r.sessionHandler.Init)
 			session.GET("/all", r.sessionHandler.All)
-			session.DELETE("/delete", r.sessionHandler.Delete)
-			session.DELETE("/proxy", r.sessionHandler.DeleteProxy)
+			session.DELETE("/delete/:id", r.sessionHandler.Delete)
+			session.DELETE("/proxy/:id", r.sessionHandler.DeleteProxy)
 		}
 
 		session.Use(r.middleware.Auth)
 		{
-			session.POST("/connect", r.sessionHandler.Connect)       // ok
-			session.POST("/disconnect", r.sessionHandler.Disconnect) // ok
-			session.POST("/logout", r.sessionHandler.Logout)         // ok
-			session.GET("/status", r.sessionHandler.Status)          // ok
+			session.POST("/connect", r.sessionHandler.Connect)
+			session.POST("/disconnect", r.sessionHandler.Disconnect)
+			session.DELETE("/logout", r.sessionHandler.Logout)
+			session.GET("/status", r.sessionHandler.Status)
 			session.GET("/qr", r.sessionHandler.Qr)
 			session.POST("/pair", r.sessionHandler.Pair)
 		}

@@ -169,29 +169,96 @@ func (s *sessionHandler) Status(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": status})
 }
 
-// All implements SessionHandler.
-func (s *sessionHandler) All(ctx *gin.Context) {
-	panic("unimplemented")
-}
-
-// Delete implements SessionHandler.
-func (s *sessionHandler) Delete(ctx *gin.Context) {
-	panic("unimplemented")
-}
-
-// DeleteProxy implements SessionHandler.
-func (s *sessionHandler) DeleteProxy(ctx *gin.Context) {
-	panic("unimplemented")
-}
-
-// Pair implements SessionHandler.
-func (s *sessionHandler) Pair(ctx *gin.Context) {
-	panic("unimplemented")
-}
-
-// Qr implements SessionHandler.
 func (s *sessionHandler) Qr(ctx *gin.Context) {
-	panic("unimplemented")
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	qrcode, err := s.sessionService.GetQr(instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": qrcode})
+}
+
+func (s *sessionHandler) Pair(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	var data *session_service.PairStruct
+	err := ctx.ShouldBindBodyWithJSON(&data)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if data.Phone == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone is required"})
+		return
+	}
+
+	pairingCode, err := s.sessionService.Pair(data, instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": pairingCode})
+}
+
+func (s *sessionHandler) All(ctx *gin.Context) {
+	instances, err := s.sessionService.GetAll()
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": instances})
+}
+
+func (s *sessionHandler) Delete(ctx *gin.Context) {
+	id := ctx.Param("id")
+
+	if id == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
+		return
+	}
+
+	err := s.sessionService.Delete(id)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success"})
+}
+
+func (s *sessionHandler) DeleteProxy(ctx *gin.Context) {
+	id := ctx.Param("id")
+
+	if id == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
+		return
+	}
+
+	err := s.sessionService.RemoveProxy(id)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success"})
 }
 
 func NewSessionHandler(sessionService session_service.SessionService, config *config.Config) SessionHandler {

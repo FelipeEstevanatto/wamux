@@ -211,11 +211,14 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 			}
 		} else {
 			if cd.Phone != "" {
+				logger.LogInfo("Requesting pairing code")
 				client.WAClient.Connect()
 				linkingCode, err := client.WAClient.PairPhone(cd.Phone, true, whatsmeow.PairClientChrome, "Chrome (Linux)")
 				if err != nil {
 					logger.LogError("something went wrong calling pair phone")
 				}
+
+				logger.LogInfo("Pairing code: %s", linkingCode)
 
 				linkingCodeEvent := LinkingCodeEvent{
 					LinkingCode: linkingCode,
