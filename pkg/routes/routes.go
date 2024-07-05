@@ -3,6 +3,8 @@ package routes
 import (
 	"net/http"
 
+	"github.com/gin-gonic/gin"
+
 	chat_handler "github.com/Zapbox-API/evolution-go/pkg/chat/handler"
 	community_handler "github.com/Zapbox-API/evolution-go/pkg/community/handler"
 	group_handler "github.com/Zapbox-API/evolution-go/pkg/group/handler"
@@ -15,7 +17,6 @@ import (
 	server_handler "github.com/Zapbox-API/evolution-go/pkg/server/handler"
 	user_handler "github.com/Zapbox-API/evolution-go/pkg/user/handler"
 	websocket_handler "github.com/Zapbox-API/evolution-go/pkg/websocket/handler"
-	"github.com/gin-gonic/gin"
 )
 
 type Routes struct {

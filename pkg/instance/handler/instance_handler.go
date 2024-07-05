@@ -3,10 +3,11 @@ package instance_handler
 import (
 	"net/http"
 
-	"github.com/Zapbox-API/evolution-go/pkg/config"
+	"github.com/gin-gonic/gin"
+
+	config "github.com/Zapbox-API/evolution-go/pkg/config"
 	instance_model "github.com/Zapbox-API/evolution-go/pkg/instance/model"
 	instance_service "github.com/Zapbox-API/evolution-go/pkg/instance/service"
-	"github.com/gin-gonic/gin"
 )
 
 type InstanceHandler interface {
@@ -30,7 +31,6 @@ type instanceHandler struct {
 func (i *instanceHandler) Create(ctx *gin.Context) {
 	var data *instance_service.CreateStruct
 	err := ctx.ShouldBindBodyWithJSON(&data)
-
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

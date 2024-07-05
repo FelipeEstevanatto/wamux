@@ -8,26 +8,12 @@ import (
 	"time"
 
 	"github.com/gomessguii/logger"
-	"go.mau.fi/whatsmeow/types"
+	whatsmeow_types "go.mau.fi/whatsmeow/types"
 	"golang.org/x/net/proxy"
 )
 
-var messageTypes = map[string]bool{
-	"MESSAGE":       true,
-	"READ_RECEIPT":  true,
-	"PRESENCE":      true,
-	"HISTORY_SYNC":  true,
-	"CHAT_PRESENCE": true,
-	"CALL":          true,
-	"ALL":           true,
-}
-
 type Values struct {
 	m map[string]string
-}
-
-func ValidateEvent(event string) bool {
-	return messageTypes[event]
 }
 
 func Find(slice []string, val string) bool {
@@ -39,9 +25,9 @@ func Find(slice []string, val string) bool {
 	return false
 }
 
-func ParseJID(arg string) (types.JID, bool) {
+func ParseJID(arg string) (whatsmeow_types.JID, bool) {
 	if arg == "" {
-		return types.NewJID("", types.DefaultUserServer), false
+		return whatsmeow_types.NewJID("", whatsmeow_types.DefaultUserServer), false
 	}
 	if arg[0] == '+' {
 		arg = arg[1:]
@@ -50,9 +36,9 @@ func ParseJID(arg string) (types.JID, bool) {
 	containsHyphen := strings.Contains(arg, "-")
 	endsWithTag := strings.HasSuffix(arg, "g.us")
 
-	var recipient types.JID
+	var recipient whatsmeow_types.JID
 	if containsHyphen && endsWithTag {
-		recipient, _ = types.ParseJID(arg)
+		recipient, _ = whatsmeow_types.ParseJID(arg)
 		return recipient, true
 	}
 
@@ -69,14 +55,14 @@ func ParseJID(arg string) (types.JID, bool) {
 	}
 	if !b {
 		logger.LogWarn("Bad jid format, return empty")
-		recipient, _ := types.ParseJID("")
+		recipient, _ := whatsmeow_types.ParseJID("")
 		return recipient, false
 	}
 
 	if !strings.ContainsRune(arg, '@') {
-		return types.NewJID(arg, types.DefaultUserServer), true
+		return whatsmeow_types.NewJID(arg, whatsmeow_types.DefaultUserServer), true
 	} else {
-		recipient, err := types.ParseJID(arg)
+		recipient, err := whatsmeow_types.ParseJID(arg)
 		if err != nil {
 			logger.LogWarn("Invalid jid: %s", arg)
 			return recipient, false

@@ -9,6 +9,7 @@ import (
 	"github.com/Zapbox-API/evolution-go/pkg/config"
 	instance_model "github.com/Zapbox-API/evolution-go/pkg/instance/model"
 	instance_repository "github.com/Zapbox-API/evolution-go/pkg/instance/repository"
+	event_types "github.com/Zapbox-API/evolution-go/pkg/internal/event_types"
 	"github.com/Zapbox-API/evolution-go/pkg/utils"
 	whatsmeow_service "github.com/Zapbox-API/evolution-go/pkg/whatsmeow/service"
 	"github.com/gomessguii/logger"
@@ -104,10 +105,10 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 	var subscribedEvents []string
 
 	if len(data.Subscribe) < 1 {
-		subscribedEvents = append(subscribedEvents, "MESSAGE")
+		subscribedEvents = append(subscribedEvents, event_types.MESSAGE)
 	} else {
 		for _, arg := range data.Subscribe {
-			if !utils.ValidateEvent(arg) {
+			if !event_types.IsEventType(arg) {
 				logger.LogWarn("Message type discarded '%s'", arg)
 				continue
 			}
@@ -298,7 +299,7 @@ func (i instances) Pair(data *PairStruct, instance *instance_model.Instance) (*P
 		subscribedEvents = append(subscribedEvents, "MESSAGE")
 	} else {
 		for _, arg := range eventArray {
-			if !utils.ValidateEvent(arg) {
+			if !event_types.IsEventType(arg) {
 				logger.LogWarn("Message type discarded '%s'", arg)
 				continue
 			}
