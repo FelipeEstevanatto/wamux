@@ -17,24 +17,24 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 	eng.GET("/ping", func(c *gin.Context) {
 		c.String(http.StatusOK, "pong")
 	})
-	session := eng.Group("/session")
+	routes := eng.Group("/instance")
 	{
-		session.Use(r.middleware.AuthAdmin)
+		routes.Use(r.middleware.AuthAdmin)
 		{
-			session.POST("/init", r.sessionHandler.Init)
-			session.GET("/all", r.sessionHandler.All)
-			session.DELETE("/delete/:id", r.sessionHandler.Delete)
-			session.DELETE("/proxy/:id", r.sessionHandler.DeleteProxy)
+			routes.POST("/create", r.sessionHandler.Create)
+			routes.GET("/fetchInstances", r.sessionHandler.All)
+			routes.DELETE("/delete/:instanceName", r.sessionHandler.Delete)
+			routes.DELETE("/proxy/:instanceName", r.sessionHandler.DeleteProxy)
 		}
 
-		session.Use(r.middleware.Auth)
+		routes.Use(r.middleware.Auth)
 		{
-			session.POST("/connect", r.sessionHandler.Connect)
-			session.POST("/disconnect", r.sessionHandler.Disconnect)
-			session.DELETE("/logout", r.sessionHandler.Logout)
-			session.GET("/status", r.sessionHandler.Status)
-			session.GET("/qr", r.sessionHandler.Qr)
-			session.POST("/pair", r.sessionHandler.Pair)
+			routes.POST("/connect", r.sessionHandler.Connect)
+			routes.GET("/connectionState", r.sessionHandler.Status)
+			routes.POST("/disconnect", r.sessionHandler.Disconnect)
+			routes.DELETE("/logout", r.sessionHandler.Logout)
+			routes.GET("/qr", r.sessionHandler.Qr)
+			routes.POST("/pair", r.sessionHandler.Pair)
 		}
 
 	}

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Zapbox-API/evolution-go/pkg/config"
 	instance_model "github.com/Zapbox-API/evolution-go/pkg/instances/model"
 	instance_repository "github.com/Zapbox-API/evolution-go/pkg/instances/repository"
 	"github.com/Zapbox-API/evolution-go/pkg/utils"
@@ -15,7 +16,7 @@ import (
 )
 
 type SessionService interface {
-	Init(data *InitStruct) error
+	Create(data *CreateStruct) error
 	Connect(data *ConnectStruct, instance *instance_model.Instance) (*instance_model.Instance, error)
 	Disconnect(instance *instance_model.Instance) (*instance_model.Instance, error)
 	Logout(instance *instance_model.Instance) (*instance_model.Instance, error)
@@ -23,12 +24,13 @@ type SessionService interface {
 	GetQr(instance *instance_model.Instance) (*QrcodeStruct, error)
 	Pair(data *PairStruct, instance *instance_model.Instance) (*PairReturnStruct, error)
 	GetAll() ([]*instance_model.Instance, error)
-	Delete(id string) error
-	RemoveProxy(id string) error
+	Delete(name string) error
+	RemoveProxy(name string) error
 }
 
 type sessions struct {
 	instanceRepository      instance_repository.InstanceRepository
+	config                  *config.Config
 	killChannel             map[int](chan bool)
 	clientPointer           map[int]whatsmeow_service.ClientInfo
 	linkingCodeEventChannel chan whatsmeow_service.LinkingCodeEvent
@@ -42,17 +44,16 @@ type ProxyConfig struct {
 	Address  string `json:"address"`
 }
 
-type InitStruct struct {
+type CreateStruct struct {
 	Name  string       `json:"name"`
 	Token string       `json:"token"`
-	Os    string       `json:"os"`
 	Proxy *ProxyConfig `json:"proxy"`
 }
 
 type ConnectStruct struct {
-	Subscribe []string
-	Immediate bool
-	Phone     string
+	Subscribe []string `json:"subscribe"`
+	Immediate bool     `json:"immediate"`
+	Phone     string   `json:"phone"`
 }
 
 type StatusStruct struct {
@@ -67,15 +68,15 @@ type QrcodeStruct struct {
 }
 
 type PairStruct struct {
-	Subscribe []string
-	Phone     string
+	Subscribe []string `json:"subscribe"`
+	Phone     string   `json:"phone"`
 }
 
 type PairReturnStruct struct {
 	PairingCode string
 }
 
-func (s sessions) Init(data *InitStruct) error {
+func (s sessions) Create(data *CreateStruct) error {
 	proxyJson, err := json.Marshal(data.Proxy)
 	if err != nil {
 		return err
@@ -84,7 +85,7 @@ func (s sessions) Init(data *InitStruct) error {
 	instance := instance_model.Instance{
 		Name:      data.Name,
 		Token:     data.Token,
-		OsName:    data.Os,
+		OsName:    s.config.OsName,
 		Proxy:     string(proxyJson),
 		Connected: false,
 	}
@@ -213,10 +214,10 @@ func (s sessions) Logout(instance *instance_model.Instance) (*instance_model.Ins
 	} else {
 		if s.clientPointer[instance.Id].WAClient.IsConnected() {
 			logger.LogWarn("Ignoring logout as it was not logged in")
-			return instance, fmt.Errorf("Ignoring logout as it was not logged in")
+			return instance, fmt.Errorf("ignoring logout as it was not logged in")
 		} else {
 			logger.LogWarn("Ignoring logout as it was not connected")
-			return instance, fmt.Errorf("Ignoring logout as it was not connected")
+			return instance, fmt.Errorf("ignoring logout as it was not connected")
 
 		}
 	}
@@ -369,8 +370,8 @@ func (s sessions) GetAll() ([]*instance_model.Instance, error) {
 	return instances, nil
 }
 
-func (s sessions) Delete(id string) error {
-	instance, err := s.instanceRepository.GetInstanceByID(id)
+func (s sessions) Delete(name string) error {
+	instance, err := s.instanceRepository.GetInstanceByName(name)
 	if err != nil {
 		return err
 	}
@@ -382,7 +383,7 @@ func (s sessions) Delete(id string) error {
 		s.clientPointer[instance.Id].WAClient.Disconnect()
 	}
 
-	err = s.instanceRepository.Delete(id)
+	err = s.instanceRepository.DeleteByName(name)
 	if err != nil {
 		return err
 	}
@@ -390,8 +391,8 @@ func (s sessions) Delete(id string) error {
 	return nil
 }
 
-func (s sessions) RemoveProxy(id string) error {
-	instance, err := s.instanceRepository.GetInstanceByID(id)
+func (s sessions) RemoveProxy(name string) error {
+	instance, err := s.instanceRepository.GetInstanceByName(name)
 	if err != nil {
 		return err
 	}

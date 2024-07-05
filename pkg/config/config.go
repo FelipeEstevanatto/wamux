@@ -16,6 +16,7 @@ type Config struct {
 	LogType          string
 	WebhookFiles     bool
 	ConnectOnStartup bool
+	OsName           string
 }
 
 func (c Config) CreateAuthDB() (*gorm.DB, error) {
@@ -51,6 +52,7 @@ func Load() *Config {
 		LOGTYPE            = "LOG_TYPE"
 		WEBHOOKFILES       = "WEBHOOK_FILES"
 		CONNECT_ON_STARTUP = "CONNECT_ON_STARTUP"
+		OS_NAME            = "OS_NAME"
 	)
 
 	postgresAuthDB := os.Getenv(POSTGRES_AUTH_DB)
@@ -76,6 +78,9 @@ func Load() *Config {
 		connectOnStartup = "false"
 	}
 
+	osName := os.Getenv(OS_NAME)
+	panicIfEmpty(OS_NAME, osName)
+
 	return &Config{
 		PostgresAuthDB:   postgresAuthDB,
 		postgresUsersDB:  postgresUsersDB,
@@ -84,6 +89,7 @@ func Load() *Config {
 		LogType:          logType,
 		WebhookFiles:     webhookFiles == "true",
 		ConnectOnStartup: connectOnStartup == "true",
+		OsName:           osName,
 	}
 }
 

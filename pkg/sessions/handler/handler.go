@@ -10,7 +10,7 @@ import (
 )
 
 type SessionHandler interface {
-	Init(data *gin.Context)
+	Create(data *gin.Context)
 	Connect(data *gin.Context)
 	Disconnect(data *gin.Context)
 	Logout(data *gin.Context)
@@ -27,8 +27,8 @@ type sessionHandler struct {
 	sessionService session_service.SessionService
 }
 
-func (s *sessionHandler) Init(ctx *gin.Context) {
-	var data *session_service.InitStruct
+func (s *sessionHandler) Create(ctx *gin.Context) {
+	var data *session_service.CreateStruct
 	err := ctx.ShouldBindBodyWithJSON(&data)
 
 	if err != nil {
@@ -43,11 +43,6 @@ func (s *sessionHandler) Init(ctx *gin.Context) {
 
 	if data.Token == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "token is required"})
-		return
-	}
-
-	if data.Os == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "os is required"})
 		return
 	}
 
@@ -73,14 +68,13 @@ func (s *sessionHandler) Init(ctx *gin.Context) {
 		}
 	}
 
-	err = s.sessionService.Init(data)
+	err = s.sessionService.Create(data)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": data})
-
 }
 
 func (s *sessionHandler) Connect(ctx *gin.Context) {
@@ -108,7 +102,6 @@ func (s *sessionHandler) Connect(ctx *gin.Context) {
 	ctx.Set("instance", updateInstance)
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": updateInstance})
-
 }
 
 func (s *sessionHandler) Disconnect(ctx *gin.Context) {
@@ -228,14 +221,14 @@ func (s *sessionHandler) All(ctx *gin.Context) {
 }
 
 func (s *sessionHandler) Delete(ctx *gin.Context) {
-	id := ctx.Param("id")
+	instanceName := ctx.Param("instanceName")
 
-	if id == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
+	if instanceName == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "instanceName is required"})
 		return
 	}
 
-	err := s.sessionService.Delete(id)
+	err := s.sessionService.Delete(instanceName)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -245,14 +238,14 @@ func (s *sessionHandler) Delete(ctx *gin.Context) {
 }
 
 func (s *sessionHandler) DeleteProxy(ctx *gin.Context) {
-	id := ctx.Param("id")
+	instanceName := ctx.Param("instanceName")
 
-	if id == "" {
+	if instanceName == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
 		return
 	}
 
-	err := s.sessionService.RemoveProxy(id)
+	err := s.sessionService.RemoveProxy(instanceName)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
