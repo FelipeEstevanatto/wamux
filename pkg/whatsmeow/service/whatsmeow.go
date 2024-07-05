@@ -14,17 +14,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	_ "github.com/lib/pq"
-
-	"github.com/Zapbox-API/evolution-go/pkg/config"
-	instance_model "github.com/Zapbox-API/evolution-go/pkg/instance/model"
-	instance_repository "github.com/Zapbox-API/evolution-go/pkg/instance/repository"
-	message_model "github.com/Zapbox-API/evolution-go/pkg/message/model"
-	message_repository "github.com/Zapbox-API/evolution-go/pkg/message/repository"
-	"github.com/Zapbox-API/evolution-go/pkg/utils"
 	"github.com/go-resty/resty/v2"
 	"github.com/gomessguii/logger"
 	"github.com/gorilla/websocket"
+	_ "github.com/lib/pq"
 	"github.com/patrickmn/go-cache"
 	"github.com/skip2/go-qrcode"
 	"go.mau.fi/whatsmeow"
@@ -35,6 +28,14 @@ import (
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 	waLog "go.mau.fi/whatsmeow/util/log"
+
+	"github.com/Zapbox-API/evolution-go/pkg/config"
+	instance_model "github.com/Zapbox-API/evolution-go/pkg/instance/model"
+	instance_repository "github.com/Zapbox-API/evolution-go/pkg/instance/repository"
+	"github.com/Zapbox-API/evolution-go/pkg/internal/event_types"
+	message_model "github.com/Zapbox-API/evolution-go/pkg/message/model"
+	message_repository "github.com/Zapbox-API/evolution-go/pkg/message/repository"
+	"github.com/Zapbox-API/evolution-go/pkg/utils"
 )
 
 type WhatsmeowService interface {
@@ -146,7 +147,6 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 	store.DeviceProps.PlatformType = waProto.DeviceProps_CHROME.Enum()
 	store.DeviceProps.Os = &cd.Instance.OsName
 
-	clientLog := waLog.Stdout("Client", w.config.WaDebug, true)
 	client, ok := w.clientPointer[cd.Instance.Id]
 	if !ok {
 		logger.LogError("Client not found")
@@ -169,6 +169,7 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		}
 	}
 
+	clientLog := waLog.Stdout("Client", w.config.WaDebug, true)
 	if w.config.WaDebug != "" {
 		client.WAClient = whatsmeow.NewClient(deviceStore, clientLog)
 	} else {
@@ -758,10 +759,10 @@ func (w whatsmeowService) ConnectOnStartup() {
 		var subscribedEvents []string
 
 		if len(eventArray) < 1 {
-			subscribedEvents = append(subscribedEvents, "MESSAGE")
+			subscribedEvents = append(subscribedEvents, event_types.MESSAGE)
 		} else {
 			for _, arg := range eventArray {
-				if !utils.ValidateEvent(arg) {
+				if !event_types.IsEventType(arg) {
 					logger.LogWarn("Message type discarded '%s'", arg)
 					continue
 				}
