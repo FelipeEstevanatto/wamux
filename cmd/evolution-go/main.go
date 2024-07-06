@@ -25,6 +25,7 @@ import (
 	newsletter_handler "github.com/Zapbox-API/evolution-go/pkg/newsletter/handler"
 	routes "github.com/Zapbox-API/evolution-go/pkg/routes"
 	send_handler "github.com/Zapbox-API/evolution-go/pkg/sendMessage/handler"
+	send_service "github.com/Zapbox-API/evolution-go/pkg/sendMessage/service"
 	server_handler "github.com/Zapbox-API/evolution-go/pkg/server/handler"
 	user_handler "github.com/Zapbox-API/evolution-go/pkg/user/handler"
 	websocket_handler "github.com/Zapbox-API/evolution-go/pkg/websocket/handler"
@@ -34,11 +35,11 @@ import (
 var devMode = flag.Bool("dev", false, "Enable development mode")
 
 func setupRouter(db *gorm.DB, config *config.Config) *gin.Engine {
-	
+
 	killChannel := make(map[int](chan bool))
 	clientPointer := make(map[int]whatsmeow_service.ClientInfo)
 	linkingCodeEventChannel := make(chan whatsmeow_service.LinkingCodeEvent)
-	
+
 	instanceRepository := instance_repository.NewInstanceRepository(db)
 	whatsmeowService := whatsmeow_service.NewWhatsmeowService(
 		instanceRepository,
@@ -56,13 +57,14 @@ func setupRouter(db *gorm.DB, config *config.Config) *gin.Engine {
 		whatsmeowService,
 		config,
 	)
-	
+	sendMessageService := send_service.NewSendService(clientPointer, whatsmeowService)
+
 	r := gin.Default()
 	routes.NewRouter(
 		auth_middleware.NewMiddleware(config, instanceService),
 		instance_handler.NewInstanceHandler(instanceService, config),
 		user_handler.NewUserHandler(),
-		send_handler.NewSendHandler(),
+		send_handler.NewSendHandler(sendMessageService),
 		message_handler.NewMessageHandler(),
 		chat_handler.NewChatHandler(),
 		group_handler.NewGroupHandler(),

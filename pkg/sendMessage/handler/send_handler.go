@@ -1,6 +1,12 @@
 package send_handler
 
-import "github.com/gin-gonic/gin"
+import (
+	"net/http"
+
+	instance_model "github.com/Zapbox-API/evolution-go/pkg/instance/model"
+	send_service "github.com/Zapbox-API/evolution-go/pkg/sendMessage/service"
+	"github.com/gin-gonic/gin"
+)
 
 type SendHandler interface {
 	SendText(ctx *gin.Context)
@@ -14,6 +20,48 @@ type SendHandler interface {
 }
 
 type sendHandler struct {
+	sendMessageService send_service.SendService
+}
+
+func (s *sendHandler) SendText(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	var data *send_service.TextStruct
+	err := ctx.ShouldBindBodyWithJSON(&data)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if data.Phone == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
+		return
+	}
+
+	if data.Body == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "message body is required"})
+		return
+	}
+
+	msgId, ts, err := s.sendMessageService.SendText(data, instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	responseData := gin.H{
+		"messageId": msgId,
+		"timestamp": ts,
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+
 }
 
 // SendContact implements SendHandler.
@@ -51,11 +99,10 @@ func (s *sendHandler) SendSticker(ctx *gin.Context) {
 	panic("unimplemented")
 }
 
-// SendText implements SendHandler.
-func (s *sendHandler) SendText(ctx *gin.Context) {
-	panic("unimplemented")
-}
-
-func NewSendHandler() SendHandler {
-	return &sendHandler{}
+func NewSendHandler(
+	sendMessageService send_service.SendService,
+) SendHandler {
+	return &sendHandler{
+		sendMessageService: sendMessageService,
+	}
 }
