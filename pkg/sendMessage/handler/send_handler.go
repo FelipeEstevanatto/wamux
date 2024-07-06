@@ -44,7 +44,7 @@ func (s *sendHandler) SendText(ctx *gin.Context) {
 		return
 	}
 
-	if data.Body == "" {
+	if data.Text == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "message body is required"})
 		return
 	}
@@ -61,16 +61,95 @@ func (s *sendHandler) SendText(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+}
 
+func (s *sendHandler) SendLink(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	var data *send_service.LinkStruct
+	err := ctx.ShouldBindBodyWithJSON(&data)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if data.Phone == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
+		return
+	}
+
+	if data.Text == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "message body is required"})
+		return
+	}
+
+	msgId, ts, err := s.sendMessageService.SendLink(data, instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	responseData := gin.H{
+		"messageId": msgId,
+		"timestamp": ts,
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+}
+
+func (s *sendHandler) SendMedia(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	var data *send_service.MediaStruct
+	err := ctx.ShouldBindBodyWithJSON(&data)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if data.Phone == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
+		return
+	}
+
+	if data.Url == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "URL is required"})
+		return
+	}
+
+	if data.Type == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "media type is required"})
+		return
+	}
+
+	msgId, ts, err := s.sendMessageService.SendMediaUrl(data, instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	responseData := gin.H{
+		"messageId": msgId,
+		"timestamp": ts,
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
 }
 
 // SendContact implements SendHandler.
 func (s *sendHandler) SendContact(ctx *gin.Context) {
-	panic("unimplemented")
-}
-
-// SendLink implements SendHandler.
-func (s *sendHandler) SendLink(ctx *gin.Context) {
 	panic("unimplemented")
 }
 
@@ -81,11 +160,6 @@ func (s *sendHandler) SendList(ctx *gin.Context) {
 
 // SendLocation implements SendHandler.
 func (s *sendHandler) SendLocation(ctx *gin.Context) {
-	panic("unimplemented")
-}
-
-// SendMedia implements SendHandler.
-func (s *sendHandler) SendMedia(ctx *gin.Context) {
 	panic("unimplemented")
 }
 
