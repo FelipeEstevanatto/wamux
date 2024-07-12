@@ -28,6 +28,7 @@ import (
 	send_service "github.com/Zapbox-API/evolution-go/pkg/sendMessage/service"
 	server_handler "github.com/Zapbox-API/evolution-go/pkg/server/handler"
 	user_handler "github.com/Zapbox-API/evolution-go/pkg/user/handler"
+	user_service "github.com/Zapbox-API/evolution-go/pkg/user/service"
 	websocket_handler "github.com/Zapbox-API/evolution-go/pkg/websocket/handler"
 	whatsmeow_service "github.com/Zapbox-API/evolution-go/pkg/whatsmeow/service"
 )
@@ -58,12 +59,13 @@ func setupRouter(db *gorm.DB, config *config.Config) *gin.Engine {
 		config,
 	)
 	sendMessageService := send_service.NewSendService(clientPointer, whatsmeowService)
+	userService := user_service.NewUserService(clientPointer, whatsmeowService)
 
 	r := gin.Default()
 	routes.NewRouter(
 		auth_middleware.NewMiddleware(config, instanceService),
 		instance_handler.NewInstanceHandler(instanceService, config),
-		user_handler.NewUserHandler(),
+		user_handler.NewUserHandler(userService),
 		send_handler.NewSendHandler(sendMessageService),
 		message_handler.NewMessageHandler(),
 		chat_handler.NewChatHandler(),

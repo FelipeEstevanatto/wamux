@@ -1,6 +1,13 @@
 package user_handler
 
-import "github.com/gin-gonic/gin"
+import (
+	"encoding/json"
+	"net/http"
+
+	instance_model "github.com/Zapbox-API/evolution-go/pkg/instance/model"
+	user_service "github.com/Zapbox-API/evolution-go/pkg/user/service"
+	"github.com/gin-gonic/gin"
+)
 
 type UserHandler interface {
 	GetUser(ctx *gin.Context)
@@ -15,53 +22,311 @@ type UserHandler interface {
 }
 
 type userHandler struct {
+	userService user_service.UserService
 }
 
-// BlockContact implements UserHandler.
-func (u *userHandler) BlockContact(ctx *gin.Context) {
-	panic("unimplemented")
-}
-
-// CheckUser implements UserHandler.
-func (u *userHandler) CheckUser(ctx *gin.Context) {
-	panic("unimplemented")
-}
-
-// GetAvatar implements UserHandler.
-func (u *userHandler) GetAvatar(ctx *gin.Context) {
-	panic("unimplemented")
-}
-
-// GetBlockList implements UserHandler.
-func (u *userHandler) GetBlockList(ctx *gin.Context) {
-	panic("unimplemented")
-}
-
-// GetContacts implements UserHandler.
-func (u *userHandler) GetContacts(ctx *gin.Context) {
-	panic("unimplemented")
-}
-
-// GetPrivacy implements UserHandler.
-func (u *userHandler) GetPrivacy(ctx *gin.Context) {
-	panic("unimplemented")
-}
-
-// GetUser implements UserHandler.
 func (u *userHandler) GetUser(ctx *gin.Context) {
-	panic("unimplemented")
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	var data *user_service.CheckUserStruct
+	err := ctx.ShouldBindBodyWithJSON(&data)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if len(data.Phone) < 1 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
+		return
+	}
+
+	uc, err := u.userService.GetUser(data, instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	responseData, err := json.Marshal(uc)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
 }
 
-// SetProfilePicture implements UserHandler.
-func (u *userHandler) SetProfilePicture(ctx *gin.Context) {
-	panic("unimplemented")
+func (u *userHandler) CheckUser(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	var data *user_service.CheckUserStruct
+	err := ctx.ShouldBindBodyWithJSON(&data)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if len(data.Phone) < 1 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
+		return
+	}
+
+	uc, err := u.userService.CheckUser(data, instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	responseData, err := json.Marshal(uc)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
 }
 
-// UnblockContact implements UserHandler.
+func (u *userHandler) GetAvatar(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	var data *user_service.GetAvatarStruct
+	err := ctx.ShouldBindBodyWithJSON(&data)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if len(data.Phone) < 1 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
+		return
+	}
+
+	if data.Phone == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
+		return
+	}
+
+	pic, err := u.userService.GetAvatar(data, instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	responseData, err := json.Marshal(pic)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+}
+
+func (u *userHandler) GetContacts(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	contacts, err := u.userService.GetContacts(instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	responseData, err := json.Marshal(contacts)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+}
+
+func (u *userHandler) GetPrivacy(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	privacy, err := u.userService.GetPrivacy(instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	responseData, err := json.Marshal(privacy)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+}
+
+func (u *userHandler) BlockContact(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	var data *user_service.BlockStruct
+	err := ctx.ShouldBindBodyWithJSON(&data)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if len(data.Phone) < 1 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
+		return
+	}
+
+	if data.Phone == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
+		return
+	}
+
+	resp, err := u.userService.BlockContact(data, instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	responseData, err := json.Marshal(resp)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+}
+
 func (u *userHandler) UnblockContact(ctx *gin.Context) {
-	panic("unimplemented")
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	var data *user_service.BlockStruct
+	err := ctx.ShouldBindBodyWithJSON(&data)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if len(data.Phone) < 1 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
+		return
+	}
+
+	if data.Phone == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
+		return
+	}
+
+	resp, err := u.userService.UnlockContact(data, instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	responseData, err := json.Marshal(resp)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
 }
 
-func NewUserHandler() UserHandler {
-	return &userHandler{}
+func (u *userHandler) GetBlockList(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	resp, err := u.userService.GetBlockList(instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": resp})
+}
+
+func (u *userHandler) SetProfilePicture(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	var data *user_service.SetProfilePictureStruct
+	err := ctx.ShouldBindBodyWithJSON(&data)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if data.Image == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "image is required"})
+		return
+	}
+
+	resp, err := u.userService.SetProfilePicture(data, instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if !resp {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set profile picture"})
+		return
+	}
+
+	responseData := gin.H{"image": data.Image}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+}
+
+func NewUserHandler(
+	userService user_service.UserService,
+) UserHandler {
+	return &userHandler{
+		userService: userService,
+	}
 }
