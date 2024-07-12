@@ -16,6 +16,12 @@ type Values struct {
 	m map[string]string
 }
 
+type VCardStruct struct {
+	FullName     string `json:"fullName"`
+	Organization string `json:"organization"`
+	Phone        string `json:"phone"`
+}
+
 func Find(slice []string, val string) bool {
 	for _, item := range slice {
 		if item == val {
@@ -113,4 +119,16 @@ func TimestampToUnixInt(timestamp string) (int64, error) {
 	unixTimestamp := t.Unix()
 
 	return unixTimestamp, nil
+}
+
+func GenerateVC(data VCardStruct) string {
+	result := `
+BEGIN:VCARD
+VERSION:3.0
+FN:` + data.FullName + `
+ORG:` + data.Organization + `;
+TEL;type=CELL;type=VOICE;waid=` + data.Phone + `:` + data.Phone + `
+END:VCARD`
+
+	return result
 }
