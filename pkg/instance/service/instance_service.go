@@ -153,8 +153,8 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 	go i.whatsmeowService.StartClient(clientData)
 
 	if !data.Immediate {
-		logger.LogInfo("Waiting 10 seconds")
-		time.Sleep(10000 * time.Millisecond)
+		logger.LogInfo("Waiting 5 seconds")
+		time.Sleep(5000 * time.Millisecond)
 
 		if i.clientPointer[instance.Id].WAClient != nil {
 			if !i.clientPointer[instance.Id].WAClient.IsConnected() {
@@ -253,14 +253,6 @@ func (i instances) Status(instance *instance_model.Instance) (*StatusStruct, err
 }
 
 func (i instances) GetQr(instance *instance_model.Instance) (*QrcodeStruct, error) {
-	if i.clientPointer[instance.Id].WAClient == nil {
-		return nil, fmt.Errorf("no session found")
-	}
-
-	if !i.clientPointer[instance.Id].WAClient.IsConnected() {
-		return nil, fmt.Errorf("session not connected")
-	}
-
 	if i.clientPointer[instance.Id].WAClient.IsLoggedIn() {
 		return nil, fmt.Errorf("session already logged in")
 	}
@@ -283,7 +275,7 @@ func (i instances) Pair(data *PairStruct, instance *instance_model.Instance) (*P
 	if i.clientPointer[instance.Id].WAClient != nil {
 		i.clientPointer[instance.Id].WAClient.Disconnect()
 		delete(i.clientPointer, instance.Id)
-		return nil, fmt.Errorf("client set to nil")
+		// return nil, fmt.Errorf("client set to nil")
 	}
 
 	var eventArray []string
@@ -342,8 +334,8 @@ func (i instances) Pair(data *PairStruct, instance *instance_model.Instance) (*P
 
 	go i.whatsmeowService.StartClient(clientData)
 
-	logger.LogInfo("Waiting 10 seconds")
-	time.Sleep(10000 * time.Millisecond)
+	logger.LogInfo("Waiting 5 seconds")
+	time.Sleep(5000 * time.Millisecond)
 
 	if i.clientPointer[instance.Id].WAClient != nil {
 		if !i.clientPointer[instance.Id].WAClient.IsConnected() {
