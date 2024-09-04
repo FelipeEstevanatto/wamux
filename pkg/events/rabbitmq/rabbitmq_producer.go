@@ -22,6 +22,10 @@ func (p *rabbitMQProducer) Produce(
 	queueName string,
 	payload []byte,
 ) error {
+	if queueName == "" {
+		return nil
+	}
+
 	channel, err := p.conn.Channel()
 	if err != nil {
 		return err
