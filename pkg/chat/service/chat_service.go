@@ -19,7 +19,7 @@ type ChatService interface {
 }
 
 type chatService struct {
-	clientPointer map[int]whatsmeow_service.ClientInfo
+	clientPointer map[string]whatsmeow_service.ClientInfo
 }
 
 type BodyStruct struct {
@@ -115,7 +115,7 @@ func (c *chatService) ChatMute(data *BodyStruct, instance *instance_model.Instan
 }
 
 func NewChatService(
-	clientPointer map[int]whatsmeow_service.ClientInfo,
+	clientPointer map[string]whatsmeow_service.ClientInfo,
 ) ChatService {
 	return &chatService{
 		clientPointer: clientPointer,

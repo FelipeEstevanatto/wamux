@@ -11,8 +11,8 @@ type InstanceRepository interface {
 	GetInstanceByToken(token string) (*instance_model.Instance, error)
 	GetInstanceByName(name string) (*instance_model.Instance, error)
 	Update(*instance_model.Instance) error
-	UpdateConnected(userId int, status bool) error
-	UpdateJid(userId int, jid string) error
+	UpdateConnected(userId string, status bool) error
+	UpdateJid(userId string, jid string) error
 	GetAllConnectedInstances() ([]*instance_model.Instance, error)
 	GetAll() ([]*instance_model.Instance, error)
 	Delete(instanceId string) error
@@ -61,11 +61,11 @@ func (i *instanceRepository) Update(instance *instance_model.Instance) error {
 	return i.db.Updates(&instance).Error
 }
 
-func (i *instanceRepository) UpdateConnected(userId int, status bool) error {
+func (i *instanceRepository) UpdateConnected(userId string, status bool) error {
 	return i.db.Model(&instance_model.Instance{}).Where("id = ?", userId).Update("connected", status).Error
 }
 
-func (i *instanceRepository) UpdateJid(userId int, jid string) error {
+func (i *instanceRepository) UpdateJid(userId string, jid string) error {
 	return i.db.Model(&instance_model.Instance{}).Where("id = ?", userId).Update("jid", jid).Error
 }
 

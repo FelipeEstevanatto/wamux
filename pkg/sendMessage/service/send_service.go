@@ -35,7 +35,7 @@ type SendService interface {
 }
 
 type sendService struct {
-	clientPointer    map[int]whatsmeow_service.ClientInfo
+	clientPointer    map[string]whatsmeow_service.ClientInfo
 	whatsmeowService whatsmeow_service.WhatsmeowService
 }
 
@@ -674,7 +674,7 @@ func (s *sendService) SendList(data *ListStruct, instance *instance_model.Instan
 }
 
 func NewSendService(
-	clientPointer map[int]whatsmeow_service.ClientInfo,
+	clientPointer map[string]whatsmeow_service.ClientInfo,
 	whatsmeowService whatsmeow_service.WhatsmeowService,
 ) SendService {
 	return &sendService{

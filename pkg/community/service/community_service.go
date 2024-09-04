@@ -19,7 +19,7 @@ type CommunityService interface {
 }
 
 type communityService struct {
-	clientPointer map[int]whatsmeow_service.ClientInfo
+	clientPointer map[string]whatsmeow_service.ClientInfo
 }
 
 type CreateCommunityStruct struct {
@@ -117,7 +117,7 @@ func (c *communityService) CommunityRemove(data *AddParticipantStruct, instance 
 }
 
 func NewCommunityService(
-	clientPointer map[int]whatsmeow_service.ClientInfo,
+	clientPointer map[string]whatsmeow_service.ClientInfo,
 ) CommunityService {
 	return &communityService{
 		clientPointer: clientPointer,

@@ -19,7 +19,7 @@ type LabelService interface {
 }
 
 type labelService struct {
-	clientPointer map[int]whatsmeow_service.ClientInfo
+	clientPointer map[string]whatsmeow_service.ClientInfo
 }
 
 type ChatLabelStruct struct {
@@ -158,7 +158,7 @@ func (l *labelService) MessageUnlabel(data *MessageLabelStruct, instance *instan
 }
 
 func NewLabelService(
-	clientPointer map[int]whatsmeow_service.ClientInfo,
+	clientPointer map[string]whatsmeow_service.ClientInfo,
 ) LabelService {
 	return &labelService{
 		clientPointer: clientPointer,

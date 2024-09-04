@@ -27,7 +27,7 @@ type UserService interface {
 }
 
 type userService struct {
-	clientPointer    map[int]whatsmeow_service.ClientInfo
+	clientPointer    map[string]whatsmeow_service.ClientInfo
 	whatsmeowService whatsmeow_service.WhatsmeowService
 }
 
@@ -244,7 +244,7 @@ func (u *userService) SetProfilePicture(data *SetProfilePictureStruct, instance 
 }
 
 func NewUserService(
-	clientPointer map[int]whatsmeow_service.ClientInfo,
+	clientPointer map[string]whatsmeow_service.ClientInfo,
 	whatsmeowService whatsmeow_service.WhatsmeowService,
 ) UserService {
 	return &userService{

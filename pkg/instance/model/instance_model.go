@@ -1,7 +1,12 @@
 package instance_model
 
+import (
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+)
+
 type Instance struct {
-	Id         int    `json:"id" gorm:"primaryKey"`
+	Id         string `json:"id" gorm:"type:uuid;primaryKey"`
 	Name       string `json:"name"`
 	Token      string `json:"token" gorm:"unique"`
 	Webhook    string `json:"webhook"`
@@ -12,4 +17,9 @@ type Instance struct {
 	Events     string `json:"events"`
 	OsName     string `json:"os_name"`
 	Proxy      string `json:"proxy"`
+}
+
+func (m *Instance) BeforeCreate(tx *gorm.DB) (err error) {
+	m.Id = uuid.New().String()
+	return
 }

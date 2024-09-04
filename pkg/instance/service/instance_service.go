@@ -33,8 +33,8 @@ type InstanceService interface {
 type instances struct {
 	instanceRepository      instance_repository.InstanceRepository
 	config                  *config.Config
-	killChannel             map[int](chan bool)
-	clientPointer           map[int]whatsmeow_service.ClientInfo
+	killChannel             map[string](chan bool)
+	clientPointer           map[string]whatsmeow_service.ClientInfo
 	linkingCodeEventChannel chan whatsmeow_service.LinkingCodeEvent
 	whatsmeowService        whatsmeow_service.WhatsmeowService
 }
@@ -257,7 +257,7 @@ func (i instances) GetQr(instance *instance_model.Instance) (*QrcodeStruct, erro
 		return nil, fmt.Errorf("session already logged in")
 	}
 
-	instance, err := i.instanceRepository.GetInstanceByID(fmt.Sprintf("%d", instance.Id))
+	instance, err := i.instanceRepository.GetInstanceByID(instance.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -407,8 +407,8 @@ func (i instances) GetInstanceByToken(token string) (*instance_model.Instance, e
 
 func NewInstanceService(
 	instanceRepository instance_repository.InstanceRepository,
-	killChannel map[int](chan bool),
-	clientPointer map[int]whatsmeow_service.ClientInfo,
+	killChannel map[string](chan bool),
+	clientPointer map[string]whatsmeow_service.ClientInfo,
 	linkingCodeEventChannel chan whatsmeow_service.LinkingCodeEvent,
 	whatsmeowService whatsmeow_service.WhatsmeowService,
 	config *config.Config,

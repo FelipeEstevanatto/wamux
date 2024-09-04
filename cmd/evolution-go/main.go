@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gomessguii/logger"
 	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
 	"gorm.io/gorm"
@@ -15,6 +16,7 @@ import (
 	community_handler "github.com/Zapbox-API/evolution-go/pkg/community/handler"
 	community_service "github.com/Zapbox-API/evolution-go/pkg/community/service"
 	config "github.com/Zapbox-API/evolution-go/pkg/config"
+	rabbitmq_producer "github.com/Zapbox-API/evolution-go/pkg/events/rabbitmq"
 	group_handler "github.com/Zapbox-API/evolution-go/pkg/group/handler"
 	group_service "github.com/Zapbox-API/evolution-go/pkg/group/service"
 	instance_handler "github.com/Zapbox-API/evolution-go/pkg/instance/handler"
@@ -38,16 +40,17 @@ import (
 	user_service "github.com/Zapbox-API/evolution-go/pkg/user/service"
 	websocket_handler "github.com/Zapbox-API/evolution-go/pkg/websocket/handler"
 	whatsmeow_service "github.com/Zapbox-API/evolution-go/pkg/whatsmeow/service"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 var devMode = flag.Bool("dev", false, "Enable development mode")
 
-func setupRouter(db *gorm.DB, config *config.Config) *gin.Engine {
+func setupRouter(db *gorm.DB, config *config.Config, conn *amqp.Connection) *gin.Engine {
 
 	clientMap := make(map[*websocket.Conn]bool)
-	client := make(map[int]*websocket.Conn)
-	killChannel := make(map[int](chan bool))
-	clientPointer := make(map[int]whatsmeow_service.ClientInfo)
+	client := make(map[string]*websocket.Conn)
+	killChannel := make(map[string](chan bool))
+	clientPointer := make(map[string]whatsmeow_service.ClientInfo)
 	linkingCodeEventChannel := make(chan whatsmeow_service.LinkingCodeEvent)
 	var (
 		upgrader = websocket.Upgrader{
@@ -55,6 +58,8 @@ func setupRouter(db *gorm.DB, config *config.Config) *gin.Engine {
 			WriteBufferSize: 2024,
 		}
 	)
+
+	rabbitmqProducer := rabbitmq_producer.NewRabbitMQProducer(conn)
 
 	instanceRepository := instance_repository.NewInstanceRepository(db)
 	messageRepository := message_repository.NewMessageRepository(db)
@@ -65,6 +70,7 @@ func setupRouter(db *gorm.DB, config *config.Config) *gin.Engine {
 		killChannel,
 		clientPointer,
 		linkingCodeEventChannel,
+		rabbitmqProducer,
 	)
 	instanceService := instance_service.NewInstanceService(
 		instanceRepository,
@@ -133,7 +139,18 @@ func main() {
 
 	migrate(db)
 
-	r := setupRouter(db, config)
+	conn, err := amqp.Dial(config.AmqpUrl)
+	if err != nil {
+		logger.LogFatal("Failed to connect to RabbitMQ, err: %v", err)
+	}
+	defer func(conn *amqp.Connection) {
+		err := conn.Close()
+		if err != nil {
+			logger.LogFatal("Failed to close RabbitMQ connection, err: %v", err)
+		}
+	}(conn)
+
+	r := setupRouter(db, config, conn)
 
 	r.Run(":" + os.Getenv("SERVER_PORT"))
 }

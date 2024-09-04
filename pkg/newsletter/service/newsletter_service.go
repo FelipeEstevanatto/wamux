@@ -21,7 +21,7 @@ type NewsletterService interface {
 }
 
 type newsletterService struct {
-	clientPointer map[int]whatsmeow_service.ClientInfo
+	clientPointer map[string]whatsmeow_service.ClientInfo
 }
 
 type CreateNewsletterStruct struct {
@@ -134,7 +134,7 @@ func (n *newsletterService) GetNewsletterMessages(data *GetNewsletterMessagesStr
 }
 
 func NewNewsletterService(
-	clientPointer map[int]whatsmeow_service.ClientInfo,
+	clientPointer map[string]whatsmeow_service.ClientInfo,
 ) NewsletterService {
 	return &newsletterService{
 		clientPointer: clientPointer,

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -36,7 +35,7 @@ type MessageService interface {
 }
 
 type messageService struct {
-	clientPointer     map[int]whatsmeow_service.ClientInfo
+	clientPointer     map[string]whatsmeow_service.ClientInfo
 	messageRepository message_repository.MessageRepository
 }
 
@@ -185,7 +184,7 @@ func (m *messageService) DownloadImage(data *DownloadImageStruct, instance *inst
 	mimetype := ""
 	var imgData []byte
 
-	userDirectory := fmt.Sprintf(`files/user_%s`, strconv.Itoa(instance.Id))
+	userDirectory := fmt.Sprintf(`files/user_%s`, instance.Id)
 	_, err := os.Stat(userDirectory)
 	if os.IsNotExist(err) {
 		errDir := os.MkdirAll(userDirectory, 0751)
@@ -304,7 +303,7 @@ func (m *messageService) EditMessage(data *EditMessageStruct, instance *instance
 }
 
 func NewMessageService(
-	clientPointer map[int]whatsmeow_service.ClientInfo,
+	clientPointer map[string]whatsmeow_service.ClientInfo,
 	messageRepository message_repository.MessageRepository,
 ) MessageService {
 	return &messageService{

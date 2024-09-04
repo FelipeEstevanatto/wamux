@@ -17,6 +17,7 @@ type Config struct {
 	WebhookFiles     bool
 	ConnectOnStartup bool
 	OsName           string
+	AmqpUrl          string
 }
 
 func (c Config) CreateAuthDB() (*gorm.DB, error) {
@@ -53,6 +54,7 @@ func Load() *Config {
 		WEBHOOKFILES       = "WEBHOOK_FILES"
 		CONNECT_ON_STARTUP = "CONNECT_ON_STARTUP"
 		OS_NAME            = "OS_NAME"
+		AMQP_URL           = "AMQP_URL"
 	)
 
 	postgresAuthDB := os.Getenv(POSTGRES_AUTH_DB)
@@ -81,6 +83,9 @@ func Load() *Config {
 	osName := os.Getenv(OS_NAME)
 	panicIfEmpty(OS_NAME, osName)
 
+	amqpUrl := os.Getenv(AMQP_URL)
+	panicIfEmpty(AMQP_URL, amqpUrl)
+
 	return &Config{
 		PostgresAuthDB:   postgresAuthDB,
 		postgresUsersDB:  postgresUsersDB,
@@ -90,6 +95,7 @@ func Load() *Config {
 		WebhookFiles:     webhookFiles == "true",
 		ConnectOnStartup: connectOnStartup == "true",
 		OsName:           osName,
+		AmqpUrl:          amqpUrl,
 	}
 }
 

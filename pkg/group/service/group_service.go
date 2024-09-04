@@ -27,7 +27,7 @@ type GroupService interface {
 }
 
 type groupService struct {
-	clientPointer map[int]whatsmeow_service.ClientInfo
+	clientPointer map[string]whatsmeow_service.ClientInfo
 }
 
 type SimpleGroupInfo struct {
@@ -311,7 +311,7 @@ func (g *groupService) JoinGroupLink(data *JoinGroupStruct, instance *instance_m
 }
 
 func NewGroupService(
-	clientPointer map[int]whatsmeow_service.ClientInfo,
+	clientPointer map[string]whatsmeow_service.ClientInfo,
 ) GroupService {
 	return &groupService{
 		clientPointer: clientPointer,

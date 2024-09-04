@@ -9,7 +9,6 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -30,6 +29,7 @@ import (
 	waLog "go.mau.fi/whatsmeow/util/log"
 
 	"github.com/Zapbox-API/evolution-go/pkg/config"
+	producer_interfaces "github.com/Zapbox-API/evolution-go/pkg/events/interfaces"
 	instance_model "github.com/Zapbox-API/evolution-go/pkg/instance/model"
 	instance_repository "github.com/Zapbox-API/evolution-go/pkg/instance/repository"
 	"github.com/Zapbox-API/evolution-go/pkg/internal/event_types"
@@ -47,27 +47,28 @@ type whatsmeowService struct {
 	instanceRepository      instance_repository.InstanceRepository
 	messageRepository       message_repository.MessageRepository
 	config                  *config.Config
-	killChannel             map[int](chan bool)
+	killChannel             map[string](chan bool)
 	userInfoCache           *cache.Cache
-	clientPointer           map[int]ClientInfo
+	clientPointer           map[string]ClientInfo
 	linkingCodeEventChannel chan LinkingCodeEvent
+	eventProducer           producer_interfaces.Producer
 	// s3Client                *S3Client
-	// rabbitMQClient		   *RabbitMQClient
 }
 
 type MyClient struct {
 	WAClient           *whatsmeow.Client
 	eventHandlerID     uint32
-	userID             int
+	userID             string
 	token              string
 	subscriptions      []string
 	instanceRepository instance_repository.InstanceRepository
 	messageRepository  message_repository.MessageRepository
-	clientPointer      map[int]ClientInfo
-	killChannel        map[int](chan bool)
+	clientPointer      map[string]ClientInfo
+	killChannel        map[string](chan bool)
 	userInfoCache      *cache.Cache
 	config             *config.Config
 	historySyncID      int32
+	eventProducer      producer_interfaces.Producer
 }
 
 type ClientInfo struct {
@@ -104,7 +105,7 @@ type LinkingCodeEvent struct {
 
 func (w whatsmeowService) StartClient(cd *ClientData) {
 
-	logger.LogInfo("Starting websocket connection to Whatsapp for user '%d'", cd.Instance.Id)
+	logger.LogInfo("Starting websocket connection to Whatsapp for user '%s'", cd.Instance.Id)
 
 	var deviceStore *store.Device
 	var err error
@@ -190,9 +191,10 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		killChannel:        w.killChannel,
 		config:             w.config,
 		historySyncID:      0,
+		eventProducer:      w.eventProducer,
 	}
 
-	var clientHttp = make(map[int]*resty.Client)
+	var clientHttp = make(map[string]*resty.Client)
 
 	mycli.eventHandlerID = mycli.WAClient.AddEventHandler(mycli.myEventHandler)
 	clientHttp[cd.Instance.Id] = resty.New()
@@ -291,7 +293,7 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 	for {
 		select {
 		case <-w.killChannel[cd.Instance.Id]:
-			logger.LogInfo("Received kill signal for user '%d'", cd.Instance.Id)
+			logger.LogInfo("Received kill signal for user '%s'", cd.Instance.Id)
 			client.WAClient.Disconnect()
 
 			delete(w.clientPointer, cd.Instance.Id)
@@ -350,8 +352,7 @@ func processPresenceUpdates(mycli *MyClient) {
 }
 
 func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
-	txtid := strconv.Itoa(mycli.userID)
-	userID, _ := strconv.Atoi(txtid)
+	userID := mycli.userID
 	postMap := make(map[string]interface{})
 	postMap["event"] = rawEvt
 
@@ -390,7 +391,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			logger.LogError("Error updating instance: %s", err)
 		}
 	case *events.PairSuccess:
-		logger.LogInfo("QR Pair Success for user '%d'", mycli.userID)
+		logger.LogInfo("QR Pair Success for user '%s'", mycli.userID)
 		jid := evt.ID
 
 		err := mycli.instanceRepository.UpdateJid(userID, jid.String())
@@ -409,7 +410,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			v := utils.UpdateUserInfo(myUserInfo, "Jid", fmt.Sprintf("%s", jid))
 
 			mycli.userInfoCache.Set(token, v, cache.NoExpiration)
-			logger.LogInfo("User information set for user '%d'", txtid)
+			logger.LogInfo("User information set for user '%s'", txtid)
 		}
 	case *events.StreamReplaced:
 		logger.LogInfo("Received StreamReplaced event")
@@ -635,7 +636,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	case *events.HistorySync:
 		postMap["type"] = "HistorySync"
 
-		userDirectory := fmt.Sprintf("%s/files/user_%s", exPath, txtid)
+		userDirectory := fmt.Sprintf("%s/files/user_%s", exPath, userID)
 		_, err := os.Stat(userDirectory)
 		if os.IsNotExist(err) {
 			errDir := os.MkdirAll(userDirectory, 0751)
@@ -723,14 +724,31 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 	postMap["instanceToken"] = mycli.token
 
-	// logger.LogInfo("Calling queue")
-	// values, err := json.Marshal(postMap)
-	// if err != nil {
-	// 	logger.LogError("Failed to marshal JSON for queue")
-	// 	return
-	// }
+	logger.LogInfo("Calling queue")
+	values, err := json.Marshal(postMap)
+	if err != nil {
+		logger.LogError("Failed to marshal JSON for queue")
+		return
+	}
 
-	// go callWehbook(values)
+	var queueName string
+
+	if _, ok := postMap["type"]; ok {
+		queueName = fmt.Sprintf("%s.%s", userID, postMap["type"])
+	}
+
+	go mycli.callWehbook(queueName, values)
+}
+
+func (mycli *MyClient) callWehbook(queueName string, jsonData []byte) {
+	err := mycli.eventProducer.Produce(queueName, jsonData)
+	if err != nil {
+		logger.LogError("Failed to enqueue message: %s", err)
+		return
+	}
+
+	logger.LogInfo("Message enqueued successfully")
+
 }
 
 func (w whatsmeowService) ConnectOnStartup() {
@@ -741,10 +759,10 @@ func (w whatsmeowService) ConnectOnStartup() {
 	}
 
 	for _, instance := range instances {
-		logger.LogInfo("Starting client for user '%d'", instance.Id)
+		logger.LogInfo("Starting client for user '%s'", instance.Id)
 
 		v := Values{map[string]string{
-			"Id":     strconv.Itoa(instance.Id),
+			"Id":     instance.Id,
 			"Jid":    instance.Jid,
 			"Token":  instance.Token,
 			"Events": instance.Events,
@@ -803,9 +821,10 @@ func NewWhatsmeowService(
 	instanceRepository instance_repository.InstanceRepository,
 	messageRepository message_repository.MessageRepository,
 	config *config.Config,
-	killChannel map[int](chan bool),
-	clientPointer map[int]ClientInfo,
+	killChannel map[string](chan bool),
+	clientPointer map[string]ClientInfo,
 	linkingCodeEventChannel chan LinkingCodeEvent,
+	eventProducer producer_interfaces.Producer,
 ) WhatsmeowService {
 	return &whatsmeowService{
 		instanceRepository:      instanceRepository,
@@ -815,5 +834,6 @@ func NewWhatsmeowService(
 		userInfoCache:           cache.New(5*time.Minute, 10*time.Minute),
 		clientPointer:           clientPointer,
 		linkingCodeEventChannel: linkingCodeEventChannel,
+		eventProducer:           eventProducer,
 	}
 }

@@ -17,10 +17,10 @@ type WebsocketHandler interface {
 }
 
 type websocketHandler struct {
-	clientPointer map[int]whatsmeow_service.ClientInfo
+	clientPointer map[string]whatsmeow_service.ClientInfo
 	upgrader      websocket.Upgrader
 	clientMap     map[*websocket.Conn]bool
-	client        map[int]*websocket.Conn
+	client        map[string]*websocket.Conn
 }
 
 func (w *websocketHandler) HandleWS(ctx *gin.Context) {
@@ -56,10 +56,10 @@ func (w *websocketHandler) HandleWS(ctx *gin.Context) {
 	w.clientPointer[instance.Id] = info
 	logger.LogInfo("after %v", w.clientPointer[instance.Id])
 
-	handleWebSocketMessages(conn, instance.Id, &info, w.clientMap, w)
+	handleWebSocketMessages(conn, instance.Id, w)
 }
 
-func handleWebSocketMessages(conn *websocket.Conn, userID int, info *whatsmeow_service.ClientInfo, clientMap map[*websocket.Conn]bool, s *websocketHandler) {
+func handleWebSocketMessages(conn *websocket.Conn, userID string, s *websocketHandler) {
 	for {
 		msgType, msg, err := conn.ReadMessage()
 		if err != nil {
@@ -68,11 +68,11 @@ func handleWebSocketMessages(conn *websocket.Conn, userID int, info *whatsmeow_s
 		}
 		fmt.Println("msg: ", string(msg))
 
-		handleWebSocketMessage(conn, userID, msgType, msg, clientMap, s)
+		handleWebSocketMessage(conn, userID, msgType, msg, s)
 	}
 }
 
-func handleWebSocketMessage(conn *websocket.Conn, userID int, msgType int, msg []byte, clientMap map[*websocket.Conn]bool, s *websocketHandler) {
+func handleWebSocketMessage(conn *websocket.Conn, userID string, msgType int, msg []byte, s *websocketHandler) {
 	switch msgType {
 	case websocket.TextMessage:
 		switch string(msg) {
@@ -93,7 +93,7 @@ func handlePing(conn *websocket.Conn) {
 	}
 }
 
-func handleStatus(conn *websocket.Conn, userID int, s *websocketHandler) {
+func handleStatus(conn *websocket.Conn, userID string, s *websocketHandler) {
 	info, ok := s.clientPointer[userID]
 	if !ok {
 		fmt.Println("not ok client is empty for userid: ", userID)
@@ -148,10 +148,10 @@ func handleClose(conn *websocket.Conn, s *websocketHandler) {
 }
 
 func NewWebsocketHandler(
-	clientPointer map[int]whatsmeow_service.ClientInfo,
+	clientPointer map[string]whatsmeow_service.ClientInfo,
 	upgrader websocket.Upgrader,
 	clientMap map[*websocket.Conn]bool,
-	client map[int]*websocket.Conn,
+	client map[string]*websocket.Conn,
 ) WebsocketHandler {
 	return &websocketHandler{
 		clientPointer: clientPointer,
