@@ -51,7 +51,8 @@ type whatsmeowService struct {
 	userInfoCache           *cache.Cache
 	clientPointer           map[string]ClientInfo
 	linkingCodeEventChannel chan LinkingCodeEvent
-	eventProducer           producer_interfaces.Producer
+	rabbitmqProducer        producer_interfaces.Producer
+	webhookProducer         producer_interfaces.Producer
 	// s3Client                *S3Client
 }
 
@@ -68,7 +69,8 @@ type MyClient struct {
 	userInfoCache      *cache.Cache
 	config             *config.Config
 	historySyncID      int32
-	eventProducer      producer_interfaces.Producer
+	rabbitmqProducer   producer_interfaces.Producer
+	webhookProducer    producer_interfaces.Producer
 }
 
 type ClientInfo struct {
@@ -191,7 +193,8 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		killChannel:        w.killChannel,
 		config:             w.config,
 		historySyncID:      0,
-		eventProducer:      w.eventProducer,
+		rabbitmqProducer:   w.rabbitmqProducer,
+		webhookProducer:    w.webhookProducer,
 	}
 
 	var clientHttp = make(map[string]*resty.Client)
@@ -407,7 +410,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			txtid := myUserInfo.(Values).Get("Id")
 			token := myUserInfo.(Values).Get("Token")
 
-			v := utils.UpdateUserInfo(myUserInfo, "Jid", fmt.Sprintf("%s", jid))
+			v := utils.UpdateUserInfo(myUserInfo, "Jid", jid.String())
 
 			mycli.userInfoCache.Set(token, v, cache.NoExpiration)
 			logger.LogInfo("User information set for user '%s'", txtid)
@@ -723,6 +726,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	}
 
 	postMap["instanceToken"] = mycli.token
+	postMap["userId"] = mycli.userID
 
 	logger.LogInfo("Calling queue")
 	values, err := json.Marshal(postMap)
@@ -741,9 +745,15 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 }
 
 func (mycli *MyClient) callWehbook(queueName string, jsonData []byte) {
-	err := mycli.eventProducer.Produce(queueName, jsonData)
+	err := mycli.rabbitmqProducer.Produce(queueName, jsonData)
 	if err != nil {
-		logger.LogError("Failed to enqueue message: %s", err)
+		logger.LogError("Failed to send message to rabbitmq: %s", err)
+		return
+	}
+
+	err = mycli.webhookProducer.Produce(queueName, jsonData)
+	if err != nil {
+		logger.LogError("Failed to send message to webhook: %s", err)
 		return
 	}
 
@@ -824,7 +834,8 @@ func NewWhatsmeowService(
 	killChannel map[string](chan bool),
 	clientPointer map[string]ClientInfo,
 	linkingCodeEventChannel chan LinkingCodeEvent,
-	eventProducer producer_interfaces.Producer,
+	rabbitmqProducer producer_interfaces.Producer,
+	webhookProducer producer_interfaces.Producer,
 ) WhatsmeowService {
 	return &whatsmeowService{
 		instanceRepository:      instanceRepository,
@@ -834,6 +845,7 @@ func NewWhatsmeowService(
 		userInfoCache:           cache.New(5*time.Minute, 10*time.Minute),
 		clientPointer:           clientPointer,
 		linkingCodeEventChannel: linkingCodeEventChannel,
-		eventProducer:           eventProducer,
+		rabbitmqProducer:        rabbitmqProducer,
+		webhookProducer:         webhookProducer,
 	}
 }

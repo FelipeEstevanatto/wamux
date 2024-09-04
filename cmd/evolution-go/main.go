@@ -17,6 +17,7 @@ import (
 	community_service "github.com/Zapbox-API/evolution-go/pkg/community/service"
 	config "github.com/Zapbox-API/evolution-go/pkg/config"
 	rabbitmq_producer "github.com/Zapbox-API/evolution-go/pkg/events/rabbitmq"
+	webhook_producer "github.com/Zapbox-API/evolution-go/pkg/events/webhook"
 	group_handler "github.com/Zapbox-API/evolution-go/pkg/group/handler"
 	group_service "github.com/Zapbox-API/evolution-go/pkg/group/service"
 	instance_handler "github.com/Zapbox-API/evolution-go/pkg/instance/handler"
@@ -60,6 +61,7 @@ func setupRouter(db *gorm.DB, config *config.Config, conn *amqp.Connection) *gin
 	)
 
 	rabbitmqProducer := rabbitmq_producer.NewRabbitMQProducer(conn)
+	webhookProducer := webhook_producer.NewWebhookProducer(config.WebhookUrl)
 
 	instanceRepository := instance_repository.NewInstanceRepository(db)
 	messageRepository := message_repository.NewMessageRepository(db)
@@ -71,6 +73,7 @@ func setupRouter(db *gorm.DB, config *config.Config, conn *amqp.Connection) *gin
 		clientPointer,
 		linkingCodeEventChannel,
 		rabbitmqProducer,
+		webhookProducer,
 	)
 	instanceService := instance_service.NewInstanceService(
 		instanceRepository,

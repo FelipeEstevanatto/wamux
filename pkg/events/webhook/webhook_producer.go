@@ -1,0 +1,54 @@
+package webhook_producer
+
+import (
+	"bytes"
+	"net/http"
+	"strings"
+
+	producer_interfaces "github.com/Zapbox-API/evolution-go/pkg/events/interfaces"
+)
+
+type webhookProducer struct {
+	url string
+}
+
+func NewWebhookProducer(
+	url string,
+) producer_interfaces.Producer {
+	return &webhookProducer{
+		url: url,
+	}
+}
+
+func (p *webhookProducer) Produce(
+	queueName string,
+	payload []byte,
+) error {
+	splitQueue := strings.Split(queueName, ".")
+
+	if len(splitQueue) < 2 {
+		return nil
+	}
+
+	go sendWebhook(p.url, payload)
+
+	return nil
+}
+
+func sendWebhook(url string, body []byte) {
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
+	if err != nil {
+		return
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return
+	}
+
+	defer resp.Body.Close()
+}
