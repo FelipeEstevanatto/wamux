@@ -3,6 +3,7 @@ package message_repository
 import (
 	message_model "github.com/Zapbox-API/evolution-go/pkg/message/model"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type MessageRepository interface {
@@ -17,7 +18,10 @@ type messageRepository struct {
 }
 
 func (m *messageRepository) InsertMessage(message message_model.Message) error {
-	return m.db.Create(&message).Error
+	return m.db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "message_id"}},
+		DoUpdates: clause.AssignmentColumns([]string{"timestamp", "status", "source"}),
+	}).Create(&message).Error
 }
 
 func (m *messageRepository) GetMessageByID(messageID string) (*message_model.Message, error) {

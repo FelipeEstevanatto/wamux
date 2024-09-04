@@ -42,20 +42,20 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 	{
 		routes.Use(r.authMiddleware.AuthAdmin)
 		{
-			routes.POST("/create", r.instanceHandler.Create)                     // ok
-			routes.GET("/fetchInstances", r.instanceHandler.All)                 // ok
-			routes.DELETE("/delete/:instanceName", r.instanceHandler.Delete)     // ok
-			routes.DELETE("/proxy/:instanceName", r.instanceHandler.DeleteProxy) // ok
+			routes.POST("/create", r.instanceHandler.Create)
+			routes.GET("/fetchInstances", r.instanceHandler.All)
+			routes.DELETE("/delete/:instanceName", r.instanceHandler.Delete)
+			routes.DELETE("/proxy/:instanceName", r.instanceHandler.DeleteProxy)
 		}
 
 		routes.Use(r.authMiddleware.Auth)
 		{
-			routes.POST("/connect", r.instanceHandler.Connect)       // ok
-			routes.GET("/status", r.instanceHandler.Status)          // ok
-			routes.POST("/disconnect", r.instanceHandler.Disconnect) // ok
-			routes.DELETE("/logout", r.instanceHandler.Logout)       // ok
-			routes.GET("/qr", r.instanceHandler.Qr)                  // ok
-			routes.POST("/pair", r.instanceHandler.Pair)             // ok
+			routes.POST("/connect", r.instanceHandler.Connect)
+			routes.GET("/status", r.instanceHandler.Status)
+			routes.POST("/disconnect", r.instanceHandler.Disconnect)
+			routes.DELETE("/logout", r.instanceHandler.Logout)
+			routes.GET("/qr", r.instanceHandler.Qr)
+			routes.POST("/pair", r.instanceHandler.Pair)
 		}
 
 	}
@@ -63,29 +63,29 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 	{
 		routes.Use(r.authMiddleware.Auth)
 		{
-			routes.POST("/text", r.sendHandler.SendText)         // ok
-			routes.POST("/link", r.sendHandler.SendLink)         // ok
-			routes.POST("/media", r.sendHandler.SendMedia)       // ok
-			routes.POST("/poll", r.sendHandler.SendPoll)         // ok
-			routes.POST("/sticker", r.sendHandler.SendSticker)   // ok
-			routes.POST("/location", r.sendHandler.SendLocation) // ok
-			routes.POST("/contact", r.sendHandler.SendContact)   // ok
-			routes.POST("/list", r.sendHandler.SendList)         // ok
+			routes.POST("/text", r.sendHandler.SendText)
+			routes.POST("/link", r.sendHandler.SendLink)
+			routes.POST("/media", r.sendHandler.SendMedia)
+			routes.POST("/poll", r.sendHandler.SendPoll)
+			routes.POST("/sticker", r.sendHandler.SendSticker)
+			routes.POST("/location", r.sendHandler.SendLocation)
+			routes.POST("/contact", r.sendHandler.SendContact)
+			routes.POST("/list", r.sendHandler.SendList)
 		}
 	}
 	routes = eng.Group("/user")
 	{
 		routes.Use(r.authMiddleware.Auth)
 		{
-			routes.POST("/info", r.userHandler.GetUser)              // ok
-			routes.POST("/check", r.userHandler.CheckUser)           // ok
-			routes.GET("/avatar", r.userHandler.GetAvatar)           // ok
-			routes.GET("/contacts", r.userHandler.GetContacts)       // ok
-			routes.GET("/privacy", r.userHandler.GetPrivacy)         // ok
-			routes.POST("/block", r.userHandler.BlockContact)        // ok
-			routes.POST("/unblock", r.userHandler.UnblockContact)    // ok
-			routes.GET("/blocklist", r.userHandler.GetBlockList)     // ok
-			routes.POST("/profile", r.userHandler.SetProfilePicture) // ok
+			routes.POST("/info", r.userHandler.GetUser)
+			routes.POST("/check", r.userHandler.CheckUser)
+			routes.GET("/avatar", r.userHandler.GetAvatar)
+			routes.GET("/contacts", r.userHandler.GetContacts)
+			routes.GET("/privacy", r.userHandler.GetPrivacy)
+			routes.POST("/block", r.userHandler.BlockContact)
+			routes.POST("/unblock", r.userHandler.UnblockContact)
+			routes.GET("/blocklist", r.userHandler.GetBlockList)
+			routes.POST("/profile", r.userHandler.SetProfilePicture)
 		}
 	}
 	routes = eng.Group("/message")

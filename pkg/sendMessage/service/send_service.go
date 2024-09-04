@@ -319,7 +319,7 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 			return "", "", err
 		}
 		fileData = convertedData
-		mimeType = "audio/ogg"
+		mimeType = "audio/ogg; codecs=opus"
 		uploadType = whatsmeow.MediaAudio
 	} else if data.Type == "document" {
 		uploadType = whatsmeow.MediaDocument
@@ -331,6 +331,8 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 	if err != nil {
 		return "", "", err
 	}
+
+	logger.LogInfo("Media uploaded with %s", uploaded.FileLength)
 
 	var media *waE2E.Message
 
@@ -363,12 +365,13 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 			PTT:              proto.Bool(true),
 			DirectPath:       proto.String(uploaded.DirectPath),
 			MediaKey:         uploaded.MediaKey,
-			Mimetype:         proto.String("audio/ogg; codecs=opus"),
+			Mimetype:         proto.String(mimeType),
 			FileEncSHA256:    uploaded.FileEncSHA256,
 			FileSHA256:       uploaded.FileSHA256,
-			FileLength:       proto.Uint64(uint64(len(fileData))),
+			FileLength:       proto.Uint64(uploaded.FileLength),
 			StreamingSidecar: []byte(*proto.String("QpmXDsU7YLagdg==")),
 			Waveform:         []byte(*proto.String("OjAnExISDgsKCAkJBwgkHAQEBBEFAwMNAxAcKCgkFzM0QUE4Jh4eKAoKChcLCwkeFgkJCQo3JiQmIiIRPz8/Ow==")),
+			// Seconds:          proto.Uint32(uint32(data.Duration)),
 		}}
 	case "document":
 		media = &waE2E.Message{DocumentMessage: &waE2E.DocumentMessage{

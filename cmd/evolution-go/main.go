@@ -6,23 +6,30 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
 	"gorm.io/gorm"
 
 	chat_handler "github.com/Zapbox-API/evolution-go/pkg/chat/handler"
+	chat_service "github.com/Zapbox-API/evolution-go/pkg/chat/service"
 	community_handler "github.com/Zapbox-API/evolution-go/pkg/community/handler"
+	community_service "github.com/Zapbox-API/evolution-go/pkg/community/service"
 	config "github.com/Zapbox-API/evolution-go/pkg/config"
 	group_handler "github.com/Zapbox-API/evolution-go/pkg/group/handler"
+	group_service "github.com/Zapbox-API/evolution-go/pkg/group/service"
 	instance_handler "github.com/Zapbox-API/evolution-go/pkg/instance/handler"
 	instance_model "github.com/Zapbox-API/evolution-go/pkg/instance/model"
 	instance_repository "github.com/Zapbox-API/evolution-go/pkg/instance/repository"
 	instance_service "github.com/Zapbox-API/evolution-go/pkg/instance/service"
 	label_handler "github.com/Zapbox-API/evolution-go/pkg/label/handler"
+	label_service "github.com/Zapbox-API/evolution-go/pkg/label/service"
 	message_handler "github.com/Zapbox-API/evolution-go/pkg/message/handler"
 	message_model "github.com/Zapbox-API/evolution-go/pkg/message/model"
 	message_repository "github.com/Zapbox-API/evolution-go/pkg/message/repository"
+	message_service "github.com/Zapbox-API/evolution-go/pkg/message/service"
 	auth_middleware "github.com/Zapbox-API/evolution-go/pkg/middleware"
 	newsletter_handler "github.com/Zapbox-API/evolution-go/pkg/newsletter/handler"
+	newsletter_service "github.com/Zapbox-API/evolution-go/pkg/newsletter/service"
 	routes "github.com/Zapbox-API/evolution-go/pkg/routes"
 	send_handler "github.com/Zapbox-API/evolution-go/pkg/sendMessage/handler"
 	send_service "github.com/Zapbox-API/evolution-go/pkg/sendMessage/service"
@@ -37,11 +44,20 @@ var devMode = flag.Bool("dev", false, "Enable development mode")
 
 func setupRouter(db *gorm.DB, config *config.Config) *gin.Engine {
 
+	clientMap := make(map[*websocket.Conn]bool)
+	client := make(map[int]*websocket.Conn)
 	killChannel := make(map[int](chan bool))
 	clientPointer := make(map[int]whatsmeow_service.ClientInfo)
 	linkingCodeEventChannel := make(chan whatsmeow_service.LinkingCodeEvent)
+	var (
+		upgrader = websocket.Upgrader{
+			ReadBufferSize:  2024,
+			WriteBufferSize: 2024,
+		}
+	)
 
 	instanceRepository := instance_repository.NewInstanceRepository(db)
+	messageRepository := message_repository.NewMessageRepository(db)
 	whatsmeowService := whatsmeow_service.NewWhatsmeowService(
 		instanceRepository,
 		message_repository.NewMessageRepository(db),
@@ -60,6 +76,12 @@ func setupRouter(db *gorm.DB, config *config.Config) *gin.Engine {
 	)
 	sendMessageService := send_service.NewSendService(clientPointer, whatsmeowService)
 	userService := user_service.NewUserService(clientPointer, whatsmeowService)
+	messageService := message_service.NewMessageService(clientPointer, messageRepository)
+	chatService := chat_service.NewChatService(clientPointer)
+	groupService := group_service.NewGroupService(clientPointer)
+	communityService := community_service.NewCommunityService(clientPointer)
+	labelService := label_service.NewLabelService(clientPointer)
+	newsletterService := newsletter_service.NewNewsletterService(clientPointer)
 
 	r := gin.Default()
 	routes.NewRouter(
@@ -67,13 +89,13 @@ func setupRouter(db *gorm.DB, config *config.Config) *gin.Engine {
 		instance_handler.NewInstanceHandler(instanceService, config),
 		user_handler.NewUserHandler(userService),
 		send_handler.NewSendHandler(sendMessageService),
-		message_handler.NewMessageHandler(),
-		chat_handler.NewChatHandler(),
-		group_handler.NewGroupHandler(),
-		community_handler.NewCommunityHandler(),
-		label_handler.NewLabelHandler(),
-		newsletter_handler.NewNewsletterHandler(),
-		websocket_handler.NewWebsocketHandler(),
+		message_handler.NewMessageHandler(messageService),
+		chat_handler.NewChatHandler(chatService),
+		group_handler.NewGroupHandler(groupService),
+		community_handler.NewCommunityHandler(communityService),
+		label_handler.NewLabelHandler(labelService),
+		newsletter_handler.NewNewsletterHandler(newsletterService),
+		websocket_handler.NewWebsocketHandler(clientPointer, upgrader, clientMap, client),
 		server_handler.NewServerHandler(),
 	).AssignRoutes(r)
 
