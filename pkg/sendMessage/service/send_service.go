@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"os/exec"
 	"regexp"
+	"strconv"
+	"strings"
 	"time"
 
 	instance_model "github.com/Zapbox-API/evolution-go/pkg/instance/model"
@@ -267,6 +269,36 @@ func convertAudioToOpus(inputData []byte) ([]byte, error) {
 	return convertedData, nil
 }
 
+func getAudioDurationFromBytes(data []byte) (int, error) {
+	cmd := exec.Command("ffmpeg", "-i", "pipe:0", "-f", "null", "-")
+	cmd.Stdin = bytes.NewReader(data)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return 0, err
+	}
+
+	outputText := string(output)
+
+	splitTime := strings.Split(outputText, "time=")
+
+	if len(splitTime) < 2 {
+		return 0, nil
+	}
+
+	re := regexp.MustCompile(`(\d+):(\d+):(\d+\.\d+)`)
+	matches := re.FindStringSubmatch(string(splitTime[2]))
+	if len(matches) != 4 {
+		return 0, errors.New("formato de duração não encontrado")
+	}
+
+	hours, _ := strconv.ParseFloat(matches[1], 64)
+	minutes, _ := strconv.ParseFloat(matches[2], 64)
+	seconds, _ := strconv.ParseFloat(matches[3], 64)
+	duration := int(hours*3600 + minutes*60 + seconds)
+
+	return duration, nil
+}
+
 func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.Instance) (string, string, error) {
 	if s.clientPointer[instance.Id].WAClient == nil {
 		return "", "", errors.New("no session found")
@@ -300,6 +332,7 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 	mimeType := mime.String()
 
 	var uploadType whatsmeow.MediaType
+	var duration int
 
 	if data.Type == "image" {
 		if mimeType != "image/jpeg" && mimeType != "image/png" {
@@ -321,6 +354,10 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 		fileData = convertedData
 		mimeType = "audio/ogg; codecs=opus"
 		uploadType = whatsmeow.MediaAudio
+		duration, err = getAudioDurationFromBytes(fileData)
+		if err != nil {
+			return "", "", err
+		}
 	} else if data.Type == "document" {
 		uploadType = whatsmeow.MediaDocument
 	} else {
@@ -371,7 +408,7 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 			FileLength:       proto.Uint64(uploaded.FileLength),
 			StreamingSidecar: []byte(*proto.String("QpmXDsU7YLagdg==")),
 			Waveform:         []byte(*proto.String("OjAnExISDgsKCAkJBwgkHAQEBBEFAwMNAxAcKCgkFzM0QUE4Jh4eKAoKChcLCwkeFgkJCQo3JiQmIiIRPz8/Ow==")),
-			// Seconds:          proto.Uint32(uint32(data.Duration)),
+			Seconds:          proto.Uint32(uint32(duration)),
 		}}
 	case "document":
 		media = &waE2E.Message{DocumentMessage: &waE2E.DocumentMessage{
