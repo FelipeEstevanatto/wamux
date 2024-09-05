@@ -4,7 +4,10 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 
+	_ "github.com/Zapbox-API/evolution-go/docs"
 	chat_handler "github.com/Zapbox-API/evolution-go/pkg/chat/handler"
 	community_handler "github.com/Zapbox-API/evolution-go/pkg/community/handler"
 	group_handler "github.com/Zapbox-API/evolution-go/pkg/group/handler"
@@ -38,6 +41,8 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 	eng.GET("/ping", func(c *gin.Context) {
 		c.String(http.StatusOK, "pong")
 	})
+
+	eng.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	routes := eng.Group("/instance")
 	{
 		routes.Use(r.authMiddleware.AuthAdmin)

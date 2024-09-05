@@ -28,6 +28,17 @@ type instanceHandler struct {
 	instanceService instance_service.InstanceService
 }
 
+// Create a new instance
+// @Summary Create a new instance
+// @Description Creates a new instance with the provided data
+// @Tags Instance
+// @Accept json
+// @Produce json
+// @Param instance body instance_service.CreateStruct true "Instance data"
+// @Success 200 {object} gin.H "Instance created successfully"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /instance/create [post]
 func (i *instanceHandler) Create(ctx *gin.Context) {
 	var data *instance_service.CreateStruct
 	err := ctx.ShouldBindBodyWithJSON(&data)
@@ -77,6 +88,17 @@ func (i *instanceHandler) Create(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": data})
 }
 
+// Connect to instance
+// @Summary Connect to instance
+// @Description Connect to instance with the provided data
+// @Tags Instance
+// @Accept json
+// @Produce json
+// @Param instance body instance_service.ConnectStruct true "Instance data"
+// @Success 200 {object} gin.H "Instance connected successfully"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /instance/connect [post]
 func (i *instanceHandler) Connect(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -109,6 +131,15 @@ func (i *instanceHandler) Connect(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
 }
 
+// Disconnect from instance
+// @Summary Disconnect from instance
+// @Description Disconnect from instance
+// @Tags Instance
+// @Accept json
+// @Produce json
+// @Success 200 {object} gin.H "Instance disconnected successfully"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /instance/disconnect [post]
 func (i *instanceHandler) Disconnect(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -129,6 +160,15 @@ func (i *instanceHandler) Disconnect(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success"})
 }
 
+// Logout from instance
+// @Summary Logout from instance
+// @Description Logout from instance
+// @Tags Instance
+// @Accept json
+// @Produce json
+// @Success 200 {object} gin.H "Instance logged out successfully"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /instance/logout [delete]
 func (i *instanceHandler) Logout(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -149,6 +189,15 @@ func (i *instanceHandler) Logout(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success"})
 }
 
+// Get instance status
+// @Summary Get instance status
+// @Description Get instance status
+// @Tags Instance
+// @Accept json
+// @Produce json
+// @Success 200 {object} gin.H "Instance status"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /instance/status [get]
 func (i *instanceHandler) Status(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -167,6 +216,15 @@ func (i *instanceHandler) Status(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": status})
 }
 
+// Get instance QR code
+// @Summary Get instance QR code
+// @Description Get instance QR code
+// @Tags Instance
+// @Accept json
+// @Produce json
+// @Success 200 {object} gin.H "Instance QR code"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /instance/qr [get]
 func (i *instanceHandler) Qr(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -185,6 +243,17 @@ func (i *instanceHandler) Qr(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": qrcode})
 }
 
+// Request pairing code
+// @Summary Request pairing code
+// @Description Request pairing code
+// @Tags Instance
+// @Accept json
+// @Produce json
+// @Param instance body instance_service.PairStruct true "Instance data"
+// @Success 200 {object} gin.H "Pairing code"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /instance/pair [post]
 func (i *instanceHandler) Pair(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -215,6 +284,15 @@ func (i *instanceHandler) Pair(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": pairingCode})
 }
 
+// Get all instances
+// @Summary Get all instances
+// @Description Get all instances
+// @Tags Instance
+// @Accept json
+// @Produce json
+// @Success 200 {object} gin.H "All instances"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /instance/fetchInstances [get]
 func (i *instanceHandler) All(ctx *gin.Context) {
 	instances, err := i.instanceService.GetAll()
 	if err != nil {
@@ -225,6 +303,17 @@ func (i *instanceHandler) All(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": instances})
 }
 
+// Delete instance
+// @Summary Delete instance
+// @Description Delete instance
+// @Tags Instance
+// @Accept json
+// @Produce json
+// @Param instanceName path string true "Instance name"
+// @Success 200 {object} gin.H "Instance deleted successfully"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /instance/delete/{instanceName} [delete]
 func (i *instanceHandler) Delete(ctx *gin.Context) {
 	instanceName := ctx.Param("instanceName")
 
@@ -242,6 +331,17 @@ func (i *instanceHandler) Delete(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success"})
 }
 
+// Delete proxy
+// @Summary Delete proxy
+// @Description Delete proxy
+// @Tags Instance
+// @Accept json
+// @Produce json
+// @Param instanceName path string true "Instance name"
+// @Success 200 {object} gin.H "Proxy deleted successfully"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /instance/proxy/{instanceName} [delete]
 func (i *instanceHandler) DeleteProxy(ctx *gin.Context) {
 	instanceName := ctx.Param("instanceName")
 

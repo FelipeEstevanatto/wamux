@@ -24,6 +24,15 @@ type groupHandler struct {
 	groupService group_service.GroupService
 }
 
+// List groups
+// @Summary List groups
+// @Description List groups
+// @Tags Group
+// @Accept json
+// @Produce json
+// @Success 200 {object} gin.H "success"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /group/list [get]
 func (g *groupHandler) ListGroups(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -42,6 +51,17 @@ func (g *groupHandler) ListGroups(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": resp})
 }
 
+// Get group info
+// @Summary Get group info
+// @Description Get group info
+// @Tags Group
+// @Accept json
+// @Produce json
+// @Param message body group_service.GetGroupInfoStruct true "Group data"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /group/info [post]
 func (g *groupHandler) GetGroupInfo(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -72,6 +92,17 @@ func (g *groupHandler) GetGroupInfo(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": resp})
 }
 
+// Get group invite link
+// @Summary Get group invite link
+// @Description Get group invite link
+// @Tags Group
+// @Accept json
+// @Produce json
+// @Param message body group_service.GetGroupInviteLinkStruct true "Group data"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /group/invitelink [post]
 func (g *groupHandler) GetGroupInviteLink(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -102,6 +133,17 @@ func (g *groupHandler) GetGroupInviteLink(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": resp})
 }
 
+// Set group photo
+// @Summary Set group photo
+// @Description Set group photo
+// @Tags Group
+// @Accept json
+// @Produce json
+// @Param message body group_service.SetGroupPhotoStruct true "Group data"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /group/photo [post]
 func (g *groupHandler) SetGroupPhoto(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -137,6 +179,17 @@ func (g *groupHandler) SetGroupPhoto(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": resp})
 }
 
+// Set group name
+// @Summary Set group name
+// @Description Set group name
+// @Tags Group
+// @Accept json
+// @Produce json
+// @Param message body group_service.SetGroupNameStruct true "Group data"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /group/name [post]
 func (g *groupHandler) SetGroupName(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -172,6 +225,17 @@ func (g *groupHandler) SetGroupName(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success"})
 }
 
+// Create group
+// @Summary Create group
+// @Description Create group
+// @Tags Group
+// @Accept json
+// @Produce json
+// @Param message body group_service.CreateGroupStruct true "Group data"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /group/create [post]
 func (g *groupHandler) CreateGroup(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -207,6 +271,17 @@ func (g *groupHandler) CreateGroup(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": group})
 }
 
+// Update participant
+// @Summary Update participant
+// @Description Update participant
+// @Tags Group
+// @Accept json
+// @Produce json
+// @Param message body group_service.AddParticipantStruct true "Group data"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /group/participant [post]
 func (g *groupHandler) UpdateParticipant(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -247,6 +322,15 @@ func (g *groupHandler) UpdateParticipant(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success"})
 }
 
+// Get my groups
+// @Summary Get my groups
+// @Description Get my groups
+// @Tags Group
+// @Accept json
+// @Produce json
+// @Success 200 {object} gin.H "success"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /group/myall [get]
 func (g *groupHandler) GetMyGroups(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -265,6 +349,17 @@ func (g *groupHandler) GetMyGroups(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": groups})
 }
 
+// Join group link
+// @Summary Join group link
+// @Description Join group link
+// @Tags Group
+// @Accept json
+// @Produce json
+// @Param message body group_service.JoinGroupStruct true "Group data"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /group/join [post]
 func (g *groupHandler) JoinGroupLink(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 

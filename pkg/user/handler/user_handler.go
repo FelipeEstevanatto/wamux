@@ -25,6 +25,17 @@ type userHandler struct {
 	userService user_service.UserService
 }
 
+// Get a user
+// @Summary Get a user
+// @Description Get a user
+// @Tags User
+// @Accept json
+// @Produce json
+// @Param message body user_service.CheckUserStruct true "User data"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /user/info [post]
 func (u *userHandler) GetUser(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -61,6 +72,17 @@ func (u *userHandler) GetUser(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
 }
 
+// Check a user
+// @Summary Check a user
+// @Description Check a user
+// @Tags User
+// @Accept json
+// @Produce json
+// @Param message body user_service.CheckUserStruct true "User data"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /user/check [post]
 func (u *userHandler) CheckUser(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -97,6 +119,17 @@ func (u *userHandler) CheckUser(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
 }
 
+// Get a user's avatar
+// @Summary Get a user's avatar
+// @Description Get a user's avatar
+// @Tags User
+// @Accept json
+// @Produce json
+// @Param phone query string true "Phone number"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /user/avatar [get]
 func (u *userHandler) GetAvatar(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -138,6 +171,15 @@ func (u *userHandler) GetAvatar(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
 }
 
+// Get a user's contacts
+// @Summary Get a user's contacts
+// @Description Get a user's contacts
+// @Tags User
+// @Accept json
+// @Produce json
+// @Success 200 {object} gin.H "success"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /user/contacts [get]
 func (u *userHandler) GetContacts(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -162,6 +204,15 @@ func (u *userHandler) GetContacts(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
 }
 
+// Get a user's privacy settings
+// @Summary Get a user's privacy settings
+// @Description Get a user's privacy settings
+// @Tags User
+// @Accept json
+// @Produce json
+// @Success 200 {object} gin.H "success"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /user/privacy [get]
 func (u *userHandler) GetPrivacy(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -186,6 +237,17 @@ func (u *userHandler) GetPrivacy(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
 }
 
+// Block a contact
+// @Summary Block a contact
+// @Description Block a contact
+// @Tags User
+// @Accept json
+// @Produce json
+// @Param message body user_service.BlockStruct true "Block data"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /user/block [post]
 func (u *userHandler) BlockContact(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -227,6 +289,17 @@ func (u *userHandler) BlockContact(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
 }
 
+// Unblock a contact
+// @Summary Unblock a contact
+// @Description Unblock a contact
+// @Tags User
+// @Accept json
+// @Produce json
+// @Param message body user_service.BlockStruct true "Block data"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /user/unblock [post]
 func (u *userHandler) UnblockContact(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -268,6 +341,15 @@ func (u *userHandler) UnblockContact(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
 }
 
+// Get a user's block list
+// @Summary Get a user's block list
+// @Description Get a user's block list
+// @Tags User
+// @Accept json
+// @Produce json
+// @Success 200 {object} gin.H "success"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /user/blocklist [get]
 func (u *userHandler) GetBlockList(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -286,6 +368,17 @@ func (u *userHandler) GetBlockList(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": resp})
 }
 
+// Set a user's profile picture
+// @Summary Set a user's profile picture
+// @Description Set a user's profile picture
+// @Tags User
+// @Accept json
+// @Produce json
+// @Param message body user_service.SetProfilePictureStruct true "Profile picture data"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /user/profile [post]
 func (u *userHandler) SetProfilePicture(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 

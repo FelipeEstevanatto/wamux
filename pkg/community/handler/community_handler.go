@@ -18,6 +18,17 @@ type communityHandler struct {
 	communityService community_service.CommunityService
 }
 
+// Create community
+// @Summary Create community
+// @Description Create community
+// @Tags Community
+// @Accept json
+// @Produce json
+// @Param message body community_service.CreateCommunityStruct true "Community data"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /community/create [post]
 func (c *communityHandler) CreateCommunity(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -48,6 +59,17 @@ func (c *communityHandler) CreateCommunity(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": community})
 }
 
+// Add participant to community
+// @Summary Add participant to community
+// @Description Add participant to community
+// @Tags Community
+// @Accept json
+// @Produce json
+// @Param message body community_service.AddParticipantStruct true "Participant data"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /community/add [post]
 func (c *communityHandler) CommunityAdd(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -83,6 +105,17 @@ func (c *communityHandler) CommunityAdd(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": resp})
 }
 
+// Remove participant from community
+// @Summary Remove participant from community
+// @Description Remove participant from community
+// @Tags Community
+// @Accept json
+// @Produce json
+// @Param message body community_service.AddParticipantStruct true "Participant data"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /community/remove [post]
 func (c *communityHandler) CommunityRemove(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
