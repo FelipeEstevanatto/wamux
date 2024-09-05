@@ -23,6 +23,62 @@ type sendHandler struct {
 	sendMessageService send_service.SendService
 }
 
+type SendTextMessageRequest struct {
+	Phone string `json:"phone" example:"557499879409"`
+	Text  string `json:"text" example:"Teste"`
+}
+
+type SendMediaMessageRequest struct {
+	Phone string `json:"phone" example:"557499879409"`
+	Url   string `json:"url" example:"https://example.com/image.jpg"`
+	Type  string `json:"type" example:"image"`
+}
+
+type SendPollMessageRequest struct {
+	Phone     string   `json:"phone" example:"557499879409"`
+	Question  string   `json:"question" example:"What is your favorite color?"`
+	MaxAnswer int      `json:"maxAnswer" example:"1"`
+	Options   []string `json:"options" example:"[\"Red\", \"Blue\"]"`
+}
+
+type SendStickerMessageRequest struct {
+	Phone   string `json:"phone" example:"557499879409"`
+	Sticker string `json:"sticker" example:"https://example.com/sticker.webp"`
+}
+
+type SendLocationMessageRequest struct {
+	Phone     string  `json:"phone" example:"557499879409"`
+	Name      string  `json:"name" example:"São Paulo"`
+	Latitude  float64 `json:"latitude" example:"-23.5505199"`
+	Longitude float64 `json:"longitude" example:"-46.6333094"`
+}
+
+type SendContactMessageRequest struct {
+	Phone string `json:"phone" example:"557499879409"`
+	Vcard struct {
+		FullName string `json:"fullName" example:"John Doe"`
+		Phone    string `json:"phone" example:"557499879409"`
+	} `json:"vcard"`
+}
+
+type SendListMessageRequest struct {
+	Phone      string   `json:"phone" example:"557499879409"`
+	ButtonText string   `json:"buttonText" example:"View"`
+	Desc       string   `json:"desc" example:"This is a list"`
+	Items      []string `json:"items" example:"[\"Item 1\", \"Item 2\"]"`
+}
+
+// Send a text message
+// @Summary Send a text message
+// @Description Send a text message
+// @Tags Send Message
+// @Accept json
+// @Produce json
+// @Param message body SendTextMessageRequest true "Message data"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /send/text [post]
 func (s *sendHandler) SendText(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -63,6 +119,17 @@ func (s *sendHandler) SendText(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
 }
 
+// Send a link message
+// @Summary Send a link message
+// @Description Send a link message
+// @Tags Send Message
+// @Accept json
+// @Produce json
+// @Param message body SendTextMessageRequest true "Message data"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /send/link [post]
 func (s *sendHandler) SendLink(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -103,6 +170,17 @@ func (s *sendHandler) SendLink(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
 }
 
+// Send a media message
+// @Summary Send a media message
+// @Description Send a media message
+// @Tags Send Message
+// @Accept json
+// @Produce json
+// @Param message body SendMediaMessageRequest true "Message data"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /send/media [post]
 func (s *sendHandler) SendMedia(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -148,6 +226,17 @@ func (s *sendHandler) SendMedia(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
 }
 
+// Send a poll message
+// @Summary Send a poll message
+// @Description Send a poll message
+// @Tags Send Message
+// @Accept json
+// @Produce json
+// @Param message body SendPollMessageRequest true "Message data"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /send/poll [post]
 func (s *sendHandler) SendPoll(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -193,6 +282,17 @@ func (s *sendHandler) SendPoll(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
 }
 
+// Send a sticker message
+// @Summary Send a sticker message
+// @Description Send a sticker message
+// @Tags Send Message
+// @Accept json
+// @Produce json
+// @Param message body SendStickerMessageRequest true "Message data"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /send/sticker [post]
 func (s *sendHandler) SendSticker(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -233,6 +333,17 @@ func (s *sendHandler) SendSticker(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
 }
 
+// Send a location message
+// @Summary Send a location message
+// @Description Send a location message
+// @Tags Send Message
+// @Accept json
+// @Produce json
+// @Param message body SendLocationMessageRequest true "Message data"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /send/location [post]
 func (s *sendHandler) SendLocation(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -278,6 +389,17 @@ func (s *sendHandler) SendLocation(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
 }
 
+// Send a contact message
+// @Summary Send a contact message
+// @Description Send a contact message
+// @Tags Send Message
+// @Accept json
+// @Produce json
+// @Param message body SendContactMessageRequest true "Message data"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /send/contact [post]
 func (s *sendHandler) SendContact(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -323,6 +445,17 @@ func (s *sendHandler) SendContact(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
 }
 
+// Send a list message
+// @Summary Send a list message
+// @Description Send a list message
+// @Tags Send Message
+// @Accept json
+// @Produce json
+// @Param message body SendListMessageRequest true "Message data"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /send/list [post]
 func (s *sendHandler) SendList(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 

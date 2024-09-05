@@ -123,6 +123,9 @@ func migrate(db *gorm.DB) {
 	}
 }
 
+// @title Evolution GO
+// @version 1.0
+// @description Evolution GO - whatsmeow
 func main() {
 	flag.Parse()
 	if *devMode {

@@ -22,6 +22,17 @@ type messageHandler struct {
 	messageService message_service.MessageService
 }
 
+// React a message
+// @Summary React a message
+// @Description React a message
+// @Tags Message
+// @Accept json
+// @Produce json
+// @Param message body message_service.ReactStruct true "React a message"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /message/react [post]
 func (m *messageHandler) React(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -62,6 +73,17 @@ func (m *messageHandler) React(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
 }
 
+// ChatPresence set chat presence
+// @Summary Set chat presence
+// @Description Set chat presence
+// @Tags Message
+// @Accept json
+// @Produce json
+// @Param message body message_service.ChatPresenceStruct true "Set chat presence"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /message/presence [post]
 func (m *messageHandler) ChatPresence(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -101,6 +123,17 @@ func (m *messageHandler) ChatPresence(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
 }
 
+// MarkRead mark a message as read
+// @Summary Mark a message as read
+// @Description Mark a message as read
+// @Tags Message
+// @Accept json
+// @Produce json
+// @Param message body message_service.MarkReadStruct true "Mark a message as read"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /message/markread [post]
 func (m *messageHandler) MarkRead(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -140,6 +173,17 @@ func (m *messageHandler) MarkRead(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
 }
 
+// DownloadImage download an image
+// @Summary Download an image
+// @Description Download an image
+// @Tags Message
+// @Accept json
+// @Produce json
+// @Param message body message_service.DownloadImageStruct true "Download an image"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /message/downloadimage [post]
 func (m *messageHandler) DownloadImage(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -170,6 +214,17 @@ func (m *messageHandler) DownloadImage(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
 }
 
+// GetMessageStatus get message status
+// @Summary Get message status
+// @Description Get message status
+// @Tags Message
+// @Accept json
+// @Produce json
+// @Param message body message_service.MessageStatusStruct true "Get message status"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /message/status [post]
 func (m *messageHandler) GetMessageStatus(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -205,6 +260,17 @@ func (m *messageHandler) GetMessageStatus(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
 }
 
+// DeleteMessageEveryone delete a message for everyone
+// @Summary Delete a message for everyone
+// @Description Delete a message for everyone
+// @Tags Message
+// @Accept json
+// @Produce json
+// @Param message body message_service.MessageStruct true "Delete a message for everyone"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /message/delete [post]
 func (m *messageHandler) DeleteMessageEveryone(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -245,6 +311,17 @@ func (m *messageHandler) DeleteMessageEveryone(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
 }
 
+// EditMessage edit a message
+// @Summary Edit a message
+// @Description Edit a message
+// @Tags Message
+// @Accept json
+// @Produce json
+// @Param message body message_service.EditMessageStruct true "Edit a message"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /message/edit [post]
 func (m *messageHandler) EditMessage(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
