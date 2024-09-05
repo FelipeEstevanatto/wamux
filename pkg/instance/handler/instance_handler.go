@@ -41,12 +41,13 @@ type instanceHandler struct {
 // @Router /instance/create [post]
 func (i *instanceHandler) Create(ctx *gin.Context) {
 	var data *instance_service.CreateStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	err := ctx.ShouldBindJSON(&data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	// Validação dos campos
 	if data.Name == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "name is required"})
 		return
@@ -79,13 +80,13 @@ func (i *instanceHandler) Create(ctx *gin.Context) {
 		}
 	}
 
-	err = i.instanceService.Create(data)
+	createdInstance, err := i.instanceService.Create(data)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": data})
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": createdInstance})
 }
 
 // Connect to instance
@@ -292,7 +293,7 @@ func (i *instanceHandler) Pair(ctx *gin.Context) {
 // @Produce json
 // @Success 200 {object} gin.H "All instances"
 // @Failure 500 {object} gin.H "Internal server error"
-// @Router /instance/fetchInstances [get]
+// @Router /instance/all [get]
 func (i *instanceHandler) All(ctx *gin.Context) {
 	instances, err := i.instanceService.GetAll()
 	if err != nil {
@@ -309,20 +310,20 @@ func (i *instanceHandler) All(ctx *gin.Context) {
 // @Tags Instance
 // @Accept json
 // @Produce json
-// @Param instanceName path string true "Instance name"
+// @Param instanceId path string true "Instance Id"
 // @Success 200 {object} gin.H "Instance deleted successfully"
 // @Failure 400 {object} gin.H "Error on validation"
 // @Failure 500 {object} gin.H "Internal server error"
-// @Router /instance/delete/{instanceName} [delete]
+// @Router /instance/delete/{instanceId} [delete]
 func (i *instanceHandler) Delete(ctx *gin.Context) {
-	instanceName := ctx.Param("instanceName")
+	instanceId := ctx.Param("instanceId")
 
-	if instanceName == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "instanceName is required"})
+	if instanceId == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "instanceId is required"})
 		return
 	}
 
-	err := i.instanceService.Delete(instanceName)
+	err := i.instanceService.Delete(instanceId)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -337,20 +338,20 @@ func (i *instanceHandler) Delete(ctx *gin.Context) {
 // @Tags Instance
 // @Accept json
 // @Produce json
-// @Param instanceName path string true "Instance name"
+// @Param instanceId path string true "Instance id"
 // @Success 200 {object} gin.H "Proxy deleted successfully"
 // @Failure 400 {object} gin.H "Error on validation"
 // @Failure 500 {object} gin.H "Internal server error"
-// @Router /instance/proxy/{instanceName} [delete]
+// @Router /instance/proxy/{instanceId} [delete]
 func (i *instanceHandler) DeleteProxy(ctx *gin.Context) {
-	instanceName := ctx.Param("instanceName")
+	instanceId := ctx.Param("instanceId")
 
-	if instanceName == "" {
+	if instanceId == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
 		return
 	}
 
-	err := i.instanceService.RemoveProxy(instanceName)
+	err := i.instanceService.RemoveProxy(instanceId)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

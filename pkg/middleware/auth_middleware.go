@@ -21,13 +21,13 @@ type middleware struct {
 func (m middleware) Auth(ctx *gin.Context) {
 	token := ctx.GetHeader("apikey")
 	if token == "" {
-		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "apikey is required"})
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "not authorized"})
 		return
 	}
 
 	instance, err := m.instanceService.GetInstanceByToken(token)
 	if err != nil {
-		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid apikey"})
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "not authorized"})
 		return
 	}
 
@@ -39,12 +39,12 @@ func (m middleware) Auth(ctx *gin.Context) {
 func (m middleware) AuthAdmin(ctx *gin.Context) {
 	token := ctx.GetHeader("apikey")
 	if token == "" {
-		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "apikey is required"})
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "not authorized"})
 		return
 	}
 
 	if token != m.config.GlobalApiKey {
-		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid apikey"})
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "not authorized"})
 		return
 	}
 

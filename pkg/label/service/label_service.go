@@ -37,7 +37,7 @@ type EditLabelStruct struct {
 	LabelID string `json:"labelId"`
 	Name    string `json:"name"`
 	Color   int    `json:"color"`
-	Action  bool   `json:"action"`
+	Deleted bool   `json:"deleted"`
 }
 
 func (l *labelService) ChatLabel(data *ChatLabelStruct, instance *instance_model.Instance) error {
@@ -98,7 +98,7 @@ func (l *labelService) EditLabel(data *EditLabelStruct, instance *instance_model
 		data.LabelID,
 		data.Name,
 		int32(data.Color),
-		true,
+		data.Deleted,
 	))
 	if err != nil {
 		logger.LogError("error label message: %v", err)

@@ -3,12 +3,13 @@ package user_service
 import (
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 
 	instance_model "github.com/Zapbox-API/evolution-go/pkg/instance/model"
 	"github.com/Zapbox-API/evolution-go/pkg/utils"
 	whatsmeow_service "github.com/Zapbox-API/evolution-go/pkg/whatsmeow/service"
 	"github.com/gomessguii/logger"
-	"github.com/vincent-petithory/dataurl"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
@@ -18,8 +19,8 @@ type UserService interface {
 	GetUser(data *CheckUserStruct, instance *instance_model.Instance) (*UserCollection, error)
 	CheckUser(data *CheckUserStruct, instance *instance_model.Instance) (*CheckUserCollection, error)
 	GetAvatar(data *GetAvatarStruct, instance *instance_model.Instance) (*types.ProfilePictureInfo, error)
-	GetContacts(instance *instance_model.Instance) (map[types.JID]types.ContactInfo, error)
-	GetPrivacy(instance *instance_model.Instance) (map[string]interface{}, error)
+	GetContacts(instance *instance_model.Instance) ([]ContactInfo, error)
+	GetPrivacy(instance *instance_model.Instance) (types.PrivacySettings, error)
 	BlockContact(data *BlockStruct, instance *instance_model.Instance) (*types.Blocklist, error)
 	UnlockContact(data *BlockStruct, instance *instance_model.Instance) (*types.Blocklist, error)
 	GetBlockList(instance *instance_model.Instance) (*types.Blocklist, error)
@@ -29,6 +30,15 @@ type UserService interface {
 type userService struct {
 	clientPointer    map[string]whatsmeow_service.ClientInfo
 	whatsmeowService whatsmeow_service.WhatsmeowService
+}
+
+type ContactInfo struct {
+	Jid          string `json:"Jid"`
+	Found        bool   `json:"Found"`
+	FirstName    string `json:"FirstName"`
+	FullName     string `json:"FullName"`
+	PushName     string `json:"PushName"`
+	BusinessName string `json:"BusinessName"`
 }
 
 type UserCollection struct {
@@ -47,16 +57,16 @@ type CheckUserCollection struct {
 }
 
 type CheckUserStruct struct {
-	Phone []string `json:"phone"`
+	Number []string `json:"number"`
 }
 
 type GetAvatarStruct struct {
-	Phone   string `json:"phone"`
+	Number  string `json:"number"`
 	Preview bool   `json:"preview"`
 }
 
 type BlockStruct struct {
-	Phone string `json:"phone"`
+	Number string `json:"number"`
 }
 
 type SetProfilePictureStruct struct {
@@ -69,7 +79,7 @@ func (u *userService) GetUser(data *CheckUserStruct, instance *instance_model.In
 	}
 
 	var jids []types.JID
-	for _, arg := range data.Phone {
+	for _, arg := range data.Number {
 		jid, ok := utils.ParseJID(arg)
 		if !ok {
 			return nil, errors.New("invalid phone number")
@@ -96,7 +106,7 @@ func (u *userService) CheckUser(data *CheckUserStruct, instance *instance_model.
 		return nil, errors.New("no session found")
 	}
 
-	resp, err := u.clientPointer[instance.Id].WAClient.IsOnWhatsApp(data.Phone)
+	resp, err := u.clientPointer[instance.Id].WAClient.IsOnWhatsApp(data.Number)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +130,7 @@ func (u *userService) GetAvatar(data *GetAvatarStruct, instance *instance_model.
 		return nil, errors.New("no session found")
 	}
 
-	jid, ok := utils.ParseJID(data.Phone)
+	jid, ok := utils.ParseJID(data.Number)
 	if !ok {
 		return nil, errors.New("invalid phone number")
 	}
@@ -143,29 +153,41 @@ func (u *userService) GetAvatar(data *GetAvatarStruct, instance *instance_model.
 	return pic, nil
 }
 
-func (u *userService) GetContacts(instance *instance_model.Instance) (map[types.JID]types.ContactInfo, error) {
+func (u *userService) GetContacts(instance *instance_model.Instance) ([]ContactInfo, error) {
 	if u.clientPointer[instance.Id].WAClient == nil {
 		return nil, errors.New("no session found")
 	}
 
-	result := map[types.JID]types.ContactInfo{}
-	result, err := u.clientPointer[instance.Id].WAClient.Store.Contacts.GetAllContacts()
+	contacts, err := u.clientPointer[instance.Id].WAClient.Store.Contacts.GetAllContacts()
 	if err != nil {
 		return nil, err
 	}
 
-	return result, nil
+	var contactsArray []ContactInfo
+
+	for jid, contact := range contacts {
+		contactsArray = append(contactsArray, ContactInfo{
+			Jid:          jid.String(),
+			Found:        contact.Found,
+			FirstName:    contact.FirstName,
+			FullName:     contact.FullName,
+			PushName:     contact.PushName,
+			BusinessName: contact.BusinessName,
+		})
+	}
+
+	return contactsArray, nil
+
 }
 
-func (u *userService) GetPrivacy(instance *instance_model.Instance) (map[string]interface{}, error) {
+func (u *userService) GetPrivacy(instance *instance_model.Instance) (types.PrivacySettings, error) {
 	if u.clientPointer[instance.Id].WAClient == nil {
-		return nil, errors.New("no session found")
+		return types.PrivacySettings{}, errors.New("no session found")
 	}
 
 	privacy := u.clientPointer[instance.Id].WAClient.GetPrivacySettings()
-	response := map[string]interface{}{"Data": privacy}
 
-	return response, nil
+	return privacy, nil
 }
 
 func (u *userService) BlockContact(data *BlockStruct, instance *instance_model.Instance) (*types.Blocklist, error) {
@@ -173,7 +195,7 @@ func (u *userService) BlockContact(data *BlockStruct, instance *instance_model.I
 		return nil, errors.New("no session found")
 	}
 
-	jid, ok := utils.ParseJID(data.Phone)
+	jid, ok := utils.ParseJID(data.Number)
 	if !ok {
 		return nil, errors.New("invalid phone number")
 	}
@@ -191,7 +213,7 @@ func (u *userService) UnlockContact(data *BlockStruct, instance *instance_model.
 		return nil, errors.New("no session found")
 	}
 
-	jid, ok := utils.ParseJID(data.Phone)
+	jid, ok := utils.ParseJID(data.Number)
 	if !ok {
 		return nil, errors.New("invalid phone number")
 	}
@@ -224,18 +246,18 @@ func (u *userService) SetProfilePicture(data *SetProfilePictureStruct, instance 
 
 	var filedata []byte
 
-	if data.Image[0:10] == "data:image" {
-		dataURL, err := dataurl.DecodeString(data.Image)
-		if err != nil {
-			return false, err
-		} else {
-			filedata = dataURL.Data
-		}
-	} else {
-		return false, errors.New("image data should start with \"data:image/png;base64,\"")
+	resp, err := http.Get(data.Image)
+	if err != nil {
+		return false, fmt.Errorf("failed to fetch image from URL: %v", err)
+	}
+	defer resp.Body.Close()
+
+	filedata, err = io.ReadAll(resp.Body)
+	if err != nil {
+		return false, fmt.Errorf("failed to read image data: %v", err)
 	}
 
-	_, err := u.clientPointer[instance.Id].WAClient.SetGroupPhoto(types.EmptyJID, filedata)
+	_, err = u.clientPointer[instance.Id].WAClient.SetGroupPhoto(types.EmptyJID, filedata)
 	if err != nil {
 		return false, err
 	}

@@ -40,21 +40,20 @@ type messageService struct {
 }
 
 type ReactStruct struct {
-	Phone string `json:"phone"`
-	Body  string `json:"body"`
-	Id    string `json:"id"`
+	Number   string `json:"number"`
+	Reaction string `json:"reaction"`
+	Id       string `json:"id"`
 }
 
 type ChatPresenceStruct struct {
-	Phone string `json:"phone"`
-	State string `json:"state"`
-	Media string `json:"media"`
+	Number  string `json:"number"`
+	State   string `json:"state"`
+	IsAudio bool   `json:"isAudio"`
 }
 
 type MarkReadStruct struct {
-	Id     []string  `json:"id"`
-	Chat   types.JID `json:"chat"`
-	Sender types.JID `json:"sender"`
+	Id     []string `json:"id"`
+	Number string   `json:"number"`
 }
 
 type DownloadImageStruct struct {
@@ -90,7 +89,7 @@ func (m *messageService) React(data *ReactStruct, instance *instance_model.Insta
 	msgId := ""
 	var ts time.Time
 
-	recipient, ok := utils.ParseJID(data.Phone)
+	recipient, ok := utils.ParseJID(data.Number)
 	if !ok {
 		logger.LogError("Error validating message fields")
 		return "", "", errors.New("invalid phone number")
@@ -108,7 +107,7 @@ func (m *messageService) React(data *ReactStruct, instance *instance_model.Insta
 		fromMe = true
 		msgId = msgId[len("me:"):]
 	}
-	reaction := data.Body
+	reaction := data.Reaction
 	if reaction == "remove" {
 		reaction = ""
 	}
@@ -143,18 +142,24 @@ func (m *messageService) ChatPresence(data *ChatPresenceStruct, instance *instan
 
 	var ts time.Time
 
-	recipient, ok := utils.ParseJID(data.Phone)
+	recipient, ok := utils.ParseJID(data.Number)
 	if !ok {
 		logger.LogError("Error validating message fields")
 		return "", errors.New("invalid phone number")
 	}
 
-	err := m.clientPointer[instance.Id].WAClient.SendChatPresence(recipient, types.ChatPresence(data.State), types.ChatPresenceMedia(data.Media))
+	media := ""
+
+	if data.IsAudio {
+		media = "audio"
+	}
+
+	err := m.clientPointer[instance.Id].WAClient.SendChatPresence(recipient, types.ChatPresence(data.State), types.ChatPresenceMedia(media))
 	if err != nil {
 		return "", err
 	}
 
-	logger.LogInfo("Message sent to %s", data.Phone)
+	logger.LogInfo("Message sent to %s", data.Number)
 
 	return ts.String(), nil
 }
@@ -166,9 +171,16 @@ func (m *messageService) MarkRead(data *MarkReadStruct, instance *instance_model
 
 	var ts time.Time
 
-	err := m.clientPointer[instance.Id].WAClient.MarkRead(data.Id, time.Now(), data.Chat, data.Sender)
+	jid, ok := utils.ParseJID(data.Number)
+	if !ok {
+		logger.LogError("Error validating message fields")
+		return "", errors.New("invalid phone number")
+	}
+
+	err := m.clientPointer[instance.Id].WAClient.MarkRead(data.Id, time.Now(), jid, jid)
 	if err != nil {
-		return "", err
+		logger.LogError("error marking message as read: %v", err)
+		return "", errors.New("error marking message as read")
 	}
 
 	return ts.String(), nil

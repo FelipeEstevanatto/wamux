@@ -1,8 +1,6 @@
 package routes
 
 import (
-	"net/http"
-
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -38,32 +36,35 @@ type Routes struct {
 }
 
 func (r *Routes) AssignRoutes(eng *gin.Engine) {
-	eng.GET("/ping", func(c *gin.Context) {
-		c.String(http.StatusOK, "pong")
-	})
-
 	eng.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+	eng.POST("/ws", r.websocketHandler.HandleWS)
+	eng.POST("/server/ok", r.serverHandler.ServerOk)
+
 	routes := eng.Group("/instance")
 	{
 		routes.Use(r.authMiddleware.AuthAdmin)
 		{
 			routes.POST("/create", r.instanceHandler.Create)
-			routes.GET("/fetchInstances", r.instanceHandler.All)
-			routes.DELETE("/delete/:instanceName", r.instanceHandler.Delete)
-			routes.DELETE("/proxy/:instanceName", r.instanceHandler.DeleteProxy)
+			routes.GET("/all", r.instanceHandler.All)
+			routes.DELETE("/delete/:instanceId", r.instanceHandler.Delete)
+			routes.DELETE("/proxy/:instanceId", r.instanceHandler.DeleteProxy)
 		}
+	}
 
+	routes = eng.Group("/instance")
+	{
 		routes.Use(r.authMiddleware.Auth)
 		{
 			routes.POST("/connect", r.instanceHandler.Connect)
 			routes.GET("/status", r.instanceHandler.Status)
-			routes.POST("/disconnect", r.instanceHandler.Disconnect)
-			routes.DELETE("/logout", r.instanceHandler.Logout)
 			routes.GET("/qr", r.instanceHandler.Qr)
 			routes.POST("/pair", r.instanceHandler.Pair)
+			routes.POST("/disconnect", r.instanceHandler.Disconnect)
+			routes.DELETE("/logout", r.instanceHandler.Logout)
 		}
-
 	}
+
 	routes = eng.Group("/send")
 	{
 		routes.Use(r.authMiddleware.Auth)
@@ -74,8 +75,8 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.POST("/poll", r.sendHandler.SendPoll)
 			routes.POST("/sticker", r.sendHandler.SendSticker)
 			routes.POST("/location", r.sendHandler.SendLocation)
-			routes.POST("/contact", r.sendHandler.SendContact)
-			routes.POST("/list", r.sendHandler.SendList)
+			routes.POST("/contact", r.sendHandler.SendContact) // TODO: send multiple contacts
+			// TODO: send status
 		}
 	}
 	routes = eng.Group("/user")
@@ -84,7 +85,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 		{
 			routes.POST("/info", r.userHandler.GetUser)
 			routes.POST("/check", r.userHandler.CheckUser)
-			routes.GET("/avatar", r.userHandler.GetAvatar)
+			routes.POST("/avatar", r.userHandler.GetAvatar)
 			routes.GET("/contacts", r.userHandler.GetContacts)
 			routes.GET("/privacy", r.userHandler.GetPrivacy)
 			routes.POST("/block", r.userHandler.BlockContact)
@@ -100,20 +101,20 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.POST("/react", r.messageHandler.React)
 			routes.POST("/presence", r.messageHandler.ChatPresence)
 			routes.POST("/markread", r.messageHandler.MarkRead)
-			routes.POST("/downloadimage", r.messageHandler.DownloadImage)
+			routes.POST("/downloadimage", r.messageHandler.DownloadImage) // TODO: convert to DownloadMedia
 			routes.POST("/status", r.messageHandler.GetMessageStatus)
 			routes.POST("/delete", r.messageHandler.DeleteMessageEveryone)
-			routes.POST("/edit", r.messageHandler.EditMessage)
+			routes.POST("/edit", r.messageHandler.EditMessage) // TODO: edit MediaMessage too
 		}
 	}
 	routes = eng.Group("/chat")
 	{
 		routes.Use(r.authMiddleware.Auth)
 		{
-			routes.POST("/pin", r.chatHandler.ChatPin)
-			routes.POST("/unpin", r.chatHandler.ChatUnpin)
-			routes.POST("/archive", r.chatHandler.ChatArchive)
-			routes.POST("/mute", r.chatHandler.ChatMute)
+			routes.POST("/pin", r.chatHandler.ChatPin)         // TODO: not working
+			routes.POST("/unpin", r.chatHandler.ChatUnpin)     // TODO: not working
+			routes.POST("/archive", r.chatHandler.ChatArchive) // TODO: not working
+			routes.POST("/mute", r.chatHandler.ChatMute)       // TODO: not working
 		}
 	}
 	routes = eng.Group("/group")
@@ -127,7 +128,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.POST("/name", r.groupHandler.SetGroupName)
 			routes.POST("/create", r.groupHandler.CreateGroup)
 			routes.POST("/participant", r.groupHandler.UpdateParticipant)
-			routes.GET("/myall", r.groupHandler.GetMyGroups)
+			routes.GET("/myall", r.groupHandler.GetMyGroups) // TODO: not working
 			routes.POST("/join", r.groupHandler.JoinGroupLink)
 		}
 	}
@@ -169,8 +170,6 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.POST("/messages", r.newsletterHandler.GetNewsletterMessages)
 		}
 	}
-	routes.POST("/ws", r.websocketHandler.HandleWS)
-	routes.POST("/server/ok", r.serverHandler.ServerOk)
 
 }
 

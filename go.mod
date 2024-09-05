@@ -30,6 +30,7 @@ require (
 	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/bytedance/sonic v1.12.2 // indirect
 	github.com/bytedance/sonic/loader v0.2.0 // indirect
+	github.com/chai2010/webp v1.1.1 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect
 	github.com/cloudwego/iasm v0.2.0 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
@@ -65,6 +66,7 @@ require (
 	go.mau.fi/util v0.4.1 // indirect
 	golang.org/x/arch v0.10.0 // indirect
 	golang.org/x/crypto v0.26.0 // indirect
+	golang.org/x/image v0.20.0 // indirect
 	golang.org/x/sync v0.8.0 // indirect
 	golang.org/x/sys v0.25.0 // indirect
 	golang.org/x/text v0.18.0 // indirect

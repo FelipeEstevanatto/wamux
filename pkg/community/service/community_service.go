@@ -23,7 +23,7 @@ type communityService struct {
 }
 
 type CreateCommunityStruct struct {
-	CommunityName string `json:"community_name"`
+	CommunityName string `json:"communityName"`
 }
 
 type AddParticipantStruct struct {

@@ -17,7 +17,7 @@ import (
 )
 
 type InstanceService interface {
-	Create(data *CreateStruct) error
+	Create(data *CreateStruct) (*instance_model.Instance, error)
 	Connect(data *ConnectStruct, instance *instance_model.Instance) (*instance_model.Instance, string, string, error)
 	Disconnect(instance *instance_model.Instance) (*instance_model.Instance, error)
 	Logout(instance *instance_model.Instance) (*instance_model.Instance, error)
@@ -25,8 +25,8 @@ type InstanceService interface {
 	GetQr(instance *instance_model.Instance) (*QrcodeStruct, error)
 	Pair(data *PairStruct, instance *instance_model.Instance) (*PairReturnStruct, error)
 	GetAll() ([]*instance_model.Instance, error)
-	Delete(name string) error
-	RemoveProxy(name string) error
+	Delete(id string) error
+	RemoveProxy(id string) error
 	GetInstanceByToken(token string) (*instance_model.Instance, error)
 }
 
@@ -78,10 +78,10 @@ type PairReturnStruct struct {
 	PairingCode string
 }
 
-func (i instances) Create(data *CreateStruct) error {
+func (i instances) Create(data *CreateStruct) (*instance_model.Instance, error) {
 	proxyJson, err := json.Marshal(data.Proxy)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	instance := instance_model.Instance{
@@ -92,12 +92,12 @@ func (i instances) Create(data *CreateStruct) error {
 		Connected: false,
 	}
 
-	err = i.instanceRepository.Create(instance)
+	createdInstance, err := i.instanceRepository.Create(instance)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return createdInstance, nil
 }
 
 func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instance) (*instance_model.Instance, string, string, error) {
@@ -364,8 +364,8 @@ func (i instances) GetAll() ([]*instance_model.Instance, error) {
 	return instances, nil
 }
 
-func (i instances) Delete(name string) error {
-	instance, err := i.instanceRepository.GetInstanceByName(name)
+func (i instances) Delete(id string) error {
+	instance, err := i.instanceRepository.GetInstanceByID(id)
 	if err != nil {
 		return err
 	}
@@ -377,7 +377,7 @@ func (i instances) Delete(name string) error {
 		i.clientPointer[instance.Id].WAClient.Disconnect()
 	}
 
-	err = i.instanceRepository.DeleteByName(name)
+	err = i.instanceRepository.Delete(id)
 	if err != nil {
 		return err
 	}
@@ -385,8 +385,8 @@ func (i instances) Delete(name string) error {
 	return nil
 }
 
-func (i instances) RemoveProxy(name string) error {
-	instance, err := i.instanceRepository.GetInstanceByName(name)
+func (i instances) RemoveProxy(id string) error {
+	instance, err := i.instanceRepository.GetInstanceByID(id)
 	if err != nil {
 		return err
 	}
