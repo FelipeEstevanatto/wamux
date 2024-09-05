@@ -145,16 +145,20 @@ func main() {
 
 	migrate(db)
 
-	conn, err := amqp.Dial(config.AmqpUrl)
-	if err != nil {
-		logger.LogFatal("Failed to connect to RabbitMQ, err: %v", err)
-	}
-	defer func(conn *amqp.Connection) {
-		err := conn.Close()
+	var conn *amqp.Connection
+
+	if config.AmqpUrl != "" {
+		conn, err := amqp.Dial(config.AmqpUrl)
 		if err != nil {
-			logger.LogFatal("Failed to close RabbitMQ connection, err: %v", err)
+			logger.LogFatal("Failed to connect to RabbitMQ, err: %v", err)
 		}
-	}(conn)
+		defer func(conn *amqp.Connection) {
+			err := conn.Close()
+			if err != nil {
+				logger.LogFatal("Failed to close RabbitMQ connection, err: %v", err)
+			}
+		}(conn)
+	}
 
 	r := setupRouter(db, config, conn)
 

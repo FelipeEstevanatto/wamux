@@ -22,6 +22,7 @@ import (
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/appstate"
 	waProto "go.mau.fi/whatsmeow/binary/proto"
+	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/store"
 	"go.mau.fi/whatsmeow/store/sqlstore"
 	"go.mau.fi/whatsmeow/types"
@@ -359,6 +360,8 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	postMap := make(map[string]interface{})
 	postMap["event"] = rawEvt
 
+	logger.LogInfo("Event received %+v", rawEvt)
+
 	ex, err := os.Executable()
 	if err != nil {
 		panic(err)
@@ -443,7 +446,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			metaParts = append(metaParts, "ephemeral")
 		}
 		if protocolMessage := evt.Message.ProtocolMessage; protocolMessage != nil {
-			if protocolMessage.GetType() == waProto.ProtocolMessage_REVOKE {
+			if protocolMessage.GetType() == waE2E.ProtocolMessage_REVOKE {
 				logger.LogInfo("Message revoked")
 				postMap["revoked"] = true
 			}
@@ -464,8 +467,6 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 				logger.LogError("Error sending message to ws")
 			}
 		}
-
-		logger.LogInfo("Message received from %s", evt.Info.ID)
 
 		// if mycli.config.WebhookFiles {
 		// 	img := evt.Message.GetImageMessage()
@@ -587,6 +588,8 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		// 		postmap["mediaUrl"] = url
 		// 	}
 		// }
+
+		logger.LogInfo("Message received with ID: %s from %s", evt.Info.ID, evt.Info.Chat)
 	case *events.Receipt:
 		postMap["type"] = "ReadReceipt"
 		if evt.Type == types.ReceiptTypeRead || evt.Type == types.ReceiptTypeReadSelf {
@@ -702,14 +705,13 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		postMap["type"] = "SyncComplete"
 	case *events.LabelEdit:
 		postMap["type"] = "LabelEdit"
-		logger.LogInfo("Got label edit %+v", evt.Action)
 		// store label for later use
 		// action := evt.Action
 		// labelID := evt.LabelID
 		// actionColor := evt.Action.Color
 		// actionName := evt.Action.Name
 		// actionDeleted := evt.Action.Deleted
-
+		logger.LogInfo("Got label edit %+v", evt.Action)
 	case *events.LabelAssociationChat:
 		postMap["type"] = "LabelAssociationChat"
 		logger.LogInfo("Got label association chat %+v", evt)
@@ -726,7 +728,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	}
 
 	postMap["instanceToken"] = mycli.token
-	postMap["userId"] = mycli.userID
+	postMap["instanceId"] = mycli.userID
 
 	logger.LogInfo("Calling queue")
 	values, err := json.Marshal(postMap)
@@ -741,24 +743,84 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		queueName = fmt.Sprintf("%s.%s", userID, postMap["type"])
 	}
 
-	go mycli.callWehbook(queueName, values)
+	go mycli.callWebhook(queueName, values)
 }
 
-func (mycli *MyClient) callWehbook(queueName string, jsonData []byte) {
-	err := mycli.rabbitmqProducer.Produce(queueName, jsonData)
-	if err != nil {
-		logger.LogError("Failed to send message to rabbitmq: %s", err)
+func (mycli *MyClient) callWebhook(queueName string, jsonData []byte) {
+	if contains(mycli.subscriptions, "ALL") {
+		mycli.sendToQueueOrWebhook(queueName, jsonData)
 		return
 	}
 
-	err = mycli.webhookProducer.Produce(queueName, jsonData)
-	if err != nil {
-		logger.LogError("Failed to send message to webhook: %s", err)
+	var data map[string]interface{}
+	if err := json.Unmarshal(jsonData, &data); err != nil {
+		logger.LogError("Failed to parse jsonData: %s", err)
 		return
 	}
 
-	logger.LogInfo("Message enqueued successfully")
+	eventType, ok := data["type"].(string)
+	if !ok {
+		logger.LogError("jsonData does not contain a valid type field")
+		return
+	}
 
+	switch eventType {
+	case "Message":
+		if contains(mycli.subscriptions, "MESSAGE") {
+			mycli.sendToQueueOrWebhook(queueName, jsonData)
+		}
+	case "Receipt":
+		if contains(mycli.subscriptions, "READ_RECEIPT") {
+			mycli.sendToQueueOrWebhook(queueName, jsonData)
+		}
+	case "Presence":
+		if contains(mycli.subscriptions, "PRESENCE") {
+			mycli.sendToQueueOrWebhook(queueName, jsonData)
+		}
+	case "HistorySync":
+		if contains(mycli.subscriptions, "HISTORY_SYNC") {
+			mycli.sendToQueueOrWebhook(queueName, jsonData)
+		}
+	case "ChatPresence":
+		if contains(mycli.subscriptions, "CHAT_PRESENCE") {
+			mycli.sendToQueueOrWebhook(queueName, jsonData)
+		}
+	case "CallOffer", "CallAccept", "CallTerminate", "CallOfferNotice", "CallRelayLatency":
+		if contains(mycli.subscriptions, "CALL") {
+			mycli.sendToQueueOrWebhook(queueName, jsonData)
+		}
+	default:
+		logger.LogInfo("Event type not subscribed: %s", eventType)
+	}
+}
+
+func contains(subscriptions []string, event string) bool {
+	for _, sub := range subscriptions {
+		if strings.EqualFold(sub, event) {
+			return true
+		}
+	}
+	return false
+}
+
+func (mycli *MyClient) sendToQueueOrWebhook(queueName string, jsonData []byte) {
+	if mycli.config.AmqpUrl != "" {
+		err := mycli.rabbitmqProducer.Produce(queueName, jsonData)
+		if err != nil {
+			logger.LogError("Failed to send message to rabbitmq: %s", err)
+			return
+		}
+		logger.LogInfo("Message enqueued successfully")
+	}
+
+	if mycli.config.WebhookUrl != "" {
+		err := mycli.webhookProducer.Produce(queueName, jsonData)
+		if err != nil {
+			logger.LogError("Failed to send message to webhook: %s", err)
+			return
+		}
+		logger.LogInfo("Message sent to webhook successfully")
+	}
 }
 
 func (w whatsmeowService) ConnectOnStartup() {
