@@ -257,7 +257,7 @@ func (g *groupHandler) CreateGroup(ctx *gin.Context) {
 		return
 	}
 
-	if len(data.Participants) <= 1 {
+	if len(data.Participants) < 1 {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "participants are required"})
 		return
 	}
@@ -308,7 +308,7 @@ func (g *groupHandler) UpdateParticipant(ctx *gin.Context) {
 		return
 	}
 
-	if len(data.Participants) <= 1 {
+	if len(data.Participants) < 1 {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "participants are required"})
 		return
 	}

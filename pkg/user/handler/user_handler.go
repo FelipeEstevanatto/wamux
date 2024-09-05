@@ -1,7 +1,6 @@
 package user_handler
 
 import (
-	"encoding/json"
 	"net/http"
 
 	instance_model "github.com/Zapbox-API/evolution-go/pkg/instance/model"
@@ -52,7 +51,7 @@ func (u *userHandler) GetUser(ctx *gin.Context) {
 		return
 	}
 
-	if len(data.Phone) < 1 {
+	if len(data.Number) < 1 {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
 		return
 	}
@@ -63,13 +62,7 @@ func (u *userHandler) GetUser(ctx *gin.Context) {
 		return
 	}
 
-	responseData, err := json.Marshal(uc)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": uc})
 }
 
 // Check a user
@@ -99,7 +92,7 @@ func (u *userHandler) CheckUser(ctx *gin.Context) {
 		return
 	}
 
-	if len(data.Phone) < 1 {
+	if len(data.Number) < 1 {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
 		return
 	}
@@ -110,13 +103,7 @@ func (u *userHandler) CheckUser(ctx *gin.Context) {
 		return
 	}
 
-	responseData, err := json.Marshal(uc)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": uc})
 }
 
 // Get a user's avatar
@@ -125,11 +112,11 @@ func (u *userHandler) CheckUser(ctx *gin.Context) {
 // @Tags User
 // @Accept json
 // @Produce json
-// @Param phone query string true "Phone number"
+// @Param message body user_service.GetAvatarStruct true "Avatar data"
 // @Success 200 {object} gin.H "success"
 // @Failure 400 {object} gin.H "Error on validation"
 // @Failure 500 {object} gin.H "Internal server error"
-// @Router /user/avatar [get]
+// @Router /user/avatar [post]
 func (u *userHandler) GetAvatar(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -146,12 +133,12 @@ func (u *userHandler) GetAvatar(ctx *gin.Context) {
 		return
 	}
 
-	if len(data.Phone) < 1 {
+	if len(data.Number) < 1 {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
 		return
 	}
 
-	if data.Phone == "" {
+	if data.Number == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
 		return
 	}
@@ -162,13 +149,7 @@ func (u *userHandler) GetAvatar(ctx *gin.Context) {
 		return
 	}
 
-	responseData, err := json.Marshal(pic)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": pic})
 }
 
 // Get a user's contacts
@@ -195,13 +176,7 @@ func (u *userHandler) GetContacts(ctx *gin.Context) {
 		return
 	}
 
-	responseData, err := json.Marshal(contacts)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": contacts})
 }
 
 // Get a user's privacy settings
@@ -228,13 +203,7 @@ func (u *userHandler) GetPrivacy(ctx *gin.Context) {
 		return
 	}
 
-	responseData, err := json.Marshal(privacy)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": privacy})
 }
 
 // Block a contact
@@ -264,12 +233,12 @@ func (u *userHandler) BlockContact(ctx *gin.Context) {
 		return
 	}
 
-	if len(data.Phone) < 1 {
+	if len(data.Number) < 1 {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
 		return
 	}
 
-	if data.Phone == "" {
+	if data.Number == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
 		return
 	}
@@ -280,13 +249,7 @@ func (u *userHandler) BlockContact(ctx *gin.Context) {
 		return
 	}
 
-	responseData, err := json.Marshal(resp)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": resp})
 }
 
 // Unblock a contact
@@ -316,12 +279,12 @@ func (u *userHandler) UnblockContact(ctx *gin.Context) {
 		return
 	}
 
-	if len(data.Phone) < 1 {
+	if len(data.Number) < 1 {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
 		return
 	}
 
-	if data.Phone == "" {
+	if data.Number == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
 		return
 	}
@@ -332,13 +295,7 @@ func (u *userHandler) UnblockContact(ctx *gin.Context) {
 		return
 	}
 
-	responseData, err := json.Marshal(resp)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": resp})
 }
 
 // Get a user's block list

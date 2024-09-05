@@ -1,30 +1,34 @@
 package instance_repository
 
 import (
+	"fmt"
+
 	instance_model "github.com/Zapbox-API/evolution-go/pkg/instance/model"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
 type InstanceRepository interface {
-	Create(instance_model.Instance) error
+	Create(instance instance_model.Instance) (*instance_model.Instance, error)
 	GetInstanceByID(instanceId string) (*instance_model.Instance, error)
 	GetInstanceByToken(token string) (*instance_model.Instance, error)
-	GetInstanceByName(name string) (*instance_model.Instance, error)
 	Update(*instance_model.Instance) error
 	UpdateConnected(userId string, status bool) error
 	UpdateJid(userId string, jid string) error
 	GetAllConnectedInstances() ([]*instance_model.Instance, error)
 	GetAll() ([]*instance_model.Instance, error)
 	Delete(instanceId string) error
-	DeleteByName(name string) error
 }
 
 type instanceRepository struct {
 	db *gorm.DB
 }
 
-func (i *instanceRepository) Create(instance instance_model.Instance) error {
-	return i.db.Create(&instance).Error
+func (i *instanceRepository) Create(instance instance_model.Instance) (*instance_model.Instance, error) {
+	if err := i.db.Create(&instance).Error; err != nil {
+		return nil, err
+	}
+	return &instance, nil
 }
 
 func (i *instanceRepository) GetInstanceByToken(token string) (*instance_model.Instance, error) {
@@ -38,18 +42,13 @@ func (i *instanceRepository) GetInstanceByToken(token string) (*instance_model.I
 }
 
 func (i *instanceRepository) GetInstanceByID(instanceId string) (*instance_model.Instance, error) {
-	var instance instance_model.Instance
-	err := i.db.Where("id = ?", instanceId).First(&instance).Error
-	if err != nil {
-		return nil, err
+	// Valida o formato do UUID
+	if _, err := uuid.Parse(instanceId); err != nil {
+		return nil, fmt.Errorf("invalid UUID format: %v", err)
 	}
 
-	return &instance, nil
-}
-
-func (i *instanceRepository) GetInstanceByName(name string) (*instance_model.Instance, error) {
 	var instance instance_model.Instance
-	err := i.db.Where("name = ?", name).First(&instance).Error
+	err := i.db.Where("id = ?", instanceId).First(&instance).Error
 	if err != nil {
 		return nil, err
 	}
@@ -90,11 +89,7 @@ func (i *instanceRepository) GetAll() ([]*instance_model.Instance, error) {
 }
 
 func (i *instanceRepository) Delete(instanceId string) error {
-	return i.db.Delete(&instance_model.Instance{}, instanceId).Error
-}
-
-func (i *instanceRepository) DeleteByName(name string) error {
-	return i.db.Where("name = ?", name).Delete(&instance_model.Instance{}).Error
+	return i.db.Where("id = ?", instanceId).Delete(&instance_model.Instance{}).Error
 }
 
 func NewInstanceRepository(db *gorm.DB) InstanceRepository {

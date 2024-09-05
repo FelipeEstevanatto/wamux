@@ -717,6 +717,35 @@ const docTemplate = `{
                 }
             }
         },
+        "/instance/all": {
+            "get": {
+                "description": "Get all instances",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Instance"
+                ],
+                "summary": "Get all instances",
+                "responses": {
+                    "200": {
+                        "description": "All instances",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
         "/instance/connect": {
             "post": {
                 "description": "Connect to instance with the provided data",
@@ -809,7 +838,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/instance/delete/{instanceName}": {
+        "/instance/delete/{instanceId}": {
             "delete": {
                 "description": "Delete instance",
                 "consumes": [
@@ -825,8 +854,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance name",
-                        "name": "instanceName",
+                        "description": "Instance Id",
+                        "name": "instanceId",
                         "in": "path",
                         "required": true
                     }
@@ -869,35 +898,6 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "Instance disconnected successfully",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    }
-                }
-            }
-        },
-        "/instance/fetchInstances": {
-            "get": {
-                "description": "Get all instances",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Instance"
-                ],
-                "summary": "Get all instances",
-                "responses": {
-                    "200": {
-                        "description": "All instances",
                         "schema": {
                             "$ref": "#/definitions/gin.H"
                         }
@@ -986,7 +986,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/instance/proxy/{instanceName}": {
+        "/instance/proxy/{instanceId}": {
             "delete": {
                 "description": "Delete proxy",
                 "consumes": [
@@ -1002,8 +1002,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Instance name",
-                        "name": "instanceName",
+                        "description": "Instance id",
+                        "name": "instanceId",
                         "in": "path",
                         "required": true
                     }
@@ -1827,7 +1827,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/pkg_sendMessage_handler.SendContactMessageRequest"
+                            "$ref": "#/definitions/github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.ContactStruct"
                         }
                     }
                 ],
@@ -1873,53 +1873,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/pkg_sendMessage_handler.SendTextMessageRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "success",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    },
-                    "400": {
-                        "description": "Error on validation",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/gin.H"
-                        }
-                    }
-                }
-            }
-        },
-        "/send/list": {
-            "post": {
-                "description": "Send a list message",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Send Message"
-                ],
-                "summary": "Send a list message",
-                "parameters": [
-                    {
-                        "description": "Message data",
-                        "name": "message",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/pkg_sendMessage_handler.SendListMessageRequest"
+                            "$ref": "#/definitions/github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.LinkStruct"
                         }
                     }
                 ],
@@ -1965,7 +1919,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/pkg_sendMessage_handler.SendLocationMessageRequest"
+                            "$ref": "#/definitions/github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.LocationStruct"
                         }
                     }
                 ],
@@ -2011,7 +1965,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/pkg_sendMessage_handler.SendMediaMessageRequest"
+                            "$ref": "#/definitions/github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.MediaStruct"
                         }
                     }
                 ],
@@ -2057,7 +2011,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/pkg_sendMessage_handler.SendPollMessageRequest"
+                            "$ref": "#/definitions/github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.PollStruct"
                         }
                     }
                 ],
@@ -2103,7 +2057,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/pkg_sendMessage_handler.SendStickerMessageRequest"
+                            "$ref": "#/definitions/github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.StickerStruct"
                         }
                     }
                 ],
@@ -2149,7 +2103,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/pkg_sendMessage_handler.SendTextMessageRequest"
+                            "$ref": "#/definitions/github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.TextStruct"
                         }
                     }
                 ],
@@ -3002,6 +2956,238 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.ContactStruct": {
+            "type": "object",
+            "properties": {
+                "delay": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "mentionAll": {
+                    "type": "boolean"
+                },
+                "mentionedJid": {
+                    "type": "string"
+                },
+                "number": {
+                    "type": "string"
+                },
+                "quoted": {
+                    "$ref": "#/definitions/github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.QuotedStruct"
+                },
+                "vcard": {
+                    "$ref": "#/definitions/github_com_Zapbox-API_evolution-go_pkg_utils.VCardStruct"
+                }
+            }
+        },
+        "github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.LinkStruct": {
+            "type": "object",
+            "properties": {
+                "delay": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "imgUrl": {
+                    "type": "string"
+                },
+                "mentionAll": {
+                    "type": "boolean"
+                },
+                "mentionedJid": {
+                    "type": "string"
+                },
+                "number": {
+                    "type": "string"
+                },
+                "quoted": {
+                    "$ref": "#/definitions/github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.QuotedStruct"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.LocationStruct": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "delay": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "latitude": {
+                    "type": "number"
+                },
+                "longitude": {
+                    "type": "number"
+                },
+                "mentionAll": {
+                    "type": "boolean"
+                },
+                "mentionedJid": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "number": {
+                    "type": "string"
+                },
+                "quoted": {
+                    "$ref": "#/definitions/github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.QuotedStruct"
+                }
+            }
+        },
+        "github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.MediaStruct": {
+            "type": "object",
+            "properties": {
+                "caption": {
+                    "type": "string"
+                },
+                "delay": {
+                    "type": "integer"
+                },
+                "filename": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "mentionAll": {
+                    "type": "boolean"
+                },
+                "mentionedJid": {
+                    "type": "string"
+                },
+                "number": {
+                    "type": "string"
+                },
+                "quoted": {
+                    "$ref": "#/definitions/github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.QuotedStruct"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.PollStruct": {
+            "type": "object",
+            "properties": {
+                "delay": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "maxAnswer": {
+                    "type": "integer"
+                },
+                "mentionAll": {
+                    "type": "boolean"
+                },
+                "mentionedJid": {
+                    "type": "string"
+                },
+                "number": {
+                    "type": "string"
+                },
+                "options": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "question": {
+                    "type": "string"
+                },
+                "quoted": {
+                    "$ref": "#/definitions/github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.QuotedStruct"
+                }
+            }
+        },
+        "github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.QuotedStruct": {
+            "type": "object",
+            "properties": {
+                "messageId": {
+                    "type": "string"
+                },
+                "participant": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.StickerStruct": {
+            "type": "object",
+            "properties": {
+                "delay": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "mentionAll": {
+                    "type": "boolean"
+                },
+                "mentionedJid": {
+                    "type": "string"
+                },
+                "number": {
+                    "type": "string"
+                },
+                "quoted": {
+                    "$ref": "#/definitions/github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.QuotedStruct"
+                },
+                "sticker": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.TextStruct": {
+            "type": "object",
+            "properties": {
+                "delay": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "mentionAll": {
+                    "type": "boolean"
+                },
+                "mentionedJid": {
+                    "type": "string"
+                },
+                "number": {
+                    "type": "string"
+                },
+                "quoted": {
+                    "$ref": "#/definitions/github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.QuotedStruct"
+                },
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
         "github_com_Zapbox-API_evolution-go_pkg_user_service.BlockStruct": {
             "type": "object",
             "properties": {
@@ -3029,143 +3215,17 @@ const docTemplate = `{
                 }
             }
         },
-        "pkg_sendMessage_handler.SendContactMessageRequest": {
+        "github_com_Zapbox-API_evolution-go_pkg_utils.VCardStruct": {
             "type": "object",
             "properties": {
-                "phone": {
-                    "type": "string",
-                    "example": "557499879409"
+                "fullName": {
+                    "type": "string"
                 },
-                "vcard": {
-                    "type": "object",
-                    "properties": {
-                        "fullName": {
-                            "type": "string",
-                            "example": "John Doe"
-                        },
-                        "phone": {
-                            "type": "string",
-                            "example": "557499879409"
-                        }
-                    }
-                }
-            }
-        },
-        "pkg_sendMessage_handler.SendListMessageRequest": {
-            "type": "object",
-            "properties": {
-                "buttonText": {
-                    "type": "string",
-                    "example": "View"
-                },
-                "desc": {
-                    "type": "string",
-                    "example": "This is a list"
-                },
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "[\"Item 1\"",
-                        " \"Item 2\"]"
-                    ]
+                "organization": {
+                    "type": "string"
                 },
                 "phone": {
-                    "type": "string",
-                    "example": "557499879409"
-                }
-            }
-        },
-        "pkg_sendMessage_handler.SendLocationMessageRequest": {
-            "type": "object",
-            "properties": {
-                "latitude": {
-                    "type": "number",
-                    "example": -23.5505199
-                },
-                "longitude": {
-                    "type": "number",
-                    "example": -46.6333094
-                },
-                "name": {
-                    "type": "string",
-                    "example": "São Paulo"
-                },
-                "phone": {
-                    "type": "string",
-                    "example": "557499879409"
-                }
-            }
-        },
-        "pkg_sendMessage_handler.SendMediaMessageRequest": {
-            "type": "object",
-            "properties": {
-                "phone": {
-                    "type": "string",
-                    "example": "557499879409"
-                },
-                "type": {
-                    "type": "string",
-                    "example": "image"
-                },
-                "url": {
-                    "type": "string",
-                    "example": "https://example.com/image.jpg"
-                }
-            }
-        },
-        "pkg_sendMessage_handler.SendPollMessageRequest": {
-            "type": "object",
-            "properties": {
-                "maxAnswer": {
-                    "type": "integer",
-                    "example": 1
-                },
-                "options": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "[\"Red\"",
-                        " \"Blue\"]"
-                    ]
-                },
-                "phone": {
-                    "type": "string",
-                    "example": "557499879409"
-                },
-                "question": {
-                    "type": "string",
-                    "example": "What is your favorite color?"
-                }
-            }
-        },
-        "pkg_sendMessage_handler.SendStickerMessageRequest": {
-            "type": "object",
-            "properties": {
-                "phone": {
-                    "type": "string",
-                    "example": "557499879409"
-                },
-                "sticker": {
-                    "type": "string",
-                    "example": "https://example.com/sticker.webp"
-                }
-            }
-        },
-        "pkg_sendMessage_handler.SendTextMessageRequest": {
-            "type": "object",
-            "properties": {
-                "phone": {
-                    "type": "string",
-                    "example": "557499879409"
-                },
-                "text": {
-                    "type": "string",
-                    "example": "Teste"
+                    "type": "string"
                 }
             }
         },

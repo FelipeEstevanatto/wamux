@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"image"
 	"io"
 	"net/http"
 	"os/exec"
@@ -16,12 +17,13 @@ import (
 	instance_model "github.com/Zapbox-API/evolution-go/pkg/instance/model"
 	"github.com/Zapbox-API/evolution-go/pkg/utils"
 	whatsmeow_service "github.com/Zapbox-API/evolution-go/pkg/whatsmeow/service"
+	"github.com/chai2010/webp"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/gomessguii/logger"
-	"github.com/vincent-petithory/dataurl"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/types"
+	"golang.org/x/net/html"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -33,7 +35,6 @@ type SendService interface {
 	SendSticker(data *StickerStruct, instance *instance_model.Instance) (string, string, error)
 	SendLocation(data *LocationStruct, instance *instance_model.Instance) (string, string, error)
 	SendContact(data *ContactStruct, instance *instance_model.Instance) (string, string, error)
-	SendList(data *ListStruct, instance *instance_model.Instance) (string, string, error)
 }
 
 type sendService struct {
@@ -41,99 +42,118 @@ type sendService struct {
 	whatsmeowService whatsmeow_service.WhatsmeowService
 }
 
+type SendDataStruct struct {
+	Id           string
+	Number       string
+	Delay        int32
+	MentionAll   bool
+	MentionedJID string
+	Quoted       QuotedStruct
+}
+
+type QuotedStruct struct {
+	MessageID   string `json:"messageId"`
+	Participant string `json:"participant"`
+}
+
 type TextStruct struct {
-	Phone       string            `json:"phone"`
-	Text        string            `json:"text"`
-	Id          string            `json:"id"`
-	ContextInfo waE2E.ContextInfo `json:"contextInfo"`
+	Number       string       `json:"number"`
+	Text         string       `json:"text"`
+	Id           string       `json:"id"`
+	Delay        int32        `json:"delay"`
+	MentionedJID string       `json:"mentionedJid"`
+	MentionAll   bool         `json:"mentionAll"`
+	Quoted       QuotedStruct `json:"quoted"`
 }
 
 type LinkStruct struct {
-	Phone       string            `json:"phone"`
-	Text        string            `json:"text"`
-	Title       string            `json:"title"`
-	Url         string            `json:"url"`
-	Description string            `json:"description"`
-	ImgUrl      string            `json:"imgUrl"`
-	Id          string            `json:"id"`
-	ContextInfo waE2E.ContextInfo `json:"contextInfo"`
+	Number       string       `json:"number"`
+	Text         string       `json:"text"`
+	Title        string       `json:"title"`
+	Url          string       `json:"url"`
+	Description  string       `json:"description"`
+	ImgUrl       string       `json:"imgUrl"`
+	Id           string       `json:"id"`
+	Delay        int32        `json:"delay"`
+	MentionedJID string       `json:"mentionedJid"`
+	MentionAll   bool         `json:"mentionAll"`
+	Quoted       QuotedStruct `json:"quoted"`
 }
 
 type MediaStruct struct {
-	Phone       string            `json:"phone"`
-	Url         string            `json:"url"`
-	Type        string            `json:"type"`
-	Duration    int32             `json:"duration"`
-	Caption     string            `json:"caption"`
-	Filename    string            `json:"filename"`
-	Id          string            `json:"id"`
-	ContextInfo waE2E.ContextInfo `json:"contextInfo"`
+	Number       string       `json:"number"`
+	Url          string       `json:"url"`
+	Type         string       `json:"type"`
+	Caption      string       `json:"caption"`
+	Filename     string       `json:"filename"`
+	Id           string       `json:"id"`
+	Delay        int32        `json:"delay"`
+	MentionedJID string       `json:"mentionedJid"`
+	MentionAll   bool         `json:"mentionAll"`
+	Quoted       QuotedStruct `json:"quoted"`
 }
 
 type PollStruct struct {
-	Phone       string            `json:"phone"`
-	Question    string            `json:"question"`
-	MaxAnswer   int               `json:"maxAnswer"`
-	Options     []string          `json:"options"`
-	ContextInfo waE2E.ContextInfo `json:"contextInfo"`
+	Id           string       `json:"id"`
+	Number       string       `json:"number"`
+	Question     string       `json:"question"`
+	MaxAnswer    int          `json:"maxAnswer"`
+	Options      []string     `json:"options"`
+	Delay        int32        `json:"delay"`
+	MentionedJID string       `json:"mentionedJid"`
+	MentionAll   bool         `json:"mentionAll"`
+	Quoted       QuotedStruct `json:"quoted"`
 }
 
 type StickerStruct struct {
-	Phone        string            `json:"phone"`
-	Sticker      string            `json:"sticker"`
-	Id           string            `json:"id"`
-	PngThumbnail string            `json:"pngThumbnail"`
-	ContextInfo  waE2E.ContextInfo `json:"contextInfo"`
+	Number       string       `json:"number"`
+	Sticker      string       `json:"sticker"`
+	Id           string       `json:"id"`
+	Delay        int32        `json:"delay"`
+	MentionedJID string       `json:"mentionedJid"`
+	MentionAll   bool         `json:"mentionAll"`
+	Quoted       QuotedStruct `json:"quoted"`
 }
 
 type LocationStruct struct {
-	Phone       string            `json:"phone"`
-	Id          string            `json:"id"`
-	Name        string            `json:"name"`
-	Latitude    float64           `json:"latitude"`
-	Longitude   float64           `json:"longitude"`
-	ContextInfo waE2E.ContextInfo `json:"contextInfo"`
+	Number       string       `json:"number"`
+	Id           string       `json:"id"`
+	Name         string       `json:"name"`
+	Latitude     float64      `json:"latitude"`
+	Longitude    float64      `json:"longitude"`
+	Address      string       `json:"address"`
+	Delay        int32        `json:"delay"`
+	MentionedJID string       `json:"mentionedJid"`
+	MentionAll   bool         `json:"mentionAll"`
+	Quoted       QuotedStruct `json:"quoted"`
 }
 
 type ContactStruct struct {
-	Phone       string            `json:"phone"`
-	Id          string            `json:"id"`
-	Vcard       utils.VCardStruct `json:"vcard"`
-	ContextInfo waE2E.ContextInfo `json:"contextInfo"`
+	Number       string            `json:"number"`
+	Id           string            `json:"id"`
+	Vcard        utils.VCardStruct `json:"vcard"`
+	Delay        int32             `json:"delay"`
+	MentionedJID string            `json:"mentionedJid"`
+	MentionAll   bool              `json:"mentionAll"`
+	Quoted       QuotedStruct      `json:"quoted"`
 }
 
-type listStruct struct {
-	Title string `json:"title"`
-	Desc  string `json:"desc"`
-	RowId string `json:"rowId"`
-}
-
-type ListStruct struct {
-	Phone       string `json:"phone"`
-	Id          string `json:"id"`
-	ButtonText  string `json:"buttonText"`
-	Desc        string `json:"desc"`
-	TopText     string `json:"topText"`
-	List        []listStruct
-	ContextInfo waE2E.ContextInfo `json:"contextInfo"`
-}
-
-func validateMessageFields(phone string, stanzaID *string, participant *string) (types.JID, error) {
+func validateMessageFields(phone string, messageID *string, participant *string) (types.JID, error) {
 
 	recipient, ok := utils.ParseJID(phone)
 	if !ok {
 		return types.NewJID("", types.DefaultUserServer), errors.New("could not parse phone")
 	}
 
-	if stanzaID != nil {
+	if messageID != nil {
 		if participant == nil {
-			return types.NewJID("", types.DefaultUserServer), errors.New("missing participant in contextinfo")
+			return types.NewJID("", types.DefaultUserServer), errors.New("missing Participant in ContextInfo")
 		}
 	}
 
 	if participant != nil {
-		if stanzaID == nil {
-			return types.NewJID("", types.DefaultUserServer), errors.New("missing stanzaid in contextinfo")
+		if messageID == nil {
+			return types.NewJID("", types.DefaultUserServer), errors.New("missing StanzaId in ContextInfo")
 		}
 	}
 
@@ -155,40 +175,76 @@ func (s *sendService) SendText(data *TextStruct, instance *instance_model.Instan
 		return "", "", errors.New("no session found")
 	}
 
-	var ts time.Time
-
-	recipient, err := validateMessageFields(data.Phone, data.ContextInfo.StanzaID, data.ContextInfo.Participant)
-	if err != nil {
-		logger.LogError("Error validating message fields: %v", err)
-		return "", "", err
-	}
-
-	msgId := s.clientPointer[instance.Id].WAClient.GenerateMessageID()
-
 	msg := &waE2E.Message{
 		ExtendedTextMessage: &waE2E.ExtendedTextMessage{
 			Text: &data.Text,
 		},
 	}
 
-	if data.ContextInfo.StanzaID != nil {
-		msg.ExtendedTextMessage.ContextInfo = &waE2E.ContextInfo{
-			StanzaID:      proto.String(*data.ContextInfo.StanzaID),
-			Participant:   proto.String(*data.ContextInfo.Participant),
-			QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
-		}
-	}
-
-	_, err = s.clientPointer[instance.Id].WAClient.SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{
-		ID: msgId,
+	msgId, ts, err := s.SendMessage(instance.Id, msg, "ExtendedTextMessage", &SendDataStruct{
+		Id:           data.Id,
+		Number:       data.Number,
+		Quoted:       data.Quoted,
+		Delay:        data.Delay,
+		MentionAll:   data.MentionAll,
+		MentionedJID: data.MentionedJID,
 	})
 	if err != nil {
 		return "", "", err
 	}
 
-	logger.LogInfo("Message sent to %s", data.Phone)
+	return msgId, ts, nil
+}
 
-	return msgId, ts.String(), nil
+func fetchLinkMetadata(url string) (string, string, string, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", "", "", err
+	}
+	defer resp.Body.Close()
+
+	doc, err := html.Parse(resp.Body)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	var title, description, imgURL string
+
+	var f func(*html.Node)
+	f = func(n *html.Node) {
+		if n.Type == html.ElementNode {
+			if n.Data == "title" && n.FirstChild != nil {
+				title = n.FirstChild.Data
+			}
+			if n.Data == "meta" {
+				var property, content string
+				for _, attr := range n.Attr {
+					if attr.Key == "property" || attr.Key == "name" {
+						property = attr.Val
+					}
+					if attr.Key == "content" {
+						content = attr.Val
+					}
+				}
+
+				if (property == "description" || property == "og:description") && content != "" {
+					description = content
+				}
+
+				if property == "og:image" && content != "" {
+					imgURL = content
+				}
+			}
+		}
+
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			f(c)
+		}
+	}
+
+	f(doc)
+
+	return title, description, imgURL, nil
 }
 
 func (s *sendService) SendLink(data *LinkStruct, instance *instance_model.Instance) (string, string, error) {
@@ -196,15 +252,18 @@ func (s *sendService) SendLink(data *LinkStruct, instance *instance_model.Instan
 		return "", "", errors.New("no session found")
 	}
 
-	var ts time.Time
+	matchedText := findURL(data.Text)
 
-	recipient, err := validateMessageFields(data.Phone, data.ContextInfo.StanzaID, data.ContextInfo.Participant)
-	if err != nil {
-		logger.LogError("Error validating message fields: %v", err)
-		return "", "", err
+	if matchedText != "" {
+		title, description, imgUrl, err := fetchLinkMetadata(matchedText)
+		if err != nil {
+			return "", "", err
+		}
+
+		data.Title = title
+		data.Description = description
+		data.ImgUrl = imgUrl
 	}
-
-	msgId := s.clientPointer[instance.Id].WAClient.GenerateMessageID()
 
 	var fileData []byte
 	if data.ImgUrl != "" {
@@ -215,8 +274,6 @@ func (s *sendService) SendLink(data *LinkStruct, instance *instance_model.Instan
 		defer resp.Body.Close()
 		fileData, _ = io.ReadAll(resp.Body)
 	}
-
-	matchedText := findURL(data.Text)
 
 	msg := &waE2E.Message{
 		ExtendedTextMessage: &waE2E.ExtendedTextMessage{
@@ -229,24 +286,19 @@ func (s *sendService) SendLink(data *LinkStruct, instance *instance_model.Instan
 		},
 	}
 
-	if data.ContextInfo.StanzaID != nil {
-		msg.ExtendedTextMessage.ContextInfo = &waE2E.ContextInfo{
-			StanzaID:      proto.String(*data.ContextInfo.StanzaID),
-			Participant:   proto.String(*data.ContextInfo.Participant),
-			QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
-		}
-	}
-
-	_, err = s.clientPointer[instance.Id].WAClient.SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{
-		ID: msgId,
+	msgId, ts, err := s.SendMessage(instance.Id, msg, "ExtendedTextMessage", &SendDataStruct{
+		Id:           data.Id,
+		Number:       data.Number,
+		Quoted:       data.Quoted,
+		Delay:        data.Delay,
+		MentionAll:   data.MentionAll,
+		MentionedJID: data.MentionedJID,
 	})
 	if err != nil {
 		return "", "", err
 	}
 
-	logger.LogInfo("Message sent to %s", data.Phone)
-
-	return msgId, ts.String(), nil
+	return msgId, ts, nil
 }
 
 func convertAudioToOpus(inputData []byte) ([]byte, error) {
@@ -303,16 +355,6 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 	if s.clientPointer[instance.Id].WAClient == nil {
 		return "", "", errors.New("no session found")
 	}
-
-	var ts time.Time
-
-	recipient, err := validateMessageFields(data.Phone, data.ContextInfo.StanzaID, data.ContextInfo.Participant)
-	if err != nil {
-		logger.LogError("Error validating message fields: %v", err)
-		return "", "", err
-	}
-
-	msgId := s.clientPointer[instance.Id].WAClient.GenerateMessageID()
 
 	var uploaded whatsmeow.UploadResponse
 	var fileData []byte
@@ -372,6 +414,7 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 	logger.LogInfo("Media uploaded with %s", uploaded.FileLength)
 
 	var media *waE2E.Message
+	var mediaType string
 
 	switch data.Type {
 	case "image":
@@ -385,6 +428,8 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 			FileSHA256:    uploaded.FileSHA256,
 			FileLength:    proto.Uint64(uint64(len(fileData))),
 		}}
+
+		mediaType = "ImageMessage"
 	case "video":
 		media = &waE2E.Message{VideoMessage: &waE2E.VideoMessage{
 			Caption:       proto.String(data.Caption),
@@ -396,6 +441,8 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 			FileSHA256:    uploaded.FileSHA256,
 			FileLength:    proto.Uint64(uint64(len(fileData))),
 		}}
+
+		mediaType = "VideoMessage"
 	case "audio":
 		media = &waE2E.Message{AudioMessage: &waE2E.AudioMessage{
 			URL:              proto.String(uploaded.URL),
@@ -410,6 +457,8 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 			Waveform:         []byte(*proto.String("OjAnExISDgsKCAkJBwgkHAQEBBEFAwMNAxAcKCgkFzM0QUE4Jh4eKAoKChcLCwkeFgkJCQo3JiQmIiIRPz8/Ow==")),
 			Seconds:          proto.Uint32(uint32(duration)),
 		}}
+
+		mediaType = "AudioMessage"
 	case "document":
 		media = &waE2E.Message{DocumentMessage: &waE2E.DocumentMessage{
 			URL:           proto.String(uploaded.URL),
@@ -421,38 +470,25 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 			FileSHA256:    uploaded.FileSHA256,
 			FileLength:    proto.Uint64(uint64(len(fileData))),
 		}}
+
+		mediaType = "DocumentMessage"
 	default:
 		return "", "", errors.New("invalid media type")
 	}
 
-	if data.ContextInfo.StanzaID != nil && data.ContextInfo.Participant != nil {
-		contextInfo := &waE2E.ContextInfo{
-			StanzaID:      proto.String(*data.ContextInfo.StanzaID),
-			Participant:   proto.String(*data.ContextInfo.Participant),
-			QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
-		}
-		switch data.Type {
-		case "image":
-			media.GetImageMessage().ContextInfo = contextInfo
-		case "video":
-			media.GetVideoMessage().ContextInfo = contextInfo
-		case "audio":
-			media.GetAudioMessage().ContextInfo = contextInfo
-		case "document":
-			media.GetDocumentMessage().ContextInfo = contextInfo
-		}
-	}
-
-	_, err = s.clientPointer[instance.Id].WAClient.SendMessage(context.Background(), recipient, media, whatsmeow.SendRequestExtra{
-		ID: msgId,
+	msgId, ts, err := s.SendMessage(instance.Id, media, mediaType, &SendDataStruct{
+		Id:           data.Id,
+		Number:       data.Number,
+		Quoted:       data.Quoted,
+		Delay:        data.Delay,
+		MentionAll:   data.MentionAll,
+		MentionedJID: data.MentionedJID,
 	})
 	if err != nil {
 		return "", "", err
 	}
 
-	logger.LogInfo("Message sent to %s", data.Phone)
-
-	return msgId, ts.String(), nil
+	return msgId, ts, nil
 }
 
 func (s *sendService) SendPoll(data *PollStruct, instance *instance_model.Instance) (string, string, error) {
@@ -460,27 +496,45 @@ func (s *sendService) SendPoll(data *PollStruct, instance *instance_model.Instan
 		return "", "", errors.New("no session found")
 	}
 
-	var ts time.Time
+	msg := s.clientPointer[instance.Id].WAClient.BuildPollCreation(data.Question, data.Options, data.MaxAnswer)
 
-	recipient, ok := utils.ParseJID(data.Phone)
-	if !ok {
-		return "", "", errors.New("could not parse phone")
-	}
-
-	msgId := s.clientPointer[instance.Id].WAClient.GenerateMessageID()
-
-	_, err := s.clientPointer[instance.Id].WAClient.SendMessage(context.Background(), recipient,
-		s.clientPointer[instance.Id].WAClient.BuildPollCreation(data.Question, data.Options, data.MaxAnswer), whatsmeow.SendRequestExtra{
-			ID: msgId,
-		})
-
+	msgId, ts, err := s.SendMessage(instance.Id, msg, "PollCreationMessage", &SendDataStruct{
+		Id:           data.Id,
+		Number:       data.Number,
+		Quoted:       data.Quoted,
+		Delay:        data.Delay,
+		MentionAll:   data.MentionAll,
+		MentionedJID: data.MentionedJID,
+	})
 	if err != nil {
 		return "", "", err
 	}
 
-	logger.LogInfo("Message sent to %s", data.Phone)
+	return msgId, ts, nil
+}
 
-	return msgId, ts.String(), nil
+func convertToWebP(imageData string) ([]byte, error) {
+	var img image.Image
+	var err error
+
+	resp, err := http.Get(imageData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch image from URL: %v", err)
+	}
+	defer resp.Body.Close()
+
+	img, _, err = image.Decode(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode image: %v", err)
+	}
+
+	var webpBuffer bytes.Buffer
+	err = webp.Encode(&webpBuffer, img, &webp.Options{Lossless: false, Quality: 80})
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode image to WebP: %v", err)
+	}
+
+	return webpBuffer.Bytes(), nil
 }
 
 func (s *sendService) SendSticker(data *StickerStruct, instance *instance_model.Instance) (string, string, error) {
@@ -488,38 +542,23 @@ func (s *sendService) SendSticker(data *StickerStruct, instance *instance_model.
 		return "", "", errors.New("no session found")
 	}
 
-	var ts time.Time
-
-	recipient, err := validateMessageFields(data.Phone, data.ContextInfo.StanzaID, data.ContextInfo.Participant)
-	if err != nil {
-		logger.LogError("Error validating message fields: %v", err)
-		return "", "", err
-	}
-
-	var msgId string
-
-	if data.Id == "" {
-		msgId = s.clientPointer[instance.Id].WAClient.GenerateMessageID()
-	} else {
-		msgId = data.Id
-	}
-
 	var uploaded whatsmeow.UploadResponse
 	var filedata []byte
 
-	if data.Sticker[0:4] == "data" {
-		dataURL, err := dataurl.DecodeString(data.Sticker)
+	if strings.HasPrefix(data.Sticker, "http") {
+		webpData, err := convertToWebP(data.Sticker)
 		if err != nil {
-			return "", "", err
-		} else {
-			filedata = dataURL.Data
-			uploaded, err = s.clientPointer[instance.Id].WAClient.Upload(context.Background(), filedata, whatsmeow.MediaImage)
-			if err != nil {
-				return "", "", err
-			}
+			return "", "", fmt.Errorf("failed to convert image to WebP: %v", err)
+		}
+
+		filedata = webpData
+
+		uploaded, err = s.clientPointer[instance.Id].WAClient.Upload(context.Background(), filedata, whatsmeow.MediaImage)
+		if err != nil {
+			return "", "", fmt.Errorf("failed to upload sticker: %v", err)
 		}
 	} else {
-		return "", "", fmt.Errorf("data should start with \"data:mime/type;base64,\"")
+		return "", "", fmt.Errorf("invalid sticker URL")
 	}
 
 	msg := &waE2E.Message{StickerMessage: &waE2E.StickerMessage{
@@ -532,22 +571,19 @@ func (s *sendService) SendSticker(data *StickerStruct, instance *instance_model.
 		FileLength:    proto.Uint64(uint64(len(filedata))),
 	}}
 
-	if data.ContextInfo.StanzaID != nil {
-		msg.ExtendedTextMessage.ContextInfo = &waE2E.ContextInfo{
-			StanzaID:      proto.String(*data.ContextInfo.StanzaID),
-			Participant:   proto.String(*data.ContextInfo.Participant),
-			QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
-		}
-	}
-
-	_, err = s.clientPointer[instance.Id].WAClient.SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{ID: msgId})
+	msgId, ts, err := s.SendMessage(instance.Id, msg, "StickerMessage", &SendDataStruct{
+		Id:           data.Id,
+		Number:       data.Number,
+		Quoted:       data.Quoted,
+		Delay:        data.Delay,
+		MentionAll:   data.MentionAll,
+		MentionedJID: data.MentionedJID,
+	})
 	if err != nil {
 		return "", "", err
 	}
 
-	logger.LogInfo("Message sent to %s", data.Phone)
-
-	return msgId, ts.String(), nil
+	return msgId, ts, nil
 }
 
 func (s *sendService) SendLocation(data *LocationStruct, instance *instance_model.Instance) (string, string, error) {
@@ -555,44 +591,26 @@ func (s *sendService) SendLocation(data *LocationStruct, instance *instance_mode
 		return "", "", errors.New("no session found")
 	}
 
-	var ts time.Time
-
-	recipient, err := validateMessageFields(data.Phone, data.ContextInfo.StanzaID, data.ContextInfo.Participant)
-	if err != nil {
-		logger.LogError("Error validating message fields: %v", err)
-		return "", "", err
-	}
-
-	var msgId string
-
-	if data.Id == "" {
-		msgId = s.clientPointer[instance.Id].WAClient.GenerateMessageID()
-	} else {
-		msgId = data.Id
-	}
-
 	msg := &waE2E.Message{LocationMessage: &waE2E.LocationMessage{
 		DegreesLatitude:  &data.Latitude,
 		DegreesLongitude: &data.Longitude,
 		Name:             &data.Name,
+		Address:          &data.Address,
 	}}
 
-	if data.ContextInfo.StanzaID != nil {
-		msg.ExtendedTextMessage.ContextInfo = &waE2E.ContextInfo{
-			StanzaID:      proto.String(*data.ContextInfo.StanzaID),
-			Participant:   proto.String(*data.ContextInfo.Participant),
-			QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
-		}
-	}
-
-	_, err = s.clientPointer[instance.Id].WAClient.SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{ID: msgId})
+	msgId, ts, err := s.SendMessage(instance.Id, msg, "LocationMessage", &SendDataStruct{
+		Id:           data.Id,
+		Number:       data.Number,
+		Quoted:       data.Quoted,
+		Delay:        data.Delay,
+		MentionAll:   data.MentionAll,
+		MentionedJID: data.MentionedJID,
+	})
 	if err != nil {
 		return "", "", err
 	}
 
-	logger.LogInfo("Message sent to %s", data.Phone)
-
-	return msgId, ts.String(), nil
+	return msgId, ts, nil
 }
 
 func (s *sendService) SendContact(data *ContactStruct, instance *instance_model.Instance) (string, string, error) {
@@ -608,106 +626,197 @@ func (s *sendService) SendContact(data *ContactStruct, instance *instance_model.
 
 	fmt.Println(VCstring)
 
-	var ts time.Time
-
-	recipient, err := validateMessageFields(data.Phone, data.ContextInfo.StanzaID, data.ContextInfo.Participant)
-	if err != nil {
-		logger.LogError("Error validating message fields: %v", err)
-		return "", "", err
-	}
-
-	var msgId string
-
-	if data.Id == "" {
-		msgId = s.clientPointer[instance.Id].WAClient.GenerateMessageID()
-	} else {
-		msgId = data.Id
-	}
-
 	msg := &waE2E.Message{ContactMessage: &waE2E.ContactMessage{
 		DisplayName: &data.Vcard.FullName,
 		Vcard:       &VCstring,
 	}}
 
-	if data.ContextInfo.StanzaID != nil {
-		msg.ContactMessage.ContextInfo = &waE2E.ContextInfo{
-			StanzaID:      proto.String(*data.ContextInfo.StanzaID),
-			Participant:   proto.String(*data.ContextInfo.Participant),
-			QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
-		}
-	}
-
-	_, err = s.clientPointer[instance.Id].WAClient.SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{ID: msgId})
+	msgId, ts, err := s.SendMessage(instance.Id, msg, "ContactMessage", &SendDataStruct{
+		Id:           data.Id,
+		Number:       data.Number,
+		Quoted:       data.Quoted,
+		Delay:        data.Delay,
+		MentionAll:   data.MentionAll,
+		MentionedJID: data.MentionedJID,
+	})
 	if err != nil {
 		return "", "", err
 	}
 
-	logger.LogInfo("Message sent to %s", data.Phone)
-
-	return msgId, ts.String(), nil
+	return msgId, ts, nil
 }
 
-func (s *sendService) SendList(data *ListStruct, instance *instance_model.Instance) (string, string, error) {
-	if s.clientPointer[instance.Id].WAClient == nil {
-		return "", "", errors.New("no session found")
-	}
-
-	var ts time.Time
-
-	recipient, err := validateMessageFields(data.Phone, data.ContextInfo.StanzaID, data.ContextInfo.Participant)
+func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, messageType string, data *SendDataStruct) (string, string, error) {
+	recipient, err := validateMessageFields(data.Number, &data.Quoted.MessageID, &data.Quoted.MessageID)
 	if err != nil {
 		logger.LogError("Error validating message fields: %v", err)
 		return "", "", err
 	}
 
 	var msgId string
-
 	if data.Id == "" {
-		msgId = s.clientPointer[instance.Id].WAClient.GenerateMessageID()
+		msgId = s.clientPointer[instanceId].WAClient.GenerateMessageID()
 	} else {
 		msgId = data.Id
 	}
 
-	list := []*waE2E.ListMessage_Row{}
+	if data.Delay > 0 {
+		media := ""
+		if messageType == "AudioMessage" {
+			media = "audio"
+		}
 
-	for _, v := range data.List {
-		list = append(list, &waE2E.ListMessage_Row{
-			Title:       proto.String(v.Title),
-			Description: proto.String(v.Desc),
-			RowID:       proto.String(v.RowId),
-		})
-	}
+		err := s.clientPointer[instanceId].WAClient.SendChatPresence(recipient, types.ChatPresence("composing"), types.ChatPresenceMedia(media))
+		if err != nil {
+			return "", "", err
+		}
 
-	msg := &waE2E.Message{
-		ListMessage: &waE2E.ListMessage{
-			Description: proto.String(data.Desc),
-			ButtonText:  proto.String(data.ButtonText),
-			ListType:    waE2E.ListMessage_SINGLE_SELECT.Enum(),
-			Sections: []*waE2E.ListMessage_Section{
-				{
-					Title: proto.String(data.TopText),
-					Rows:  list,
-				},
-			},
-		},
-	}
+		time.Sleep(time.Duration(data.Delay) * time.Millisecond)
 
-	if data.ContextInfo.StanzaID != nil {
-		msg.ContactMessage.ContextInfo = &waE2E.ContextInfo{
-			StanzaID:      proto.String(*data.ContextInfo.StanzaID),
-			Participant:   proto.String(*data.ContextInfo.Participant),
-			QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
+		err = s.clientPointer[instanceId].WAClient.SendChatPresence(recipient, types.ChatPresence("paused"), types.ChatPresenceMedia(media))
+		if err != nil {
+			return "", "", err
 		}
 	}
 
-	_, err = s.clientPointer[instance.Id].WAClient.SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{ID: msgId})
+	if data.Quoted.MessageID != "" {
+		switch messageType {
+		case "ExtendedTextMessage":
+			msg.ExtendedTextMessage.ContextInfo = &waE2E.ContextInfo{
+				StanzaID:      proto.String(data.Quoted.MessageID),
+				Participant:   proto.String(data.Quoted.Participant),
+				QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
+			}
+		case "ImageMessage":
+			msg.ImageMessage.ContextInfo = &waE2E.ContextInfo{
+				StanzaID:      proto.String(data.Quoted.MessageID),
+				Participant:   proto.String(data.Quoted.Participant),
+				QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
+			}
+		case "AudioMessage":
+			msg.AudioMessage.ContextInfo = &waE2E.ContextInfo{
+				StanzaID:      proto.String(data.Quoted.MessageID),
+				Participant:   proto.String(data.Quoted.Participant),
+				QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
+			}
+		case "DocumentMessage":
+			msg.DocumentMessage.ContextInfo = &waE2E.ContextInfo{
+				StanzaID:      proto.String(data.Quoted.MessageID),
+				Participant:   proto.String(data.Quoted.Participant),
+				QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
+			}
+		case "PollCreationMessage":
+			msg.PollCreationMessage.ContextInfo = &waE2E.ContextInfo{
+				StanzaID:      proto.String(data.Quoted.MessageID),
+				Participant:   proto.String(data.Quoted.Participant),
+				QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
+			}
+		case "StickerMessage":
+			msg.StickerMessage.ContextInfo = &waE2E.ContextInfo{
+				StanzaID:      proto.String(data.Quoted.MessageID),
+				Participant:   proto.String(data.Quoted.Participant),
+				QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
+			}
+		case "LocationMessage":
+			msg.LocationMessage.ContextInfo = &waE2E.ContextInfo{
+				StanzaID:      proto.String(data.Quoted.MessageID),
+				Participant:   proto.String(data.Quoted.Participant),
+				QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
+			}
+		case "ContactMessage":
+			msg.ContactMessage.ContextInfo = &waE2E.ContextInfo{
+				StanzaID:      proto.String(data.Quoted.MessageID),
+				Participant:   proto.String(data.Quoted.Participant),
+				QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
+			}
+		default:
+			return "", "", fmt.Errorf("invalid messageType: %s", messageType)
+		}
+	}
+
+	isGroup := strings.Contains(data.Number, "@g.us")
+	if isGroup {
+		switch messageType {
+		case "ExtendedTextMessage":
+			msg.ExtendedTextMessage.ContextInfo = &waE2E.ContextInfo{}
+		case "ImageMessage":
+			msg.ImageMessage.ContextInfo = &waE2E.ContextInfo{}
+		case "AudioMessage":
+			msg.AudioMessage.ContextInfo = &waE2E.ContextInfo{}
+		case "DocumentMessage":
+			msg.DocumentMessage.ContextInfo = &waE2E.ContextInfo{}
+		case "PollCreationMessage":
+			msg.PollCreationMessage.ContextInfo = &waE2E.ContextInfo{}
+		case "StickerMessage":
+			msg.StickerMessage.ContextInfo = &waE2E.ContextInfo{}
+		case "LocationMessage":
+			msg.LocationMessage.ContextInfo = &waE2E.ContextInfo{}
+		case "ContactMessage":
+			msg.ContactMessage.ContextInfo = &waE2E.ContextInfo{}
+		default:
+			return "", "", fmt.Errorf("invalid messageType: %s", messageType)
+		}
+
+		if data.MentionAll {
+			allParticipants, err := s.clientPointer[instanceId].WAClient.GetGroupRequestParticipants(recipient)
+			if err != nil {
+				return "", "", err
+			}
+
+			var mentionedJIDs []string
+			for _, jid := range allParticipants {
+				mentionedJIDs = append(mentionedJIDs, jid.String())
+			}
+
+			switch messageType {
+			case "ExtendedTextMessage":
+				msg.ExtendedTextMessage.ContextInfo.MentionedJID = mentionedJIDs
+			case "ImageMessage":
+				msg.ExtendedTextMessage.ContextInfo.MentionedJID = mentionedJIDs
+			case "AudioMessage":
+				msg.ExtendedTextMessage.ContextInfo.MentionedJID = mentionedJIDs
+			case "DocumentMessage":
+				msg.ExtendedTextMessage.ContextInfo.MentionedJID = mentionedJIDs
+			case "PollCreationMessage":
+				msg.ExtendedTextMessage.ContextInfo.MentionedJID = mentionedJIDs
+			case "StickerMessage":
+				msg.ExtendedTextMessage.ContextInfo.MentionedJID = mentionedJIDs
+			case "LocationMessage":
+				msg.ExtendedTextMessage.ContextInfo.MentionedJID = mentionedJIDs
+			case "ContactMessage":
+				msg.ExtendedTextMessage.ContextInfo.MentionedJID = mentionedJIDs
+			}
+		}
+
+		if data.MentionedJID != "" {
+			switch messageType {
+			case "ExtendedTextMessage":
+				msg.ExtendedTextMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
+			case "ImageMessage":
+				msg.ExtendedTextMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
+			case "AudioMessage":
+				msg.ExtendedTextMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
+			case "DocumentMessage":
+				msg.ExtendedTextMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
+			case "PollCreationMessage":
+				msg.ExtendedTextMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
+			case "StickerMessage":
+				msg.ExtendedTextMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
+			case "LocationMessage":
+				msg.ExtendedTextMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
+			case "ContactMessage":
+				msg.ExtendedTextMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
+			}
+		}
+	}
+
+	_, err = s.clientPointer[instanceId].WAClient.SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{ID: msgId})
 	if err != nil {
 		return "", "", err
 	}
 
-	logger.LogInfo("Message sent to %s", data.Phone)
-
-	return msgId, ts.String(), nil
+	logger.LogInfo("Message sent to %s", data.Number)
+	return msgId, time.Now().String(), nil
 }
 
 func NewSendService(

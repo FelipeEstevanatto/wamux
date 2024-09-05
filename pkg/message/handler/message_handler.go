@@ -49,13 +49,13 @@ func (m *messageHandler) React(ctx *gin.Context) {
 		return
 	}
 
-	if data.Phone == "" {
+	if data.Number == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
 		return
 	}
 
-	if data.Body == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "message body is required"})
+	if data.Reaction == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "message reaction is required"})
 		return
 	}
 
@@ -100,7 +100,7 @@ func (m *messageHandler) ChatPresence(ctx *gin.Context) {
 		return
 	}
 
-	if data.Phone == "" {
+	if data.Number == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
 		return
 	}
@@ -150,8 +150,8 @@ func (m *messageHandler) MarkRead(ctx *gin.Context) {
 		return
 	}
 
-	if data.Chat.String() == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "chat is required"})
+	if data.Number == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
 		return
 	}
 

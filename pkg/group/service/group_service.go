@@ -2,6 +2,9 @@ package group_service
 
 import (
 	"errors"
+	"fmt"
+	"io"
+	"net/http"
 	"strings"
 
 	instance_model "github.com/Zapbox-API/evolution-go/pkg/instance/model"
@@ -15,7 +18,7 @@ import (
 )
 
 type GroupService interface {
-	ListGroups(instance *instance_model.Instance) (*GroupCollection, error)
+	ListGroups(instance *instance_model.Instance) ([]*types.GroupInfo, error)
 	GetGroupInfo(data *GetGroupInfoStruct, instance *instance_model.Instance) (*types.GroupInfo, error)
 	GetGroupInviteLink(data *GetGroupInviteLinkStruct, instance *instance_model.Instance) (string, error)
 	SetGroupPhoto(data *SetGroupPhotoStruct, instance *instance_model.Instance) (string, error)
@@ -73,7 +76,7 @@ type JoinGroupStruct struct {
 	Code string `json:"code"`
 }
 
-func (g *groupService) ListGroups(instance *instance_model.Instance) (*GroupCollection, error) {
+func (g *groupService) ListGroups(instance *instance_model.Instance) ([]*types.GroupInfo, error) {
 	if g.clientPointer[instance.Id].WAClient == nil {
 		return nil, errors.New("no session found")
 	}
@@ -93,7 +96,7 @@ func (g *groupService) ListGroups(instance *instance_model.Instance) (*GroupColl
 		gc.Groups = append(gc.Groups, simpleGroup)
 	}
 
-	return gc, nil
+	return resp, nil
 }
 
 func (g *groupService) GetGroupInfo(data *GetGroupInfoStruct, instance *instance_model.Instance) (*types.GroupInfo, error) {
@@ -148,27 +151,41 @@ func (g *groupService) SetGroupPhoto(data *SetGroupPhotoStruct, instance *instan
 	}
 
 	var fileData []byte
+	var err error
 
-	if data.Image[0:13] == "data:image/jp" {
+	if strings.HasPrefix(data.Image, "http://") || strings.HasPrefix(data.Image, "https://") {
+		resp, err := http.Get(data.Image)
+		if err != nil {
+			logger.LogError("Could not download image from URL")
+			return "", fmt.Errorf("failed to fetch image from URL: %v", err)
+		}
+		defer resp.Body.Close()
+
+		fileData, err = io.ReadAll(resp.Body)
+		if err != nil {
+			logger.LogError("Could not read image data from URL")
+			return "", fmt.Errorf("failed to read image data: %v", err)
+		}
+
+	} else if strings.HasPrefix(data.Image, "data:image/jpeg;base64,") || strings.HasPrefix(data.Image, "data:image/png;base64,") {
 		dataURL, err := dataurl.DecodeString(data.Image)
 		if err != nil {
-			logger.LogError("Could not decode base64 encoded data from payloads")
+			logger.LogError("Could not decode base64 encoded data from payload")
 			return "", err
-		} else {
-			fileData = dataURL.Data
 		}
+		fileData = dataURL.Data
 	} else {
-		logger.LogError("Image data should start with \"data:image/jpeg;base64,\"")
-		return "", errors.New("image data should start with \"data:image/jpeg;base64,\"")
+		logger.LogError("Image data should start with \"data:image/jpeg;base64,\" or be a valid URL")
+		return "", errors.New("image data should be a valid URL or start with \"data:image/jpeg;base64,\"")
 	}
 
-	picture_id, err := g.clientPointer[instance.Id].WAClient.SetGroupPhoto(recipient, fileData)
+	pictureID, err := g.clientPointer[instance.Id].WAClient.SetGroupPhoto(recipient, fileData)
 	if err != nil {
-		logger.LogError("error mute chat: %v", err)
+		logger.LogError("Error setting group photo: %v", err)
 		return "", err
 	}
 
-	return picture_id, nil
+	return pictureID, nil
 }
 
 func (g *groupService) SetGroupName(data *SetGroupNameStruct, instance *instance_model.Instance) error {

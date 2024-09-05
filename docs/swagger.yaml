@@ -238,6 +238,158 @@ definitions:
       jid:
         $ref: '#/definitions/types.JID'
     type: object
+  github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.ContactStruct:
+    properties:
+      delay:
+        type: integer
+      id:
+        type: string
+      mentionAll:
+        type: boolean
+      mentionedJid:
+        type: string
+      number:
+        type: string
+      quoted:
+        $ref: '#/definitions/github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.QuotedStruct'
+      vcard:
+        $ref: '#/definitions/github_com_Zapbox-API_evolution-go_pkg_utils.VCardStruct'
+    type: object
+  github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.LinkStruct:
+    properties:
+      delay:
+        type: integer
+      description:
+        type: string
+      id:
+        type: string
+      imgUrl:
+        type: string
+      mentionAll:
+        type: boolean
+      mentionedJid:
+        type: string
+      number:
+        type: string
+      quoted:
+        $ref: '#/definitions/github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.QuotedStruct'
+      text:
+        type: string
+      title:
+        type: string
+      url:
+        type: string
+    type: object
+  github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.LocationStruct:
+    properties:
+      address:
+        type: string
+      delay:
+        type: integer
+      id:
+        type: string
+      latitude:
+        type: number
+      longitude:
+        type: number
+      mentionAll:
+        type: boolean
+      mentionedJid:
+        type: string
+      name:
+        type: string
+      number:
+        type: string
+      quoted:
+        $ref: '#/definitions/github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.QuotedStruct'
+    type: object
+  github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.MediaStruct:
+    properties:
+      caption:
+        type: string
+      delay:
+        type: integer
+      filename:
+        type: string
+      id:
+        type: string
+      mentionAll:
+        type: boolean
+      mentionedJid:
+        type: string
+      number:
+        type: string
+      quoted:
+        $ref: '#/definitions/github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.QuotedStruct'
+      type:
+        type: string
+      url:
+        type: string
+    type: object
+  github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.PollStruct:
+    properties:
+      delay:
+        type: integer
+      id:
+        type: string
+      maxAnswer:
+        type: integer
+      mentionAll:
+        type: boolean
+      mentionedJid:
+        type: string
+      number:
+        type: string
+      options:
+        items:
+          type: string
+        type: array
+      question:
+        type: string
+      quoted:
+        $ref: '#/definitions/github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.QuotedStruct'
+    type: object
+  github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.QuotedStruct:
+    properties:
+      messageId:
+        type: string
+      participant:
+        type: string
+    type: object
+  github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.StickerStruct:
+    properties:
+      delay:
+        type: integer
+      id:
+        type: string
+      mentionAll:
+        type: boolean
+      mentionedJid:
+        type: string
+      number:
+        type: string
+      quoted:
+        $ref: '#/definitions/github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.QuotedStruct'
+      sticker:
+        type: string
+    type: object
+  github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.TextStruct:
+    properties:
+      delay:
+        type: integer
+      id:
+        type: string
+      mentionAll:
+        type: boolean
+      mentionedJid:
+        type: string
+      number:
+        type: string
+      quoted:
+        $ref: '#/definitions/github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.QuotedStruct'
+      text:
+        type: string
+    type: object
   github_com_Zapbox-API_evolution-go_pkg_user_service.BlockStruct:
     properties:
       phone:
@@ -255,102 +407,13 @@ definitions:
       image:
         type: string
     type: object
-  pkg_sendMessage_handler.SendContactMessageRequest:
+  github_com_Zapbox-API_evolution-go_pkg_utils.VCardStruct:
     properties:
-      phone:
-        example: "557499879409"
+      fullName:
         type: string
-      vcard:
-        properties:
-          fullName:
-            example: John Doe
-            type: string
-          phone:
-            example: "557499879409"
-            type: string
-        type: object
-    type: object
-  pkg_sendMessage_handler.SendListMessageRequest:
-    properties:
-      buttonText:
-        example: View
-        type: string
-      desc:
-        example: This is a list
-        type: string
-      items:
-        example:
-        - '["Item 1"'
-        - ' "Item 2"]'
-        items:
-          type: string
-        type: array
-      phone:
-        example: "557499879409"
-        type: string
-    type: object
-  pkg_sendMessage_handler.SendLocationMessageRequest:
-    properties:
-      latitude:
-        example: -23.5505199
-        type: number
-      longitude:
-        example: -46.6333094
-        type: number
-      name:
-        example: São Paulo
+      organization:
         type: string
       phone:
-        example: "557499879409"
-        type: string
-    type: object
-  pkg_sendMessage_handler.SendMediaMessageRequest:
-    properties:
-      phone:
-        example: "557499879409"
-        type: string
-      type:
-        example: image
-        type: string
-      url:
-        example: https://example.com/image.jpg
-        type: string
-    type: object
-  pkg_sendMessage_handler.SendPollMessageRequest:
-    properties:
-      maxAnswer:
-        example: 1
-        type: integer
-      options:
-        example:
-        - '["Red"'
-        - ' "Blue"]'
-        items:
-          type: string
-        type: array
-      phone:
-        example: "557499879409"
-        type: string
-      question:
-        example: What is your favorite color?
-        type: string
-    type: object
-  pkg_sendMessage_handler.SendStickerMessageRequest:
-    properties:
-      phone:
-        example: "557499879409"
-        type: string
-      sticker:
-        example: https://example.com/sticker.webp
-        type: string
-    type: object
-  pkg_sendMessage_handler.SendTextMessageRequest:
-    properties:
-      phone:
-        example: "557499879409"
-        type: string
-      text:
-        example: Teste
         type: string
     type: object
   types.JID:
@@ -842,6 +905,25 @@ paths:
       summary: Set group photo
       tags:
       - Group
+  /instance/all:
+    get:
+      consumes:
+      - application/json
+      description: Get all instances
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: All instances
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Get all instances
+      tags:
+      - Instance
   /instance/connect:
     post:
       consumes:
@@ -902,15 +984,15 @@ paths:
       summary: Create a new instance
       tags:
       - Instance
-  /instance/delete/{instanceName}:
+  /instance/delete/{instanceId}:
     delete:
       consumes:
       - application/json
       description: Delete instance
       parameters:
-      - description: Instance name
+      - description: Instance Id
         in: path
-        name: instanceName
+        name: instanceId
         required: true
         type: string
       produces:
@@ -948,25 +1030,6 @@ paths:
           schema:
             $ref: '#/definitions/gin.H'
       summary: Disconnect from instance
-      tags:
-      - Instance
-  /instance/fetchInstances:
-    get:
-      consumes:
-      - application/json
-      description: Get all instances
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: All instances
-          schema:
-            $ref: '#/definitions/gin.H'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/gin.H'
-      summary: Get all instances
       tags:
       - Instance
   /instance/logout:
@@ -1018,15 +1081,15 @@ paths:
       summary: Request pairing code
       tags:
       - Instance
-  /instance/proxy/{instanceName}:
+  /instance/proxy/{instanceId}:
     delete:
       consumes:
       - application/json
       description: Delete proxy
       parameters:
-      - description: Instance name
+      - description: Instance id
         in: path
-        name: instanceName
+        name: instanceId
         required: true
         type: string
       produces:
@@ -1565,7 +1628,7 @@ paths:
         name: message
         required: true
         schema:
-          $ref: '#/definitions/pkg_sendMessage_handler.SendContactMessageRequest'
+          $ref: '#/definitions/github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.ContactStruct'
       produces:
       - application/json
       responses:
@@ -1595,7 +1658,7 @@ paths:
         name: message
         required: true
         schema:
-          $ref: '#/definitions/pkg_sendMessage_handler.SendTextMessageRequest'
+          $ref: '#/definitions/github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.LinkStruct'
       produces:
       - application/json
       responses:
@@ -1614,36 +1677,6 @@ paths:
       summary: Send a link message
       tags:
       - Send Message
-  /send/list:
-    post:
-      consumes:
-      - application/json
-      description: Send a list message
-      parameters:
-      - description: Message data
-        in: body
-        name: message
-        required: true
-        schema:
-          $ref: '#/definitions/pkg_sendMessage_handler.SendListMessageRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: success
-          schema:
-            $ref: '#/definitions/gin.H'
-        "400":
-          description: Error on validation
-          schema:
-            $ref: '#/definitions/gin.H'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/gin.H'
-      summary: Send a list message
-      tags:
-      - Send Message
   /send/location:
     post:
       consumes:
@@ -1655,7 +1688,7 @@ paths:
         name: message
         required: true
         schema:
-          $ref: '#/definitions/pkg_sendMessage_handler.SendLocationMessageRequest'
+          $ref: '#/definitions/github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.LocationStruct'
       produces:
       - application/json
       responses:
@@ -1685,7 +1718,7 @@ paths:
         name: message
         required: true
         schema:
-          $ref: '#/definitions/pkg_sendMessage_handler.SendMediaMessageRequest'
+          $ref: '#/definitions/github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.MediaStruct'
       produces:
       - application/json
       responses:
@@ -1715,7 +1748,7 @@ paths:
         name: message
         required: true
         schema:
-          $ref: '#/definitions/pkg_sendMessage_handler.SendPollMessageRequest'
+          $ref: '#/definitions/github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.PollStruct'
       produces:
       - application/json
       responses:
@@ -1745,7 +1778,7 @@ paths:
         name: message
         required: true
         schema:
-          $ref: '#/definitions/pkg_sendMessage_handler.SendStickerMessageRequest'
+          $ref: '#/definitions/github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.StickerStruct'
       produces:
       - application/json
       responses:
@@ -1775,7 +1808,7 @@ paths:
         name: message
         required: true
         schema:
-          $ref: '#/definitions/pkg_sendMessage_handler.SendTextMessageRequest'
+          $ref: '#/definitions/github_com_Zapbox-API_evolution-go_pkg_sendMessage_service.TextStruct'
       produces:
       - application/json
       responses:

@@ -16,56 +16,10 @@ type SendHandler interface {
 	SendSticker(ctx *gin.Context)
 	SendLocation(ctx *gin.Context)
 	SendContact(ctx *gin.Context)
-	SendList(ctx *gin.Context)
 }
 
 type sendHandler struct {
 	sendMessageService send_service.SendService
-}
-
-type SendTextMessageRequest struct {
-	Phone string `json:"phone" example:"557499879409"`
-	Text  string `json:"text" example:"Teste"`
-}
-
-type SendMediaMessageRequest struct {
-	Phone string `json:"phone" example:"557499879409"`
-	Url   string `json:"url" example:"https://example.com/image.jpg"`
-	Type  string `json:"type" example:"image"`
-}
-
-type SendPollMessageRequest struct {
-	Phone     string   `json:"phone" example:"557499879409"`
-	Question  string   `json:"question" example:"What is your favorite color?"`
-	MaxAnswer int      `json:"maxAnswer" example:"1"`
-	Options   []string `json:"options" example:"[\"Red\", \"Blue\"]"`
-}
-
-type SendStickerMessageRequest struct {
-	Phone   string `json:"phone" example:"557499879409"`
-	Sticker string `json:"sticker" example:"https://example.com/sticker.webp"`
-}
-
-type SendLocationMessageRequest struct {
-	Phone     string  `json:"phone" example:"557499879409"`
-	Name      string  `json:"name" example:"São Paulo"`
-	Latitude  float64 `json:"latitude" example:"-23.5505199"`
-	Longitude float64 `json:"longitude" example:"-46.6333094"`
-}
-
-type SendContactMessageRequest struct {
-	Phone string `json:"phone" example:"557499879409"`
-	Vcard struct {
-		FullName string `json:"fullName" example:"John Doe"`
-		Phone    string `json:"phone" example:"557499879409"`
-	} `json:"vcard"`
-}
-
-type SendListMessageRequest struct {
-	Phone      string   `json:"phone" example:"557499879409"`
-	ButtonText string   `json:"buttonText" example:"View"`
-	Desc       string   `json:"desc" example:"This is a list"`
-	Items      []string `json:"items" example:"[\"Item 1\", \"Item 2\"]"`
 }
 
 // Send a text message
@@ -74,7 +28,7 @@ type SendListMessageRequest struct {
 // @Tags Send Message
 // @Accept json
 // @Produce json
-// @Param message body SendTextMessageRequest true "Message data"
+// @Param message body send_service.TextStruct true "Message data"
 // @Success 200 {object} gin.H "success"
 // @Failure 400 {object} gin.H "Error on validation"
 // @Failure 500 {object} gin.H "Internal server error"
@@ -95,7 +49,7 @@ func (s *sendHandler) SendText(ctx *gin.Context) {
 		return
 	}
 
-	if data.Phone == "" {
+	if data.Number == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
 		return
 	}
@@ -125,7 +79,7 @@ func (s *sendHandler) SendText(ctx *gin.Context) {
 // @Tags Send Message
 // @Accept json
 // @Produce json
-// @Param message body SendTextMessageRequest true "Message data"
+// @Param message body send_service.LinkStruct true "Message data"
 // @Success 200 {object} gin.H "success"
 // @Failure 400 {object} gin.H "Error on validation"
 // @Failure 500 {object} gin.H "Internal server error"
@@ -146,7 +100,7 @@ func (s *sendHandler) SendLink(ctx *gin.Context) {
 		return
 	}
 
-	if data.Phone == "" {
+	if data.Number == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
 		return
 	}
@@ -176,7 +130,7 @@ func (s *sendHandler) SendLink(ctx *gin.Context) {
 // @Tags Send Message
 // @Accept json
 // @Produce json
-// @Param message body SendMediaMessageRequest true "Message data"
+// @Param message body send_service.MediaStruct true "Message data"
 // @Success 200 {object} gin.H "success"
 // @Failure 400 {object} gin.H "Error on validation"
 // @Failure 500 {object} gin.H "Internal server error"
@@ -197,7 +151,7 @@ func (s *sendHandler) SendMedia(ctx *gin.Context) {
 		return
 	}
 
-	if data.Phone == "" {
+	if data.Number == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
 		return
 	}
@@ -232,7 +186,7 @@ func (s *sendHandler) SendMedia(ctx *gin.Context) {
 // @Tags Send Message
 // @Accept json
 // @Produce json
-// @Param message body SendPollMessageRequest true "Message data"
+// @Param message body send_service.PollStruct true "Message data"
 // @Success 200 {object} gin.H "success"
 // @Failure 400 {object} gin.H "Error on validation"
 // @Failure 500 {object} gin.H "Internal server error"
@@ -253,7 +207,7 @@ func (s *sendHandler) SendPoll(ctx *gin.Context) {
 		return
 	}
 
-	if data.Phone == "" {
+	if data.Number == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
 		return
 	}
@@ -288,7 +242,7 @@ func (s *sendHandler) SendPoll(ctx *gin.Context) {
 // @Tags Send Message
 // @Accept json
 // @Produce json
-// @Param message body SendStickerMessageRequest true "Message data"
+// @Param message body send_service.StickerStruct true "Message data"
 // @Success 200 {object} gin.H "success"
 // @Failure 400 {object} gin.H "Error on validation"
 // @Failure 500 {object} gin.H "Internal server error"
@@ -309,7 +263,7 @@ func (s *sendHandler) SendSticker(ctx *gin.Context) {
 		return
 	}
 
-	if data.Phone == "" {
+	if data.Number == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
 		return
 	}
@@ -339,7 +293,7 @@ func (s *sendHandler) SendSticker(ctx *gin.Context) {
 // @Tags Send Message
 // @Accept json
 // @Produce json
-// @Param message body SendLocationMessageRequest true "Message data"
+// @Param message body send_service.LocationStruct true "Message data"
 // @Success 200 {object} gin.H "success"
 // @Failure 400 {object} gin.H "Error on validation"
 // @Failure 500 {object} gin.H "Internal server error"
@@ -360,7 +314,7 @@ func (s *sendHandler) SendLocation(ctx *gin.Context) {
 		return
 	}
 
-	if data.Phone == "" {
+	if data.Number == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
 		return
 	}
@@ -372,6 +326,16 @@ func (s *sendHandler) SendLocation(ctx *gin.Context) {
 
 	if data.Longitude == 0 {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "longitude is required"})
+		return
+	}
+
+	if data.Address == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "address is required"})
+		return
+	}
+
+	if data.Name == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "name is required"})
 		return
 	}
 
@@ -395,7 +359,7 @@ func (s *sendHandler) SendLocation(ctx *gin.Context) {
 // @Tags Send Message
 // @Accept json
 // @Produce json
-// @Param message body SendContactMessageRequest true "Message data"
+// @Param message body send_service.ContactStruct true "Message data"
 // @Success 200 {object} gin.H "success"
 // @Failure 400 {object} gin.H "Error on validation"
 // @Failure 500 {object} gin.H "Internal server error"
@@ -416,7 +380,7 @@ func (s *sendHandler) SendContact(ctx *gin.Context) {
 		return
 	}
 
-	if data.Phone == "" {
+	if data.Number == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
 		return
 	}
@@ -432,62 +396,6 @@ func (s *sendHandler) SendContact(ctx *gin.Context) {
 	}
 
 	msgId, ts, err := s.sendMessageService.SendContact(data, instance)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	responseData := gin.H{
-		"messageId": msgId,
-		"timestamp": ts,
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
-}
-
-// Send a list message
-// @Summary Send a list message
-// @Description Send a list message
-// @Tags Send Message
-// @Accept json
-// @Produce json
-// @Param message body SendListMessageRequest true "Message data"
-// @Success 200 {object} gin.H "success"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
-// @Router /send/list [post]
-func (s *sendHandler) SendList(ctx *gin.Context) {
-	getInstance := ctx.MustGet("instance")
-
-	instance, ok := getInstance.(*instance_model.Instance)
-	if !ok {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
-		return
-	}
-
-	var data *send_service.ListStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	if data.Phone == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
-		return
-	}
-
-	if data.ButtonText == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "button text is required"})
-		return
-	}
-
-	if data.Desc == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "description is required"})
-		return
-	}
-
-	msgId, ts, err := s.sendMessageService.SendList(data, instance)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
