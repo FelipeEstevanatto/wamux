@@ -1,6 +1,6 @@
 FROM golang:1.22-alpine as build
 
-RUN apk update && apk add git
+RUN apk update && apk add --no-cache git build-base libjpeg-turbo-dev libwebp-dev
 
 WORKDIR /build
 
@@ -14,7 +14,7 @@ RUN CGO_ENABLE=0 go build -o server ./cmd/evolution-go
 
 FROM alpine:3.19.1 as final
 
-RUN apk update && apk add --no-cache tzdata ffmpeg
+RUN apk update && apk add --no-cache tzdata ffmpeg libjpeg-turbo
 
 WORKDIR /app
 
