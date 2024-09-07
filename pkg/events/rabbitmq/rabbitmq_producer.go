@@ -21,6 +21,7 @@ func NewRabbitMQProducer(
 func (p *rabbitMQProducer) Produce(
 	queueName string,
 	payload []byte,
+	webhookUrl string,
 ) error {
 	if queueName == "" {
 		return nil

@@ -126,6 +126,7 @@ func (i *instanceHandler) Connect(ctx *gin.Context) {
 
 	responseData := gin.H{
 		"jid":         jid,
+		"webhookUrl":  instance.Webhook,
 		"eventString": eventString,
 	}
 
