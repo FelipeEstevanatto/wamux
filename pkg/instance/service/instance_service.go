@@ -53,9 +53,10 @@ type CreateStruct struct {
 }
 
 type ConnectStruct struct {
-	Subscribe []string `json:"subscribe"`
-	Immediate bool     `json:"immediate"`
-	Phone     string   `json:"phone"`
+	WebhookUrl string   `json:"webhookUrl"`
+	Subscribe  []string `json:"subscribe"`
+	Immediate  bool     `json:"immediate"`
+	Phone      string   `json:"phone"`
 }
 
 type StatusStruct struct {
@@ -121,6 +122,7 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 	eventString := strings.Join(subscribedEvents, ",")
 
 	instance.Events = eventString
+	instance.Webhook = data.WebhookUrl
 
 	err := i.instanceRepository.Update(instance)
 	if err != nil {
@@ -153,8 +155,8 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 	go i.whatsmeowService.StartClient(clientData)
 
 	if !data.Immediate {
-		logger.LogInfo("Waiting 5 seconds")
-		time.Sleep(5000 * time.Millisecond)
+		logger.LogInfo("Waiting 2 seconds")
+		time.Sleep(2000 * time.Millisecond)
 
 		if i.clientPointer[instance.Id].WAClient != nil {
 			if !i.clientPointer[instance.Id].WAClient.IsConnected() {
@@ -334,8 +336,8 @@ func (i instances) Pair(data *PairStruct, instance *instance_model.Instance) (*P
 
 	go i.whatsmeowService.StartClient(clientData)
 
-	logger.LogInfo("Waiting 5 seconds")
-	time.Sleep(5000 * time.Millisecond)
+	logger.LogInfo("Waiting 2 seconds")
+	time.Sleep(2000 * time.Millisecond)
 
 	if i.clientPointer[instance.Id].WAClient != nil {
 		if !i.clientPointer[instance.Id].WAClient.IsConnected() {

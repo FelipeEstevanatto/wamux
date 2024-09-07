@@ -23,6 +23,7 @@ func NewWebhookProducer(
 func (p *webhookProducer) Produce(
 	queueName string,
 	payload []byte,
+	webhookUrl string,
 ) error {
 	splitQueue := strings.Split(queueName, ".")
 
@@ -30,7 +31,12 @@ func (p *webhookProducer) Produce(
 		return nil
 	}
 
-	go sendWebhook(p.url, payload)
+	if p.url != "" {
+		go sendWebhook(p.url, payload)
+	}
+	if webhookUrl != "" {
+		go sendWebhook(webhookUrl, payload)
+	}
 
 	return nil
 }
