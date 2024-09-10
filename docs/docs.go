@@ -2222,7 +2222,7 @@ const docTemplate = `{
             }
         },
         "/user/avatar": {
-            "get": {
+            "post": {
                 "description": "Get a user's avatar",
                 "consumes": [
                     "application/json"
@@ -2236,11 +2236,13 @@ const docTemplate = `{
                 "summary": "Get a user's avatar",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "Phone number",
-                        "name": "phone",
-                        "in": "query",
-                        "required": true
+                        "description": "Avatar data",
+                        "name": "message",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Zapbox-API_evolution-go_pkg_user_service.GetAvatarStruct"
+                        }
                     }
                 ],
                 "responses": {
@@ -2613,7 +2615,7 @@ const docTemplate = `{
         "github_com_Zapbox-API_evolution-go_pkg_community_service.CreateCommunityStruct": {
             "type": "object",
             "properties": {
-                "community_name": {
+                "communityName": {
                     "type": "string"
                 }
             }
@@ -2712,6 +2714,9 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "webhookUrl": {
+                    "type": "string"
                 }
             }
         },
@@ -2774,11 +2779,11 @@ const docTemplate = `{
         "github_com_Zapbox-API_evolution-go_pkg_label_service.EditLabelStruct": {
             "type": "object",
             "properties": {
-                "action": {
-                    "type": "boolean"
-                },
                 "color": {
                     "type": "integer"
+                },
+                "deleted": {
+                    "type": "boolean"
                 },
                 "labelId": {
                     "type": "string"
@@ -2805,10 +2810,10 @@ const docTemplate = `{
         "github_com_Zapbox-API_evolution-go_pkg_message_service.ChatPresenceStruct": {
             "type": "object",
             "properties": {
-                "media": {
-                    "type": "string"
+                "isAudio": {
+                    "type": "boolean"
                 },
-                "phone": {
+                "number": {
                     "type": "string"
                 },
                 "state": {
@@ -2868,17 +2873,14 @@ const docTemplate = `{
         "github_com_Zapbox-API_evolution-go_pkg_message_service.MarkReadStruct": {
             "type": "object",
             "properties": {
-                "chat": {
-                    "$ref": "#/definitions/types.JID"
-                },
                 "id": {
                     "type": "array",
                     "items": {
                         "type": "string"
                     }
                 },
-                "sender": {
-                    "$ref": "#/definitions/types.JID"
+                "number": {
+                    "type": "string"
                 }
             }
         },
@@ -2904,13 +2906,13 @@ const docTemplate = `{
         "github_com_Zapbox-API_evolution-go_pkg_message_service.ReactStruct": {
             "type": "object",
             "properties": {
-                "body": {
-                    "type": "string"
-                },
                 "id": {
                     "type": "string"
                 },
-                "phone": {
+                "number": {
+                    "type": "string"
+                },
+                "reaction": {
                     "type": "string"
                 }
             }
@@ -3191,7 +3193,7 @@ const docTemplate = `{
         "github_com_Zapbox-API_evolution-go_pkg_user_service.BlockStruct": {
             "type": "object",
             "properties": {
-                "phone": {
+                "number": {
                     "type": "string"
                 }
             }
@@ -3199,11 +3201,22 @@ const docTemplate = `{
         "github_com_Zapbox-API_evolution-go_pkg_user_service.CheckUserStruct": {
             "type": "object",
             "properties": {
-                "phone": {
+                "number": {
                     "type": "array",
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "github_com_Zapbox-API_evolution-go_pkg_user_service.GetAvatarStruct": {
+            "type": "object",
+            "properties": {
+                "number": {
+                    "type": "string"
+                },
+                "preview": {
+                    "type": "boolean"
                 }
             }
         },
