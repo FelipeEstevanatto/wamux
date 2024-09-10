@@ -18,7 +18,7 @@ definitions:
     type: object
   github_com_Zapbox-API_evolution-go_pkg_community_service.CreateCommunityStruct:
     properties:
-      community_name:
+      communityName:
         type: string
     type: object
   github_com_Zapbox-API_evolution-go_pkg_group_service.AddParticipantStruct:
@@ -82,6 +82,8 @@ definitions:
         items:
           type: string
         type: array
+      webhookUrl:
+        type: string
     type: object
   github_com_Zapbox-API_evolution-go_pkg_instance_service.CreateStruct:
     properties:
@@ -121,10 +123,10 @@ definitions:
     type: object
   github_com_Zapbox-API_evolution-go_pkg_label_service.EditLabelStruct:
     properties:
-      action:
-        type: boolean
       color:
         type: integer
+      deleted:
+        type: boolean
       labelId:
         type: string
       name:
@@ -141,9 +143,9 @@ definitions:
     type: object
   github_com_Zapbox-API_evolution-go_pkg_message_service.ChatPresenceStruct:
     properties:
-      media:
-        type: string
-      phone:
+      isAudio:
+        type: boolean
+      number:
         type: string
       state:
         type: string
@@ -182,14 +184,12 @@ definitions:
     type: object
   github_com_Zapbox-API_evolution-go_pkg_message_service.MarkReadStruct:
     properties:
-      chat:
-        $ref: '#/definitions/types.JID'
       id:
         items:
           type: string
         type: array
-      sender:
-        $ref: '#/definitions/types.JID'
+      number:
+        type: string
     type: object
   github_com_Zapbox-API_evolution-go_pkg_message_service.MessageStatusStruct:
     properties:
@@ -205,11 +205,11 @@ definitions:
     type: object
   github_com_Zapbox-API_evolution-go_pkg_message_service.ReactStruct:
     properties:
-      body:
-        type: string
       id:
         type: string
-      phone:
+      number:
+        type: string
+      reaction:
         type: string
     type: object
   github_com_Zapbox-API_evolution-go_pkg_newsletter_service.CreateNewsletterStruct:
@@ -392,15 +392,22 @@ definitions:
     type: object
   github_com_Zapbox-API_evolution-go_pkg_user_service.BlockStruct:
     properties:
-      phone:
+      number:
         type: string
     type: object
   github_com_Zapbox-API_evolution-go_pkg_user_service.CheckUserStruct:
     properties:
-      phone:
+      number:
         items:
           type: string
         type: array
+    type: object
+  github_com_Zapbox-API_evolution-go_pkg_user_service.GetAvatarStruct:
+    properties:
+      number:
+        type: string
+      preview:
+        type: boolean
     type: object
   github_com_Zapbox-API_evolution-go_pkg_user_service.SetProfilePictureStruct:
     properties:
@@ -1888,16 +1895,17 @@ paths:
       tags:
       - Label
   /user/avatar:
-    get:
+    post:
       consumes:
       - application/json
       description: Get a user's avatar
       parameters:
-      - description: Phone number
-        in: query
-        name: phone
+      - description: Avatar data
+        in: body
+        name: message
         required: true
-        type: string
+        schema:
+          $ref: '#/definitions/github_com_Zapbox-API_evolution-go_pkg_user_service.GetAvatarStruct'
       produces:
       - application/json
       responses:
