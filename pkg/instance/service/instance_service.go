@@ -70,6 +70,7 @@ type StatusStruct struct {
 
 type QrcodeStruct struct {
 	Qrcode string
+	Code   string
 }
 
 type PairStruct struct {
@@ -269,8 +270,12 @@ func (i instances) GetQr(instance *instance_model.Instance) (*QrcodeStruct, erro
 
 	code := instance.Qrcode
 
+	base64 := strings.Split(code, "|")[0]
+	code = strings.Split(code, "|")[1]
+
 	qr := &QrcodeStruct{
-		Qrcode: code,
+		Qrcode: base64,
+		Code:   code,
 	}
 
 	return qr, nil

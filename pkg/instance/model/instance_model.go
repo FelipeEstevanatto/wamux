@@ -20,6 +20,8 @@ type Instance struct {
 }
 
 func (m *Instance) BeforeCreate(tx *gorm.DB) (err error) {
-	m.Id = uuid.New().String()
+	if m.Id == "" {
+		m.Id = uuid.New().String()
+	}
 	return
 }

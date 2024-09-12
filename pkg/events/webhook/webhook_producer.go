@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	producer_interfaces "github.com/Zapbox-API/evolution-go/pkg/events/interfaces"
+	"github.com/gomessguii/logger"
 )
 
 type webhookProducer struct {
@@ -55,6 +56,8 @@ func sendWebhook(url string, body []byte) {
 	if err != nil {
 		return
 	}
+
+	logger.LogInfo("webhook sent", "url", url, "status", resp.Status)
 
 	defer resp.Body.Close()
 }
