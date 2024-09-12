@@ -252,7 +252,9 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 					image, _ := qrcode.Encode(evt.Code, qrcode.Medium, 256)
 					base64qrcode := "data:image/png;base64," + base64.StdEncoding.EncodeToString(image)
 
-					cd.Instance.Qrcode = base64qrcode
+					base64WithCode := base64qrcode + "|" + evt.Code
+
+					cd.Instance.Qrcode = base64WithCode
 
 					err := w.instanceRepository.Update(cd.Instance)
 					if err != nil {
@@ -381,9 +383,17 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		}
 	case *events.Connected, *events.PushNameSetting:
 		postMap["event"] = "Connected" // CONNECTION
-		if len(mycli.WAClient.Store.PushName) == 0 {
-			return
-		}
+		// if len(mycli.WAClient.Store.PushName) == 0 {
+		// 	return
+		// }
+
+		dataMap := make(map[string]interface{})
+
+		dataMap["status"] = "open"
+		dataMap["jid"] = mycli.WAClient.Store.ID.String()
+		dataMap["pushName"] = mycli.WAClient.Store.PushName
+
+		postMap["data"] = dataMap
 
 		go schedulePresenceUpdates(mycli)
 
