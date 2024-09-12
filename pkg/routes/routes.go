@@ -47,6 +47,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 		{
 			routes.POST("/create", r.instanceHandler.Create)
 			routes.GET("/all", r.instanceHandler.All)
+			routes.GET("/info/:instanceId", r.instanceHandler.Info)
 			routes.DELETE("/delete/:instanceId", r.instanceHandler.Delete)
 			routes.DELETE("/proxy/:instanceId", r.instanceHandler.DeleteProxy)
 		}

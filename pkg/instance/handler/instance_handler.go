@@ -19,6 +19,7 @@ type InstanceHandler interface {
 	Status(ctx *gin.Context)
 	Qr(ctx *gin.Context)
 	All(ctx *gin.Context)
+	Info(ctx *gin.Context)
 	Pair(ctx *gin.Context)
 	DeleteProxy(ctx *gin.Context)
 }
@@ -303,6 +304,34 @@ func (i *instanceHandler) All(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": instances})
+}
+
+// Get instance
+// @Summary Get instance
+// @Description Get instance
+// @Tags Instance
+// @Accept json
+// @Produce json
+// @Param instanceId path string true "Instance Id"
+// @Success 200 {object} gin.H "Instance"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /instance/get/{instanceId} [get]
+func (i *instanceHandler) Info(ctx *gin.Context) {
+	instanceId := ctx.Param("instanceId")
+
+	if instanceId == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "instanceId is required"})
+		return
+	}
+
+	instance, err := i.instanceService.Info(instanceId)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": instance})
 }
 
 // Delete instance

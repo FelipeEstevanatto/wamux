@@ -25,6 +25,7 @@ type InstanceService interface {
 	GetQr(instance *instance_model.Instance) (*QrcodeStruct, error)
 	Pair(data *PairStruct, instance *instance_model.Instance) (*PairReturnStruct, error)
 	GetAll() ([]*instance_model.Instance, error)
+	Info(instanceId string) (*instance_model.Instance, error)
 	Delete(id string) error
 	RemoveProxy(id string) error
 	GetInstanceByToken(token string) (*instance_model.Instance, error)
@@ -47,9 +48,10 @@ type ProxyConfig struct {
 }
 
 type CreateStruct struct {
-	Name  string       `json:"name"`
-	Token string       `json:"token"`
-	Proxy *ProxyConfig `json:"proxy"`
+	InstanceId string       `json:"instanceId"`
+	Name       string       `json:"name"`
+	Token      string       `json:"token"`
+	Proxy      *ProxyConfig `json:"proxy"`
 }
 
 type ConnectStruct struct {
@@ -86,6 +88,7 @@ func (i instances) Create(data *CreateStruct) (*instance_model.Instance, error) 
 	}
 
 	instance := instance_model.Instance{
+		Id:        data.InstanceId,
 		Name:      data.Name,
 		Token:     data.Token,
 		OsName:    i.config.OsName,
@@ -364,6 +367,15 @@ func (i instances) GetAll() ([]*instance_model.Instance, error) {
 	}
 
 	return instances, nil
+}
+
+func (i instances) Info(instanceId string) (*instance_model.Instance, error) {
+	instance, err := i.instanceRepository.GetInstanceByID(instanceId)
+	if err != nil {
+		return nil, err
+	}
+
+	return instance, nil
 }
 
 func (i instances) Delete(id string) error {
