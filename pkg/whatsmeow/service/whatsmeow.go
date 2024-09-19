@@ -387,7 +387,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		// 	return
 		// }
 
-		dataMap := make(map[string]interface{})
+		dataMap := postMap["data"].(map[string]interface{})
 
 		dataMap["status"] = "open"
 		dataMap["jid"] = mycli.WAClient.Store.ID.String()
@@ -431,6 +431,14 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			mycli.userInfoCache.Set(token, v, cache.NoExpiration)
 			logger.LogInfo("User information set for user '%s'", txtid)
 		}
+
+		dataMap := postMap["data"].(map[string]interface{})
+
+		dataMap["status"] = "open"
+		dataMap["jid"] = mycli.WAClient.Store.ID.String()
+		dataMap["pushName"] = mycli.WAClient.Store.PushName
+
+		postMap["data"] = dataMap
 	case *events.StreamReplaced:
 		logger.LogInfo("Received StreamReplaced event")
 		return
