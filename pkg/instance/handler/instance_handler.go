@@ -5,9 +5,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	config "github.com/Zapbox-API/evolution-go/pkg/config"
-	instance_model "github.com/Zapbox-API/evolution-go/pkg/instance/model"
-	instance_service "github.com/Zapbox-API/evolution-go/pkg/instance/service"
+	config "github.com/EvolutionAPI/evolution-go/pkg/config"
+	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
+	instance_service "github.com/EvolutionAPI/evolution-go/pkg/instance/service"
 )
 
 type InstanceHandler interface {
@@ -48,7 +48,6 @@ func (i *instanceHandler) Create(ctx *gin.Context) {
 		return
 	}
 
-	// Validação dos campos
 	if data.Name == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "name is required"})
 		return
@@ -75,8 +74,8 @@ func (i *instanceHandler) Create(ctx *gin.Context) {
 			return
 		}
 
-		if data.Proxy.Address == "" {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": "proxy address is required"})
+		if data.Proxy.Host == "" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "proxy host is required"})
 			return
 		}
 	}

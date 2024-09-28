@@ -3,8 +3,8 @@ package send_handler
 import (
 	"net/http"
 
-	instance_model "github.com/Zapbox-API/evolution-go/pkg/instance/model"
-	send_service "github.com/Zapbox-API/evolution-go/pkg/sendMessage/service"
+	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
+	send_service "github.com/EvolutionAPI/evolution-go/pkg/sendMessage/service"
 	"github.com/gin-gonic/gin"
 )
 

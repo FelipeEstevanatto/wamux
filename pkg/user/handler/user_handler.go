@@ -3,8 +3,8 @@ package user_handler
 import (
 	"net/http"
 
-	instance_model "github.com/Zapbox-API/evolution-go/pkg/instance/model"
-	user_service "github.com/Zapbox-API/evolution-go/pkg/user/service"
+	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
+	user_service "github.com/EvolutionAPI/evolution-go/pkg/user/service"
 	"github.com/gin-gonic/gin"
 )
 

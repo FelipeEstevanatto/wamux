@@ -92,7 +92,11 @@ func CreateSocks5Proxy(socks5Host, socks5Port, user, password string) (func(*htt
 	}
 
 	return func(req *http.Request) (*url.URL, error) {
-		conn, err := dialer.Dial("tcp", req.URL.Host)
+		host := req.URL.Host
+		if !strings.Contains(host, ":") {
+			host = fmt.Sprintf("%s:443", host) // Adiciona porta padrão 443 se não especificada
+		}
+		conn, err := dialer.Dial("tcp", host)
 		if err != nil {
 			return nil, err
 		}

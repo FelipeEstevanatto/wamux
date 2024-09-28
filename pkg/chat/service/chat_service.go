@@ -4,9 +4,9 @@ import (
 	"errors"
 	"time"
 
-	instance_model "github.com/Zapbox-API/evolution-go/pkg/instance/model"
-	"github.com/Zapbox-API/evolution-go/pkg/utils"
-	whatsmeow_service "github.com/Zapbox-API/evolution-go/pkg/whatsmeow/service"
+	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
+	"github.com/EvolutionAPI/evolution-go/pkg/utils"
+	whatsmeow_service "github.com/EvolutionAPI/evolution-go/pkg/whatsmeow/service"
 	"github.com/gomessguii/logger"
 	"go.mau.fi/whatsmeow/appstate"
 )

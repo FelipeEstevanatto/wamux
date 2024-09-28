@@ -3,7 +3,7 @@ package rabbitmq_producer
 import (
 	"strings"
 
-	producer_interfaces "github.com/Zapbox-API/evolution-go/pkg/events/interfaces"
+	producer_interfaces "github.com/EvolutionAPI/evolution-go/pkg/events/interfaces"
 	"github.com/gomessguii/logger"
 	amqp "github.com/rabbitmq/amqp091-go"
 )

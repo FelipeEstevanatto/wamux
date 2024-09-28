@@ -11,36 +11,37 @@ import (
 	"github.com/joho/godotenv"
 	"gorm.io/gorm"
 
-	chat_handler "github.com/Zapbox-API/evolution-go/pkg/chat/handler"
-	chat_service "github.com/Zapbox-API/evolution-go/pkg/chat/service"
-	community_handler "github.com/Zapbox-API/evolution-go/pkg/community/handler"
-	community_service "github.com/Zapbox-API/evolution-go/pkg/community/service"
-	config "github.com/Zapbox-API/evolution-go/pkg/config"
-	rabbitmq_producer "github.com/Zapbox-API/evolution-go/pkg/events/rabbitmq"
-	webhook_producer "github.com/Zapbox-API/evolution-go/pkg/events/webhook"
-	group_handler "github.com/Zapbox-API/evolution-go/pkg/group/handler"
-	group_service "github.com/Zapbox-API/evolution-go/pkg/group/service"
-	instance_handler "github.com/Zapbox-API/evolution-go/pkg/instance/handler"
-	instance_model "github.com/Zapbox-API/evolution-go/pkg/instance/model"
-	instance_repository "github.com/Zapbox-API/evolution-go/pkg/instance/repository"
-	instance_service "github.com/Zapbox-API/evolution-go/pkg/instance/service"
-	label_handler "github.com/Zapbox-API/evolution-go/pkg/label/handler"
-	label_service "github.com/Zapbox-API/evolution-go/pkg/label/service"
-	message_handler "github.com/Zapbox-API/evolution-go/pkg/message/handler"
-	message_model "github.com/Zapbox-API/evolution-go/pkg/message/model"
-	message_repository "github.com/Zapbox-API/evolution-go/pkg/message/repository"
-	message_service "github.com/Zapbox-API/evolution-go/pkg/message/service"
-	auth_middleware "github.com/Zapbox-API/evolution-go/pkg/middleware"
-	newsletter_handler "github.com/Zapbox-API/evolution-go/pkg/newsletter/handler"
-	newsletter_service "github.com/Zapbox-API/evolution-go/pkg/newsletter/service"
-	routes "github.com/Zapbox-API/evolution-go/pkg/routes"
-	send_handler "github.com/Zapbox-API/evolution-go/pkg/sendMessage/handler"
-	send_service "github.com/Zapbox-API/evolution-go/pkg/sendMessage/service"
-	server_handler "github.com/Zapbox-API/evolution-go/pkg/server/handler"
-	user_handler "github.com/Zapbox-API/evolution-go/pkg/user/handler"
-	user_service "github.com/Zapbox-API/evolution-go/pkg/user/service"
-	websocket_handler "github.com/Zapbox-API/evolution-go/pkg/websocket/handler"
-	whatsmeow_service "github.com/Zapbox-API/evolution-go/pkg/whatsmeow/service"
+	chat_handler "github.com/EvolutionAPI/evolution-go/pkg/chat/handler"
+	chat_service "github.com/EvolutionAPI/evolution-go/pkg/chat/service"
+	community_handler "github.com/EvolutionAPI/evolution-go/pkg/community/handler"
+	community_service "github.com/EvolutionAPI/evolution-go/pkg/community/service"
+	config "github.com/EvolutionAPI/evolution-go/pkg/config"
+	rabbitmq_producer "github.com/EvolutionAPI/evolution-go/pkg/events/rabbitmq"
+	webhook_producer "github.com/EvolutionAPI/evolution-go/pkg/events/webhook"
+	group_handler "github.com/EvolutionAPI/evolution-go/pkg/group/handler"
+	group_service "github.com/EvolutionAPI/evolution-go/pkg/group/service"
+	instance_handler "github.com/EvolutionAPI/evolution-go/pkg/instance/handler"
+	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
+	instance_repository "github.com/EvolutionAPI/evolution-go/pkg/instance/repository"
+	instance_service "github.com/EvolutionAPI/evolution-go/pkg/instance/service"
+	label_handler "github.com/EvolutionAPI/evolution-go/pkg/label/handler"
+	label_service "github.com/EvolutionAPI/evolution-go/pkg/label/service"
+	message_handler "github.com/EvolutionAPI/evolution-go/pkg/message/handler"
+	message_model "github.com/EvolutionAPI/evolution-go/pkg/message/model"
+	message_repository "github.com/EvolutionAPI/evolution-go/pkg/message/repository"
+	message_service "github.com/EvolutionAPI/evolution-go/pkg/message/service"
+	auth_middleware "github.com/EvolutionAPI/evolution-go/pkg/middleware"
+	newsletter_handler "github.com/EvolutionAPI/evolution-go/pkg/newsletter/handler"
+	newsletter_service "github.com/EvolutionAPI/evolution-go/pkg/newsletter/service"
+	routes "github.com/EvolutionAPI/evolution-go/pkg/routes"
+	send_handler "github.com/EvolutionAPI/evolution-go/pkg/sendMessage/handler"
+	send_service "github.com/EvolutionAPI/evolution-go/pkg/sendMessage/service"
+	server_handler "github.com/EvolutionAPI/evolution-go/pkg/server/handler"
+	"github.com/EvolutionAPI/evolution-go/pkg/telemetry"
+	user_handler "github.com/EvolutionAPI/evolution-go/pkg/user/handler"
+	user_service "github.com/EvolutionAPI/evolution-go/pkg/user/service"
+	websocket_handler "github.com/EvolutionAPI/evolution-go/pkg/websocket/handler"
+	whatsmeow_service "github.com/EvolutionAPI/evolution-go/pkg/whatsmeow/service"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -92,7 +93,10 @@ func setupRouter(db *gorm.DB, config *config.Config, conn *amqp.Connection) *gin
 	labelService := label_service.NewLabelService(clientPointer)
 	newsletterService := newsletter_service.NewNewsletterService(clientPointer)
 
+	telemetry := telemetry.NewTelemetryService()
+
 	r := gin.Default()
+	r.Use(telemetry.TelemetryMiddleware())
 	routes.NewRouter(
 		auth_middleware.NewMiddleware(config, instanceService),
 		instance_handler.NewInstanceHandler(instanceService, config),
