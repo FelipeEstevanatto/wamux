@@ -3,8 +3,8 @@ package newsletter_handler
 import (
 	"net/http"
 
-	instance_model "github.com/Zapbox-API/evolution-go/pkg/instance/model"
-	newsletter_service "github.com/Zapbox-API/evolution-go/pkg/newsletter/service"
+	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
+	newsletter_service "github.com/EvolutionAPI/evolution-go/pkg/newsletter/service"
 	"github.com/gin-gonic/gin"
 )
 

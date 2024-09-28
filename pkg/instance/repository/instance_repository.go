@@ -3,7 +3,7 @@ package instance_repository
 import (
 	"fmt"
 
-	instance_model "github.com/Zapbox-API/evolution-go/pkg/instance/model"
+	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )

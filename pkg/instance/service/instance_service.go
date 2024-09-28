@@ -6,12 +6,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Zapbox-API/evolution-go/pkg/config"
-	instance_model "github.com/Zapbox-API/evolution-go/pkg/instance/model"
-	instance_repository "github.com/Zapbox-API/evolution-go/pkg/instance/repository"
-	event_types "github.com/Zapbox-API/evolution-go/pkg/internal/event_types"
-	"github.com/Zapbox-API/evolution-go/pkg/utils"
-	whatsmeow_service "github.com/Zapbox-API/evolution-go/pkg/whatsmeow/service"
+	"github.com/EvolutionAPI/evolution-go/pkg/config"
+	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
+	instance_repository "github.com/EvolutionAPI/evolution-go/pkg/instance/repository"
+	event_types "github.com/EvolutionAPI/evolution-go/pkg/internal/event_types"
+	"github.com/EvolutionAPI/evolution-go/pkg/utils"
+	whatsmeow_service "github.com/EvolutionAPI/evolution-go/pkg/whatsmeow/service"
 	"github.com/gomessguii/logger"
 	"go.mau.fi/whatsmeow/types"
 )
@@ -44,7 +44,7 @@ type ProxyConfig struct {
 	Port     string `json:"port"`
 	Password string `json:"password"`
 	Username string `json:"username"`
-	Address  string `json:"address"`
+	Host     string `json:"host"`
 }
 
 type CreateStruct struct {
@@ -151,7 +151,7 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 			return nil, "", "", err
 		}
 
-		if proxyConfig.Address != "" {
+		if proxyConfig.Host != "" {
 			clientData.IsProxy = true
 		}
 	}
@@ -337,7 +337,7 @@ func (i instances) Pair(data *PairStruct, instance *instance_model.Instance) (*P
 			return nil, err
 		}
 
-		if proxyConfig.Address != "" {
+		if proxyConfig.Host != "" {
 			clientData.IsProxy = true
 		}
 	}

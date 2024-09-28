@@ -1,4 +1,4 @@
-module github.com/Zapbox-API/evolution-go
+module github.com/EvolutionAPI/evolution-go
 
 go 1.22.4
 

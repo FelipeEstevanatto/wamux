@@ -3,8 +3,8 @@ package chat_handler
 import (
 	"net/http"
 
-	chat_service "github.com/Zapbox-API/evolution-go/pkg/chat/service"
-	instance_model "github.com/Zapbox-API/evolution-go/pkg/instance/model"
+	chat_service "github.com/EvolutionAPI/evolution-go/pkg/chat/service"
+	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
 	"github.com/gin-gonic/gin"
 )
 

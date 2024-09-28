@@ -29,14 +29,14 @@ import (
 	"go.mau.fi/whatsmeow/types/events"
 	waLog "go.mau.fi/whatsmeow/util/log"
 
-	"github.com/Zapbox-API/evolution-go/pkg/config"
-	producer_interfaces "github.com/Zapbox-API/evolution-go/pkg/events/interfaces"
-	instance_model "github.com/Zapbox-API/evolution-go/pkg/instance/model"
-	instance_repository "github.com/Zapbox-API/evolution-go/pkg/instance/repository"
-	"github.com/Zapbox-API/evolution-go/pkg/internal/event_types"
-	message_model "github.com/Zapbox-API/evolution-go/pkg/message/model"
-	message_repository "github.com/Zapbox-API/evolution-go/pkg/message/repository"
-	"github.com/Zapbox-API/evolution-go/pkg/utils"
+	"github.com/EvolutionAPI/evolution-go/pkg/config"
+	producer_interfaces "github.com/EvolutionAPI/evolution-go/pkg/events/interfaces"
+	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
+	instance_repository "github.com/EvolutionAPI/evolution-go/pkg/instance/repository"
+	"github.com/EvolutionAPI/evolution-go/pkg/internal/event_types"
+	message_model "github.com/EvolutionAPI/evolution-go/pkg/message/model"
+	message_repository "github.com/EvolutionAPI/evolution-go/pkg/message/repository"
+	"github.com/EvolutionAPI/evolution-go/pkg/utils"
 )
 
 type WhatsmeowService interface {
@@ -96,7 +96,7 @@ func (v Values) Get(key string) string {
 }
 
 type ProxyConfig struct {
-	Address  string `json:"address"`
+	Host     string `json:"host"`
 	Password string `json:"password"`
 	Port     string `json:"port"`
 	Username string `json:"username"`
@@ -157,23 +157,6 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		logger.LogError("Client not found")
 	}
 
-	if cd.IsProxy {
-		var proxyConfig ProxyConfig
-		err := json.Unmarshal([]byte(cd.Instance.Proxy), &proxyConfig)
-		if err != nil {
-			fmt.Println("Error:", err)
-			return
-		}
-
-		socks5Proxy, err := utils.CreateSocks5Proxy(proxyConfig.Address, proxyConfig.Port, proxyConfig.Username, proxyConfig.Password)
-		if err != nil {
-			logger.LogError("Proxy error, disabling proxy")
-		} else {
-			client.WAClient.SetProxy(socks5Proxy)
-			logger.LogInfo("Proxy enabled")
-		}
-	}
-
 	clientLog := waLog.Stdout("Client", w.config.WaDebug, true)
 	if w.config.WaDebug != "" {
 		client.WAClient = whatsmeow.NewClient(deviceStore, clientLog)
@@ -182,6 +165,24 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 	}
 
 	w.clientPointer[cd.Instance.Id] = client
+
+	if cd.IsProxy {
+		var proxyConfig ProxyConfig
+		err := json.Unmarshal([]byte(cd.Instance.Proxy), &proxyConfig)
+		if err != nil {
+			fmt.Println("Error:", err)
+			return
+		}
+
+		proxy, err := utils.CreateSocks5Proxy(proxyConfig.Host, proxyConfig.Port, proxyConfig.Username, proxyConfig.Password)
+		if err != nil {
+			logger.LogError("Proxy error, disabling proxy")
+		} else {
+			client.WAClient.SetProxy(proxy)
+			logger.LogInfo("Proxy enabled")
+		}
+	}
+
 	mycli := MyClient{
 		WAClient:           client.WAClient,
 		eventHandlerID:     1,
@@ -879,17 +880,16 @@ func (mycli *MyClient) sendToQueueOrWebhook(queueName string, jsonData []byte) {
 		logger.LogInfo("Message enqueued successfully")
 	}
 
-	if mycli.config.WebhookUrl != "" {
-		err := mycli.webhookProducer.Produce(queueName, jsonData, mycli.webhookUrl)
-		if err != nil {
-			logger.LogError("Failed to send message to webhook: %s", err)
-			return
-		}
-		logger.LogInfo("Message sent to webhook successfully")
+	err := mycli.webhookProducer.Produce(queueName, jsonData, mycli.webhookUrl)
+	if err != nil {
+		logger.LogError("Failed to send message to webhook: %s", err)
+		return
 	}
+	logger.LogInfo("Message sent to webhook successfully")
 }
 
 func (w whatsmeowService) ConnectOnStartup() {
+	logger.LogInfo("Connecting all instances on startup")
 	instances, err := w.instanceRepository.GetAllConnectedInstances()
 	if err != nil {
 		logger.LogError("Error getting all connected instances: %s", err)
@@ -946,7 +946,7 @@ func (w whatsmeowService) ConnectOnStartup() {
 				return
 			}
 
-			if proxyConfig.Address != "" {
+			if proxyConfig.Host != "" {
 				clientData.IsProxy = true
 			}
 		}
