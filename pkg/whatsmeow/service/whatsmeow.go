@@ -262,6 +262,31 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 						logger.LogError("Error updating instance: %s", err)
 					}
 
+					postMap := make(map[string]interface{})
+
+					postMap["event"] = "QRCode"
+
+					dataMap := make(map[string]interface{})
+
+					dataMap["qrcode"] = base64qrcode
+					dataMap["code"] = evt.Code
+
+					postMap["data"] = dataMap
+
+					var queueName string
+
+					if _, ok := postMap["event"]; ok {
+						queueName = fmt.Sprintf("%s.%s", cd.Instance.Id, postMap["event"])
+					}
+
+					values, err := json.Marshal(postMap)
+					if err != nil {
+						logger.LogError("Failed to marshal JSON for queue")
+						return
+					}
+
+					go mycli.callWebhook(queueName, values)
+
 				case "timeout":
 					cd.Instance.Qrcode = ""
 
@@ -274,6 +299,28 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 					delete(w.clientPointer, cd.Instance.Id)
 					w.killChannel[cd.Instance.Id] <- true
 
+					postMap := make(map[string]interface{})
+
+					postMap["event"] = "QRTimeout"
+
+					dataMap := make(map[string]interface{})
+
+					postMap["data"] = dataMap
+
+					var queueName string
+
+					if _, ok := postMap["event"]; ok {
+						queueName = fmt.Sprintf("%s.%s", cd.Instance.Id, postMap["event"])
+					}
+
+					values, err := json.Marshal(postMap)
+					if err != nil {
+						logger.LogError("Failed to marshal JSON for queue")
+						return
+					}
+
+					go mycli.callWebhook(queueName, values)
+
 				case "success":
 					logger.LogInfo("QR pairing ok!")
 
@@ -284,6 +331,28 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 					if err != nil {
 						logger.LogError("Error updating instance: %s", err)
 					}
+
+					postMap := make(map[string]interface{})
+
+					postMap["event"] = "QRSuccess"
+
+					dataMap := make(map[string]interface{})
+
+					postMap["data"] = dataMap
+
+					var queueName string
+
+					if _, ok := postMap["event"]; ok {
+						queueName = fmt.Sprintf("%s.%s", cd.Instance.Id, postMap["event"])
+					}
+
+					values, err := json.Marshal(postMap)
+					if err != nil {
+						logger.LogError("Failed to marshal JSON for queue")
+						return
+					}
+
+					go mycli.callWebhook(queueName, values)
 
 				default:
 					logger.LogInfo("Login event: %s", evt.Event)
@@ -856,6 +925,12 @@ func (mycli *MyClient) callWebhook(queueName string, jsonData []byte) {
 			logger.LogInfo("Event received of type %s", eventType)
 			mycli.sendToQueueOrWebhook(queueName, jsonData)
 		}
+	case "QRCode", "QRTimeout", "QRSuccess":
+		if contains(mycli.subscriptions, "QRCODE") {
+			logger.LogInfo("Event received of type %s", eventType)
+			mycli.sendToQueueOrWebhook(queueName, jsonData)
+		}
+
 	default:
 		return
 	}
