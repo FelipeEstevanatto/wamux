@@ -13,6 +13,7 @@ const (
 	CONTACT       = "CONTACT"
 	GROUP         = "GROUP"
 	NEWSLETTER    = "NEWSLETTER"
+	QRCODE        = "QRCODE"
 )
 
 var validEventTypes = map[string]bool{
@@ -28,6 +29,7 @@ var validEventTypes = map[string]bool{
 	CONTACT:       true,
 	GROUP:         true,
 	NEWSLETTER:    true,
+	QRCODE:        true,
 }
 
 func IsEventType(eventType string) bool {
