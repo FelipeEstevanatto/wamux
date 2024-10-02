@@ -28,7 +28,7 @@ type UserService interface {
 }
 
 type userService struct {
-	clientPointer    map[string]whatsmeow_service.ClientInfo
+	clientPointer    map[string]*whatsmeow.Client
 	whatsmeowService whatsmeow_service.WhatsmeowService
 }
 
@@ -74,7 +74,7 @@ type SetProfilePictureStruct struct {
 }
 
 func (u *userService) GetUser(data *CheckUserStruct, instance *instance_model.Instance) (*UserCollection, error) {
-	if u.clientPointer[instance.Id].WAClient == nil {
+	if u.clientPointer[instance.Id] == nil {
 		return nil, errors.New("no session found")
 	}
 
@@ -86,7 +86,7 @@ func (u *userService) GetUser(data *CheckUserStruct, instance *instance_model.In
 		}
 		jids = append(jids, jid)
 	}
-	resp, err := u.clientPointer[instance.Id].WAClient.GetUserInfo(jids)
+	resp, err := u.clientPointer[instance.Id].GetUserInfo(jids)
 	if err != nil {
 		return nil, err
 	}
@@ -102,11 +102,11 @@ func (u *userService) GetUser(data *CheckUserStruct, instance *instance_model.In
 }
 
 func (u *userService) CheckUser(data *CheckUserStruct, instance *instance_model.Instance) (*CheckUserCollection, error) {
-	if u.clientPointer[instance.Id].WAClient == nil {
+	if u.clientPointer[instance.Id] == nil {
 		return nil, errors.New("no session found")
 	}
 
-	resp, err := u.clientPointer[instance.Id].WAClient.IsOnWhatsApp(data.Number)
+	resp, err := u.clientPointer[instance.Id].IsOnWhatsApp(data.Number)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +126,7 @@ func (u *userService) CheckUser(data *CheckUserStruct, instance *instance_model.
 }
 
 func (u *userService) GetAvatar(data *GetAvatarStruct, instance *instance_model.Instance) (*types.ProfilePictureInfo, error) {
-	if u.clientPointer[instance.Id].WAClient == nil {
+	if u.clientPointer[instance.Id] == nil {
 		return nil, errors.New("no session found")
 	}
 
@@ -137,7 +137,7 @@ func (u *userService) GetAvatar(data *GetAvatarStruct, instance *instance_model.
 
 	var pic *types.ProfilePictureInfo
 
-	pic, err := u.clientPointer[instance.Id].WAClient.GetProfilePictureInfo(jid, &whatsmeow.GetProfilePictureParams{
+	pic, err := u.clientPointer[instance.Id].GetProfilePictureInfo(jid, &whatsmeow.GetProfilePictureParams{
 		Preview: data.Preview,
 	})
 	if err != nil {
@@ -154,11 +154,11 @@ func (u *userService) GetAvatar(data *GetAvatarStruct, instance *instance_model.
 }
 
 func (u *userService) GetContacts(instance *instance_model.Instance) ([]ContactInfo, error) {
-	if u.clientPointer[instance.Id].WAClient == nil {
+	if u.clientPointer[instance.Id] == nil {
 		return nil, errors.New("no session found")
 	}
 
-	contacts, err := u.clientPointer[instance.Id].WAClient.Store.Contacts.GetAllContacts()
+	contacts, err := u.clientPointer[instance.Id].Store.Contacts.GetAllContacts()
 	if err != nil {
 		return nil, err
 	}
@@ -181,17 +181,17 @@ func (u *userService) GetContacts(instance *instance_model.Instance) ([]ContactI
 }
 
 func (u *userService) GetPrivacy(instance *instance_model.Instance) (types.PrivacySettings, error) {
-	if u.clientPointer[instance.Id].WAClient == nil {
+	if u.clientPointer[instance.Id] == nil {
 		return types.PrivacySettings{}, errors.New("no session found")
 	}
 
-	privacy := u.clientPointer[instance.Id].WAClient.GetPrivacySettings()
+	privacy := u.clientPointer[instance.Id].GetPrivacySettings()
 
 	return privacy, nil
 }
 
 func (u *userService) BlockContact(data *BlockStruct, instance *instance_model.Instance) (*types.Blocklist, error) {
-	if u.clientPointer[instance.Id].WAClient == nil {
+	if u.clientPointer[instance.Id] == nil {
 		return nil, errors.New("no session found")
 	}
 
@@ -200,7 +200,7 @@ func (u *userService) BlockContact(data *BlockStruct, instance *instance_model.I
 		return nil, errors.New("invalid phone number")
 	}
 
-	resp, err := u.clientPointer[instance.Id].WAClient.UpdateBlocklist(jid, events.BlocklistChangeActionBlock)
+	resp, err := u.clientPointer[instance.Id].UpdateBlocklist(jid, events.BlocklistChangeActionBlock)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +209,7 @@ func (u *userService) BlockContact(data *BlockStruct, instance *instance_model.I
 }
 
 func (u *userService) UnlockContact(data *BlockStruct, instance *instance_model.Instance) (*types.Blocklist, error) {
-	if u.clientPointer[instance.Id].WAClient == nil {
+	if u.clientPointer[instance.Id] == nil {
 		return nil, errors.New("no session found")
 	}
 
@@ -218,7 +218,7 @@ func (u *userService) UnlockContact(data *BlockStruct, instance *instance_model.
 		return nil, errors.New("invalid phone number")
 	}
 
-	resp, err := u.clientPointer[instance.Id].WAClient.UpdateBlocklist(jid, events.BlocklistChangeActionUnblock)
+	resp, err := u.clientPointer[instance.Id].UpdateBlocklist(jid, events.BlocklistChangeActionUnblock)
 	if err != nil {
 		return nil, err
 	}
@@ -227,11 +227,11 @@ func (u *userService) UnlockContact(data *BlockStruct, instance *instance_model.
 }
 
 func (u *userService) GetBlockList(instance *instance_model.Instance) (*types.Blocklist, error) {
-	if u.clientPointer[instance.Id].WAClient == nil {
+	if u.clientPointer[instance.Id] == nil {
 		return nil, errors.New("no session found")
 	}
 
-	resp, err := u.clientPointer[instance.Id].WAClient.GetBlocklist()
+	resp, err := u.clientPointer[instance.Id].GetBlocklist()
 	if err != nil {
 		return nil, err
 	}
@@ -240,7 +240,7 @@ func (u *userService) GetBlockList(instance *instance_model.Instance) (*types.Bl
 }
 
 func (u *userService) SetProfilePicture(data *SetProfilePictureStruct, instance *instance_model.Instance) (bool, error) {
-	if u.clientPointer[instance.Id].WAClient == nil {
+	if u.clientPointer[instance.Id] == nil {
 		return false, errors.New("no session found")
 	}
 
@@ -257,7 +257,7 @@ func (u *userService) SetProfilePicture(data *SetProfilePictureStruct, instance 
 		return false, fmt.Errorf("failed to read image data: %v", err)
 	}
 
-	_, err = u.clientPointer[instance.Id].WAClient.SetGroupPhoto(types.EmptyJID, filedata)
+	_, err = u.clientPointer[instance.Id].SetGroupPhoto(types.EmptyJID, filedata)
 	if err != nil {
 		return false, err
 	}
@@ -266,7 +266,7 @@ func (u *userService) SetProfilePicture(data *SetProfilePictureStruct, instance 
 }
 
 func NewUserService(
-	clientPointer map[string]whatsmeow_service.ClientInfo,
+	clientPointer map[string]*whatsmeow.Client,
 	whatsmeowService whatsmeow_service.WhatsmeowService,
 ) UserService {
 	return &userService{

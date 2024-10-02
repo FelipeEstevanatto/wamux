@@ -5,8 +5,8 @@ import (
 
 	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
 	"github.com/EvolutionAPI/evolution-go/pkg/utils"
-	whatsmeow_service "github.com/EvolutionAPI/evolution-go/pkg/whatsmeow/service"
 	"github.com/gomessguii/logger"
+	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/appstate"
 )
 
@@ -19,7 +19,7 @@ type LabelService interface {
 }
 
 type labelService struct {
-	clientPointer map[string]whatsmeow_service.ClientInfo
+	clientPointer map[string]*whatsmeow.Client
 }
 
 type ChatLabelStruct struct {
@@ -41,7 +41,7 @@ type EditLabelStruct struct {
 }
 
 func (l *labelService) ChatLabel(data *ChatLabelStruct, instance *instance_model.Instance) error {
-	if l.clientPointer[instance.Id].WAClient == nil {
+	if l.clientPointer[instance.Id] == nil {
 		return errors.New("no session found")
 	}
 
@@ -51,7 +51,7 @@ func (l *labelService) ChatLabel(data *ChatLabelStruct, instance *instance_model
 		return errors.New("error parse community jid")
 	}
 
-	err := l.clientPointer[instance.Id].WAClient.SendAppState(appstate.BuildLabelChat(
+	err := l.clientPointer[instance.Id].SendAppState(appstate.BuildLabelChat(
 		jid,
 		data.LabelID,
 		true,
@@ -65,7 +65,7 @@ func (l *labelService) ChatLabel(data *ChatLabelStruct, instance *instance_model
 }
 
 func (l *labelService) MessageLabel(data *MessageLabelStruct, instance *instance_model.Instance) error {
-	if l.clientPointer[instance.Id].WAClient == nil {
+	if l.clientPointer[instance.Id] == nil {
 		return errors.New("no session found")
 	}
 
@@ -75,7 +75,7 @@ func (l *labelService) MessageLabel(data *MessageLabelStruct, instance *instance
 		return errors.New("error parse community jid")
 	}
 
-	err := l.clientPointer[instance.Id].WAClient.SendAppState(appstate.BuildLabelMessage(
+	err := l.clientPointer[instance.Id].SendAppState(appstate.BuildLabelMessage(
 		jid,
 		data.LabelID,
 		data.MessageID,
@@ -90,11 +90,11 @@ func (l *labelService) MessageLabel(data *MessageLabelStruct, instance *instance
 }
 
 func (l *labelService) EditLabel(data *EditLabelStruct, instance *instance_model.Instance) error {
-	if l.clientPointer[instance.Id].WAClient == nil {
+	if l.clientPointer[instance.Id] == nil {
 		return errors.New("no session found")
 	}
 
-	err := l.clientPointer[instance.Id].WAClient.SendAppState(appstate.BuildLabelEdit(
+	err := l.clientPointer[instance.Id].SendAppState(appstate.BuildLabelEdit(
 		data.LabelID,
 		data.Name,
 		int32(data.Color),
@@ -109,7 +109,7 @@ func (l *labelService) EditLabel(data *EditLabelStruct, instance *instance_model
 }
 
 func (l *labelService) ChatUnlabel(data *ChatLabelStruct, instance *instance_model.Instance) error {
-	if l.clientPointer[instance.Id].WAClient == nil {
+	if l.clientPointer[instance.Id] == nil {
 		return errors.New("no session found")
 	}
 
@@ -119,7 +119,7 @@ func (l *labelService) ChatUnlabel(data *ChatLabelStruct, instance *instance_mod
 		return errors.New("error parse community jid")
 	}
 
-	err := l.clientPointer[instance.Id].WAClient.SendAppState(appstate.BuildLabelChat(
+	err := l.clientPointer[instance.Id].SendAppState(appstate.BuildLabelChat(
 		jid,
 		data.LabelID,
 		false,
@@ -133,7 +133,7 @@ func (l *labelService) ChatUnlabel(data *ChatLabelStruct, instance *instance_mod
 }
 
 func (l *labelService) MessageUnlabel(data *MessageLabelStruct, instance *instance_model.Instance) error {
-	if l.clientPointer[instance.Id].WAClient == nil {
+	if l.clientPointer[instance.Id] == nil {
 		return errors.New("no session found")
 	}
 
@@ -143,7 +143,7 @@ func (l *labelService) MessageUnlabel(data *MessageLabelStruct, instance *instan
 		return errors.New("error parse community jid")
 	}
 
-	err := l.clientPointer[instance.Id].WAClient.SendAppState(appstate.BuildLabelMessage(
+	err := l.clientPointer[instance.Id].SendAppState(appstate.BuildLabelMessage(
 		jid,
 		data.LabelID,
 		data.MessageID,
@@ -158,7 +158,7 @@ func (l *labelService) MessageUnlabel(data *MessageLabelStruct, instance *instan
 }
 
 func NewLabelService(
-	clientPointer map[string]whatsmeow_service.ClientInfo,
+	clientPointer map[string]*whatsmeow.Client,
 ) LabelService {
 	return &labelService{
 		clientPointer: clientPointer,

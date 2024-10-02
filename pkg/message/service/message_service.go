@@ -14,7 +14,6 @@ import (
 	message_model "github.com/EvolutionAPI/evolution-go/pkg/message/model"
 	message_repository "github.com/EvolutionAPI/evolution-go/pkg/message/repository"
 	"github.com/EvolutionAPI/evolution-go/pkg/utils"
-	whatsmeow_service "github.com/EvolutionAPI/evolution-go/pkg/whatsmeow/service"
 	"github.com/gomessguii/logger"
 	"github.com/vincent-petithory/dataurl"
 	"go.mau.fi/whatsmeow"
@@ -35,7 +34,7 @@ type MessageService interface {
 }
 
 type messageService struct {
-	clientPointer     map[string]whatsmeow_service.ClientInfo
+	clientPointer     map[string]*whatsmeow.Client
 	messageRepository message_repository.MessageRepository
 }
 
@@ -82,7 +81,7 @@ type EditMessageStruct struct {
 }
 
 func (m *messageService) React(data *ReactStruct, instance *instance_model.Instance) (string, string, error) {
-	if m.clientPointer[instance.Id].WAClient == nil {
+	if m.clientPointer[instance.Id] == nil {
 		return "", "", errors.New("no session found")
 	}
 
@@ -125,7 +124,7 @@ func (m *messageService) React(data *ReactStruct, instance *instance_model.Insta
 		},
 	}
 
-	_, err := m.clientPointer[instance.Id].WAClient.SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{
+	_, err := m.clientPointer[instance.Id].SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{
 		ID: msgId,
 	})
 	if err != nil {
@@ -136,7 +135,7 @@ func (m *messageService) React(data *ReactStruct, instance *instance_model.Insta
 }
 
 func (m *messageService) ChatPresence(data *ChatPresenceStruct, instance *instance_model.Instance) (string, error) {
-	if m.clientPointer[instance.Id].WAClient == nil {
+	if m.clientPointer[instance.Id] == nil {
 		return "", errors.New("no session found")
 	}
 
@@ -154,7 +153,7 @@ func (m *messageService) ChatPresence(data *ChatPresenceStruct, instance *instan
 		media = "audio"
 	}
 
-	err := m.clientPointer[instance.Id].WAClient.SendChatPresence(recipient, types.ChatPresence(data.State), types.ChatPresenceMedia(media))
+	err := m.clientPointer[instance.Id].SendChatPresence(recipient, types.ChatPresence(data.State), types.ChatPresenceMedia(media))
 	if err != nil {
 		return "", err
 	}
@@ -165,7 +164,7 @@ func (m *messageService) ChatPresence(data *ChatPresenceStruct, instance *instan
 }
 
 func (m *messageService) MarkRead(data *MarkReadStruct, instance *instance_model.Instance) (string, error) {
-	if m.clientPointer[instance.Id].WAClient == nil {
+	if m.clientPointer[instance.Id] == nil {
 		return "", errors.New("no session found")
 	}
 
@@ -177,7 +176,7 @@ func (m *messageService) MarkRead(data *MarkReadStruct, instance *instance_model
 		return "", errors.New("invalid phone number")
 	}
 
-	err := m.clientPointer[instance.Id].WAClient.MarkRead(data.Id, time.Now(), jid, jid)
+	err := m.clientPointer[instance.Id].MarkRead(data.Id, time.Now(), jid, jid)
 	if err != nil {
 		logger.LogError("error marking message as read: %v", err)
 		return "", errors.New("error marking message as read")
@@ -187,7 +186,7 @@ func (m *messageService) MarkRead(data *MarkReadStruct, instance *instance_model
 }
 
 func (m *messageService) DownloadImage(data *DownloadImageStruct, instance *instance_model.Instance, request *http.Request) (*dataurl.DataURL, string, error) {
-	if m.clientPointer[instance.Id].WAClient == nil {
+	if m.clientPointer[instance.Id] == nil {
 		return nil, "", errors.New("no session found")
 	}
 
@@ -227,7 +226,7 @@ func (m *messageService) DownloadImage(data *DownloadImageStruct, instance *inst
 	img := msg.GetImageMessage()
 
 	if img != nil {
-		imgData, err = m.clientPointer[instance.Id].WAClient.Download(img)
+		imgData, err = m.clientPointer[instance.Id].Download(img)
 		if err != nil {
 			logger.LogError("Failed to download image")
 			msg := fmt.Sprintf("Failed to download image %v", err)
@@ -242,7 +241,7 @@ func (m *messageService) DownloadImage(data *DownloadImageStruct, instance *inst
 }
 
 func (m *messageService) GetMessageStatus(data *MessageStatusStruct, instance *instance_model.Instance) (*message_model.Message, string, error) {
-	if m.clientPointer[instance.Id].WAClient == nil {
+	if m.clientPointer[instance.Id] == nil {
 		return nil, "", errors.New("no session found")
 	}
 
@@ -257,7 +256,7 @@ func (m *messageService) GetMessageStatus(data *MessageStatusStruct, instance *i
 }
 
 func (m *messageService) DeleteMessageEveryone(data *MessageStruct, instance *instance_model.Instance) (string, string, error) {
-	if m.clientPointer[instance.Id].WAClient == nil {
+	if m.clientPointer[instance.Id] == nil {
 		return "", "", errors.New("no session found")
 	}
 
@@ -269,9 +268,9 @@ func (m *messageService) DeleteMessageEveryone(data *MessageStruct, instance *in
 		return "", "", errors.New("invalid phone number")
 	}
 
-	resp, err := m.clientPointer[instance.Id].WAClient.SendMessage(
+	resp, err := m.clientPointer[instance.Id].SendMessage(
 		context.Background(),
-		recipient, m.clientPointer[instance.Id].WAClient.BuildRevoke(recipient, types.EmptyJID, data.MessageID))
+		recipient, m.clientPointer[instance.Id].BuildRevoke(recipient, types.EmptyJID, data.MessageID))
 	if err != nil {
 		logger.LogError("error revoking message: %v", err)
 		return "", "", err
@@ -283,7 +282,7 @@ func (m *messageService) DeleteMessageEveryone(data *MessageStruct, instance *in
 }
 
 func (m *messageService) EditMessage(data *EditMessageStruct, instance *instance_model.Instance) (string, string, error) {
-	if m.clientPointer[instance.Id].WAClient == nil {
+	if m.clientPointer[instance.Id] == nil {
 		return "", "", errors.New("no session found")
 	}
 
@@ -295,10 +294,10 @@ func (m *messageService) EditMessage(data *EditMessageStruct, instance *instance
 		return "", "", errors.New("invalid phone number")
 	}
 
-	resp, err := m.clientPointer[instance.Id].WAClient.SendMessage(
+	resp, err := m.clientPointer[instance.Id].SendMessage(
 		context.Background(),
 		recipient,
-		m.clientPointer[instance.Id].WAClient.BuildEdit(
+		m.clientPointer[instance.Id].BuildEdit(
 			recipient,
 			data.MessageID,
 			&waE2E.Message{
@@ -315,7 +314,7 @@ func (m *messageService) EditMessage(data *EditMessageStruct, instance *instance
 }
 
 func NewMessageService(
-	clientPointer map[string]whatsmeow_service.ClientInfo,
+	clientPointer map[string]*whatsmeow.Client,
 	messageRepository message_repository.MessageRepository,
 ) MessageService {
 	return &messageService{

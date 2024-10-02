@@ -7,21 +7,16 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"os"
-	"path/filepath"
 	"strings"
-	"sync/atomic"
 	"time"
 
-	"github.com/go-resty/resty/v2"
 	"github.com/gomessguii/logger"
-	"github.com/gorilla/websocket"
 	_ "github.com/lib/pq"
 	"github.com/patrickmn/go-cache"
 	"github.com/skip2/go-qrcode"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/appstate"
-	waProto "go.mau.fi/whatsmeow/binary/proto"
+	"go.mau.fi/whatsmeow/proto/waCompanionReg"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/store"
 	"go.mau.fi/whatsmeow/store/sqlstore"
@@ -50,7 +45,7 @@ type whatsmeowService struct {
 	config                  *config.Config
 	killChannel             map[string](chan bool)
 	userInfoCache           *cache.Cache
-	clientPointer           map[string]ClientInfo
+	clientPointer           map[string]*whatsmeow.Client
 	linkingCodeEventChannel chan LinkingCodeEvent
 	rabbitmqProducer        producer_interfaces.Producer
 	webhookProducer         producer_interfaces.Producer
@@ -66,18 +61,13 @@ type MyClient struct {
 	webhookUrl         string
 	instanceRepository instance_repository.InstanceRepository
 	messageRepository  message_repository.MessageRepository
-	clientPointer      map[string]ClientInfo
+	clientPointer      map[string]*whatsmeow.Client
 	killChannel        map[string](chan bool)
 	userInfoCache      *cache.Cache
 	config             *config.Config
 	historySyncID      int32
 	rabbitmqProducer   producer_interfaces.Producer
 	webhookProducer    producer_interfaces.Producer
-}
-
-type ClientInfo struct {
-	WAClient *whatsmeow.Client
-	WSConn   *websocket.Conn
 }
 
 type ClientData struct {
@@ -114,8 +104,8 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 	var deviceStore *store.Device
 	var err error
 
-	if w.clientPointer[cd.Instance.Id].WAClient != nil {
-		if w.clientPointer[cd.Instance.Id].WAClient.IsConnected() {
+	if w.clientPointer[cd.Instance.Id] != nil {
+		if w.clientPointer[cd.Instance.Id].IsConnected() {
 			return
 		}
 	}
@@ -153,21 +143,15 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		logger.LogInfo("deviceStore: %v", deviceStore)
 	}
 
-	store.DeviceProps.PlatformType = waProto.DeviceProps_CHROME.Enum()
+	store.DeviceProps.PlatformType = waCompanionReg.DeviceProps_CHROME.Enum()
 	store.DeviceProps.Os = &cd.Instance.OsName
 
-	logger.LogInfo("Device store created for user '%s'", w.clientPointer[cd.Instance.Id])
-
-	client, ok := w.clientPointer[cd.Instance.Id]
-	if !ok {
-		logger.LogError("Client not found")
-	}
-
 	clientLog := waLog.Stdout("Client", w.config.WaDebug, true)
+	var client *whatsmeow.Client
 	if w.config.WaDebug != "" {
-		client.WAClient = whatsmeow.NewClient(deviceStore, clientLog)
+		client = whatsmeow.NewClient(deviceStore, clientLog)
 	} else {
-		client.WAClient = whatsmeow.NewClient(deviceStore, nil)
+		client = whatsmeow.NewClient(deviceStore, nil)
 	}
 
 	w.clientPointer[cd.Instance.Id] = client
@@ -184,13 +168,13 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		if err != nil {
 			logger.LogError("Proxy error, disabling proxy")
 		} else {
-			client.WAClient.SetProxy(proxy)
+			client.SetProxy(proxy)
 			logger.LogInfo("Proxy enabled")
 		}
 	}
 
 	mycli := MyClient{
-		WAClient:           client.WAClient,
+		WAClient:           client,
 		eventHandlerID:     1,
 		userID:             cd.Instance.Id,
 		token:              cd.Instance.Token,
@@ -207,26 +191,36 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		webhookProducer:    w.webhookProducer,
 	}
 
-	var clientHttp = make(map[string]*resty.Client)
-
 	mycli.eventHandlerID = mycli.WAClient.AddEventHandler(mycli.myEventHandler)
-	clientHttp[cd.Instance.Id] = resty.New()
-	clientHttp[cd.Instance.Id].SetRedirectPolicy(resty.FlexibleRedirectPolicy(15))
-	if w.config.WaDebug == "DEBUG" {
-		clientHttp[cd.Instance.Id].SetDebug(true)
-	}
 
-	clientHttp[cd.Instance.Id].SetTimeout(time.Duration(10) * time.Second)
+	// var clientHttp = make(map[string]*resty.Client)
 
-	if client.WAClient.Store.ID != nil {
-		logger.LogInfo("Already logged in with JID: %s", client.WAClient.Store.ID.String())
-		err = client.WAClient.Connect()
+	// clientHttp[cd.Instance.Id] = resty.New()
+	// clientHttp[cd.Instance.Id].SetRedirectPolicy(resty.FlexibleRedirectPolicy(15))
+	// if w.config.WaDebug == "DEBUG" {
+	// 	clientHttp[cd.Instance.Id].SetDebug(true)
+	// }
+
+	// clientHttp[cd.Instance.Id].SetTimeout(time.Duration(10) * time.Second)
+	// clientHttp[cd.Instance.Id].SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	// clientHttp[cd.Instance.Id].OnError(func(req *resty.Request, err error) {
+	// 	if v, ok := err.(*resty.ResponseError); ok {
+	// 		// v.Response contains the last response from the server
+	// 		// v.Err contains the original error
+	// 		logger.LogDebug("resty error %s", v.Response.String())
+	// 		logger.LogError("resty error %s", v.Err)
+	// 	}
+	// })
+
+	if client.Store.ID != nil {
+		logger.LogInfo("Already logged in with JID: %s", client.Store.ID.String())
+		err = client.Connect()
 		if err != nil {
 			logger.LogError("Failed to connect: %s", err)
 			return
 		}
 	} else {
-		qrChan, err := client.WAClient.GetQRChannel(context.Background())
+		qrChan, err := client.GetQRChannel(context.Background())
 		if err != nil {
 			// This error means that we're already logged in, so ignore it.
 			if !errors.Is(err, whatsmeow.ErrQRStoreContainsID) {
@@ -235,8 +229,8 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		} else {
 			if cd.Phone != "" {
 				logger.LogInfo("Requesting pairing code")
-				client.WAClient.Connect()
-				linkingCode, err := client.WAClient.PairPhone(cd.Phone, true, whatsmeow.PairClientChrome, "Chrome (Linux)")
+				client.Connect()
+				linkingCode, err := client.PairPhone(cd.Phone, true, whatsmeow.PairClientChrome, "Chrome (Linux)")
 				if err != nil {
 					logger.LogError("something went wrong calling pair phone")
 				}
@@ -249,17 +243,15 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 				}
 
 				w.linkingCodeEventChannel <- linkingCodeEvent
-
 			} else {
-				err = client.WAClient.Connect()
+				err = client.Connect()
 				if err != nil {
 					panic(err)
 				}
 			}
 			for evt := range qrChan {
 				logger.LogInfo("Received QR code event %s", evt.Event)
-				switch evt.Event {
-				case "code":
+				if evt.Event == "code" {
 					if w.config.LogType != "json" {
 						fmt.Println("QR code:\n", evt.Code)
 					}
@@ -300,8 +292,7 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 					}
 
 					go mycli.callWebhook(queueName, values)
-
-				case "timeout":
+				} else if evt.Event == "timeout" {
 					cd.Instance.Qrcode = ""
 
 					err := w.instanceRepository.Update(cd.Instance)
@@ -310,8 +301,8 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 					}
 
 					logger.LogWarn("QR timeout killing channel")
-					// delete(w.clientPointer, cd.Instance.Id)
-					// w.killChannel[cd.Instance.Id] <- true
+					delete(w.clientPointer, cd.Instance.Id)
+					w.killChannel[cd.Instance.Id] <- true
 
 					postMap := make(map[string]interface{})
 
@@ -334,12 +325,10 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 					}
 
 					go mycli.callWebhook(queueName, values)
-
-				case "success":
+				} else if evt.Event == "success" {
 					logger.LogInfo("QR pairing ok!")
 
 					cd.Instance.Qrcode = ""
-					cd.Instance.Connected = true
 
 					err := w.instanceRepository.Update(cd.Instance)
 					if err != nil {
@@ -367,8 +356,7 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 					}
 
 					go mycli.callWebhook(queueName, values)
-
-				default:
+				} else {
 					logger.LogInfo("Login event: %s", evt.Event)
 				}
 			}
@@ -379,7 +367,7 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		select {
 		case <-w.killChannel[cd.Instance.Id]:
 			logger.LogInfo("Received kill signal for user '%s'", cd.Instance.Id)
-			client.WAClient.Disconnect()
+			client.Disconnect()
 
 			delete(w.clientPointer, cd.Instance.Id)
 
@@ -440,16 +428,10 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	userID := mycli.userID
 	postMap := make(map[string]interface{})
 	postMap["data"] = rawEvt
-
-	ex, err := os.Executable()
-	if err != nil {
-		panic(err)
-	}
-	exPath := filepath.Dir(ex)
+	doWebhook := false
 
 	switch evt := rawEvt.(type) {
 	case *events.AppStateSyncComplete:
-		// don't send webhook for this event
 		if len(mycli.WAClient.Store.PushName) > 0 && evt.Name == appstate.WAPatchCriticalBlock {
 			err := mycli.WAClient.SendPresence(types.PresenceUnavailable)
 			if err != nil {
@@ -459,34 +441,36 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			}
 		}
 	case *events.Connected, *events.PushNameSetting:
-		postMap["event"] = "Connected" // CONNECTION
-		// if len(mycli.WAClient.Store.PushName) == 0 {
-		// 	return
-		// }
+		logger.LogInfo("events.Connected to Whatsapp for user '%s'", mycli.WAClient.Store.PushName)
+		if len(mycli.WAClient.Store.PushName) > 0 {
+			doWebhook = true
+			postMap["event"] = "Connected"
 
-		dataMap := postMap["data"].(map[string]interface{})
+			dataMap := postMap["data"].(map[string]interface{})
 
-		dataMap["status"] = "open"
-		dataMap["jid"] = mycli.WAClient.Store.ID.String()
-		dataMap["pushName"] = mycli.WAClient.Store.PushName
+			dataMap["status"] = "open"
+			dataMap["jid"] = mycli.WAClient.Store.ID.String()
+			dataMap["pushName"] = mycli.WAClient.Store.PushName
 
-		postMap["data"] = dataMap
+			postMap["data"] = dataMap
 
-		go schedulePresenceUpdates(mycli)
+			go schedulePresenceUpdates(mycli)
 
-		err := mycli.WAClient.SendPresence(types.PresenceUnavailable)
-		if err != nil {
-			logger.LogWarn("Failed to send unavailable presence")
-		} else {
-			logger.LogWarn("Marked self as unavailable")
-		}
+			err := mycli.WAClient.SendPresence(types.PresenceUnavailable)
+			if err != nil {
+				logger.LogWarn("Failed to send unavailable presence")
+			} else {
+				logger.LogWarn("Marked self as unavailable")
+			}
 
-		err = mycli.instanceRepository.UpdateConnected(userID, true)
-		if err != nil {
-			logger.LogError("Error updating instance: %s", err)
+			err = mycli.instanceRepository.UpdateConnected(userID, true)
+			if err != nil {
+				logger.LogError("Error updating instance: %s", err)
+			}
 		}
 	case *events.PairSuccess:
-		postMap["event"] = "QRSuccess"
+		doWebhook = true
+		postMap["event"] = "PairSuccess"
 		logger.LogInfo("QR Pair Success for user '%s'", mycli.userID)
 
 		instance, err := mycli.instanceRepository.GetInstanceByID(mycli.userID)
@@ -533,7 +517,8 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		return
 	case *events.TemporaryBan:
 		logger.LogInfo("User received temporary ban for %s", evt.Code.String())
-		postMap["event"] = "TemporaryBan" // CONNECTION
+		doWebhook = true
+		postMap["event"] = "TemporaryBan"
 
 		post := make(map[string]interface{})
 		post["reason"] = evt.Code.String()
@@ -541,7 +526,8 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 		postMap["data"] = post
 	case *events.Message:
-		postMap["event"] = "Message" // MESSAGE
+		doWebhook = true
+		postMap["event"] = "Message"
 
 		// metaParts := []string{fmt.Sprintf("pushname: %s", evt.Info.PushName), fmt.Sprintf("timestamp: %s", evt.Info.Timestamp)}
 		// if evt.Info.Type != "" {
@@ -561,25 +547,15 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			if protocolMessage.GetType() == waE2E.ProtocolMessage_REVOKE {
 				logger.LogInfo("Message revoked")
 				postMap["revoked"] = true
-			}
-		}
-
-		if mycli.clientPointer[userID].WSConn != nil {
-			logger.LogInfo("Sending message to ws")
-			jsonBytes, err := json.Marshal(evt)
-			if err != nil {
-				logger.LogError("Error marshalling message to json")
-			}
-			jsonString := string(jsonBytes)
-
-			err = mycli.clientPointer[userID].WSConn.WriteJSON(jsonString)
-			if err != nil {
-				logger.LogError("Error sending message to ws")
+			} else if protocolMessage.GetType() == waE2E.ProtocolMessage_MESSAGE_EDIT {
+				logger.LogInfo("Message edited")
+				postMap["edited"] = true
+			} else {
+				return
 			}
 		}
 
 		if mycli.config.WebhookFiles {
-
 			isMedia := false
 
 			img := evt.Message.GetImageMessage()
@@ -644,7 +620,6 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 				postMap["data"] = dataMap
 			}
-
 		}
 
 		// if mycli.config.WebhookFiles {
@@ -770,7 +745,8 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 		logger.LogInfo("Message received with ID: %s from %s", evt.Info.ID, evt.Info.Chat)
 	case *events.Receipt:
-		postMap["event"] = "Receipt" // READ_RECEIPT
+		doWebhook = true
+		postMap["event"] = "Receipt"
 		if evt.Type == types.ReceiptTypeRead || evt.Type == types.ReceiptTypeReadSelf {
 
 			logger.LogInfo("Message was read by %s", evt.SourceString())
@@ -806,7 +782,8 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			return
 		}
 	case *events.Presence:
-		postMap["event"] = "Presence" // PRESENCE
+		doWebhook = true
+		postMap["event"] = "Presence"
 		if evt.Unavailable {
 			postMap["state"] = "offline"
 			if evt.LastSeen.IsZero() {
@@ -819,38 +796,12 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			logger.LogInfo("User is now online")
 		}
 	case *events.HistorySync:
-		postMap["event"] = "HistorySync" // HISTORY_SYNC
-
-		userDirectory := fmt.Sprintf("%s/files/user_%s", exPath, userID)
-		_, err := os.Stat(userDirectory)
-		if os.IsNotExist(err) {
-			errDir := os.MkdirAll(userDirectory, 0751)
-			if errDir != nil {
-				logger.LogError("Could not create user directory")
-				return
-			}
-		}
-
-		id := atomic.AddInt32(&mycli.historySyncID, 1)
-		fileName := fmt.Sprintf("%s/history-%d.json", userDirectory, id)
-		file, err := os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE, 0600)
-		if err != nil {
-			logger.LogError("Failed to open file to write history sync")
-			return
-		}
-		enc := json.NewEncoder(file)
-		enc.SetIndent("", "  ")
-		err = enc.Encode(evt.Data)
-		if err != nil {
-			logger.LogError("Failed to write history sync")
-			return
-		}
-		logger.LogInfo("Wrote history sync to %s", fileName)
-		_ = file.Close()
+		doWebhook = false
 	case *events.AppState:
 		logger.LogInfo("App state event received %+v", evt)
 	case *events.LoggedOut:
-		postMap["event"] = "LoggedOut" // CONNECTION
+		doWebhook = true
+		postMap["event"] = "LoggedOut"
 		logger.LogInfo("Logged out for reason %s", evt.Reason.String())
 		mycli.killChannel[mycli.userID] <- true
 
@@ -863,32 +814,42 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		post["reason"] = evt.Reason.String()
 		postMap["data"] = post
 	case *events.ChatPresence:
-		postMap["event"] = "ChatPresence" // CHAT_PRESENCE
+		doWebhook = true
+		postMap["event"] = "ChatPresence"
 		logger.LogInfo("Chat presence received %+v", evt)
 	case *events.CallOffer:
-		postMap["event"] = "CallOffer" // CALL
+		doWebhook = true
+		postMap["event"] = "CallOffer"
 		logger.LogInfo("Got call offer %+v", evt)
 	case *events.CallAccept:
-		postMap["event"] = "CallAccept" // CALL
+		doWebhook = true
+		postMap["event"] = "CallAccept"
 		logger.LogInfo("Got call accept %+v", evt)
 	case *events.CallTerminate:
-		postMap["event"] = "CallTerminate" // CALL
+		doWebhook = true
+		postMap["event"] = "CallTerminate"
 		logger.LogInfo("Got call terminate %+v", evt)
 	case *events.CallOfferNotice:
-		postMap["event"] = "CallOfferNotice" // CALL
+		doWebhook = true
+		postMap["event"] = "CallOfferNotice"
 		logger.LogInfo("Got call offer notice %+v", evt)
 	case *events.CallRelayLatency:
-		postMap["event"] = "CallRelayLatency" // CALL
+		doWebhook = true
+		postMap["event"] = "CallRelayLatency"
 		logger.LogInfo("Got call relay latency %+v", evt)
 	case *events.OfflineSyncCompleted:
-		postMap["event"] = "OfflineSyncCompleted" // CALL
+		doWebhook = true
+		postMap["event"] = "OfflineSyncCompleted"
 	case *events.ConnectFailure:
-		postMap["event"] = "ConnectFailure" // CONNECTION
+		doWebhook = true
+		postMap["event"] = "ConnectFailure"
 		logger.LogInfo("Connection failed with reason %s", evt.Reason.String())
 	case *events.Disconnected:
-		postMap["event"] = "Disconnected" // CONNECTION
+		doWebhook = true
+		postMap["event"] = "Disconnected"
 	case *events.LabelEdit:
-		postMap["event"] = "LabelEdit" // LABEL
+		doWebhook = true
+		postMap["event"] = "LabelEdit"
 		// store label for later use
 		// action := evt.Action
 		// labelID := evt.LabelID
@@ -897,45 +858,55 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		// actionDeleted := evt.Action.Deleted
 		logger.LogInfo("Got label edit %+v", evt.Action)
 	case *events.LabelAssociationChat:
-		postMap["event"] = "LabelAssociationChat" // LABEL
+		doWebhook = true
+		postMap["event"] = "LabelAssociationChat"
 	case *events.LabelAssociationMessage:
-		postMap["event"] = "LabelAssociationMessage" // LABEL
+		doWebhook = true
+		postMap["event"] = "LabelAssociationMessage"
 	case *events.Contact:
-		postMap["event"] = "Contact" // CONTACT
+		doWebhook = true
+		postMap["event"] = "Contact"
 	case *events.GroupInfo:
-		postMap["event"] = "GroupInfo" // GROUP
+		doWebhook = true
+		postMap["event"] = "GroupInfo"
 	case *events.JoinedGroup:
-		postMap["event"] = "JoinedGroup" // GROUP
+		doWebhook = true
+		postMap["event"] = "JoinedGroup"
 	case *events.NewsletterJoin:
-		postMap["event"] = "NewsletterJoin" // NEWSLETTER
+		doWebhook = true
+		postMap["event"] = "NewsletterJoin"
 	case *events.NewsletterLeave:
-		postMap["event"] = "NewsletterLeave" // NEWSLETTER
+		doWebhook = true
+		postMap["event"] = "NewsletterLeave"
 	default:
 		logger.LogWarn("Unhandled event %+v", evt)
 		return
 	}
 
-	_, found := mycli.userInfoCache.Get(mycli.token)
-	if !found {
-		logger.LogWarn("Could not call queue as there is no user for this token with token %s", mycli.token)
+	if doWebhook {
+
+		_, found := mycli.userInfoCache.Get(mycli.token)
+		if !found {
+			logger.LogWarn("Could not call queue as there is no user for this token with token %s", mycli.token)
+		}
+
+		postMap["instanceToken"] = mycli.token
+		postMap["instanceId"] = mycli.userID
+
+		values, err := json.Marshal(postMap)
+		if err != nil {
+			logger.LogError("Failed to marshal JSON for queue")
+			return
+		}
+
+		var queueName string
+
+		if _, ok := postMap["event"]; ok {
+			queueName = strings.ToLower(fmt.Sprintf("%s.%s", userID, postMap["event"]))
+		}
+
+		go mycli.callWebhook(queueName, values)
 	}
-
-	postMap["instanceToken"] = mycli.token
-	postMap["instanceId"] = mycli.userID
-
-	values, err := json.Marshal(postMap)
-	if err != nil {
-		logger.LogError("Failed to marshal JSON for queue")
-		return
-	}
-
-	var queueName string
-
-	if _, ok := postMap["event"]; ok {
-		queueName = strings.ToLower(fmt.Sprintf("%s.%s", userID, postMap["event"]))
-	}
-
-	go mycli.callWebhook(queueName, values)
 }
 
 func (mycli *MyClient) callWebhook(queueName string, jsonData []byte) {
@@ -1121,7 +1092,7 @@ func NewWhatsmeowService(
 	messageRepository message_repository.MessageRepository,
 	config *config.Config,
 	killChannel map[string](chan bool),
-	clientPointer map[string]ClientInfo,
+	clientPointer map[string]*whatsmeow.Client,
 	linkingCodeEventChannel chan LinkingCodeEvent,
 	rabbitmqProducer producer_interfaces.Producer,
 	webhookProducer producer_interfaces.Producer,
