@@ -10,7 +10,7 @@ type Instance struct {
 	Name       string `json:"name"`
 	Token      string `json:"token" gorm:"unique"`
 	Webhook    string `json:"webhook"`
-	Jid        string `json:"jid"`
+	Jid        string `json:"jid" gorm:"column:jid"`
 	Qrcode     string `json:"qrcode" gorm:"type:text"`
 	Connected  bool   `json:"connected"`
 	Expiration int64  `json:"expiration"`
