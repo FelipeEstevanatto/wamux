@@ -7,8 +7,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gomessguii/logger"
-	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
+	"go.mau.fi/whatsmeow"
 	"gorm.io/gorm"
 
 	chat_handler "github.com/EvolutionAPI/evolution-go/pkg/chat/handler"
@@ -40,7 +40,6 @@ import (
 	"github.com/EvolutionAPI/evolution-go/pkg/telemetry"
 	user_handler "github.com/EvolutionAPI/evolution-go/pkg/user/handler"
 	user_service "github.com/EvolutionAPI/evolution-go/pkg/user/service"
-	websocket_handler "github.com/EvolutionAPI/evolution-go/pkg/websocket/handler"
 	whatsmeow_service "github.com/EvolutionAPI/evolution-go/pkg/whatsmeow/service"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -49,17 +48,9 @@ var devMode = flag.Bool("dev", false, "Enable development mode")
 
 func setupRouter(db *gorm.DB, config *config.Config, conn *amqp.Connection) *gin.Engine {
 
-	clientMap := make(map[*websocket.Conn]bool)
-	client := make(map[string]*websocket.Conn)
 	killChannel := make(map[string](chan bool))
-	clientPointer := make(map[string]whatsmeow_service.ClientInfo)
+	clientPointer := make(map[string]*whatsmeow.Client)
 	linkingCodeEventChannel := make(chan whatsmeow_service.LinkingCodeEvent)
-	var (
-		upgrader = websocket.Upgrader{
-			ReadBufferSize:  2024,
-			WriteBufferSize: 2024,
-		}
-	)
 
 	rabbitmqProducer := rabbitmq_producer.NewRabbitMQProducer(conn)
 	webhookProducer := webhook_producer.NewWebhookProducer(config.WebhookUrl)
@@ -108,7 +99,6 @@ func setupRouter(db *gorm.DB, config *config.Config, conn *amqp.Connection) *gin
 		community_handler.NewCommunityHandler(communityService),
 		label_handler.NewLabelHandler(labelService),
 		newsletter_handler.NewNewsletterHandler(newsletterService),
-		websocket_handler.NewWebsocketHandler(clientPointer, upgrader, clientMap, client),
 		server_handler.NewServerHandler(),
 	).AssignRoutes(r)
 

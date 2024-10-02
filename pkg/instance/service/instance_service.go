@@ -13,6 +13,7 @@ import (
 	"github.com/EvolutionAPI/evolution-go/pkg/utils"
 	whatsmeow_service "github.com/EvolutionAPI/evolution-go/pkg/whatsmeow/service"
 	"github.com/gomessguii/logger"
+	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types"
 )
 
@@ -35,7 +36,7 @@ type instances struct {
 	instanceRepository      instance_repository.InstanceRepository
 	config                  *config.Config
 	killChannel             map[string](chan bool)
-	clientPointer           map[string]whatsmeow_service.ClientInfo
+	clientPointer           map[string]*whatsmeow.Client
 	linkingCodeEventChannel chan whatsmeow_service.LinkingCodeEvent
 	whatsmeowService        whatsmeow_service.WhatsmeowService
 }
@@ -162,8 +163,8 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 		logger.LogInfo("Waiting 2 seconds")
 		time.Sleep(2000 * time.Millisecond)
 
-		if i.clientPointer[instance.Id].WAClient != nil {
-			if !i.clientPointer[instance.Id].WAClient.IsConnected() {
+		if i.clientPointer[instance.Id] != nil {
+			if !i.clientPointer[instance.Id].IsConnected() {
 				return instance, "", "", fmt.Errorf("failed to connect")
 			}
 		} else {
@@ -175,12 +176,12 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 }
 
 func (i instances) Disconnect(instance *instance_model.Instance) (*instance_model.Instance, error) {
-	if i.clientPointer[instance.Id].WAClient == nil {
+	if i.clientPointer[instance.Id] == nil {
 		return instance, fmt.Errorf("no session found")
 	}
 
-	if i.clientPointer[instance.Id].WAClient.IsConnected() {
-		if i.clientPointer[instance.Id].WAClient.IsLoggedIn() {
+	if i.clientPointer[instance.Id].IsConnected() {
+		if i.clientPointer[instance.Id].IsLoggedIn() {
 			logger.LogInfo("Disconnection successful")
 			i.killChannel[instance.Id] <- true
 
@@ -200,12 +201,12 @@ func (i instances) Disconnect(instance *instance_model.Instance) (*instance_mode
 }
 
 func (i instances) Logout(instance *instance_model.Instance) (*instance_model.Instance, error) {
-	if i.clientPointer[instance.Id].WAClient == nil {
+	if i.clientPointer[instance.Id] == nil {
 		return instance, fmt.Errorf("no session found")
 	}
 
-	if i.clientPointer[instance.Id].WAClient.IsLoggedIn() && i.clientPointer[instance.Id].WAClient.IsConnected() {
-		err := i.clientPointer[instance.Id].WAClient.Logout()
+	if i.clientPointer[instance.Id].IsLoggedIn() && i.clientPointer[instance.Id].IsConnected() {
+		err := i.clientPointer[instance.Id].Logout()
 		if err != nil {
 			return instance, err
 		}
@@ -220,7 +221,7 @@ func (i instances) Logout(instance *instance_model.Instance) (*instance_model.In
 		logger.LogInfo("Logout successful")
 		i.killChannel[instance.Id] <- true
 	} else {
-		if i.clientPointer[instance.Id].WAClient.IsConnected() {
+		if i.clientPointer[instance.Id].IsConnected() {
 			logger.LogWarn("Ignoring logout as it was not logged in")
 			return instance, fmt.Errorf("ignoring logout as it was not logged in")
 		} else {
@@ -234,18 +235,18 @@ func (i instances) Logout(instance *instance_model.Instance) (*instance_model.In
 }
 
 func (i instances) Status(instance *instance_model.Instance) (*StatusStruct, error) {
-	if i.clientPointer[instance.Id].WAClient == nil {
+	if i.clientPointer[instance.Id] == nil {
 		return nil, fmt.Errorf("no session found")
 	}
 
-	isConnected := i.clientPointer[instance.Id].WAClient.IsConnected()
-	isLoggedIn := i.clientPointer[instance.Id].WAClient.IsLoggedIn()
+	isConnected := i.clientPointer[instance.Id].IsConnected()
+	isLoggedIn := i.clientPointer[instance.Id].IsLoggedIn()
 
 	var myJid *types.JID
 	var name string
 	if isLoggedIn {
-		myJid = i.clientPointer[instance.Id].WAClient.Store.ID
-		name = i.clientPointer[instance.Id].WAClient.Store.PushName
+		myJid = i.clientPointer[instance.Id].Store.ID
+		name = i.clientPointer[instance.Id].Store.PushName
 	}
 
 	status := &StatusStruct{
@@ -259,7 +260,7 @@ func (i instances) Status(instance *instance_model.Instance) (*StatusStruct, err
 }
 
 func (i instances) GetQr(instance *instance_model.Instance) (*QrcodeStruct, error) {
-	if i.clientPointer[instance.Id].WAClient.IsLoggedIn() {
+	if i.clientPointer[instance.Id].IsLoggedIn() {
 		return nil, fmt.Errorf("session already logged in")
 	}
 
@@ -282,8 +283,8 @@ func (i instances) GetQr(instance *instance_model.Instance) (*QrcodeStruct, erro
 }
 
 func (i instances) Pair(data *PairStruct, instance *instance_model.Instance) (*PairReturnStruct, error) {
-	if i.clientPointer[instance.Id].WAClient != nil {
-		i.clientPointer[instance.Id].WAClient.Disconnect()
+	if i.clientPointer[instance.Id] != nil {
+		i.clientPointer[instance.Id].Disconnect()
 		delete(i.clientPointer, instance.Id)
 		// return nil, fmt.Errorf("client set to nil")
 	}
@@ -347,8 +348,8 @@ func (i instances) Pair(data *PairStruct, instance *instance_model.Instance) (*P
 	logger.LogInfo("Waiting 2 seconds")
 	time.Sleep(2000 * time.Millisecond)
 
-	if i.clientPointer[instance.Id].WAClient != nil {
-		if !i.clientPointer[instance.Id].WAClient.IsConnected() {
+	if i.clientPointer[instance.Id] != nil {
+		if !i.clientPointer[instance.Id].IsConnected() {
 			return nil, fmt.Errorf("failed to connect")
 		}
 	} else {
@@ -389,11 +390,11 @@ func (i instances) Delete(id string) error {
 		return err
 	}
 
-	if i.clientPointer[instance.Id].WAClient != nil && i.clientPointer[instance.Id].WAClient.IsConnected() {
-		if i.clientPointer[instance.Id].WAClient.IsLoggedIn() {
-			i.clientPointer[instance.Id].WAClient.Logout()
+	if i.clientPointer[instance.Id] != nil && i.clientPointer[instance.Id].IsConnected() {
+		if i.clientPointer[instance.Id].IsLoggedIn() {
+			i.clientPointer[instance.Id].Logout()
 		}
-		i.clientPointer[instance.Id].WAClient.Disconnect()
+		i.clientPointer[instance.Id].Disconnect()
 	}
 
 	err = i.instanceRepository.Delete(id)
@@ -427,7 +428,7 @@ func (i instances) GetInstanceByToken(token string) (*instance_model.Instance, e
 func NewInstanceService(
 	instanceRepository instance_repository.InstanceRepository,
 	killChannel map[string](chan bool),
-	clientPointer map[string]whatsmeow_service.ClientInfo,
+	clientPointer map[string]*whatsmeow.Client,
 	linkingCodeEventChannel chan whatsmeow_service.LinkingCodeEvent,
 	whatsmeowService whatsmeow_service.WhatsmeowService,
 	config *config.Config,

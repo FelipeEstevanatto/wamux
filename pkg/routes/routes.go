@@ -17,7 +17,6 @@ import (
 	send_handler "github.com/EvolutionAPI/evolution-go/pkg/sendMessage/handler"
 	server_handler "github.com/EvolutionAPI/evolution-go/pkg/server/handler"
 	user_handler "github.com/EvolutionAPI/evolution-go/pkg/user/handler"
-	websocket_handler "github.com/EvolutionAPI/evolution-go/pkg/websocket/handler"
 )
 
 type Routes struct {
@@ -31,14 +30,12 @@ type Routes struct {
 	communityHandler  community_handler.CommunityHandler
 	labelHandler      label_handler.LabelHandler
 	newsletterHandler newsletter_handler.NewsletterHandler
-	websocketHandler  websocket_handler.WebsocketHandler
 	serverHandler     server_handler.ServerHandler
 }
 
 func (r *Routes) AssignRoutes(eng *gin.Engine) {
 	eng.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
-	eng.POST("/ws", r.websocketHandler.HandleWS)
 	eng.POST("/server/ok", r.serverHandler.ServerOk)
 
 	routes := eng.Group("/instance")
@@ -185,7 +182,6 @@ func NewRouter(
 	communityHandler community_handler.CommunityHandler,
 	labelHandler label_handler.LabelHandler,
 	newsletterHandler newsletter_handler.NewsletterHandler,
-	websocketHandler websocket_handler.WebsocketHandler,
 	serverHandler server_handler.ServerHandler,
 ) *Routes {
 	return &Routes{
@@ -199,7 +195,6 @@ func NewRouter(
 		communityHandler:  communityHandler,
 		labelHandler:      labelHandler,
 		newsletterHandler: newsletterHandler,
-		websocketHandler:  websocketHandler,
 		serverHandler:     serverHandler,
 	}
 }

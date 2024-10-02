@@ -6,8 +6,8 @@ import (
 
 	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
 	"github.com/EvolutionAPI/evolution-go/pkg/utils"
-	whatsmeow_service "github.com/EvolutionAPI/evolution-go/pkg/whatsmeow/service"
 	"github.com/gomessguii/logger"
+	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/appstate"
 )
 
@@ -19,7 +19,7 @@ type ChatService interface {
 }
 
 type chatService struct {
-	clientPointer map[string]whatsmeow_service.ClientInfo
+	clientPointer map[string]*whatsmeow.Client
 }
 
 type BodyStruct struct {
@@ -27,7 +27,7 @@ type BodyStruct struct {
 }
 
 func (c *chatService) ChatPin(data *BodyStruct, instance *instance_model.Instance) (string, error) {
-	if c.clientPointer[instance.Id].WAClient == nil {
+	if c.clientPointer[instance.Id] == nil {
 		return "", errors.New("no session found")
 	}
 
@@ -39,7 +39,7 @@ func (c *chatService) ChatPin(data *BodyStruct, instance *instance_model.Instanc
 		return "", errors.New("invalid phone number")
 	}
 
-	err := c.clientPointer[instance.Id].WAClient.SendAppState(appstate.BuildPin(recipient, true))
+	err := c.clientPointer[instance.Id].SendAppState(appstate.BuildPin(recipient, true))
 	if err != nil {
 		logger.LogError("error pin chat: %v", err)
 		return "", err
@@ -49,7 +49,7 @@ func (c *chatService) ChatPin(data *BodyStruct, instance *instance_model.Instanc
 }
 
 func (c *chatService) ChatUnpin(data *BodyStruct, instance *instance_model.Instance) (string, error) {
-	if c.clientPointer[instance.Id].WAClient == nil {
+	if c.clientPointer[instance.Id] == nil {
 		return "", errors.New("no session found")
 	}
 
@@ -61,7 +61,7 @@ func (c *chatService) ChatUnpin(data *BodyStruct, instance *instance_model.Insta
 		return "", errors.New("invalid phone number")
 	}
 
-	err := c.clientPointer[instance.Id].WAClient.SendAppState(appstate.BuildPin(recipient, false))
+	err := c.clientPointer[instance.Id].SendAppState(appstate.BuildPin(recipient, false))
 	if err != nil {
 		logger.LogError("error unpin chat: %v", err)
 		return "", err
@@ -71,7 +71,7 @@ func (c *chatService) ChatUnpin(data *BodyStruct, instance *instance_model.Insta
 }
 
 func (c *chatService) ChatArchive(data *BodyStruct, instance *instance_model.Instance) (string, error) {
-	if c.clientPointer[instance.Id].WAClient == nil {
+	if c.clientPointer[instance.Id] == nil {
 		return "", errors.New("no session found")
 	}
 
@@ -83,7 +83,7 @@ func (c *chatService) ChatArchive(data *BodyStruct, instance *instance_model.Ins
 		return "", errors.New("invalid phone number")
 	}
 
-	err := c.clientPointer[instance.Id].WAClient.SendAppState(appstate.BuildArchive(recipient, true, time.Time{}, nil))
+	err := c.clientPointer[instance.Id].SendAppState(appstate.BuildArchive(recipient, true, time.Time{}, nil))
 	if err != nil {
 		logger.LogError("error archive chat: %v", err)
 		return "", err
@@ -93,7 +93,7 @@ func (c *chatService) ChatArchive(data *BodyStruct, instance *instance_model.Ins
 }
 
 func (c *chatService) ChatMute(data *BodyStruct, instance *instance_model.Instance) (string, error) {
-	if c.clientPointer[instance.Id].WAClient == nil {
+	if c.clientPointer[instance.Id] == nil {
 		return "", errors.New("no session found")
 	}
 
@@ -105,7 +105,7 @@ func (c *chatService) ChatMute(data *BodyStruct, instance *instance_model.Instan
 		return "", errors.New("invalid phone number")
 	}
 
-	err := c.clientPointer[instance.Id].WAClient.SendAppState(appstate.BuildMute(recipient, true, 1*time.Hour))
+	err := c.clientPointer[instance.Id].SendAppState(appstate.BuildMute(recipient, true, 1*time.Hour))
 	if err != nil {
 		logger.LogError("error mute chat: %v", err)
 		return "", err
@@ -115,7 +115,7 @@ func (c *chatService) ChatMute(data *BodyStruct, instance *instance_model.Instan
 }
 
 func NewChatService(
-	clientPointer map[string]whatsmeow_service.ClientInfo,
+	clientPointer map[string]*whatsmeow.Client,
 ) ChatService {
 	return &chatService{
 		clientPointer: clientPointer,

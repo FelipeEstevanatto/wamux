@@ -38,7 +38,7 @@ type SendService interface {
 }
 
 type sendService struct {
-	clientPointer    map[string]whatsmeow_service.ClientInfo
+	clientPointer    map[string]*whatsmeow.Client
 	whatsmeowService whatsmeow_service.WhatsmeowService
 }
 
@@ -171,7 +171,7 @@ func findURL(text string) string {
 }
 
 func (s *sendService) SendText(data *TextStruct, instance *instance_model.Instance) (string, string, error) {
-	if s.clientPointer[instance.Id].WAClient == nil {
+	if s.clientPointer[instance.Id] == nil {
 		return "", "", errors.New("no session found")
 	}
 
@@ -248,7 +248,7 @@ func fetchLinkMetadata(url string) (string, string, string, error) {
 }
 
 func (s *sendService) SendLink(data *LinkStruct, instance *instance_model.Instance) (string, string, error) {
-	if s.clientPointer[instance.Id].WAClient == nil {
+	if s.clientPointer[instance.Id] == nil {
 		return "", "", errors.New("no session found")
 	}
 
@@ -352,7 +352,7 @@ func getAudioDurationFromBytes(data []byte) (int, error) {
 }
 
 func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.Instance) (string, string, error) {
-	if s.clientPointer[instance.Id].WAClient == nil {
+	if s.clientPointer[instance.Id] == nil {
 		return "", "", errors.New("no session found")
 	}
 
@@ -406,7 +406,7 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 		return "", "", errors.New("invalid media type")
 	}
 
-	uploaded, err = s.clientPointer[instance.Id].WAClient.Upload(context.Background(), fileData, uploadType)
+	uploaded, err = s.clientPointer[instance.Id].Upload(context.Background(), fileData, uploadType)
 	if err != nil {
 		return "", "", err
 	}
@@ -492,11 +492,11 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 }
 
 func (s *sendService) SendPoll(data *PollStruct, instance *instance_model.Instance) (string, string, error) {
-	if s.clientPointer[instance.Id].WAClient == nil {
+	if s.clientPointer[instance.Id] == nil {
 		return "", "", errors.New("no session found")
 	}
 
-	msg := s.clientPointer[instance.Id].WAClient.BuildPollCreation(data.Question, data.Options, data.MaxAnswer)
+	msg := s.clientPointer[instance.Id].BuildPollCreation(data.Question, data.Options, data.MaxAnswer)
 
 	msgId, ts, err := s.SendMessage(instance.Id, msg, "PollCreationMessage", &SendDataStruct{
 		Id:           data.Id,
@@ -538,7 +538,7 @@ func convertToWebP(imageData string) ([]byte, error) {
 }
 
 func (s *sendService) SendSticker(data *StickerStruct, instance *instance_model.Instance) (string, string, error) {
-	if s.clientPointer[instance.Id].WAClient == nil {
+	if s.clientPointer[instance.Id] == nil {
 		return "", "", errors.New("no session found")
 	}
 
@@ -553,7 +553,7 @@ func (s *sendService) SendSticker(data *StickerStruct, instance *instance_model.
 
 		filedata = webpData
 
-		uploaded, err = s.clientPointer[instance.Id].WAClient.Upload(context.Background(), filedata, whatsmeow.MediaImage)
+		uploaded, err = s.clientPointer[instance.Id].Upload(context.Background(), filedata, whatsmeow.MediaImage)
 		if err != nil {
 			return "", "", fmt.Errorf("failed to upload sticker: %v", err)
 		}
@@ -587,7 +587,7 @@ func (s *sendService) SendSticker(data *StickerStruct, instance *instance_model.
 }
 
 func (s *sendService) SendLocation(data *LocationStruct, instance *instance_model.Instance) (string, string, error) {
-	if s.clientPointer[instance.Id].WAClient == nil {
+	if s.clientPointer[instance.Id] == nil {
 		return "", "", errors.New("no session found")
 	}
 
@@ -614,7 +614,7 @@ func (s *sendService) SendLocation(data *LocationStruct, instance *instance_mode
 }
 
 func (s *sendService) SendContact(data *ContactStruct, instance *instance_model.Instance) (string, string, error) {
-	if s.clientPointer[instance.Id].WAClient == nil {
+	if s.clientPointer[instance.Id] == nil {
 		return "", "", errors.New("no session found")
 	}
 
@@ -655,7 +655,7 @@ func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, message
 
 	var msgId string
 	if data.Id == "" {
-		msgId = s.clientPointer[instanceId].WAClient.GenerateMessageID()
+		msgId = s.clientPointer[instanceId].GenerateMessageID()
 	} else {
 		msgId = data.Id
 	}
@@ -666,14 +666,14 @@ func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, message
 			media = "audio"
 		}
 
-		err := s.clientPointer[instanceId].WAClient.SendChatPresence(recipient, types.ChatPresence("composing"), types.ChatPresenceMedia(media))
+		err := s.clientPointer[instanceId].SendChatPresence(recipient, types.ChatPresence("composing"), types.ChatPresenceMedia(media))
 		if err != nil {
 			return "", "", err
 		}
 
 		time.Sleep(time.Duration(data.Delay) * time.Millisecond)
 
-		err = s.clientPointer[instanceId].WAClient.SendChatPresence(recipient, types.ChatPresence("paused"), types.ChatPresenceMedia(media))
+		err = s.clientPointer[instanceId].SendChatPresence(recipient, types.ChatPresence("paused"), types.ChatPresenceMedia(media))
 		if err != nil {
 			return "", "", err
 		}
@@ -758,7 +758,7 @@ func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, message
 		}
 
 		if data.MentionAll {
-			allParticipants, err := s.clientPointer[instanceId].WAClient.GetGroupRequestParticipants(recipient)
+			allParticipants, err := s.clientPointer[instanceId].GetGroupRequestParticipants(recipient)
 			if err != nil {
 				return "", "", err
 			}
@@ -810,7 +810,7 @@ func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, message
 		}
 	}
 
-	_, err = s.clientPointer[instanceId].WAClient.SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{ID: msgId})
+	_, err = s.clientPointer[instanceId].SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{ID: msgId})
 	if err != nil {
 		return "", "", err
 	}
@@ -820,7 +820,7 @@ func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, message
 }
 
 func NewSendService(
-	clientPointer map[string]whatsmeow_service.ClientInfo,
+	clientPointer map[string]*whatsmeow.Client,
 	whatsmeowService whatsmeow_service.WhatsmeowService,
 ) SendService {
 	return &sendService{
