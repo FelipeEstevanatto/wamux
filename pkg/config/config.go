@@ -19,6 +19,7 @@ type Config struct {
 	OsName           string
 	AmqpUrl          string
 	WebhookUrl       string
+	ClientName       string
 }
 
 func (c Config) CreateAuthDB() (*gorm.DB, error) {
@@ -57,6 +58,7 @@ func Load() *Config {
 		OS_NAME            = "OS_NAME"
 		AMQP_URL           = "AMQP_URL"
 		WEBHOOK_URL        = "WEBHOOK_URL"
+		CLIENT_NAME        = "CLIENT_NAME"
 	)
 
 	postgresAuthDB := os.Getenv(POSTGRES_AUTH_DB)
@@ -67,6 +69,8 @@ func Load() *Config {
 
 	globalApiKey := os.Getenv(GLOBAL_API_KEY)
 	panicIfEmpty(GLOBAL_API_KEY, globalApiKey)
+
+	clientName := os.Getenv(CLIENT_NAME)
 
 	waDebug := os.Getenv(WA_DEBUG)
 
@@ -100,6 +104,7 @@ func Load() *Config {
 		OsName:           osName,
 		AmqpUrl:          amqpUrl,
 		WebhookUrl:       webhookUrl,
+		ClientName:       clientName,
 	}
 }
 

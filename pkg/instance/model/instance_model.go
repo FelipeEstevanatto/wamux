@@ -17,6 +17,7 @@ type Instance struct {
 	Events     string `json:"events"`
 	OsName     string `json:"os_name"`
 	Proxy      string `json:"proxy"`
+	ClientName string `json:"client_name"`
 }
 
 func (m *Instance) BeforeCreate(tx *gorm.DB) (err error) {
