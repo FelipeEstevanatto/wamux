@@ -324,35 +324,6 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 					go mycli.callWebhook(queueName, values)
 				} else if evt.Event == "success" {
 					logger.LogInfo("QR pairing ok!")
-
-					cd.Instance.Qrcode = ""
-
-					err := w.instanceRepository.Update(cd.Instance)
-					if err != nil {
-						logger.LogError("Error updating instance: %s", err)
-					}
-
-					postMap := make(map[string]interface{})
-
-					postMap["event"] = "QRSuccess"
-
-					dataMap := make(map[string]interface{})
-
-					postMap["data"] = dataMap
-
-					var queueName string
-
-					if _, ok := postMap["event"]; ok {
-						queueName = strings.ToLower(fmt.Sprintf("%s.%s", cd.Instance.Id, postMap["event"]))
-					}
-
-					values, err := json.Marshal(postMap)
-					if err != nil {
-						logger.LogError("Failed to marshal JSON for queue")
-						return
-					}
-
-					go mycli.callWebhook(queueName, values)
 				} else {
 					logger.LogInfo("Login event: %s", evt.Event)
 				}
@@ -487,7 +458,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	case *events.PairSuccess:
 		doWebhook = true
 		postMap["event"] = "PairSuccess"
-		logger.LogInfo("QR Pair Success for user '%s'", mycli.userID)
+		logger.LogInfo("QR Pair Success for user '%s' with JID '%s'", mycli.userID, evt.ID.String())
 
 		instance, err := mycli.instanceRepository.GetInstanceByID(mycli.userID)
 		if err != nil {
@@ -496,26 +467,31 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 		instance.Qrcode = ""
 		instance.Connected = true
-		instance.Jid = mycli.WAClient.Store.ID.String()
+		instance.Jid = evt.ID.String()
 
+		logger.LogInfo("Updating JID: %s in Instance: %s", evt.ID.String(), instance.Jid)
+
+		logger.LogInfo("Attempting to update instance in DB: %+v", instance)
 		err = mycli.instanceRepository.Update(instance)
 		if err != nil {
 			logger.LogError("Error updating instance: %s", err)
-		}
-
-		myUserInfo, found := mycli.userInfoCache.Get(mycli.token)
-
-		if !found {
-			logger.LogWarn("No user info cached on pairing?")
 		} else {
-			txtid := myUserInfo.(Values).Get("Id")
-			token := myUserInfo.(Values).Get("Token")
-
-			updatedUserInfo := utils.UpdateUserInfo(myUserInfo, "Jid", mycli.WAClient.Store.ID.String())
-
-			mycli.userInfoCache.Set(token, updatedUserInfo, cache.NoExpiration)
-			logger.LogInfo("User information set for user '%s'", txtid)
+			logger.LogInfo("Instance successfully updated")
 		}
+
+		// myUserInfo, found := mycli.userInfoCache.Get(mycli.token)
+
+		// if !found {
+		// 	logger.LogWarn("No user info cached on pairing?")
+		// } else {
+		// 	txtid := myUserInfo.(Values).Get("Id")
+		// 	token := myUserInfo.(Values).Get("Token")
+
+		// 	updatedUserInfo := utils.UpdateUserInfo(myUserInfo, "Jid", evt.ID.String())
+
+		// 	mycli.userInfoCache.Set(token, updatedUserInfo, cache.NoExpiration)
+		// 	logger.LogInfo("User information set for user '%s'", txtid)
+		// }
 
 		if postMap["data"] != nil {
 			jsonBytes, err := json.Marshal(postMap["data"])
@@ -958,10 +934,10 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 	if doWebhook {
 
-		_, found := mycli.userInfoCache.Get(mycli.token)
-		if !found {
-			logger.LogWarn("Could not call queue as there is no user for this token with token %s", mycli.token)
-		}
+		// _, found := mycli.userInfoCache.Get(mycli.token)
+		// if !found {
+		// 	logger.LogWarn("Could not call queue as there is no user for this token with token %s", mycli.token)
+		// }
 
 		postMap["instanceToken"] = mycli.token
 		postMap["instanceId"] = mycli.userID

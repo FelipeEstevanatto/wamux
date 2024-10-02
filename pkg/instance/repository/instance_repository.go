@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
+	"github.com/gomessguii/logger"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -57,7 +58,11 @@ func (i *instanceRepository) GetInstanceByID(instanceId string) (*instance_model
 }
 
 func (i *instanceRepository) Update(instance *instance_model.Instance) error {
-	return i.db.Updates(&instance).Error
+	err := i.db.Save(&instance).Error
+	if err != nil {
+		logger.LogError("Error updating instance in DB: %v", err)
+	}
+	return err
 }
 
 func (i *instanceRepository) UpdateConnected(userId string, status bool) error {
