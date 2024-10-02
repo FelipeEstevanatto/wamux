@@ -107,9 +107,15 @@ func CreateSocks5Proxy(socks5Host, socks5Port, user, password string) (func(*htt
 }
 
 func UpdateUserInfo(values interface{}, field string, value string) interface{} {
+	v, ok := values.(Values)
+	if !ok {
+		logger.LogError("Failed to cast values to Values type")
+		return values
+	}
+
 	logger.LogDebug("User info updated field: %s value: %s", field, value)
-	values.(Values).m[field] = value
-	return values
+	v.m[field] = value
+	return v
 }
 
 func TimestampToUnixInt(timestamp string) (int64, error) {

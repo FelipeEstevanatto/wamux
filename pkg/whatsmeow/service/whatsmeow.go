@@ -127,20 +127,17 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		jid, _ := utils.ParseJID(cd.Instance.Jid)
 		logger.LogInfo("Jid found. Getting device store for jid: %s", jid)
 		deviceStore, err = container.GetDevice(jid)
-		logger.LogInfo("deviceStore: %v", deviceStore)
 		if err != nil {
 			panic(err)
 		}
 	} else {
 		logger.LogWarn("No jid found. Creating new device")
 		deviceStore = container.NewDevice()
-		logger.LogInfo("deviceStore: %v", deviceStore)
 	}
 
 	if deviceStore == nil {
 		logger.LogWarn("No store found. Creating new one")
 		deviceStore = container.NewDevice()
-		logger.LogInfo("deviceStore: %v", deviceStore)
 	}
 
 	store.DeviceProps.PlatformType = waCompanionReg.DeviceProps_CHROME.Enum()
@@ -408,7 +405,7 @@ func processPresenceUpdates(mycli *MyClient) {
 	if nowSp.Hour() >= 1 && nowSp.Hour() < 24 {
 		err := mycli.WAClient.SendPresence(types.PresenceAvailable)
 		if err != nil {
-			logger.LogError("Failed to set presence as available")
+			logger.LogError("Failed to set presence as available %v", err)
 		} else {
 			logger.LogInfo("Marked self as available")
 		}
@@ -446,6 +443,25 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			doWebhook = true
 			postMap["event"] = "Connected"
 
+			if postMap["data"] != nil {
+				jsonBytes, err := json.Marshal(postMap["data"])
+				if err != nil {
+					logger.LogError("Failed to marshal postMap['data']: %v", err)
+					return
+				}
+
+				var dataMap map[string]interface{}
+				err = json.Unmarshal(jsonBytes, &dataMap)
+				if err != nil {
+					logger.LogError("Failed to unmarshal postMap['data'] to map[string]interface{}: %v", err)
+					return
+				}
+
+				postMap["data"] = dataMap
+			} else {
+				postMap["data"] = make(map[string]interface{})
+			}
+
 			dataMap := postMap["data"].(map[string]interface{})
 
 			dataMap["status"] = "open"
@@ -480,13 +496,9 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 		instance.Qrcode = ""
 		instance.Connected = true
+		instance.Jid = mycli.WAClient.Store.ID.String()
 
 		err = mycli.instanceRepository.Update(instance)
-		if err != nil {
-			logger.LogError("Error updating instance: %s", err)
-		}
-
-		err = mycli.instanceRepository.UpdateJid(userID, mycli.WAClient.Store.ID.String())
 		if err != nil {
 			logger.LogError("Error updating instance: %s", err)
 		}
@@ -499,10 +511,29 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			txtid := myUserInfo.(Values).Get("Id")
 			token := myUserInfo.(Values).Get("Token")
 
-			v := utils.UpdateUserInfo(myUserInfo, "Jid", mycli.WAClient.Store.ID.String())
+			updatedUserInfo := utils.UpdateUserInfo(myUserInfo, "Jid", mycli.WAClient.Store.ID.String())
 
-			mycli.userInfoCache.Set(token, v, cache.NoExpiration)
+			mycli.userInfoCache.Set(token, updatedUserInfo, cache.NoExpiration)
 			logger.LogInfo("User information set for user '%s'", txtid)
+		}
+
+		if postMap["data"] != nil {
+			jsonBytes, err := json.Marshal(postMap["data"])
+			if err != nil {
+				logger.LogError("Failed to marshal postMap['data']: %v", err)
+				return
+			}
+
+			var dataMap map[string]interface{}
+			err = json.Unmarshal(jsonBytes, &dataMap)
+			if err != nil {
+				logger.LogError("Failed to unmarshal postMap['data'] to map[string]interface{}: %v", err)
+				return
+			}
+
+			postMap["data"] = dataMap
+		} else {
+			postMap["data"] = make(map[string]interface{})
 		}
 
 		dataMap := postMap["data"].(map[string]interface{})
@@ -520,11 +551,31 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		doWebhook = true
 		postMap["event"] = "TemporaryBan"
 
-		post := make(map[string]interface{})
-		post["reason"] = evt.Code.String()
-		post["expire"] = evt.Expire
+		if postMap["data"] != nil {
+			jsonBytes, err := json.Marshal(postMap["data"])
+			if err != nil {
+				logger.LogError("Failed to marshal postMap['data']: %v", err)
+				return
+			}
 
-		postMap["data"] = post
+			var dataMap map[string]interface{}
+			err = json.Unmarshal(jsonBytes, &dataMap)
+			if err != nil {
+				logger.LogError("Failed to unmarshal postMap['data'] to map[string]interface{}: %v", err)
+				return
+			}
+
+			postMap["data"] = dataMap
+		} else {
+			postMap["data"] = make(map[string]interface{})
+		}
+
+		dataMap := postMap["data"].(map[string]interface{})
+
+		dataMap["reason"] = evt.Code.String()
+		dataMap["expire"] = evt.Expire
+
+		postMap["data"] = dataMap
 	case *events.Message:
 		doWebhook = true
 		postMap["event"] = "Message"
@@ -562,8 +613,9 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			audio := evt.Message.GetAudioMessage()
 			document := evt.Message.GetDocumentMessage()
 			video := evt.Message.GetVideoMessage()
+			sticker := evt.Message.GetStickerMessage()
 
-			if img != nil || audio != nil || document != nil || video != nil {
+			if img != nil || audio != nil || document != nil || video != nil || sticker != nil {
 				isMedia = true
 			}
 
@@ -810,9 +862,30 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			logger.LogError("Error updating instance: %s", err)
 		}
 
-		post := make(map[string]interface{})
-		post["reason"] = evt.Reason.String()
-		postMap["data"] = post
+		if postMap["data"] != nil {
+			jsonBytes, err := json.Marshal(postMap["data"])
+			if err != nil {
+				logger.LogError("Failed to marshal postMap['data']: %v", err)
+				return
+			}
+
+			var dataMap map[string]interface{}
+			err = json.Unmarshal(jsonBytes, &dataMap)
+			if err != nil {
+				logger.LogError("Failed to unmarshal postMap['data'] to map[string]interface{}: %v", err)
+				return
+			}
+
+			postMap["data"] = dataMap
+		} else {
+			postMap["data"] = make(map[string]interface{})
+		}
+
+		dataMap := postMap["data"].(map[string]interface{})
+
+		dataMap["reason"] = evt.Reason.String()
+
+		postMap["data"] = dataMap
 	case *events.ChatPresence:
 		doWebhook = true
 		postMap["event"] = "ChatPresence"
