@@ -135,22 +135,28 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 
 	if cd.Instance.Jid != "" {
 		jid, _ := utils.ParseJID(cd.Instance.Jid)
+		logger.LogInfo("Jid found. Getting device store for jid: %s", jid)
 		deviceStore, err = container.GetDevice(jid)
+		logger.LogInfo("deviceStore: %v", deviceStore)
 		if err != nil {
 			panic(err)
 		}
 	} else {
 		logger.LogWarn("No jid found. Creating new device")
 		deviceStore = container.NewDevice()
+		logger.LogInfo("deviceStore: %v", deviceStore)
 	}
 
 	if deviceStore == nil {
 		logger.LogWarn("No store found. Creating new one")
 		deviceStore = container.NewDevice()
+		logger.LogInfo("deviceStore: %v", deviceStore)
 	}
 
 	store.DeviceProps.PlatformType = waProto.DeviceProps_CHROME.Enum()
 	store.DeviceProps.Os = &cd.Instance.OsName
+
+	logger.LogInfo("Device store created for user '%s'", w.clientPointer[cd.Instance.Id])
 
 	client, ok := w.clientPointer[cd.Instance.Id]
 	if !ok {
@@ -212,7 +218,14 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 
 	clientHttp[cd.Instance.Id].SetTimeout(time.Duration(10) * time.Second)
 
-	if client.WAClient.Store.ID == nil {
+	if client.WAClient.Store.ID != nil {
+		logger.LogInfo("Already logged in with JID: %s", client.WAClient.Store.ID.String())
+		err = client.WAClient.Connect()
+		if err != nil {
+			logger.LogError("Failed to connect: %s", err)
+			return
+		}
+	} else {
 		qrChan, err := client.WAClient.GetQRChannel(context.Background())
 		if err != nil {
 			// This error means that we're already logged in, so ignore it.
@@ -244,6 +257,7 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 				}
 			}
 			for evt := range qrChan {
+				logger.LogInfo("Received QR code event %s", evt.Event)
 				switch evt.Event {
 				case "code":
 					if w.config.LogType != "json" {
@@ -276,7 +290,7 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 					var queueName string
 
 					if _, ok := postMap["event"]; ok {
-						queueName = fmt.Sprintf("%s.%s", cd.Instance.Id, postMap["event"])
+						queueName = strings.ToLower(fmt.Sprintf("%s.%s", cd.Instance.Id, postMap["event"]))
 					}
 
 					values, err := json.Marshal(postMap)
@@ -296,8 +310,8 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 					}
 
 					logger.LogWarn("QR timeout killing channel")
-					delete(w.clientPointer, cd.Instance.Id)
-					w.killChannel[cd.Instance.Id] <- true
+					// delete(w.clientPointer, cd.Instance.Id)
+					// w.killChannel[cd.Instance.Id] <- true
 
 					postMap := make(map[string]interface{})
 
@@ -310,7 +324,7 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 					var queueName string
 
 					if _, ok := postMap["event"]; ok {
-						queueName = fmt.Sprintf("%s.%s", cd.Instance.Id, postMap["event"])
+						queueName = strings.ToLower(fmt.Sprintf("%s.%s", cd.Instance.Id, postMap["event"]))
 					}
 
 					values, err := json.Marshal(postMap)
@@ -343,7 +357,7 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 					var queueName string
 
 					if _, ok := postMap["event"]; ok {
-						queueName = fmt.Sprintf("%s.%s", cd.Instance.Id, postMap["event"])
+						queueName = strings.ToLower(fmt.Sprintf("%s.%s", cd.Instance.Id, postMap["event"]))
 					}
 
 					values, err := json.Marshal(postMap)
@@ -358,13 +372,6 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 					logger.LogInfo("Login event: %s", evt.Event)
 				}
 			}
-
-		}
-	} else {
-		logger.LogInfo("Already logged in, just connect")
-		err = client.WAClient.Connect()
-		if err != nil {
-			panic(err)
 		}
 	}
 
@@ -479,11 +486,23 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			logger.LogError("Error updating instance: %s", err)
 		}
 	case *events.PairSuccess:
-		postMap["PairSuccess"] = "PairSuccess" // CONNECTION
+		postMap["event"] = "QRSuccess"
 		logger.LogInfo("QR Pair Success for user '%s'", mycli.userID)
-		jid := evt.ID
 
-		err := mycli.instanceRepository.UpdateJid(userID, jid.String())
+		instance, err := mycli.instanceRepository.GetInstanceByID(mycli.userID)
+		if err != nil {
+			logger.LogError("Error getting instance: %s", err)
+		}
+
+		instance.Qrcode = ""
+		instance.Connected = true
+
+		err = mycli.instanceRepository.Update(instance)
+		if err != nil {
+			logger.LogError("Error updating instance: %s", err)
+		}
+
+		err = mycli.instanceRepository.UpdateJid(userID, mycli.WAClient.Store.ID.String())
 		if err != nil {
 			logger.LogError("Error updating instance: %s", err)
 		}
@@ -496,7 +515,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			txtid := myUserInfo.(Values).Get("Id")
 			token := myUserInfo.(Values).Get("Token")
 
-			v := utils.UpdateUserInfo(myUserInfo, "Jid", jid.String())
+			v := utils.UpdateUserInfo(myUserInfo, "Jid", mycli.WAClient.Store.ID.String())
 
 			mycli.userInfoCache.Set(token, v, cache.NoExpiration)
 			logger.LogInfo("User information set for user '%s'", txtid)
@@ -547,12 +566,10 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 		if mycli.clientPointer[userID].WSConn != nil {
 			logger.LogInfo("Sending message to ws")
-			// convert evt to json
 			jsonBytes, err := json.Marshal(evt)
 			if err != nil {
 				logger.LogError("Error marshalling message to json")
 			}
-			// convert json to string
 			jsonString := string(jsonBytes)
 
 			err = mycli.clientPointer[userID].WSConn.WriteJSON(jsonString)
@@ -561,34 +578,103 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			}
 		}
 
+		if mycli.config.WebhookFiles {
+
+			isMedia := false
+
+			img := evt.Message.GetImageMessage()
+			audio := evt.Message.GetAudioMessage()
+			document := evt.Message.GetDocumentMessage()
+			video := evt.Message.GetVideoMessage()
+
+			if img != nil || audio != nil || document != nil || video != nil {
+				isMedia = true
+			}
+
+			if isMedia {
+				var data []byte
+				var err error
+
+				if img != nil {
+					data, err = mycli.WAClient.Download(img)
+				} else if audio != nil {
+					data, err = mycli.WAClient.Download(audio)
+				} else if document != nil {
+					data, err = mycli.WAClient.Download(document)
+				} else if video != nil {
+					data, err = mycli.WAClient.Download(video)
+				}
+
+				if err != nil {
+					logger.LogError("Failed to download media")
+					return
+				}
+
+				encodeData := base64.StdEncoding.EncodeToString(data)
+
+				if postMap["data"] != nil {
+					jsonBytes, err := json.Marshal(postMap["data"])
+					if err != nil {
+						logger.LogError("Failed to marshal postMap['data']: %v", err)
+						return
+					}
+
+					var dataMap map[string]interface{}
+					err = json.Unmarshal(jsonBytes, &dataMap)
+					if err != nil {
+						logger.LogError("Failed to unmarshal postMap['data'] to map[string]interface{}: %v", err)
+						return
+					}
+
+					postMap["data"] = dataMap
+				} else {
+					postMap["data"] = make(map[string]interface{})
+				}
+
+				dataMap := postMap["data"].(map[string]interface{})
+
+				messageMap, ok := dataMap["Message"].(map[string]interface{})
+				if !ok {
+					messageMap = make(map[string]interface{})
+				}
+
+				messageMap["base64"] = encodeData
+
+				dataMap["Message"] = messageMap
+
+				postMap["data"] = dataMap
+			}
+
+		}
+
 		// if mycli.config.WebhookFiles {
-		// 	img := evt.Message.GetImageMessage()
-		// 	if img != nil {
-		// 		data, err := mycli.WAClient.Download(img)
-		// 		if err != nil {
-		// 			logger.LogError("Failed to download image")
-		// 			return
-		// 		}
-
-		// 		extension := ""
-		// 		exts, err := mime.ExtensionsByType(img.GetMimetype())
-		// 		if err == nil && len(exts) > 0 {
-		// 			extension = exts[0]
-		// 		}
-
-		// 		// Preparar chave para o S3
-		// 		key := fmt.Sprintf("%s/%s%s", bucketFolder, evt.Info.ID, extension)
-		// 		url, err := uploadToS3(s3Client.GetClient(), bucketName, key, data)
-
-		// 		if err != nil {
-		// 			log.Error().Err(err).Msg("Failed to upload image to S3")
-		// 			return
-		// 		}
-		// 		log.Info().Str("url", url).Msg("Image uploaded to S3")
-
-		// 		// Adicione a URL ao payload do webhook
-		// 		postmap["mediaUrl"] = url
+		// img := evt.Message.GetImageMessage()
+		// if img != nil {
+		// 	data, err := mycli.WAClient.Download(img)
+		// 	if err != nil {
+		// 		logger.LogError("Failed to download image")
+		// 		return
 		// 	}
+
+		// 	extension := ""
+		// 	exts, err := mime.ExtensionsByType(img.GetMimetype())
+		// 	if err == nil && len(exts) > 0 {
+		// 		extension = exts[0]
+		// 	}
+
+		// 	// Preparar chave para o S3
+		// 	key := fmt.Sprintf("%s/%s%s", bucketFolder, evt.Info.ID, extension)
+		// 	url, err := uploadToS3(s3Client.GetClient(), bucketName, key, data)
+
+		// 	if err != nil {
+		// 		log.Error().Err(err).Msg("Failed to upload image to S3")
+		// 		return
+		// 	}
+		// 	log.Info().Str("url", url).Msg("Image uploaded to S3")
+
+		// 	// Adicione a URL ao payload do webhook
+		// 	postmap["mediaUrl"] = url
+		// }
 
 		// 	// try to get Audio if any
 		// 	audio := evt.Message.GetAudioMessage()
@@ -846,7 +932,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	var queueName string
 
 	if _, ok := postMap["event"]; ok {
-		queueName = fmt.Sprintf("%s.%s", userID, postMap["event"])
+		queueName = strings.ToLower(fmt.Sprintf("%s.%s", userID, postMap["event"]))
 	}
 
 	go mycli.callWebhook(queueName, values)
