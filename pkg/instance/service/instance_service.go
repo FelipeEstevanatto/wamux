@@ -160,17 +160,15 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 
 	go i.whatsmeowService.StartClient(clientData)
 
-	if !data.Immediate {
-		logger.LogInfo("Waiting 2 seconds")
-		time.Sleep(2000 * time.Millisecond)
+	logger.LogInfo("Waiting 2 seconds")
+	time.Sleep(2000 * time.Millisecond)
 
-		if i.clientPointer[instance.Id] != nil {
-			if !i.clientPointer[instance.Id].IsConnected() {
-				return instance, "", "", fmt.Errorf("failed to connect")
-			}
-		} else {
+	if i.clientPointer[instance.Id] != nil {
+		if !i.clientPointer[instance.Id].IsConnected() {
 			return instance, "", "", fmt.Errorf("failed to connect")
 		}
+	} else {
+		return instance, "", "", fmt.Errorf("failed to connect")
 	}
 
 	return instance, instance.Jid, eventString, nil
