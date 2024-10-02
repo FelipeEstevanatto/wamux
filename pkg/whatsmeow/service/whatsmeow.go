@@ -36,7 +36,7 @@ import (
 
 type WhatsmeowService interface {
 	StartClient(clientData *ClientData)
-	ConnectOnStartup()
+	ConnectOnStartup(clientName string)
 }
 
 type whatsmeowService struct {
@@ -589,20 +589,6 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		doWebhook = true
 		postMap["event"] = "Message"
 
-		// metaParts := []string{fmt.Sprintf("pushname: %s", evt.Info.PushName), fmt.Sprintf("timestamp: %s", evt.Info.Timestamp)}
-		// if evt.Info.Type != "" {
-		// 	metaParts = append(metaParts, fmt.Sprintf("type: %s", evt.Info.Type))
-		// }
-		// if evt.Info.Category != "" {
-		// 	metaParts = append(metaParts, fmt.Sprintf("category: %s", evt.Info.Category))
-		// }
-		// if evt.IsViewOnce {
-		// 	metaParts = append(metaParts, "view once")
-		// }
-		// if evt.IsViewOnce {
-		// 	metaParts = append(metaParts, "ephemeral")
-		// }
-
 		if protocolMessage := evt.Message.ProtocolMessage; protocolMessage != nil {
 			if protocolMessage.GetType() == waE2E.ProtocolMessage_REVOKE {
 				logger.LogInfo("Message revoked")
@@ -1105,13 +1091,26 @@ func (mycli *MyClient) sendToQueueOrWebhook(queueName string, jsonData []byte) {
 	logger.LogInfo("Message sent to webhook successfully")
 }
 
-func (w whatsmeowService) ConnectOnStartup() {
+func (w whatsmeowService) ConnectOnStartup(clientName string) {
 	logger.LogInfo("Connecting all instances on startup")
-	instances, err := w.instanceRepository.GetAllConnectedInstances()
-	if err != nil {
-		logger.LogError("Error getting all connected instances: %s", err)
-		return
+	var instances []*instance_model.Instance
+	var err error
+
+	if clientName != "" {
+		instances, err = w.instanceRepository.GetAllConnectedInstancesByClientName(clientName)
+		if err != nil {
+			logger.LogError("Error getting all connected instances: %s", err)
+			return
+		}
+	} else {
+		instances, err = w.instanceRepository.GetAllConnectedInstances()
+		if err != nil {
+			logger.LogError("Error getting all connected instances: %s", err)
+			return
+		}
 	}
+
+	logger.LogInfo("Found %d connected instances", len(instances))
 
 	for _, instance := range instances {
 		logger.LogInfo("Starting client for user '%s'", instance.Id)

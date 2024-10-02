@@ -90,12 +90,13 @@ func (i instances) Create(data *CreateStruct) (*instance_model.Instance, error) 
 	}
 
 	instance := instance_model.Instance{
-		Id:        data.InstanceId,
-		Name:      data.Name,
-		Token:     data.Token,
-		OsName:    i.config.OsName,
-		Proxy:     string(proxyJson),
-		Connected: false,
+		Id:         data.InstanceId,
+		Name:       data.Name,
+		Token:      data.Token,
+		OsName:     i.config.OsName,
+		Proxy:      string(proxyJson),
+		Connected:  false,
+		ClientName: i.config.ClientName,
 	}
 
 	createdInstance, err := i.instanceRepository.Create(instance)

@@ -103,7 +103,7 @@ func setupRouter(db *gorm.DB, config *config.Config, conn *amqp.Connection) *gin
 	).AssignRoutes(r)
 
 	if config.ConnectOnStartup {
-		whatsmeowService.ConnectOnStartup()
+		whatsmeowService.ConnectOnStartup(config.ClientName)
 	}
 
 	return r
