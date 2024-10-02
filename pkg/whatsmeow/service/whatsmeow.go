@@ -668,7 +668,10 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 					postMap["data"] = make(map[string]interface{})
 				}
 
-				dataMap := postMap["data"].(map[string]interface{})
+				dataMap, ok := postMap["data"].(map[string]interface{})
+				if !ok {
+					dataMap = make(map[string]interface{})
+				}
 
 				messageMap, ok := dataMap["Message"].(map[string]interface{})
 				if !ok {
