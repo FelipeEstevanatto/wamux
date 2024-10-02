@@ -276,6 +276,9 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 
 					postMap["data"] = dataMap
 
+					postMap["instanceToken"] = mycli.token
+					postMap["instanceId"] = mycli.userID
+
 					var queueName string
 
 					if _, ok := postMap["event"]; ok {
@@ -308,6 +311,9 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 					dataMap := make(map[string]interface{})
 
 					postMap["data"] = dataMap
+
+					postMap["instanceToken"] = mycli.token
+					postMap["instanceId"] = mycli.userID
 
 					var queueName string
 
@@ -345,6 +351,33 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 			if err != nil {
 				logger.LogError("Error updating instance: %s", err)
 			}
+
+			postMap := make(map[string]interface{})
+
+			postMap["event"] = "LoggedOut"
+
+			dataMap := make(map[string]interface{})
+
+			dataMap["reason"] = "Logged out"
+
+			postMap["data"] = dataMap
+
+			postMap["instanceToken"] = mycli.token
+			postMap["instanceId"] = mycli.userID
+
+			var queueName string
+
+			if _, ok := postMap["event"]; ok {
+				queueName = strings.ToLower(fmt.Sprintf("%s.%s", cd.Instance.Id, postMap["event"]))
+			}
+
+			values, err := json.Marshal(postMap)
+			if err != nil {
+				logger.LogError("Failed to marshal JSON for queue")
+				return
+			}
+
+			go mycli.callWebhook(queueName, values)
 			return
 		default:
 			time.Sleep(1000 * time.Millisecond)
@@ -479,19 +512,19 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			logger.LogInfo("Instance successfully updated")
 		}
 
-		// myUserInfo, found := mycli.userInfoCache.Get(mycli.token)
+		myUserInfo, found := mycli.userInfoCache.Get(mycli.token)
 
-		// if !found {
-		// 	logger.LogWarn("No user info cached on pairing?")
-		// } else {
-		// 	txtid := myUserInfo.(Values).Get("Id")
-		// 	token := myUserInfo.(Values).Get("Token")
+		if !found {
+			logger.LogWarn("No user info cached on pairing?")
+		} else {
+			txtid := myUserInfo.(Values).Get("Id")
+			token := myUserInfo.(Values).Get("Token")
 
-		// 	updatedUserInfo := utils.UpdateUserInfo(myUserInfo, "Jid", evt.ID.String())
+			updatedUserInfo := utils.UpdateUserInfo(myUserInfo, "Jid", evt.ID.String())
 
-		// 	mycli.userInfoCache.Set(token, updatedUserInfo, cache.NoExpiration)
-		// 	logger.LogInfo("User information set for user '%s'", txtid)
-		// }
+			mycli.userInfoCache.Set(token, updatedUserInfo, cache.NoExpiration)
+			logger.LogInfo("User information set for user '%s'", txtid)
+		}
 
 		if postMap["data"] != nil {
 			jsonBytes, err := json.Marshal(postMap["data"])
@@ -934,10 +967,10 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 	if doWebhook {
 
-		// _, found := mycli.userInfoCache.Get(mycli.token)
-		// if !found {
-		// 	logger.LogWarn("Could not call queue as there is no user for this token with token %s", mycli.token)
-		// }
+		_, found := mycli.userInfoCache.Get(mycli.token)
+		if !found {
+			logger.LogWarn("Could not call queue as there is no user for this token with token %s", mycli.token)
+		}
 
 		postMap["instanceToken"] = mycli.token
 		postMap["instanceId"] = mycli.userID
