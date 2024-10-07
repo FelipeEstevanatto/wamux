@@ -366,7 +366,7 @@ func (i instances) Pair(data *PairStruct, instance *instance_model.Instance) (*P
 }
 
 func (i instances) GetAll() ([]*instance_model.Instance, error) {
-	instances, err := i.instanceRepository.GetAll()
+	instances, err := i.instanceRepository.GetAll(i.config.ClientName)
 	if err != nil {
 		return nil, err
 	}

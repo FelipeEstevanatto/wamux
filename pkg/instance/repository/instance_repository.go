@@ -18,7 +18,7 @@ type InstanceRepository interface {
 	UpdateJid(userId string, jid string) error
 	GetAllConnectedInstances() ([]*instance_model.Instance, error)
 	GetAllConnectedInstancesByClientName(clientName string) ([]*instance_model.Instance, error)
-	GetAll() ([]*instance_model.Instance, error)
+	GetAll(clientName string) ([]*instance_model.Instance, error)
 	Delete(instanceId string) error
 }
 
@@ -94,9 +94,9 @@ func (i *instanceRepository) GetAllConnectedInstancesByClientName(clientName str
 	return instances, nil
 }
 
-func (i *instanceRepository) GetAll() ([]*instance_model.Instance, error) {
+func (i *instanceRepository) GetAll(clientName string) ([]*instance_model.Instance, error) {
 	var instances []*instance_model.Instance
-	err := i.db.Find(&instances).Error
+	err := i.db.Where("client_name = ?", clientName).Find(&instances).Error
 	if err != nil {
 		return nil, err
 	}
