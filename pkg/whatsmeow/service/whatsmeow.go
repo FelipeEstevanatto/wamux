@@ -810,7 +810,9 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 					message.Status = "Read"
 					message.Source = evt.Chat.ToNonAD().User
 
-					go mycli.messageRepository.InsertMessage(message)
+					if mycli.config.DatabaseSaveMessages {
+						go mycli.messageRepository.InsertMessage(message)
+					}
 				}
 			} else {
 				postMap["state"] = "ReadSelf"
@@ -825,7 +827,9 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			message.Status = "Delivered"
 			message.Source = evt.Chat.ToNonAD().User
 
-			go mycli.messageRepository.InsertMessage(message)
+			if mycli.config.DatabaseSaveMessages {
+				go mycli.messageRepository.InsertMessage(message)
+			}
 
 			logger.LogInfo("Message delivered to %s", evt.SourceString())
 		} else {
