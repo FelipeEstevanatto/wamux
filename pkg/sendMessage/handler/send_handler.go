@@ -1,7 +1,10 @@
 package send_handler
 
 import (
+	"io"
 	"net/http"
+	"strconv"
+	"strings"
 
 	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
 	send_service "github.com/EvolutionAPI/evolution-go/pkg/sendMessage/service"
@@ -144,40 +147,119 @@ func (s *sendHandler) SendMedia(ctx *gin.Context) {
 		return
 	}
 
+	contentType := ctx.ContentType()
+
 	var data *send_service.MediaStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
 
-	if data.Number == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
-		return
-	}
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		// Handle form-data
+		number := ctx.PostForm("number")
+		if number == "" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
+			return
+		}
 
-	if data.Url == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "URL is required"})
-		return
-	}
+		mediaType := ctx.PostForm("type")
+		if mediaType == "" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "media type is required"})
+			return
+		}
 
-	if data.Type == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "media type is required"})
-		return
-	}
+		caption := ctx.PostForm("caption")
+		filename := ctx.PostForm("filename")
+		id := ctx.PostForm("id")
+		delayStr := ctx.PostForm("delay")
+		delay := int32(0)
+		if delayStr != "" {
+			delay64, err := strconv.ParseInt(delayStr, 10, 32)
+			if err != nil {
+				ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid delay"})
+				return
+			}
+			delay = int32(delay64)
+		}
 
-	msgId, ts, err := s.sendMessageService.SendMediaUrl(data, instance)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
+		// Get file
+		file, err := ctx.FormFile("file")
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "file is required"})
+			return
+		}
 
-	responseData := gin.H{
-		"messageId": msgId,
-		"timestamp": ts,
-	}
+		// Open file
+		fileData, err := file.Open()
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "cannot open file"})
+			return
+		}
+		defer fileData.Close()
+		fileBytes, err := io.ReadAll(fileData)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "cannot read file"})
+			return
+		}
 
-	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+		// Create MediaStruct
+		data = &send_service.MediaStruct{
+			Number:   number,
+			Type:     mediaType,
+			Caption:  caption,
+			Filename: filename,
+			Id:       id,
+			Delay:    delay,
+			// Other fields as necessary
+		}
+
+		// Pass fileBytes to the send service
+		msgId, ts, err := s.sendMessageService.SendMediaFile(data, fileBytes, instance)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		responseData := gin.H{
+			"messageId": msgId,
+			"timestamp": ts,
+		}
+
+		ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+
+	} else {
+
+		err := ctx.ShouldBindBodyWithJSON(&data)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		if data.Number == "" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
+			return
+		}
+
+		if data.Url == "" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "URL is required"})
+			return
+		}
+
+		if data.Type == "" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "media type is required"})
+			return
+		}
+
+		msgId, ts, err := s.sendMessageService.SendMediaUrl(data, instance)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		responseData := gin.H{
+			"messageId": msgId,
+			"timestamp": ts,
+		}
+
+		ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+	}
 }
 
 // Send a poll message

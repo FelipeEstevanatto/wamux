@@ -17,7 +17,7 @@ require (
 	github.com/swaggo/gin-swagger v1.6.0
 	github.com/swaggo/swag v1.16.3
 	github.com/vincent-petithory/dataurl v1.0.0
-	go.mau.fi/whatsmeow v0.0.0-20241009112614-70d73b690a8d
+	go.mau.fi/whatsmeow v0.0.0-20241011190419-de8326a9d38d
 	golang.org/x/net v0.29.0
 	google.golang.org/protobuf v1.34.2
 	gorm.io/driver/postgres v1.5.9

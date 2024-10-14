@@ -472,6 +472,18 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			dataMap["jid"] = mycli.WAClient.Store.ID.String()
 			dataMap["pushName"] = mycli.WAClient.Store.PushName
 
+			jid, ok := utils.ParseJID(mycli.WAClient.Store.ID.ToNonAD().User)
+			if ok {
+				profilePicUrl, err := mycli.clientPointer[mycli.userID].GetProfilePictureInfo(jid, &whatsmeow.GetProfilePictureParams{
+					Preview: false,
+				})
+				if err != nil {
+					logger.LogError("Failed to get profile picture info: %v", err)
+				} else {
+					dataMap["profilePicUrl"] = profilePicUrl.URL
+				}
+			}
+
 			postMap["data"] = dataMap
 
 			go schedulePresenceUpdates(mycli)
@@ -550,6 +562,18 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		dataMap["status"] = "open"
 		dataMap["jid"] = mycli.WAClient.Store.ID.String()
 		dataMap["pushName"] = mycli.WAClient.Store.PushName
+
+		jid, ok := utils.ParseJID(mycli.WAClient.Store.ID.ToNonAD().User)
+		if ok {
+			profilePicUrl, err := mycli.clientPointer[mycli.userID].GetProfilePictureInfo(jid, &whatsmeow.GetProfilePictureParams{
+				Preview: false,
+			})
+			if err != nil {
+				logger.LogError("Failed to get profile picture info: %v", err)
+			} else {
+				dataMap["profilePicUrl"] = profilePicUrl.URL
+			}
+		}
 
 		postMap["data"] = dataMap
 	case *events.StreamReplaced:
@@ -672,124 +696,15 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			}
 		}
 
-		// if mycli.config.WebhookFiles {
-		// img := evt.Message.GetImageMessage()
-		// if img != nil {
-		// 	data, err := mycli.WAClient.Download(img)
+		// jid, ok := utils.ParseJID(evt.Info.Chat.ToNonAD().User)
+		// if ok {
+		// 	profilePicUrl, err := mycli.clientPointer[mycli.userID].GetProfilePictureInfo(jid, &whatsmeow.GetProfilePictureParams{
+		// 		Preview: false,
+		// 	})
 		// 	if err != nil {
-		// 		logger.LogError("Failed to download image")
-		// 		return
-		// 	}
-
-		// 	extension := ""
-		// 	exts, err := mime.ExtensionsByType(img.GetMimetype())
-		// 	if err == nil && len(exts) > 0 {
-		// 		extension = exts[0]
-		// 	}
-
-		// 	// Preparar chave para o S3
-		// 	key := fmt.Sprintf("%s/%s%s", bucketFolder, evt.Info.ID, extension)
-		// 	url, err := uploadToS3(s3Client.GetClient(), bucketName, key, data)
-
-		// 	if err != nil {
-		// 		log.Error().Err(err).Msg("Failed to upload image to S3")
-		// 		return
-		// 	}
-		// 	log.Info().Str("url", url).Msg("Image uploaded to S3")
-
-		// 	// Adicione a URL ao payload do webhook
-		// 	postmap["mediaUrl"] = url
-		// }
-
-		// 	// try to get Audio if any
-		// 	audio := evt.Message.GetAudioMessage()
-		// 	if audio != nil {
-		// 		data, err := mycli.WAClient.Download(audio)
-		// 		if err != nil {
-		// 			log.Error().Err(err).Msg("Failed to download audio")
-		// 			return
-		// 		}
-
-		// 		// Determinar a extensão do arquivo
-		// 		extension := ""
-		// 		exts, err := mime.ExtensionsByType(audio.GetMimetype())
-		// 		if err == nil && len(exts) > 0 {
-		// 			extension = exts[0]
-		// 		}
-
-		// 		// Preparar chave para o S3
-		// 		key := fmt.Sprintf("%s/%s%s", bucketFolder, evt.Info.ID, extension)
-		// 		url, err := uploadToS3(s3Client.GetClient(), bucketName, key, data)
-
-		// 		if err != nil {
-		// 			log.Error().Err(err).Msg("Failed to upload audio to S3")
-		// 			return
-		// 		}
-		// 		log.Info().Str("url", url).Msg("Audio uploaded to S3")
-
-		// 		// Adicione a URL ao payload do webhook
-		// 		postmap["mediaUrl"] = url
-		// 	}
-
-		// 	// try to get Document if any
-		// 	document := evt.Message.GetDocumentMessage()
-		// 	if document != nil {
-		// 		data, err := mycli.WAClient.Download(document)
-		// 		if err != nil {
-		// 			log.Error().Err(err).Msg("Failed to download document")
-		// 			return
-		// 		}
-
-		// 		// Determinar a extensão do arquivo
-		// 		extension := ""
-		// 		exts, err := mime.ExtensionsByType(document.GetMimetype())
-		// 		if err == nil && len(exts) > 0 {
-		// 			extension = exts[0]
-		// 		} else if document.FileName != nil {
-		// 			extension = filepath.Ext(*document.FileName)
-		// 		}
-
-		// 		// Preparar chave para o S3
-		// 		key := fmt.Sprintf("%s/%s%s", bucketFolder, evt.Info.ID, extension)
-		// 		url, err := uploadToS3(s3Client.GetClient(), bucketName, key, data)
-
-		// 		if err != nil {
-		// 			log.Error().Err(err).Msg("Failed to upload document to S3")
-		// 			return
-		// 		}
-		// 		log.Info().Str("url", url).Msg("Document uploaded to S3")
-
-		// 		// Adicione a URL ao payload do webhook
-		// 		postmap["mediaUrl"] = url
-		// 	}
-
-		// 	video := evt.Message.GetVideoMessage()
-		// 	if video != nil {
-		// 		data, err := mycli.WAClient.Download(video)
-		// 		if err != nil {
-		// 			log.Error().Err(err).Msg("Failed to download video")
-		// 			return
-		// 		}
-
-		// 		// Determinar a extensão do arquivo
-		// 		extension := ""
-		// 		exts, err := mime.ExtensionsByType(video.GetMimetype())
-		// 		if err == nil && len(exts) > 0 {
-		// 			extension = exts[0]
-		// 		}
-
-		// 		// Preparar chave para o S3
-		// 		key := fmt.Sprintf("%s/%s%s", bucketFolder, evt.Info.ID, extension)
-		// 		url, err := uploadToS3(s3Client.GetClient(), bucketName, key, data)
-
-		// 		if err != nil {
-		// 			log.Error().Err(err).Msg("Failed to upload video to S3")
-		// 			return
-		// 		}
-		// 		log.Info().Str("url", url).Msg("Video uploaded to S3")
-
-		// 		// Adicione a URL ao payload do webhook
-		// 		postmap["mediaUrl"] = url
+		// 		logger.LogError("Failed to get profile picture info: %v", err)
+		// 	} else {
+		// 		// dataMap["profilePicUrl"] =  profilePicUrl.URL
 		// 	}
 		// }
 
@@ -850,7 +765,8 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			logger.LogInfo("User is now online")
 		}
 	case *events.HistorySync:
-		doWebhook = false
+		doWebhook = true
+		postMap["event"] = "HistorySync"
 	case *events.AppState:
 		logger.LogInfo("App state event received %+v", evt)
 	case *events.LoggedOut:

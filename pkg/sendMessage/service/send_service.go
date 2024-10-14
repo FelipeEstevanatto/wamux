@@ -31,6 +31,7 @@ type SendService interface {
 	SendText(data *TextStruct, instance *instance_model.Instance) (string, string, error)
 	SendLink(data *LinkStruct, instance *instance_model.Instance) (string, string, error)
 	SendMediaUrl(data *MediaStruct, instance *instance_model.Instance) (string, string, error)
+	SendMediaFile(data *MediaStruct, fileData []byte, instance *instance_model.Instance) (string, string, error)
 	SendPoll(data *PollStruct, instance *instance_model.Instance) (string, string, error)
 	SendSticker(data *StickerStruct, instance *instance_model.Instance) (string, string, error)
 	SendLocation(data *LocationStruct, instance *instance_model.Instance) (string, string, error)
@@ -349,6 +350,127 @@ func getAudioDurationFromBytes(data []byte) (int, error) {
 	duration := int(hours*3600 + minutes*60 + seconds)
 
 	return duration, nil
+}
+
+func (s *sendService) SendMediaFile(data *MediaStruct, fileData []byte, instance *instance_model.Instance) (string, string, error) {
+	if s.clientPointer[instance.Id] == nil {
+		return "", "", errors.New("no session found")
+	}
+
+	mime, _ := mimetype.DetectReader(bytes.NewReader(fileData))
+	mimeType := mime.String()
+
+	var uploadType whatsmeow.MediaType
+	var duration int
+
+	switch data.Type {
+	case "image":
+		if mimeType != "image/jpeg" && mimeType != "image/png" {
+			errMsg := fmt.Sprintf("Invalid file format: '%s'. Only 'image/jpeg' and 'image/png' are accepted", mimeType)
+			return "", "", errors.New(errMsg)
+		}
+		uploadType = whatsmeow.MediaImage
+	case "video":
+		if mimeType != "video/mp4" {
+			errMsg := fmt.Sprintf("Invalid file format: '%s'. Only 'video/mp4' is accepted", mimeType)
+			return "", "", errors.New(errMsg)
+		}
+		uploadType = whatsmeow.MediaVideo
+	case "audio":
+		convertedData, err := convertAudioToOpus(fileData)
+		if err != nil {
+			return "", "", err
+		}
+		fileData = convertedData
+		mimeType = "audio/ogg; codecs=opus"
+		uploadType = whatsmeow.MediaAudio
+		duration, err = getAudioDurationFromBytes(fileData)
+		if err != nil {
+			return "", "", err
+		}
+	case "document":
+		uploadType = whatsmeow.MediaDocument
+	default:
+		return "", "", errors.New("invalid media type")
+	}
+
+	uploaded, err := s.clientPointer[instance.Id].Upload(context.Background(), fileData, uploadType)
+	if err != nil {
+		return "", "", err
+	}
+
+	logger.LogInfo("Media uploaded with size %d", uploaded.FileLength)
+
+	var media *waE2E.Message
+	var mediaType string
+
+	switch data.Type {
+	case "image":
+		media = &waE2E.Message{ImageMessage: &waE2E.ImageMessage{
+			Caption:       proto.String(data.Caption),
+			URL:           proto.String(uploaded.URL),
+			DirectPath:    proto.String(uploaded.DirectPath),
+			MediaKey:      uploaded.MediaKey,
+			Mimetype:      proto.String(mimeType),
+			FileEncSHA256: uploaded.FileEncSHA256,
+			FileSHA256:    uploaded.FileSHA256,
+			FileLength:    proto.Uint64(uint64(len(fileData))),
+		}}
+		mediaType = "ImageMessage"
+	case "video":
+		media = &waE2E.Message{VideoMessage: &waE2E.VideoMessage{
+			Caption:       proto.String(data.Caption),
+			URL:           proto.String(uploaded.URL),
+			DirectPath:    proto.String(uploaded.DirectPath),
+			MediaKey:      uploaded.MediaKey,
+			Mimetype:      proto.String(mimeType),
+			FileEncSHA256: uploaded.FileEncSHA256,
+			FileSHA256:    uploaded.FileSHA256,
+			FileLength:    proto.Uint64(uint64(len(fileData))),
+		}}
+		mediaType = "VideoMessage"
+	case "audio":
+		media = &waE2E.Message{AudioMessage: &waE2E.AudioMessage{
+			URL:           proto.String(uploaded.URL),
+			PTT:           proto.Bool(true),
+			DirectPath:    proto.String(uploaded.DirectPath),
+			MediaKey:      uploaded.MediaKey,
+			Mimetype:      proto.String(mimeType),
+			FileEncSHA256: uploaded.FileEncSHA256,
+			FileSHA256:    uploaded.FileSHA256,
+			FileLength:    proto.Uint64(uploaded.FileLength),
+			Seconds:       proto.Uint32(uint32(duration)),
+		}}
+		mediaType = "AudioMessage"
+	case "document":
+		media = &waE2E.Message{DocumentMessage: &waE2E.DocumentMessage{
+			URL:           proto.String(uploaded.URL),
+			FileName:      &data.Filename,
+			DirectPath:    proto.String(uploaded.DirectPath),
+			MediaKey:      uploaded.MediaKey,
+			Mimetype:      proto.String(mimeType),
+			FileEncSHA256: uploaded.FileEncSHA256,
+			FileSHA256:    uploaded.FileSHA256,
+			FileLength:    proto.Uint64(uint64(len(fileData))),
+		}}
+		mediaType = "DocumentMessage"
+	default:
+		return "", "", errors.New("invalid media type")
+	}
+
+	msgId, ts, err := s.SendMessage(instance.Id, media, mediaType, &SendDataStruct{
+		Id:           data.Id,
+		Number:       data.Number,
+		Quoted:       data.Quoted,
+		Delay:        data.Delay,
+		MentionAll:   data.MentionAll,
+		MentionedJID: data.MentionedJID,
+	})
+	if err != nil {
+		return "", "", err
+	}
+
+	return msgId, ts, nil
 }
 
 func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.Instance) (string, string, error) {
