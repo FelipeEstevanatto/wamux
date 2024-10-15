@@ -625,6 +625,60 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			}
 		}
 
+		if postMap["data"] != nil {
+			jsonBytes, err := json.Marshal(postMap["data"])
+			if err != nil {
+				logger.LogError("Failed to marshal postMap['data']: %v", err)
+				return
+			}
+
+			var dataMap map[string]interface{}
+			err = json.Unmarshal(jsonBytes, &dataMap)
+			if err != nil {
+				logger.LogError("Failed to unmarshal postMap['data'] to map[string]interface{}: %v", err)
+				return
+			}
+
+			postMap["data"] = dataMap
+		} else {
+			postMap["data"] = make(map[string]interface{})
+		}
+
+		dataMap, ok := postMap["data"].(map[string]interface{})
+		if !ok {
+			dataMap = make(map[string]interface{})
+		}
+
+		var quotedMessage *waE2E.Message
+		var stanzaID string
+
+		if evt.Message.GetExtendedTextMessage() != nil {
+			quotedMessage = evt.Message.GetExtendedTextMessage().GetContextInfo().GetQuotedMessage()
+			stanzaID = evt.Message.GetExtendedTextMessage().GetContextInfo().GetStanzaID()
+		} else if evt.Message.GetImageMessage() != nil {
+			quotedMessage = evt.Message.GetImageMessage().GetContextInfo().GetQuotedMessage()
+			stanzaID = evt.Message.GetImageMessage().GetContextInfo().GetStanzaID()
+		} else if evt.Message.GetAudioMessage() != nil {
+			quotedMessage = evt.Message.GetAudioMessage().GetContextInfo().GetQuotedMessage()
+			stanzaID = evt.Message.GetAudioMessage().GetContextInfo().GetStanzaID()
+		} else if evt.Message.GetDocumentMessage() != nil {
+			quotedMessage = evt.Message.GetDocumentMessage().GetContextInfo().GetQuotedMessage()
+			stanzaID = evt.Message.GetDocumentMessage().GetContextInfo().GetStanzaID()
+		} else if evt.Message.GetVideoMessage() != nil {
+			quotedMessage = evt.Message.GetVideoMessage().GetContextInfo().GetQuotedMessage()
+			stanzaID = evt.Message.GetVideoMessage().GetContextInfo().GetStanzaID()
+		}
+
+		if stanzaID != "" && quotedMessage != nil {
+			quotedMap := make(map[string]interface{})
+
+			quotedMap["stanzaID"] = stanzaID
+			quotedMap["quotedMessage"] = quotedMessage
+
+			dataMap["quoted"] = quotedMap
+			dataMap["isQuoted"] = true
+		}
+
 		if mycli.config.WebhookFiles {
 			isMedia := false
 
@@ -659,30 +713,6 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 				encodeData := base64.StdEncoding.EncodeToString(data)
 
-				if postMap["data"] != nil {
-					jsonBytes, err := json.Marshal(postMap["data"])
-					if err != nil {
-						logger.LogError("Failed to marshal postMap['data']: %v", err)
-						return
-					}
-
-					var dataMap map[string]interface{}
-					err = json.Unmarshal(jsonBytes, &dataMap)
-					if err != nil {
-						logger.LogError("Failed to unmarshal postMap['data'] to map[string]interface{}: %v", err)
-						return
-					}
-
-					postMap["data"] = dataMap
-				} else {
-					postMap["data"] = make(map[string]interface{})
-				}
-
-				dataMap, ok := postMap["data"].(map[string]interface{})
-				if !ok {
-					dataMap = make(map[string]interface{})
-				}
-
 				messageMap, ok := dataMap["Message"].(map[string]interface{})
 				if !ok {
 					messageMap = make(map[string]interface{})
@@ -691,22 +721,28 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 				messageMap["base64"] = encodeData
 
 				dataMap["Message"] = messageMap
-
-				postMap["data"] = dataMap
 			}
 		}
 
-		// jid, ok := utils.ParseJID(evt.Info.Chat.ToNonAD().User)
-		// if ok {
-		// 	profilePicUrl, err := mycli.clientPointer[mycli.userID].GetProfilePictureInfo(jid, &whatsmeow.GetProfilePictureParams{
-		// 		Preview: false,
-		// 	})
-		// 	if err != nil {
-		// 		logger.LogError("Failed to get profile picture info: %v", err)
-		// 	} else {
-		// 		// dataMap["profilePicUrl"] =  profilePicUrl.URL
-		// 	}
-		// }
+		isGroup := strings.HasSuffix(evt.Info.Chat.String(), "@g.us")
+		if isGroup {
+			groupData, err := mycli.WAClient.GetGroupInfo(evt.Info.Chat)
+			if err == nil {
+				dataMap["groupData"] = groupData
+			}
+		}
+
+		profilePicUrl, err := mycli.clientPointer[mycli.userID].GetProfilePictureInfo(evt.Info.Chat, &whatsmeow.GetProfilePictureParams{
+			Preview: false,
+		})
+		if err != nil {
+			logger.LogError("Failed to get profile picture info: %v", err)
+		} else {
+			dataMap["profilePicUrl"] = profilePicUrl.URL
+
+		}
+
+		postMap["data"] = dataMap
 
 		logger.LogInfo("Message received with ID: %s from %s", evt.Info.ID, evt.Info.Chat)
 	case *events.Receipt:
