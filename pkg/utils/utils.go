@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -141,4 +142,32 @@ TEL;type=CELL;type=VOICE;waid=` + data.Phone + `:` + data.Phone + `
 END:VCARD`
 
 	return result
+}
+
+func GetObject(message []byte, keyFind string) string {
+	var messageMap map[string]interface{}
+	err := json.Unmarshal(message, &messageMap)
+	if err != nil {
+		logger.LogError("failed to unmarshal message: %s", err)
+		return ""
+	}
+	for key, value := range messageMap {
+		if key == keyFind {
+			if captionStr, ok := value.(string); ok {
+				return captionStr
+			}
+		}
+
+		if nestedMap, ok := value.(map[string]interface{}); ok {
+			nestedMapBytes, err := json.Marshal(nestedMap)
+			if err != nil {
+				logger.LogError("failed to marshal nestedMap: %s", err)
+				continue
+			}
+			if caption := GetObject(nestedMapBytes, keyFind); caption != "" {
+				return caption
+			}
+		}
+	}
+	return ""
 }
