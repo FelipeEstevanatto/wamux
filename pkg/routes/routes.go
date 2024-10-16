@@ -99,7 +99,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.POST("/react", r.messageHandler.React)
 			routes.POST("/presence", r.messageHandler.ChatPresence)
 			routes.POST("/markread", r.messageHandler.MarkRead)
-			routes.POST("/downloadimage", r.messageHandler.DownloadImage) // TODO: convert to DownloadMedia
+			routes.POST("/downloadmedia", r.messageHandler.DownloadMedia)
 			routes.POST("/status", r.messageHandler.GetMessageStatus)
 			routes.POST("/delete", r.messageHandler.DeleteMessageEveryone)
 			routes.POST("/edit", r.messageHandler.EditMessage) // TODO: edit MediaMessage too
@@ -113,6 +113,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.POST("/unpin", r.chatHandler.ChatUnpin)     // TODO: not working
 			routes.POST("/archive", r.chatHandler.ChatArchive) // TODO: not working
 			routes.POST("/mute", r.chatHandler.ChatMute)       // TODO: not working
+			routes.POST("/history-sync", r.chatHandler.HistorySyncRequest)
 		}
 	}
 	routes = eng.Group("/group")

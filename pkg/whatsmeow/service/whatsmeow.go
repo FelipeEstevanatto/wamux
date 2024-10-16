@@ -190,25 +190,6 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 
 	mycli.eventHandlerID = mycli.WAClient.AddEventHandler(mycli.myEventHandler)
 
-	// var clientHttp = make(map[string]*resty.Client)
-
-	// clientHttp[cd.Instance.Id] = resty.New()
-	// clientHttp[cd.Instance.Id].SetRedirectPolicy(resty.FlexibleRedirectPolicy(15))
-	// if w.config.WaDebug == "DEBUG" {
-	// 	clientHttp[cd.Instance.Id].SetDebug(true)
-	// }
-
-	// clientHttp[cd.Instance.Id].SetTimeout(time.Duration(10) * time.Second)
-	// clientHttp[cd.Instance.Id].SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
-	// clientHttp[cd.Instance.Id].OnError(func(req *resty.Request, err error) {
-	// 	if v, ok := err.(*resty.ResponseError); ok {
-	// 		// v.Response contains the last response from the server
-	// 		// v.Err contains the original error
-	// 		logger.LogDebug("resty error %s", v.Response.String())
-	// 		logger.LogError("resty error %s", v.Err)
-	// 	}
-	// })
-
 	if client.Store.ID != nil {
 		logger.LogInfo("Already logged in with JID: %s", client.Store.ID.String())
 		err = client.Connect()
@@ -262,7 +243,7 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 
 					err := w.instanceRepository.Update(cd.Instance)
 					if err != nil {
-						logger.LogError("Error updating instance: %s", err)
+						fmt.Printf("Error updating instance: %s\n", err)
 					}
 
 					postMap := make(map[string]interface{})
@@ -287,7 +268,7 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 
 					values, err := json.Marshal(postMap)
 					if err != nil {
-						logger.LogError("Failed to marshal JSON for queue")
+						fmt.Printf("Failed to marshal JSON for queue")
 						return
 					}
 
@@ -297,7 +278,7 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 
 					err := w.instanceRepository.Update(cd.Instance)
 					if err != nil {
-						logger.LogError("Error updating instance: %s", err)
+						fmt.Printf("Error updating instance: %s", err)
 					}
 
 					logger.LogWarn("QR timeout killing channel")
@@ -323,15 +304,15 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 
 					values, err := json.Marshal(postMap)
 					if err != nil {
-						logger.LogError("Failed to marshal JSON for queue")
+						fmt.Printf("Failed to marshal JSON for queue")
 						return
 					}
 
 					go mycli.callWebhook(queueName, values)
 				} else if evt.Event == "success" {
-					logger.LogInfo("QR pairing ok!")
+					fmt.Printf("QR pairing ok!")
 				} else {
-					logger.LogInfo("Login event: %s", evt.Event)
+					fmt.Printf("Login event: %s", evt.Event)
 				}
 			}
 		}
@@ -613,18 +594,6 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		doWebhook = true
 		postMap["event"] = "Message"
 
-		if protocolMessage := evt.Message.ProtocolMessage; protocolMessage != nil {
-			if protocolMessage.GetType() == waE2E.ProtocolMessage_REVOKE {
-				logger.LogInfo("Message revoked")
-				postMap["revoked"] = true
-			} else if protocolMessage.GetType() == waE2E.ProtocolMessage_MESSAGE_EDIT {
-				logger.LogInfo("Message edited")
-				postMap["edited"] = true
-			} else {
-				return
-			}
-		}
-
 		if postMap["data"] != nil {
 			jsonBytes, err := json.Marshal(postMap["data"])
 			if err != nil {
@@ -647,6 +616,35 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		dataMap, ok := postMap["data"].(map[string]interface{})
 		if !ok {
 			dataMap = make(map[string]interface{})
+		}
+
+		if evt.Message.GetPollUpdateMessage() != nil {
+			decrypted, err := mycli.clientPointer[mycli.userID].DecryptPollVote(evt)
+			if err != nil {
+				logger.LogError("Failed to decrypt vote: %v", err)
+			} else {
+				logger.LogInfo("Selected options in decrypted vote:")
+				for _, option := range decrypted.SelectedOptions {
+					logger.LogInfo("- %X", option)
+
+				}
+			}
+
+			dataMap["isPoll"] = true
+			dataMap["pollVotes"] = decrypted
+		}
+
+		if protocolMessage := evt.Message.ProtocolMessage; protocolMessage != nil {
+			if protocolMessage.GetType() == waE2E.ProtocolMessage_REVOKE {
+				logger.LogInfo("Message revoked")
+
+				dataMap["revoked"] = true
+			} else if protocolMessage.GetType() == waE2E.ProtocolMessage_MESSAGE_EDIT {
+				logger.LogInfo("Message edited")
+				dataMap["edited"] = true
+			} else {
+				return
+			}
 		}
 
 		var quotedMessage *waE2E.Message

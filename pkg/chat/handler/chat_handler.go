@@ -13,6 +13,7 @@ type ChatHandler interface {
 	ChatUnpin(ctx *gin.Context)
 	ChatArchive(ctx *gin.Context)
 	ChatMute(ctx *gin.Context)
+	HistorySyncRequest(ctx *gin.Context)
 }
 
 type chatHandler struct {
@@ -187,6 +188,46 @@ func (c *chatHandler) ChatMute(ctx *gin.Context) {
 	}
 
 	ts, err := c.chatService.ChatMute(data, instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	responseData := gin.H{
+		"timestamp": ts,
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+}
+
+// HistorySyncRequest a chat
+// @Summary HistorySyncRequest a chat
+// @Description HistorySyncRequest a chat
+// @Tags Chat
+// @Accept json
+// @Produce json
+// @Param message body chat_service.HistorySyncRequestStruct true "Chat"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /chat/history-sync-request [post]
+func (c *chatHandler) HistorySyncRequest(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	var data *chat_service.HistorySyncRequestStruct
+	err := ctx.ShouldBindBodyWithJSON(&data)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ts, err := c.chatService.HistorySyncRequest(data, instance)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

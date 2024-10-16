@@ -1,6 +1,7 @@
 package chat_service
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/gomessguii/logger"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/appstate"
+	"go.mau.fi/whatsmeow/types"
 )
 
 type ChatService interface {
@@ -16,6 +18,7 @@ type ChatService interface {
 	ChatUnpin(data *BodyStruct, instance *instance_model.Instance) (string, error)
 	ChatArchive(data *BodyStruct, instance *instance_model.Instance) (string, error)
 	ChatMute(data *BodyStruct, instance *instance_model.Instance) (string, error)
+	HistorySyncRequest(data *HistorySyncRequestStruct, instance *instance_model.Instance) (string, error)
 }
 
 type chatService struct {
@@ -24,6 +27,11 @@ type chatService struct {
 
 type BodyStruct struct {
 	Chat string `json:"chat"`
+}
+
+type HistorySyncRequestStruct struct {
+	MessageInfo *types.MessageInfo `json:"messageInfo"`
+	Count       int                `json:"count"`
 }
 
 func (c *chatService) ChatPin(data *BodyStruct, instance *instance_model.Instance) (string, error) {
@@ -112,6 +120,31 @@ func (c *chatService) ChatMute(data *BodyStruct, instance *instance_model.Instan
 	}
 
 	return ts.String(), nil
+}
+
+func (c *chatService) HistorySyncRequest(data *HistorySyncRequestStruct, instance *instance_model.Instance) (string, error) {
+	if c.clientPointer[instance.Id] == nil {
+		return "", errors.New("no session found")
+	}
+
+	messageInfo := types.MessageInfo{
+		MessageSource: types.MessageSource{
+			Chat:     data.MessageInfo.Chat,
+			IsFromMe: data.MessageInfo.IsFromMe,
+		},
+		ID:        data.MessageInfo.ID,
+		Timestamp: data.MessageInfo.Timestamp,
+	}
+
+	histRequest := c.clientPointer[instance.Id].BuildHistorySyncRequest(&messageInfo, data.Count)
+
+	res, err := c.clientPointer[instance.Id].SendMessage(context.Background(), messageInfo.Chat, histRequest, whatsmeow.SendRequestExtra{Peer: true})
+	if err != nil {
+		logger.LogError("error history sync request: %v", err)
+		return "", err
+	}
+
+	return res.ID, nil
 }
 
 func NewChatService(

@@ -2,7 +2,6 @@ package message_service
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -24,10 +23,10 @@ import (
 )
 
 type MessageService interface {
-	React(data *ReactStruct, instance *instance_model.Instance) (string, string, error)
+	React(data *ReactStruct, instance *instance_model.Instance) (*MessageSendStruct, error)
 	ChatPresence(data *ChatPresenceStruct, instance *instance_model.Instance) (string, error)
 	MarkRead(data *MarkReadStruct, instance *instance_model.Instance) (string, error)
-	DownloadImage(data *DownloadImageStruct, instance *instance_model.Instance, request *http.Request) (*dataurl.DataURL, string, error)
+	DownloadMedia(data *DownloadMediaStruct, instance *instance_model.Instance, request *http.Request) (*dataurl.DataURL, string, error)
 	GetMessageStatus(data *MessageStatusStruct, instance *instance_model.Instance) (*message_model.Message, string, error)
 	DeleteMessageEveryone(data *MessageStruct, instance *instance_model.Instance) (string, string, error)
 	EditMessage(data *EditMessageStruct, instance *instance_model.Instance) (string, string, error)
@@ -55,14 +54,8 @@ type MarkReadStruct struct {
 	Number string   `json:"number"`
 }
 
-type DownloadImageStruct struct {
-	Url           string `json:"url"`
-	DirectPath    string `json:"directPath"`
-	MediaKey      []byte `json:"mediaKey"`
-	Mimetype      string `json:"mimetype"`
-	FileEncSHA256 []byte `json:"fileEncSHA256"`
-	FileSHA256    []byte `json:"fileSHA256"`
-	FileLength    uint64 `json:"fileLength"`
+type DownloadMediaStruct struct {
+	Message *waE2E.Message `json:"message"`
 }
 
 type MessageStatusStruct struct {
@@ -80,23 +73,28 @@ type EditMessageStruct struct {
 	MessageID string `json:"messageId"`
 }
 
-func (m *messageService) React(data *ReactStruct, instance *instance_model.Instance) (string, string, error) {
+type MessageSendStruct struct {
+	Info               types.MessageInfo
+	Message            *waE2E.Message
+	MessageContextInfo *waE2E.ContextInfo
+}
+
+func (m *messageService) React(data *ReactStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
 	if m.clientPointer[instance.Id] == nil {
-		return "", "", errors.New("no session found")
+		return nil, errors.New("no session found")
 	}
 
 	msgId := ""
-	var ts time.Time
 
 	recipient, ok := utils.ParseJID(data.Number)
 	if !ok {
 		logger.LogError("Error validating message fields")
-		return "", "", errors.New("invalid phone number")
+		return nil, errors.New("invalid phone number")
 	}
 
 	if data.Id == "" {
 		logger.LogError("Missing Id in Payload")
-		return "", "", errors.New("missing id in payload")
+		return nil, errors.New("missing id in payload")
 	} else {
 		msgId = data.Id
 	}
@@ -124,14 +122,35 @@ func (m *messageService) React(data *ReactStruct, instance *instance_model.Insta
 		},
 	}
 
-	_, err := m.clientPointer[instance.Id].SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{
+	response, err := m.clientPointer[instance.Id].SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{
 		ID: msgId,
 	})
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 
-	return msgId, ts.String(), nil
+	isGroup := strings.Contains(data.Number, "@g.us")
+	messageType := "ReactionMessage"
+
+	messageInfo := types.MessageInfo{
+		MessageSource: types.MessageSource{
+			Chat:     recipient,
+			Sender:   *m.clientPointer[instance.Id].Store.ID,
+			IsFromMe: true,
+			IsGroup:  isGroup,
+		},
+		ID:        msgId,
+		Timestamp: time.Now(),
+		ServerID:  response.ServerID,
+		Type:      messageType,
+	}
+
+	messageSent := &MessageSendStruct{
+		Info:    messageInfo,
+		Message: msg,
+	}
+
+	return messageSent, nil
 }
 
 func (m *messageService) ChatPresence(data *ChatPresenceStruct, instance *instance_model.Instance) (string, error) {
@@ -185,15 +204,27 @@ func (m *messageService) MarkRead(data *MarkReadStruct, instance *instance_model
 	return ts.String(), nil
 }
 
-func (m *messageService) DownloadImage(data *DownloadImageStruct, instance *instance_model.Instance, request *http.Request) (*dataurl.DataURL, string, error) {
+func (m *messageService) DownloadMedia(data *DownloadMediaStruct, instance *instance_model.Instance, request *http.Request) (*dataurl.DataURL, string, error) {
 	if m.clientPointer[instance.Id] == nil {
 		return nil, "", errors.New("no session found")
 	}
 
 	var ts time.Time
 
+	msg := data.Message
+
 	mimetype := ""
-	var imgData []byte
+	var mediaData []byte
+
+	img := msg.GetImageMessage()
+	audio := msg.GetAudioMessage()
+	document := msg.GetDocumentMessage()
+	video := msg.GetVideoMessage()
+	sticker := msg.GetStickerMessage()
+
+	if img == nil && audio == nil && document == nil && video == nil && sticker == nil {
+		return nil, "", errors.New("invalid media type")
+	}
 
 	userDirectory := fmt.Sprintf(`files/user_%s`, instance.Id)
 	_, err := os.Stat(userDirectory)
@@ -205,28 +236,8 @@ func (m *messageService) DownloadImage(data *DownloadImageStruct, instance *inst
 		}
 	}
 
-	decoder := json.NewDecoder(request.Body)
-	var t DownloadImageStruct
-	err = decoder.Decode(&t)
-	if err != nil {
-		logger.LogError("invalid payload")
-		return nil, "", err
-	}
-
-	msg := &waE2E.Message{ImageMessage: &waE2E.ImageMessage{
-		URL:           proto.String(t.Url),
-		DirectPath:    proto.String(t.DirectPath),
-		MediaKey:      t.MediaKey,
-		Mimetype:      proto.String(t.Mimetype),
-		FileEncSHA256: t.FileEncSHA256,
-		FileSHA256:    t.FileSHA256,
-		FileLength:    &t.FileLength,
-	}}
-
-	img := msg.GetImageMessage()
-
 	if img != nil {
-		imgData, err = m.clientPointer[instance.Id].Download(img)
+		mediaData, err = m.clientPointer[instance.Id].Download(img)
 		if err != nil {
 			logger.LogError("Failed to download image")
 			msg := fmt.Sprintf("Failed to download image %v", err)
@@ -235,7 +246,48 @@ func (m *messageService) DownloadImage(data *DownloadImageStruct, instance *inst
 		mimetype = img.GetMimetype()
 	}
 
-	dataURL := dataurl.New(imgData, mimetype)
+	if audio != nil {
+		mediaData, err = m.clientPointer[instance.Id].Download(audio)
+		if err != nil {
+			logger.LogError("Failed to download audio")
+			msg := fmt.Sprintf("Failed to download audio %v", err)
+			return nil, "", errors.New(msg)
+		}
+		mimetype = audio.GetMimetype()
+	}
+
+	if document != nil {
+		mediaData, err = m.clientPointer[instance.Id].Download(document)
+		if err != nil {
+			logger.LogError("Failed to download document")
+			msg := fmt.Sprintf("Failed to download document %v", err)
+			return nil, "", errors.New(msg)
+		}
+		mimetype = document.GetMimetype()
+	}
+
+	if video != nil {
+		mediaData, err = m.clientPointer[instance.Id].Download(video)
+		if err != nil {
+
+			logger.LogError("Failed to download video")
+			msg := fmt.Sprintf("Failed to download video %v", err)
+			return nil, "", errors.New(msg)
+		}
+		mimetype = video.GetMimetype()
+	}
+
+	if sticker != nil {
+		mediaData, err = m.clientPointer[instance.Id].Download(sticker)
+		if err != nil {
+			logger.LogError("Failed to download sticker")
+			msg := fmt.Sprintf("Failed to download sticker %v", err)
+			return nil, "", errors.New(msg)
+		}
+		mimetype = sticker.GetMimetype()
+	}
+
+	dataURL := dataurl.New(mediaData, mimetype)
 
 	return dataURL, ts.String(), nil
 }

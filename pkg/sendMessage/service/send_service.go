@@ -28,14 +28,14 @@ import (
 )
 
 type SendService interface {
-	SendText(data *TextStruct, instance *instance_model.Instance) (string, string, error)
-	SendLink(data *LinkStruct, instance *instance_model.Instance) (string, string, error)
-	SendMediaUrl(data *MediaStruct, instance *instance_model.Instance) (string, string, error)
-	SendMediaFile(data *MediaStruct, fileData []byte, instance *instance_model.Instance) (string, string, error)
-	SendPoll(data *PollStruct, instance *instance_model.Instance) (string, string, error)
-	SendSticker(data *StickerStruct, instance *instance_model.Instance) (string, string, error)
-	SendLocation(data *LocationStruct, instance *instance_model.Instance) (string, string, error)
-	SendContact(data *ContactStruct, instance *instance_model.Instance) (string, string, error)
+	SendText(data *TextStruct, instance *instance_model.Instance) (*MessageSendStruct, error)
+	SendLink(data *LinkStruct, instance *instance_model.Instance) (*MessageSendStruct, error)
+	SendMediaUrl(data *MediaStruct, instance *instance_model.Instance) (*MessageSendStruct, error)
+	SendMediaFile(data *MediaStruct, fileData []byte, instance *instance_model.Instance) (*MessageSendStruct, error)
+	SendPoll(data *PollStruct, instance *instance_model.Instance) (*MessageSendStruct, error)
+	SendSticker(data *StickerStruct, instance *instance_model.Instance) (*MessageSendStruct, error)
+	SendLocation(data *LocationStruct, instance *instance_model.Instance) (*MessageSendStruct, error)
+	SendContact(data *ContactStruct, instance *instance_model.Instance) (*MessageSendStruct, error)
 }
 
 type sendService struct {
@@ -139,6 +139,12 @@ type ContactStruct struct {
 	Quoted       QuotedStruct      `json:"quoted"`
 }
 
+type MessageSendStruct struct {
+	Info               types.MessageInfo
+	Message            *waE2E.Message
+	MessageContextInfo *waE2E.ContextInfo
+}
+
 func validateMessageFields(phone string, messageID *string, participant *string) (types.JID, error) {
 
 	recipient, ok := utils.ParseJID(phone)
@@ -171,9 +177,9 @@ func findURL(text string) string {
 	return ""
 }
 
-func (s *sendService) SendText(data *TextStruct, instance *instance_model.Instance) (string, string, error) {
+func (s *sendService) SendText(data *TextStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
 	if s.clientPointer[instance.Id] == nil {
-		return "", "", errors.New("no session found")
+		return nil, errors.New("no session found")
 	}
 
 	msg := &waE2E.Message{
@@ -182,7 +188,7 @@ func (s *sendService) SendText(data *TextStruct, instance *instance_model.Instan
 		},
 	}
 
-	msgId, ts, err := s.SendMessage(instance.Id, msg, "ExtendedTextMessage", &SendDataStruct{
+	message, err := s.SendMessage(instance.Id, msg, "ExtendedTextMessage", &SendDataStruct{
 		Id:           data.Id,
 		Number:       data.Number,
 		Quoted:       data.Quoted,
@@ -191,10 +197,10 @@ func (s *sendService) SendText(data *TextStruct, instance *instance_model.Instan
 		MentionedJID: data.MentionedJID,
 	})
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 
-	return msgId, ts, nil
+	return message, nil
 }
 
 func fetchLinkMetadata(url string) (string, string, string, error) {
@@ -248,9 +254,9 @@ func fetchLinkMetadata(url string) (string, string, string, error) {
 	return title, description, imgURL, nil
 }
 
-func (s *sendService) SendLink(data *LinkStruct, instance *instance_model.Instance) (string, string, error) {
+func (s *sendService) SendLink(data *LinkStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
 	if s.clientPointer[instance.Id] == nil {
-		return "", "", errors.New("no session found")
+		return nil, errors.New("no session found")
 	}
 
 	matchedText := findURL(data.Text)
@@ -258,7 +264,7 @@ func (s *sendService) SendLink(data *LinkStruct, instance *instance_model.Instan
 	if matchedText != "" {
 		title, description, imgUrl, err := fetchLinkMetadata(matchedText)
 		if err != nil {
-			return "", "", err
+			return nil, err
 		}
 
 		data.Title = title
@@ -270,7 +276,7 @@ func (s *sendService) SendLink(data *LinkStruct, instance *instance_model.Instan
 	if data.ImgUrl != "" {
 		resp, err := http.Get(data.ImgUrl)
 		if err != nil {
-			return "", "", err
+			return nil, err
 		}
 		defer resp.Body.Close()
 		fileData, _ = io.ReadAll(resp.Body)
@@ -287,7 +293,7 @@ func (s *sendService) SendLink(data *LinkStruct, instance *instance_model.Instan
 		},
 	}
 
-	msgId, ts, err := s.SendMessage(instance.Id, msg, "ExtendedTextMessage", &SendDataStruct{
+	message, err := s.SendMessage(instance.Id, msg, "ExtendedTextMessage", &SendDataStruct{
 		Id:           data.Id,
 		Number:       data.Number,
 		Quoted:       data.Quoted,
@@ -296,10 +302,10 @@ func (s *sendService) SendLink(data *LinkStruct, instance *instance_model.Instan
 		MentionedJID: data.MentionedJID,
 	})
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 
-	return msgId, ts, nil
+	return message, nil
 }
 
 func convertAudioToOpus(inputData []byte) ([]byte, error) {
@@ -352,9 +358,9 @@ func getAudioDurationFromBytes(data []byte) (int, error) {
 	return duration, nil
 }
 
-func (s *sendService) SendMediaFile(data *MediaStruct, fileData []byte, instance *instance_model.Instance) (string, string, error) {
+func (s *sendService) SendMediaFile(data *MediaStruct, fileData []byte, instance *instance_model.Instance) (*MessageSendStruct, error) {
 	if s.clientPointer[instance.Id] == nil {
-		return "", "", errors.New("no session found")
+		return nil, errors.New("no session found")
 	}
 
 	mime, _ := mimetype.DetectReader(bytes.NewReader(fileData))
@@ -367,36 +373,36 @@ func (s *sendService) SendMediaFile(data *MediaStruct, fileData []byte, instance
 	case "image":
 		if mimeType != "image/jpeg" && mimeType != "image/png" {
 			errMsg := fmt.Sprintf("Invalid file format: '%s'. Only 'image/jpeg' and 'image/png' are accepted", mimeType)
-			return "", "", errors.New(errMsg)
+			return nil, errors.New(errMsg)
 		}
 		uploadType = whatsmeow.MediaImage
 	case "video":
 		if mimeType != "video/mp4" {
 			errMsg := fmt.Sprintf("Invalid file format: '%s'. Only 'video/mp4' is accepted", mimeType)
-			return "", "", errors.New(errMsg)
+			return nil, errors.New(errMsg)
 		}
 		uploadType = whatsmeow.MediaVideo
 	case "audio":
 		convertedData, err := convertAudioToOpus(fileData)
 		if err != nil {
-			return "", "", err
+			return nil, err
 		}
 		fileData = convertedData
 		mimeType = "audio/ogg; codecs=opus"
 		uploadType = whatsmeow.MediaAudio
 		duration, err = getAudioDurationFromBytes(fileData)
 		if err != nil {
-			return "", "", err
+			return nil, err
 		}
 	case "document":
 		uploadType = whatsmeow.MediaDocument
 	default:
-		return "", "", errors.New("invalid media type")
+		return nil, errors.New("invalid media type")
 	}
 
 	uploaded, err := s.clientPointer[instance.Id].Upload(context.Background(), fileData, uploadType)
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 
 	logger.LogInfo("Media uploaded with size %d", uploaded.FileLength)
@@ -455,10 +461,10 @@ func (s *sendService) SendMediaFile(data *MediaStruct, fileData []byte, instance
 		}}
 		mediaType = "DocumentMessage"
 	default:
-		return "", "", errors.New("invalid media type")
+		return nil, errors.New("invalid media type")
 	}
 
-	msgId, ts, err := s.SendMessage(instance.Id, media, mediaType, &SendDataStruct{
+	message, err := s.SendMessage(instance.Id, media, mediaType, &SendDataStruct{
 		Id:           data.Id,
 		Number:       data.Number,
 		Quoted:       data.Quoted,
@@ -467,15 +473,15 @@ func (s *sendService) SendMediaFile(data *MediaStruct, fileData []byte, instance
 		MentionedJID: data.MentionedJID,
 	})
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 
-	return msgId, ts, nil
+	return message, nil
 }
 
-func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.Instance) (string, string, error) {
+func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
 	if s.clientPointer[instance.Id] == nil {
-		return "", "", errors.New("no session found")
+		return nil, errors.New("no session found")
 	}
 
 	var uploaded whatsmeow.UploadResponse
@@ -483,12 +489,12 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 
 	resp, err := http.Get(data.Url)
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 	defer resp.Body.Close()
 	fileData, err = io.ReadAll(resp.Body)
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 
 	mime, _ := mimetype.DetectReader(bytes.NewReader(fileData))
@@ -501,36 +507,36 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 	if data.Type == "image" {
 		if mimeType != "image/jpeg" && mimeType != "image/png" {
 			errMsg := fmt.Sprintf("Invalid file format: '%s'. Only 'image/jpeg' and 'image/png' are accepted", mimeType)
-			return "", "", errors.New(errMsg)
+			return nil, errors.New(errMsg)
 		}
 		uploadType = whatsmeow.MediaImage
 	} else if data.Type == "video" {
 		if mimeType != "video/mp4" {
 			errMsg := fmt.Sprintf("Invalid file format: '%s'. Only 'video/mp4' are accepted", mimeType)
-			return "", "", errors.New(errMsg)
+			return nil, errors.New(errMsg)
 		}
 		uploadType = whatsmeow.MediaVideo
 	} else if data.Type == "audio" {
 		convertedData, err := convertAudioToOpus(fileData)
 		if err != nil {
-			return "", "", err
+			return nil, err
 		}
 		fileData = convertedData
 		mimeType = "audio/ogg; codecs=opus"
 		uploadType = whatsmeow.MediaAudio
 		duration, err = getAudioDurationFromBytes(fileData)
 		if err != nil {
-			return "", "", err
+			return nil, err
 		}
 	} else if data.Type == "document" {
 		uploadType = whatsmeow.MediaDocument
 	} else {
-		return "", "", errors.New("invalid media type")
+		return nil, errors.New("invalid media type")
 	}
 
 	uploaded, err = s.clientPointer[instance.Id].Upload(context.Background(), fileData, uploadType)
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 
 	logger.LogInfo("Media uploaded with %s", uploaded.FileLength)
@@ -595,10 +601,10 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 
 		mediaType = "DocumentMessage"
 	default:
-		return "", "", errors.New("invalid media type")
+		return nil, errors.New("invalid media type")
 	}
 
-	msgId, ts, err := s.SendMessage(instance.Id, media, mediaType, &SendDataStruct{
+	message, err := s.SendMessage(instance.Id, media, mediaType, &SendDataStruct{
 		Id:           data.Id,
 		Number:       data.Number,
 		Quoted:       data.Quoted,
@@ -607,20 +613,20 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 		MentionedJID: data.MentionedJID,
 	})
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 
-	return msgId, ts, nil
+	return message, nil
 }
 
-func (s *sendService) SendPoll(data *PollStruct, instance *instance_model.Instance) (string, string, error) {
+func (s *sendService) SendPoll(data *PollStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
 	if s.clientPointer[instance.Id] == nil {
-		return "", "", errors.New("no session found")
+		return nil, errors.New("no session found")
 	}
 
 	msg := s.clientPointer[instance.Id].BuildPollCreation(data.Question, data.Options, data.MaxAnswer)
 
-	msgId, ts, err := s.SendMessage(instance.Id, msg, "PollCreationMessage", &SendDataStruct{
+	message, err := s.SendMessage(instance.Id, msg, "PollCreationMessage", &SendDataStruct{
 		Id:           data.Id,
 		Number:       data.Number,
 		Quoted:       data.Quoted,
@@ -629,10 +635,10 @@ func (s *sendService) SendPoll(data *PollStruct, instance *instance_model.Instan
 		MentionedJID: data.MentionedJID,
 	})
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 
-	return msgId, ts, nil
+	return message, nil
 }
 
 func convertToWebP(imageData string) ([]byte, error) {
@@ -659,9 +665,9 @@ func convertToWebP(imageData string) ([]byte, error) {
 	return webpBuffer.Bytes(), nil
 }
 
-func (s *sendService) SendSticker(data *StickerStruct, instance *instance_model.Instance) (string, string, error) {
+func (s *sendService) SendSticker(data *StickerStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
 	if s.clientPointer[instance.Id] == nil {
-		return "", "", errors.New("no session found")
+		return nil, errors.New("no session found")
 	}
 
 	var uploaded whatsmeow.UploadResponse
@@ -670,17 +676,17 @@ func (s *sendService) SendSticker(data *StickerStruct, instance *instance_model.
 	if strings.HasPrefix(data.Sticker, "http") {
 		webpData, err := convertToWebP(data.Sticker)
 		if err != nil {
-			return "", "", fmt.Errorf("failed to convert image to WebP: %v", err)
+			return nil, fmt.Errorf("failed to convert image to WebP: %v", err)
 		}
 
 		filedata = webpData
 
 		uploaded, err = s.clientPointer[instance.Id].Upload(context.Background(), filedata, whatsmeow.MediaImage)
 		if err != nil {
-			return "", "", fmt.Errorf("failed to upload sticker: %v", err)
+			return nil, fmt.Errorf("failed to upload sticker: %v", err)
 		}
 	} else {
-		return "", "", fmt.Errorf("invalid sticker URL")
+		return nil, fmt.Errorf("invalid sticker URL")
 	}
 
 	msg := &waE2E.Message{StickerMessage: &waE2E.StickerMessage{
@@ -693,7 +699,7 @@ func (s *sendService) SendSticker(data *StickerStruct, instance *instance_model.
 		FileLength:    proto.Uint64(uint64(len(filedata))),
 	}}
 
-	msgId, ts, err := s.SendMessage(instance.Id, msg, "StickerMessage", &SendDataStruct{
+	message, err := s.SendMessage(instance.Id, msg, "StickerMessage", &SendDataStruct{
 		Id:           data.Id,
 		Number:       data.Number,
 		Quoted:       data.Quoted,
@@ -702,15 +708,15 @@ func (s *sendService) SendSticker(data *StickerStruct, instance *instance_model.
 		MentionedJID: data.MentionedJID,
 	})
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 
-	return msgId, ts, nil
+	return message, nil
 }
 
-func (s *sendService) SendLocation(data *LocationStruct, instance *instance_model.Instance) (string, string, error) {
+func (s *sendService) SendLocation(data *LocationStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
 	if s.clientPointer[instance.Id] == nil {
-		return "", "", errors.New("no session found")
+		return nil, errors.New("no session found")
 	}
 
 	msg := &waE2E.Message{LocationMessage: &waE2E.LocationMessage{
@@ -720,7 +726,7 @@ func (s *sendService) SendLocation(data *LocationStruct, instance *instance_mode
 		Address:          &data.Address,
 	}}
 
-	msgId, ts, err := s.SendMessage(instance.Id, msg, "LocationMessage", &SendDataStruct{
+	message, err := s.SendMessage(instance.Id, msg, "LocationMessage", &SendDataStruct{
 		Id:           data.Id,
 		Number:       data.Number,
 		Quoted:       data.Quoted,
@@ -729,15 +735,15 @@ func (s *sendService) SendLocation(data *LocationStruct, instance *instance_mode
 		MentionedJID: data.MentionedJID,
 	})
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 
-	return msgId, ts, nil
+	return message, nil
 }
 
-func (s *sendService) SendContact(data *ContactStruct, instance *instance_model.Instance) (string, string, error) {
+func (s *sendService) SendContact(data *ContactStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
 	if s.clientPointer[instance.Id] == nil {
-		return "", "", errors.New("no session found")
+		return nil, errors.New("no session found")
 	}
 
 	VCstring := utils.GenerateVC(utils.VCardStruct{
@@ -753,7 +759,7 @@ func (s *sendService) SendContact(data *ContactStruct, instance *instance_model.
 		Vcard:       &VCstring,
 	}}
 
-	msgId, ts, err := s.SendMessage(instance.Id, msg, "ContactMessage", &SendDataStruct{
+	messaged, err := s.SendMessage(instance.Id, msg, "ContactMessage", &SendDataStruct{
 		Id:           data.Id,
 		Number:       data.Number,
 		Quoted:       data.Quoted,
@@ -762,24 +768,24 @@ func (s *sendService) SendContact(data *ContactStruct, instance *instance_model.
 		MentionedJID: data.MentionedJID,
 	})
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 
-	return msgId, ts, nil
+	return messaged, nil
 }
 
-func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, messageType string, data *SendDataStruct) (string, string, error) {
+func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, messageType string, data *SendDataStruct) (*MessageSendStruct, error) {
 	recipient, err := validateMessageFields(data.Number, &data.Quoted.MessageID, &data.Quoted.MessageID)
 	if err != nil {
 		logger.LogError("Error validating message fields: %v", err)
-		return "", "", err
+		return nil, err
 	}
 
-	var msgId string
+	var message string
 	if data.Id == "" {
-		msgId = s.clientPointer[instanceId].GenerateMessageID()
+		message = s.clientPointer[instanceId].GenerateMessageID()
 	} else {
-		msgId = data.Id
+		message = data.Id
 	}
 
 	if data.Delay > 0 {
@@ -790,14 +796,14 @@ func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, message
 
 		err := s.clientPointer[instanceId].SendChatPresence(recipient, types.ChatPresence("composing"), types.ChatPresenceMedia(media))
 		if err != nil {
-			return "", "", err
+			return nil, err
 		}
 
 		time.Sleep(time.Duration(data.Delay) * time.Millisecond)
 
 		err = s.clientPointer[instanceId].SendChatPresence(recipient, types.ChatPresence("paused"), types.ChatPresenceMedia(media))
 		if err != nil {
-			return "", "", err
+			return nil, err
 		}
 	}
 
@@ -852,12 +858,9 @@ func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, message
 				QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
 			}
 		default:
-			return "", "", fmt.Errorf("invalid messageType: %s", messageType)
+			return nil, fmt.Errorf("invalid messageType: %s", messageType)
 		}
-	}
-
-	isGroup := strings.Contains(data.Number, "@g.us")
-	if isGroup {
+	} else {
 		switch messageType {
 		case "ExtendedTextMessage":
 			msg.ExtendedTextMessage.ContextInfo = &waE2E.ContextInfo{}
@@ -876,13 +879,16 @@ func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, message
 		case "ContactMessage":
 			msg.ContactMessage.ContextInfo = &waE2E.ContextInfo{}
 		default:
-			return "", "", fmt.Errorf("invalid messageType: %s", messageType)
+			return nil, fmt.Errorf("invalid messageType: %s", messageType)
 		}
+	}
 
+	isGroup := strings.Contains(data.Number, "@g.us")
+	if isGroup {
 		if data.MentionAll {
 			allParticipants, err := s.clientPointer[instanceId].GetGroupRequestParticipants(recipient)
 			if err != nil {
-				return "", "", err
+				return nil, err
 			}
 
 			var mentionedJIDs []string
@@ -932,13 +938,36 @@ func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, message
 		}
 	}
 
-	_, err = s.clientPointer[instanceId].SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{ID: msgId})
+	response, err := s.clientPointer[instanceId].SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{ID: message})
 	if err != nil {
-		return "", "", err
+		return nil, err
+	}
+
+	messageInfo := types.MessageInfo{
+		MessageSource: types.MessageSource{
+			Chat:     recipient,
+			Sender:   *s.clientPointer[instanceId].Store.ID,
+			IsFromMe: true,
+			IsGroup:  isGroup,
+		},
+		ID:        message,
+		Timestamp: time.Now(),
+		ServerID:  response.ServerID,
+		Type:      messageType,
+	}
+
+	messageSent := &MessageSendStruct{
+		Info:    messageInfo,
+		Message: msg,
+		MessageContextInfo: &waE2E.ContextInfo{
+			StanzaID:      proto.String(data.Quoted.MessageID),
+			Participant:   proto.String(data.Quoted.Participant),
+			QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
+		},
 	}
 
 	logger.LogInfo("Message sent to %s", data.Number)
-	return msgId, time.Now().String(), nil
+	return messageSent, nil
 }
 
 func NewSendService(

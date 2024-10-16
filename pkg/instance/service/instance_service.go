@@ -221,8 +221,9 @@ func (i instances) Logout(instance *instance_model.Instance) (*instance_model.In
 		i.killChannel[instance.Id] <- true
 	} else {
 		if i.clientPointer[instance.Id].IsConnected() {
-			logger.LogWarn("Ignoring logout as it was not logged in")
-			return instance, fmt.Errorf("ignoring logout as it was not logged in")
+			// chama o disconnect
+			logger.LogInfo("Logout successful")
+			i.killChannel[instance.Id] <- true
 		} else {
 			logger.LogWarn("Ignoring logout as it was not connected")
 			return instance, fmt.Errorf("ignoring logout as it was not connected")
