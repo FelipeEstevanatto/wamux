@@ -62,18 +62,13 @@ func (s *sendHandler) SendText(ctx *gin.Context) {
 		return
 	}
 
-	msgId, ts, err := s.sendMessageService.SendText(data, instance)
+	message, err := s.sendMessageService.SendText(data, instance)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	responseData := gin.H{
-		"messageId": msgId,
-		"timestamp": ts,
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": message})
 }
 
 // Send a link message
@@ -113,18 +108,13 @@ func (s *sendHandler) SendLink(ctx *gin.Context) {
 		return
 	}
 
-	msgId, ts, err := s.sendMessageService.SendLink(data, instance)
+	message, err := s.sendMessageService.SendLink(data, instance)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	responseData := gin.H{
-		"messageId": msgId,
-		"timestamp": ts,
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": message})
 }
 
 // Send a media message
@@ -211,18 +201,13 @@ func (s *sendHandler) SendMedia(ctx *gin.Context) {
 		}
 
 		// Pass fileBytes to the send service
-		msgId, ts, err := s.sendMessageService.SendMediaFile(data, fileBytes, instance)
+		message, err := s.sendMessageService.SendMediaFile(data, fileBytes, instance)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 
-		responseData := gin.H{
-			"messageId": msgId,
-			"timestamp": ts,
-		}
-
-		ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+		ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": message})
 
 	} else {
 
@@ -247,18 +232,13 @@ func (s *sendHandler) SendMedia(ctx *gin.Context) {
 			return
 		}
 
-		msgId, ts, err := s.sendMessageService.SendMediaUrl(data, instance)
+		message, err := s.sendMessageService.SendMediaUrl(data, instance)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 
-		responseData := gin.H{
-			"messageId": msgId,
-			"timestamp": ts,
-		}
-
-		ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+		ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": message})
 	}
 }
 
@@ -304,18 +284,13 @@ func (s *sendHandler) SendPoll(ctx *gin.Context) {
 		return
 	}
 
-	msgId, ts, err := s.sendMessageService.SendPoll(data, instance)
+	message, err := s.sendMessageService.SendPoll(data, instance)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	responseData := gin.H{
-		"messageId": msgId,
-		"timestamp": ts,
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": message})
 }
 
 // Send a sticker message
@@ -355,18 +330,13 @@ func (s *sendHandler) SendSticker(ctx *gin.Context) {
 		return
 	}
 
-	msgId, ts, err := s.sendMessageService.SendSticker(data, instance)
+	message, err := s.sendMessageService.SendSticker(data, instance)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	responseData := gin.H{
-		"messageId": msgId,
-		"timestamp": ts,
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": message})
 }
 
 // Send a location message
@@ -421,18 +391,13 @@ func (s *sendHandler) SendLocation(ctx *gin.Context) {
 		return
 	}
 
-	msgId, ts, err := s.sendMessageService.SendLocation(data, instance)
+	message, err := s.sendMessageService.SendLocation(data, instance)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	responseData := gin.H{
-		"messageId": msgId,
-		"timestamp": ts,
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": message})
 }
 
 // Send a contact message
@@ -477,18 +442,13 @@ func (s *sendHandler) SendContact(ctx *gin.Context) {
 		return
 	}
 
-	msgId, ts, err := s.sendMessageService.SendContact(data, instance)
+	message, err := s.sendMessageService.SendContact(data, instance)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	responseData := gin.H{
-		"messageId": msgId,
-		"timestamp": ts,
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": message})
 }
 
 func NewSendHandler(

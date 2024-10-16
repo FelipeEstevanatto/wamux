@@ -12,7 +12,7 @@ type MessageHandler interface {
 	React(ctx *gin.Context)
 	ChatPresence(ctx *gin.Context)
 	MarkRead(ctx *gin.Context)
-	DownloadImage(ctx *gin.Context)
+	DownloadMedia(ctx *gin.Context)
 	GetMessageStatus(ctx *gin.Context)
 	DeleteMessageEveryone(ctx *gin.Context)
 	EditMessage(ctx *gin.Context)
@@ -59,18 +59,13 @@ func (m *messageHandler) React(ctx *gin.Context) {
 		return
 	}
 
-	msgId, ts, err := m.messageService.React(data, instance)
+	message, err := m.messageService.React(data, instance)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	responseData := gin.H{
-		"messageId": msgId,
-		"timestamp": ts,
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": message})
 }
 
 // ChatPresence set chat presence
@@ -184,7 +179,7 @@ func (m *messageHandler) MarkRead(ctx *gin.Context) {
 // @Failure 400 {object} gin.H "Error on validation"
 // @Failure 500 {object} gin.H "Internal server error"
 // @Router /message/downloadimage [post]
-func (m *messageHandler) DownloadImage(ctx *gin.Context) {
+func (m *messageHandler) DownloadMedia(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
 	instance, ok := getInstance.(*instance_model.Instance)
@@ -193,21 +188,21 @@ func (m *messageHandler) DownloadImage(ctx *gin.Context) {
 		return
 	}
 
-	var data *message_service.DownloadImageStruct
+	var data *message_service.DownloadMediaStruct
 	err := ctx.ShouldBindBodyWithJSON(&data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	dataUrl, ts, err := m.messageService.DownloadImage(data, instance, ctx.Request)
+	dataUrl, ts, err := m.messageService.DownloadMedia(data, instance, ctx.Request)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	responseData := gin.H{
-		"dataUrl":   dataUrl.String(),
+		"base64":    dataUrl.String(),
 		"timestamp": ts,
 	}
 
