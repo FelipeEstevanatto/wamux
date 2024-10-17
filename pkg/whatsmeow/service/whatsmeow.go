@@ -85,6 +85,10 @@ func (v Values) Get(key string) string {
 	return v.m[key]
 }
 
+type UserCollection struct {
+	Users map[types.JID]types.UserInfo
+}
+
 type ProxyConfig struct {
 	Host     string `json:"host"`
 	Password string `json:"password"`
@@ -542,7 +546,10 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 		dataMap["status"] = "open"
 		dataMap["jid"] = mycli.WAClient.Store.ID.String()
-		dataMap["pushName"] = mycli.WAClient.Store.PushName
+
+		if mycli.WAClient.Store.PushName != "" {
+			dataMap["pushName"] = mycli.WAClient.Store.PushName
+		}
 
 		jid, ok := utils.ParseJID(mycli.WAClient.Store.ID.ToNonAD().User)
 		if ok {
