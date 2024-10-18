@@ -91,8 +91,9 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.POST("/block", r.userHandler.BlockContact)
 			routes.POST("/unblock", r.userHandler.UnblockContact)
 			routes.GET("/blocklist", r.userHandler.GetBlockList)
-			routes.POST("/profile", r.userHandler.SetProfilePicture)
-			routes.POST("/profile-name", r.userHandler.SetProfileName)
+			routes.POST("/profilePicture", r.userHandler.SetProfilePicture)
+			routes.POST("/profileName", r.userHandler.SetProfileName)
+			routes.POST("/profileStatus", r.userHandler.SetProfileStatus)
 		}
 	}
 	routes = eng.Group("/message")
@@ -128,10 +129,12 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.POST("/invitelink", r.groupHandler.GetGroupInviteLink)
 			routes.POST("/photo", r.groupHandler.SetGroupPhoto)
 			routes.POST("/name", r.groupHandler.SetGroupName)
+			routes.POST("/description", r.groupHandler.SetGroupDescription)
 			routes.POST("/create", r.groupHandler.CreateGroup)
 			routes.POST("/participant", r.groupHandler.UpdateParticipant)
 			routes.GET("/myall", r.groupHandler.GetMyGroups) // TODO: not working
 			routes.POST("/join", r.groupHandler.JoinGroupLink)
+			routes.POST("/leave", r.groupHandler.LeaveGroup)
 		}
 	}
 	routes = eng.Group("/community")

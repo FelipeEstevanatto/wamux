@@ -22,10 +22,12 @@ type GroupService interface {
 	GetGroupInviteLink(data *GetGroupInviteLinkStruct, instance *instance_model.Instance) (string, error)
 	SetGroupPhoto(data *SetGroupPhotoStruct, instance *instance_model.Instance) (string, error)
 	SetGroupName(data *SetGroupNameStruct, instance *instance_model.Instance) error
+	SetGroupDescription(data *SetGroupDescriptionStruct, instance *instance_model.Instance) error
 	CreateGroup(data *CreateGroupStruct, instance *instance_model.Instance) (gin.H, error)
 	UpdateParticipant(data *AddParticipantStruct, instance *instance_model.Instance) error
 	GetMyGroups(instance *instance_model.Instance) ([]types.GroupInfo, error)
 	JoinGroupLink(data *JoinGroupStruct, instance *instance_model.Instance) error
+	LeaveGroup(data *LeaveGroupStruct, instance *instance_model.Instance) error
 }
 
 type groupService struct {
@@ -60,6 +62,11 @@ type SetGroupNameStruct struct {
 	Name     string `json:"name"`
 }
 
+type SetGroupDescriptionStruct struct {
+	GroupJID    string `json:"groupJid"`
+	Description string `json:"description"`
+}
+
 type CreateGroupStruct struct {
 	GroupName    string   `json:"groupName"`
 	Participants []string `json:"participants"`
@@ -73,6 +80,10 @@ type AddParticipantStruct struct {
 
 type JoinGroupStruct struct {
 	Code string `json:"code"`
+}
+
+type LeaveGroupStruct struct {
+	GroupJID types.JID `json:"groupJid"`
 }
 
 func (g *groupService) ListGroups(instance *instance_model.Instance) ([]*types.GroupInfo, error) {
@@ -207,6 +218,26 @@ func (g *groupService) SetGroupName(data *SetGroupNameStruct, instance *instance
 	return nil
 }
 
+func (g *groupService) SetGroupDescription(data *SetGroupDescriptionStruct, instance *instance_model.Instance) error {
+	if g.clientPointer[instance.Id] == nil {
+		return errors.New("no session found")
+	}
+
+	recipient, ok := utils.ParseJID(data.GroupJID)
+	if !ok {
+		logger.LogError("Error validating message fields")
+		return errors.New("invalid group jid")
+	}
+
+	err := g.clientPointer[instance.Id].SetGroupDescription(recipient, data.Description)
+	if err != nil {
+		logger.LogError("error mute chat: %v", err)
+		return err
+	}
+
+	return nil
+}
+
 func (g *groupService) CreateGroup(data *CreateGroupStruct, instance *instance_model.Instance) (gin.H, error) {
 	if g.clientPointer[instance.Id] == nil {
 		return nil, errors.New("no session found")
@@ -320,6 +351,20 @@ func (g *groupService) JoinGroupLink(data *JoinGroupStruct, instance *instance_m
 	_, err := g.clientPointer[instance.Id].JoinGroupWithLink(data.Code)
 	if err != nil {
 		logger.LogError("error create group: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+func (g *groupService) LeaveGroup(data *LeaveGroupStruct, instance *instance_model.Instance) error {
+	if g.clientPointer[instance.Id] == nil {
+		return errors.New("no session found")
+	}
+
+	err := g.clientPointer[instance.Id].LeaveGroup(data.GroupJID)
+	if err != nil {
+		logger.LogError("error leave group: %v", err)
 		return err
 	}
 

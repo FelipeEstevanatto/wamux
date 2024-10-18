@@ -14,11 +14,13 @@ type UserHandler interface {
 	GetAvatar(ctx *gin.Context)
 	GetContacts(ctx *gin.Context)
 	GetPrivacy(ctx *gin.Context)
+	SetPrivacy(ctx *gin.Context)
 	BlockContact(ctx *gin.Context)
 	UnblockContact(ctx *gin.Context)
 	GetBlockList(ctx *gin.Context)
 	SetProfilePicture(ctx *gin.Context)
 	SetProfileName(ctx *gin.Context)
+	SetProfileStatus(ctx *gin.Context)
 }
 
 type userHandler struct {
@@ -207,6 +209,76 @@ func (u *userHandler) GetPrivacy(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": privacy})
 }
 
+// Set a user's privacy settings
+// @Summary Set a user's privacy settings
+// @Description Set a user's privacy settings
+// @Tags User
+// @Accept json
+// @Produce json
+// @Param message body user_service.PrivacyStruct true "Privacy data"
+// @Success 200 {object} gin.H "success"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /user/privacy [post]
+func (u *userHandler) SetPrivacy(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	var data *user_service.PrivacyStruct
+	err := ctx.ShouldBindBodyWithJSON(&data)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if data.CallAdd == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "call add is required"})
+		return
+	}
+
+	if data.GroupAdd == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "group add is required"})
+		return
+	}
+
+	if data.LastSeen == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "last seen is required"})
+		return
+	}
+
+	if data.Online == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "online is required"})
+		return
+	}
+
+	if data.Profile == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "profile is required"})
+		return
+	}
+
+	if data.ReadReceipts == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "read receipts is required"})
+		return
+	}
+
+	if data.Status == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "status is required"})
+		return
+	}
+
+	privacy, err := u.userService.SetPrivacy(data, instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": privacy})
+}
+
 // Block a contact
 // @Summary Block a contact
 // @Description Block a contact
@@ -336,7 +408,7 @@ func (u *userHandler) GetBlockList(ctx *gin.Context) {
 // @Success 200 {object} gin.H "success"
 // @Failure 400 {object} gin.H "Error on validation"
 // @Failure 500 {object} gin.H "Internal server error"
-// @Router /user/profile [post]
+// @Router /user/profilePicture [post]
 func (u *userHandler) SetProfilePicture(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -384,7 +456,7 @@ func (u *userHandler) SetProfilePicture(ctx *gin.Context) {
 // @Success 200 {object} gin.H "success"
 // @Failure 400 {object} gin.H "Error on validation"
 // @Failure 500 {object} gin.H "Internal server error"
-// @Router /user/profile [post]
+// @Router /user/profileName [post]
 func (u *userHandler) SetProfileName(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -418,6 +490,54 @@ func (u *userHandler) SetProfileName(ctx *gin.Context) {
 	}
 
 	responseData := gin.H{"name": data.Name}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+}
+
+// Set a user's profile status
+// @Summary Set a user's profile status
+// @Description Set a user's profile status
+// @Tags User
+// @Accept json
+// @Produce json
+// @Param message body user_service.SetProfilePictureStruct true "Profile status data"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /user/profileStatus [post]
+func (u *userHandler) SetProfileStatus(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	var data *user_service.SetProfileStatusStruct
+	err := ctx.ShouldBindBodyWithJSON(&data)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if data.Status == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "name is required"})
+		return
+	}
+
+	resp, err := u.userService.SetProfileStatus(data, instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if !resp {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set profile picture"})
+		return
+	}
+
+	responseData := gin.H{"status": data.Status}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
 }

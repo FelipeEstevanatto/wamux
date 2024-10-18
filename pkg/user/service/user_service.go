@@ -21,11 +21,13 @@ type UserService interface {
 	GetAvatar(data *GetAvatarStruct, instance *instance_model.Instance) (*types.ProfilePictureInfo, error)
 	GetContacts(instance *instance_model.Instance) ([]ContactInfo, error)
 	GetPrivacy(instance *instance_model.Instance) (types.PrivacySettings, error)
+	SetPrivacy(data *PrivacyStruct, instance *instance_model.Instance) (*types.PrivacySettings, error)
 	BlockContact(data *BlockStruct, instance *instance_model.Instance) (*types.Blocklist, error)
 	UnlockContact(data *BlockStruct, instance *instance_model.Instance) (*types.Blocklist, error)
 	GetBlockList(instance *instance_model.Instance) (*types.Blocklist, error)
 	SetProfilePicture(data *SetProfilePictureStruct, instance *instance_model.Instance) (bool, error)
 	SetProfileName(data *SetProfileNameStruct, instance *instance_model.Instance) (bool, error)
+	SetProfileStatus(data *SetProfileStatusStruct, instance *instance_model.Instance) (bool, error)
 }
 
 type userService struct {
@@ -76,6 +78,20 @@ type SetProfilePictureStruct struct {
 
 type SetProfileNameStruct struct {
 	Name string `json:"name"`
+}
+
+type SetProfileStatusStruct struct {
+	Status string `json:"status"`
+}
+
+type PrivacyStruct struct {
+	GroupAdd     types.PrivacySetting `json:"groupAdd"`
+	LastSeen     types.PrivacySetting `json:"lastSeen"`
+	Status       types.PrivacySetting `json:"status"`
+	Profile      types.PrivacySetting `json:"profile"`
+	ReadReceipts types.PrivacySetting `json:"readReceipts"`
+	CallAdd      types.PrivacySetting `json:"callAdd"`
+	Online       types.PrivacySetting `json:"online"`
 }
 
 func (u *userService) GetUser(data *CheckUserStruct, instance *instance_model.Instance) (*UserCollection, error) {
@@ -195,6 +211,36 @@ func (u *userService) GetPrivacy(instance *instance_model.Instance) (types.Priva
 	return privacy, nil
 }
 
+func (u *userService) SetPrivacy(data *PrivacyStruct, instance *instance_model.Instance) (*types.PrivacySettings, error) {
+	if u.clientPointer[instance.Id] == nil {
+		return nil, errors.New("no session found")
+	}
+
+	privacySettings := []struct {
+		name  types.PrivacySettingType
+		value types.PrivacySetting
+	}{
+		{types.PrivacySettingTypeGroupAdd, data.GroupAdd},
+		{types.PrivacySettingTypeLastSeen, data.LastSeen},
+		{types.PrivacySettingTypeStatus, data.Status},
+		{types.PrivacySettingTypeProfile, data.Profile},
+		{types.PrivacySettingTypeReadReceipts, data.ReadReceipts},
+		{types.PrivacySettingTypeCallAdd, data.CallAdd},
+		{types.PrivacySettingTypeOnline, data.Online},
+	}
+
+	for _, setting := range privacySettings {
+		_, err := u.clientPointer[instance.Id].SetPrivacySetting(setting.name, setting.value)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	privacy := u.clientPointer[instance.Id].GetPrivacySettings()
+
+	return &privacy, nil
+}
+
 func (u *userService) BlockContact(data *BlockStruct, instance *instance_model.Instance) (*types.Blocklist, error) {
 	if u.clientPointer[instance.Id] == nil {
 		return nil, errors.New("no session found")
@@ -276,6 +322,19 @@ func (u *userService) SetProfileName(data *SetProfileNameStruct, instance *insta
 	}
 
 	err := u.clientPointer[instance.Id].SetGroupName(types.EmptyJID, data.Name)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
+func (u *userService) SetProfileStatus(data *SetProfileStatusStruct, instance *instance_model.Instance) (bool, error) {
+	if u.clientPointer[instance.Id] == nil {
+		return false, errors.New("no session found")
+	}
+
+	err := u.clientPointer[instance.Id].SetStatusMessage(data.Status)
 	if err != nil {
 		return false, err
 	}
