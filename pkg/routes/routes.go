@@ -88,6 +88,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.POST("/avatar", r.userHandler.GetAvatar)
 			routes.GET("/contacts", r.userHandler.GetContacts)
 			routes.GET("/privacy", r.userHandler.GetPrivacy)
+			routes.POST("/privacy", r.userHandler.SetPrivacy)
 			routes.POST("/block", r.userHandler.BlockContact)
 			routes.POST("/unblock", r.userHandler.UnblockContact)
 			routes.GET("/blocklist", r.userHandler.GetBlockList)

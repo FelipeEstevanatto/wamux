@@ -448,7 +448,7 @@ func (g *groupHandler) JoinGroupLink(ctx *gin.Context) {
 // @Success 200 {object} gin.H "success"
 // @Failure 400 {object} gin.H "Error on validation"
 // @Failure 500 {object} gin.H "Internal server error"
-// @Router /group/leave [delete]
+// @Router /group/leave [post]
 func (g *groupHandler) LeaveGroup(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
