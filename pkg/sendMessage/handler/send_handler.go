@@ -19,6 +19,8 @@ type SendHandler interface {
 	SendSticker(ctx *gin.Context)
 	SendLocation(ctx *gin.Context)
 	SendContact(ctx *gin.Context)
+	SendButton(ctx *gin.Context)
+	SendList(ctx *gin.Context)
 }
 
 type sendHandler struct {
@@ -443,6 +445,123 @@ func (s *sendHandler) SendContact(ctx *gin.Context) {
 	}
 
 	message, err := s.sendMessageService.SendContact(data, instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": message})
+}
+
+// Send a button message
+// @Summary Send a button message
+// @Description Send a button message
+// @Tags Send Message
+// @Accept json
+// @Produce json
+// @Param message body send_service.ContactStruct true "Message data"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /send/button [post]
+func (s *sendHandler) SendButton(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	var data *send_service.ButtonStruct
+	err := ctx.ShouldBindBodyWithJSON(&data)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if data.Number == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
+		return
+	}
+
+	if data.Title == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "title is required"})
+		return
+	}
+
+	if data.Description == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "description is required"})
+		return
+	}
+
+	if data.Footer == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "footer is required"})
+		return
+	}
+
+	message, err := s.sendMessageService.SendButton(data, instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": message})
+}
+
+// Send a list message
+// @Summary Send a list message
+// @Description Send a list message
+// @Tags Send Message
+// @Accept json
+// @Produce json
+// @Param message body send_service.ContactStruct true "Message data"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /send/list [post]
+func (s *sendHandler) SendList(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	var data *send_service.ListStruct
+	err := ctx.ShouldBindBodyWithJSON(&data)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if data.Number == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
+		return
+	}
+
+	if data.Title == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "title is required"})
+		return
+	}
+
+	if data.Description == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "description is required"})
+		return
+	}
+
+	if data.FooterText == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "footer is required"})
+		return
+	}
+
+	if data.ButtonText == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "button text is required"})
+		return
+	}
+
+	message, err := s.sendMessageService.SendList(data, instance)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

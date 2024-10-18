@@ -25,6 +25,7 @@ type UserService interface {
 	UnlockContact(data *BlockStruct, instance *instance_model.Instance) (*types.Blocklist, error)
 	GetBlockList(instance *instance_model.Instance) (*types.Blocklist, error)
 	SetProfilePicture(data *SetProfilePictureStruct, instance *instance_model.Instance) (bool, error)
+	SetProfileName(data *SetProfileNameStruct, instance *instance_model.Instance) (bool, error)
 }
 
 type userService struct {
@@ -71,6 +72,10 @@ type BlockStruct struct {
 
 type SetProfilePictureStruct struct {
 	Image string `json:"image"`
+}
+
+type SetProfileNameStruct struct {
+	Name string `json:"name"`
 }
 
 func (u *userService) GetUser(data *CheckUserStruct, instance *instance_model.Instance) (*UserCollection, error) {
@@ -258,6 +263,19 @@ func (u *userService) SetProfilePicture(data *SetProfilePictureStruct, instance 
 	}
 
 	_, err = u.clientPointer[instance.Id].SetGroupPhoto(types.EmptyJID, filedata)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
+func (u *userService) SetProfileName(data *SetProfileNameStruct, instance *instance_model.Instance) (bool, error) {
+	if u.clientPointer[instance.Id] == nil {
+		return false, errors.New("no session found")
+	}
+
+	err := u.clientPointer[instance.Id].SetGroupName(types.EmptyJID, data.Name)
 	if err != nil {
 		return false, err
 	}

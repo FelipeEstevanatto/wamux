@@ -18,6 +18,7 @@ type UserHandler interface {
 	UnblockContact(ctx *gin.Context)
 	GetBlockList(ctx *gin.Context)
 	SetProfilePicture(ctx *gin.Context)
+	SetProfileName(ctx *gin.Context)
 }
 
 type userHandler struct {
@@ -369,6 +370,54 @@ func (u *userHandler) SetProfilePicture(ctx *gin.Context) {
 	}
 
 	responseData := gin.H{"image": data.Image}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+}
+
+// Set a user's profile name
+// @Summary Set a user's profile name
+// @Description Set a user's profile name
+// @Tags User
+// @Accept json
+// @Produce json
+// @Param message body user_service.SetProfilePictureStruct true "Profile name data"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /user/profile [post]
+func (u *userHandler) SetProfileName(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	var data *user_service.SetProfileNameStruct
+	err := ctx.ShouldBindBodyWithJSON(&data)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if data.Name == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "name is required"})
+		return
+	}
+
+	resp, err := u.userService.SetProfileName(data, instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if !resp {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set profile picture"})
+		return
+	}
+
+	responseData := gin.H{"name": data.Name}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
 }

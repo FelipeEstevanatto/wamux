@@ -74,6 +74,8 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.POST("/sticker", r.sendHandler.SendSticker)
 			routes.POST("/location", r.sendHandler.SendLocation)
 			routes.POST("/contact", r.sendHandler.SendContact) // TODO: send multiple contacts
+			routes.POST("/button", r.sendHandler.SendButton)
+			routes.POST("/list", r.sendHandler.SendList)
 			// TODO: send status
 		}
 	}
@@ -90,6 +92,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.POST("/unblock", r.userHandler.UnblockContact)
 			routes.GET("/blocklist", r.userHandler.GetBlockList)
 			routes.POST("/profile", r.userHandler.SetProfilePicture)
+			routes.POST("/profile-name", r.userHandler.SetProfileName)
 		}
 	}
 	routes = eng.Group("/message")

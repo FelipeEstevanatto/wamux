@@ -3,6 +3,7 @@ package send_service
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"image"
@@ -36,6 +37,8 @@ type SendService interface {
 	SendSticker(data *StickerStruct, instance *instance_model.Instance) (*MessageSendStruct, error)
 	SendLocation(data *LocationStruct, instance *instance_model.Instance) (*MessageSendStruct, error)
 	SendContact(data *ContactStruct, instance *instance_model.Instance) (*MessageSendStruct, error)
+	SendButton(data *ButtonStruct, instance *instance_model.Instance) (*MessageSendStruct, error)
+	SendList(data *ListStruct, instance *instance_model.Instance) (*MessageSendStruct, error)
 }
 
 type sendService struct {
@@ -137,6 +140,51 @@ type ContactStruct struct {
 	MentionedJID string            `json:"mentionedJid"`
 	MentionAll   bool              `json:"mentionAll"`
 	Quoted       QuotedStruct      `json:"quoted"`
+}
+
+type Button struct {
+	Type        string `json:"type"`
+	DisplayText string `json:"displayText"`
+	Id          string `json:"id"`
+	CopyCode    string `json:"copyCode"`
+	URL         string `json:"url"`
+	PhoneNumber string `json:"phoneNumber"`
+}
+
+type ButtonStruct struct {
+	Number       string       `json:"number"`
+	Title        string       `json:"title"`
+	Description  string       `json:"description"`
+	Footer       string       `json:"footer"`
+	Buttons      []Button     `json:"buttons"`
+	Delay        int32        `json:"delay"`
+	MentionedJID string       `json:"mentionedJid"`
+	MentionAll   bool         `json:"mentionAll"`
+	Quoted       QuotedStruct `json:"quoted"`
+}
+
+type Row struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	RowId       string `json:"rowId"`
+}
+
+type Section struct {
+	Title string `json:"title"`
+	Rows  []Row  `json:"rows"`
+}
+
+type ListStruct struct {
+	Number       string       `json:"number"`
+	Title        string       `json:"title"`
+	Description  string       `json:"description"`
+	ButtonText   string       `json:"buttonText"`
+	FooterText   string       `json:"footerText"`
+	Sections     []Section    `json:"sections"`
+	Delay        int32        `json:"delay"`
+	MentionedJID string       `json:"mentionedJid"`
+	MentionAll   bool         `json:"mentionAll"`
+	Quoted       QuotedStruct `json:"quoted"`
 }
 
 type MessageSendStruct struct {
@@ -774,6 +822,282 @@ func (s *sendService) SendContact(data *ContactStruct, instance *instance_model.
 	return messaged, nil
 }
 
+func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
+	if s.clientPointer[instance.Id] == nil {
+		return nil, errors.New("no session found")
+	}
+
+	messageId := s.clientPointer[instance.Id].GenerateMessageID()
+
+	templateId := string(time.Now().UnixNano() / 1000000)
+
+	messageParamsJSON := `{"from":"api","templateId":` + templateId + `}`
+
+	buttons := []*waE2E.InteractiveMessage_NativeFlowMessage_NativeFlowButton{}
+
+	for _, v := range data.Buttons {
+		var paramsJSON *string
+
+		var name *string
+
+		switch v.Type {
+		case "reply":
+			name = proto.String("quick_reply")
+			paramsJSON = proto.String(`{"display_text":"` + v.DisplayText + `","id":"` + v.Id + `"}`)
+		case "copy":
+			name = proto.String("cta_copy")
+			paramsJSON = proto.String(`{"display_text":"` + v.DisplayText + `","copy_code":"` + v.CopyCode + `"}`)
+		case "url":
+			name = proto.String("cta_url")
+			paramsJSON = proto.String(`{"display_text":"` + v.DisplayText + `","url":"` + v.URL + `","merchant_url":"` + v.URL + `"}`)
+		case "call":
+			name = proto.String("cta_call")
+			paramsJSON = proto.String(`{"display_text":"` + v.DisplayText + `","phone_number":"` + v.PhoneNumber + `"}`)
+		}
+
+		buttons = append(buttons, &waE2E.InteractiveMessage_NativeFlowMessage_NativeFlowButton{
+			Name:             name,
+			ButtonParamsJSON: paramsJSON,
+		})
+	}
+
+	body := func() string {
+		t := "*" + data.Title + "*"
+		if data.Description != "" {
+			t += "\n\n" + data.Description + "\n"
+		}
+		return t
+	}()
+
+	msg := &waE2E.Message{ViewOnceMessage: &waE2E.FutureProofMessage{
+		Message: &waE2E.Message{
+			InteractiveMessage: &waE2E.InteractiveMessage{
+				Body: &waE2E.InteractiveMessage_Body{
+					Text: &body,
+				},
+				Footer: &waE2E.InteractiveMessage_Footer{
+					Text: &data.Footer,
+				},
+				InteractiveMessage: &waE2E.InteractiveMessage_NativeFlowMessage_{
+					NativeFlowMessage: &waE2E.InteractiveMessage_NativeFlowMessage{
+						Buttons:           buttons,
+						MessageParamsJSON: &messageParamsJSON,
+					},
+				},
+			},
+		},
+	}}
+
+	recipient, err := validateMessageFields(data.Number, &data.Quoted.MessageID, &data.Quoted.MessageID)
+	if err != nil {
+		logger.LogError("Error validating message fields: %v", err)
+		return nil, err
+	}
+
+	if data.Delay > 0 {
+		err := s.clientPointer[instance.Id].SendChatPresence(recipient, types.ChatPresence("composing"), types.ChatPresenceMedia(""))
+		if err != nil {
+			return nil, err
+		}
+
+		time.Sleep(time.Duration(data.Delay) * time.Millisecond)
+
+		err = s.clientPointer[instance.Id].SendChatPresence(recipient, types.ChatPresence("paused"), types.ChatPresenceMedia(""))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	response, err := s.clientPointer[instance.Id].SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{ID: messageId})
+	if err != nil {
+		return nil, err
+	}
+
+	messageInfo := types.MessageInfo{
+		MessageSource: types.MessageSource{
+			Chat:     recipient,
+			Sender:   *s.clientPointer[instance.Id].Store.ID,
+			IsFromMe: true,
+			IsGroup:  false,
+		},
+		ID:        messageId,
+		Timestamp: time.Now(),
+		ServerID:  response.ServerID,
+		Type:      "ButtonMessage",
+	}
+
+	messageSent := &MessageSendStruct{
+		Info:    messageInfo,
+		Message: msg,
+		MessageContextInfo: &waE2E.ContextInfo{
+			StanzaID:      proto.String(data.Quoted.MessageID),
+			Participant:   proto.String(data.Quoted.Participant),
+			QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
+		},
+	}
+
+	return messageSent, nil
+}
+
+func stringPointer(s string) *string {
+	return &s
+}
+
+func sectionsToString(data *ListStruct) (string, error) {
+	type row struct {
+		Header      *string `json:"header,omitempty"`
+		Title       string  `json:"title"`
+		Description *string `json:"description,omitempty"`
+		ID          string  `json:"id"`
+	}
+
+	type listSection struct {
+		Title string `json:"title"`
+		Rows  []row  `json:"rows"`
+	}
+
+	type list struct {
+		Title    string        `json:"title"`
+		Sections []listSection `json:"sections"`
+	}
+
+	sections := []listSection{}
+
+	for _, s := range data.Sections {
+		rows := []row{}
+
+		for _, r := range s.Rows {
+			rows = append(rows, row{
+				Title:       r.Title,
+				Description: stringPointer(r.Description),
+				ID:          r.RowId,
+			})
+		}
+
+		section := listSection{
+			Title: s.Title,
+			Rows:  rows,
+		}
+
+		sections = append(sections, section)
+	}
+
+	listData := list{
+		Title:    data.ButtonText,
+		Sections: sections,
+	}
+
+	jsonData, err := json.Marshal(listData)
+	if err != nil {
+		return "", err
+	}
+
+	logger.LogInfo("JSON data: %s", string(jsonData))
+
+	return string(jsonData), nil
+}
+
+func (s *sendService) SendList(data *ListStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
+	if s.clientPointer[instance.Id] == nil {
+		return nil, errors.New("no session found")
+	}
+
+	messageId := s.clientPointer[instance.Id].GenerateMessageID()
+
+	templateId := string(time.Now().UnixNano() / 1000000)
+
+	messageParamsJSON := `{"from":"api","templateId":` + templateId + `}`
+
+	buttons := []*waE2E.InteractiveMessage_NativeFlowMessage_NativeFlowButton{}
+
+	sectionString, err := sectionsToString(data)
+	if err != nil {
+		return nil, err
+	}
+
+	buttons = append(buttons, &waE2E.InteractiveMessage_NativeFlowMessage_NativeFlowButton{
+		Name:             proto.String("single_select"),
+		ButtonParamsJSON: proto.String(sectionString),
+	})
+
+	body := func() string {
+		t := "*" + data.Title + "*"
+		if data.Description != "" {
+			t += "\n\n" + data.Description + "\n"
+		}
+		return t
+	}()
+
+	msg := &waE2E.Message{ViewOnceMessage: &waE2E.FutureProofMessage{
+		Message: &waE2E.Message{
+			InteractiveMessage: &waE2E.InteractiveMessage{
+				Body: &waE2E.InteractiveMessage_Body{
+					Text: &body,
+				},
+				Footer: &waE2E.InteractiveMessage_Footer{
+					Text: &data.FooterText,
+				},
+				InteractiveMessage: &waE2E.InteractiveMessage_NativeFlowMessage_{
+					NativeFlowMessage: &waE2E.InteractiveMessage_NativeFlowMessage{
+						Buttons:           buttons,
+						MessageParamsJSON: &messageParamsJSON,
+					},
+				},
+			},
+		},
+	}}
+
+	recipient, err := validateMessageFields(data.Number, &data.Quoted.MessageID, &data.Quoted.MessageID)
+	if err != nil {
+		logger.LogError("Error validating message fields: %v", err)
+		return nil, err
+	}
+
+	if data.Delay > 0 {
+		err := s.clientPointer[instance.Id].SendChatPresence(recipient, types.ChatPresence("composing"), types.ChatPresenceMedia(""))
+		if err != nil {
+			return nil, err
+		}
+
+		time.Sleep(time.Duration(data.Delay) * time.Millisecond)
+
+		err = s.clientPointer[instance.Id].SendChatPresence(recipient, types.ChatPresence("paused"), types.ChatPresenceMedia(""))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	response, err := s.clientPointer[instance.Id].SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{ID: messageId})
+	if err != nil {
+		return nil, err
+	}
+
+	messageInfo := types.MessageInfo{
+		MessageSource: types.MessageSource{
+			Chat:     recipient,
+			Sender:   *s.clientPointer[instance.Id].Store.ID,
+			IsFromMe: true,
+			IsGroup:  false,
+		},
+		ID:        messageId,
+		Timestamp: time.Now(),
+		ServerID:  response.ServerID,
+		Type:      "ListMessage",
+	}
+
+	messageSent := &MessageSendStruct{
+		Info:    messageInfo,
+		Message: msg,
+		MessageContextInfo: &waE2E.ContextInfo{
+			StanzaID:      proto.String(data.Quoted.MessageID),
+			Participant:   proto.String(data.Quoted.Participant),
+			QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
+		},
+	}
+
+	return messageSent, nil
+}
+
 func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, messageType string, data *SendDataStruct) (*MessageSendStruct, error) {
 	recipient, err := validateMessageFields(data.Number, &data.Quoted.MessageID, &data.Quoted.MessageID)
 	if err != nil {
@@ -914,6 +1238,7 @@ func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, message
 			case "ContactMessage":
 				msg.ExtendedTextMessage.ContextInfo.MentionedJID = mentionedJIDs
 			}
+
 		}
 
 		if data.MentionedJID != "" {
