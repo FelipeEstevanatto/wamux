@@ -21,6 +21,7 @@ type Config struct {
 	AmqpUrl              string
 	WebhookUrl           string
 	ClientName           string
+	ApiAudioConverter    string
 }
 
 func (c Config) CreateAuthDB() (*gorm.DB, error) {
@@ -61,6 +62,7 @@ func Load() *Config {
 		AMQP_URL               = "AMQP_URL"
 		WEBHOOK_URL            = "WEBHOOK_URL"
 		CLIENT_NAME            = "CLIENT_NAME"
+		API_AUDIO_CONVERTER    = "API_AUDIO_CONVERTER"
 	)
 
 	postgresAuthDB := os.Getenv(POSTGRES_AUTH_DB)
@@ -98,6 +100,8 @@ func Load() *Config {
 
 	webhookUrl := os.Getenv(WEBHOOK_URL)
 
+	apiAudioConverter := os.Getenv(API_AUDIO_CONVERTER)
+
 	return &Config{
 		PostgresAuthDB:       postgresAuthDB,
 		postgresUsersDB:      postgresUsersDB,
@@ -111,6 +115,7 @@ func Load() *Config {
 		AmqpUrl:              amqpUrl,
 		WebhookUrl:           webhookUrl,
 		ClientName:           clientName,
+		ApiAudioConverter:    apiAudioConverter,
 	}
 }
 

@@ -80,7 +80,7 @@ func setupRouter(db *gorm.DB, config *config.Config, conn *amqp.Connection) *gin
 		whatsmeowService,
 		config,
 	)
-	sendMessageService := send_service.NewSendService(clientPointer, whatsmeowService)
+	sendMessageService := send_service.NewSendService(clientPointer, whatsmeowService, config)
 	userService := user_service.NewUserService(clientPointer, whatsmeowService)
 	messageService := message_service.NewMessageService(clientPointer, messageRepository)
 	chatService := chat_service.NewChatService(clientPointer)
