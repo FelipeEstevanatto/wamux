@@ -3,11 +3,13 @@ package send_service
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"image"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"os/exec"
 	"regexp"
@@ -15,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	config "github.com/EvolutionAPI/evolution-go/pkg/config"
 	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
 	"github.com/EvolutionAPI/evolution-go/pkg/utils"
 	whatsmeow_service "github.com/EvolutionAPI/evolution-go/pkg/whatsmeow/service"
@@ -44,6 +47,7 @@ type SendService interface {
 type sendService struct {
 	clientPointer    map[string]*whatsmeow.Client
 	whatsmeowService whatsmeow_service.WhatsmeowService
+	config           *config.Config
 }
 
 type SendDataStruct struct {
@@ -356,6 +360,79 @@ func (s *sendService) SendLink(data *LinkStruct, instance *instance_model.Instan
 	return message, nil
 }
 
+type ConvertAudio struct {
+	Url    string `json:"url,omitempty"`
+	Base64 string `json:"base64,omitempty"`
+}
+
+type ApiResponse struct {
+	Duration int    `json:"duration"`
+	Audio    string `json:"audio"`
+}
+
+func convertAudioWithApi(apiUrl string, convertData ConvertAudio) ([]byte, int, error) {
+	var requestBody bytes.Buffer
+	writer := multipart.NewWriter(&requestBody)
+
+	// Adiciona o campo "url" ao form-data se a URL for fornecida
+	if convertData.Url != "" {
+		err := writer.WriteField("url", convertData.Url)
+		if err != nil {
+			return nil, 0, fmt.Errorf("erro ao adicionar a URL no form-data: %v", err)
+		}
+	}
+
+	// Adiciona o campo "base64" ao form-data se a string base64 for fornecida
+	if convertData.Base64 != "" {
+		err := writer.WriteField("base64", convertData.Base64)
+		if err != nil {
+			return nil, 0, fmt.Errorf("erro ao adicionar o base64 no form-data: %v", err)
+		}
+	}
+
+	// Fecha o writer multipart
+	err := writer.Close()
+	if err != nil {
+		return nil, 0, fmt.Errorf("erro ao finalizar o form-data: %v", err)
+	}
+
+	req, err := http.NewRequest("POST", apiUrl, &requestBody)
+	if err != nil {
+		return nil, 0, fmt.Errorf("erro ao criar a requisição: %v", err)
+	}
+
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, 0, fmt.Errorf("erro ao enviar a requisição: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, 0, fmt.Errorf("erro ao ler a resposta: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, 0, fmt.Errorf("requisição falhou com status: %d, resposta: %s", resp.StatusCode, string(body))
+	}
+
+	var apiResponse ApiResponse
+	err = json.Unmarshal(body, &apiResponse)
+	if err != nil {
+		return nil, 0, fmt.Errorf("erro ao deserializar a resposta: %v", err)
+	}
+
+	base64ToBytes, err := base64.StdEncoding.DecodeString(apiResponse.Audio)
+	if err != nil {
+		return nil, 0, fmt.Errorf("erro ao decodificar o áudio: %v", err)
+	}
+
+	return base64ToBytes, apiResponse.Duration, nil
+}
+
 func convertAudioToOpusWithDuration(inputData []byte) ([]byte, int, error) {
 	cmd := exec.Command("ffmpeg", "-i", "pipe:0", "-ac", "1", "-ar", "16000", "-c:a", "libopus", "-f", "ogg", "pipe:1")
 
@@ -420,13 +497,22 @@ func (s *sendService) SendMediaFile(data *MediaStruct, fileData []byte, instance
 		}
 		uploadType = whatsmeow.MediaVideo
 	case "audio":
+		converterApiUrl := s.config.ApiAudioConverter
 		var convertedData []byte
 		var err error
+		if converterApiUrl == "" {
 
-		convertedData, duration, err = convertAudioToOpusWithDuration(fileData)
-		if err != nil {
-			return nil, err
+			convertedData, duration, err = convertAudioToOpusWithDuration(fileData)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			convertedData, duration, err = convertAudioWithApi(converterApiUrl, ConvertAudio{Base64: base64.StdEncoding.EncodeToString(fileData)})
+			if err != nil {
+				return nil, err
+			}
 		}
+
 		fileData = convertedData
 		mimeType = "audio/ogg; codecs=opus"
 		uploadType = whatsmeow.MediaAudio
@@ -553,12 +639,20 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 		}
 		uploadType = whatsmeow.MediaVideo
 	} else if data.Type == "audio" {
+		converterApiUrl := s.config.ApiAudioConverter
 		var convertedData []byte
 		var err error
+		if converterApiUrl == "" {
 
-		convertedData, duration, err = convertAudioToOpusWithDuration(fileData)
-		if err != nil {
-			return nil, err
+			convertedData, duration, err = convertAudioToOpusWithDuration(fileData)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			convertedData, duration, err = convertAudioWithApi(converterApiUrl, ConvertAudio{Base64: base64.StdEncoding.EncodeToString(fileData)})
+			if err != nil {
+				return nil, err
+			}
 		}
 		fileData = convertedData
 		mimeType = "audio/ogg; codecs=opus"
@@ -1285,9 +1379,11 @@ func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, message
 func NewSendService(
 	clientPointer map[string]*whatsmeow.Client,
 	whatsmeowService whatsmeow_service.WhatsmeowService,
+	config *config.Config,
 ) SendService {
 	return &sendService{
 		clientPointer:    clientPointer,
 		whatsmeowService: whatsmeowService,
+		config:           config,
 	}
 }
