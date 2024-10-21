@@ -356,7 +356,7 @@ func (s *sendService) SendLink(data *LinkStruct, instance *instance_model.Instan
 	return message, nil
 }
 
-func convertAudioToOpus(inputData []byte) ([]byte, error) {
+func convertAudioToOpusWithDuration(inputData []byte) ([]byte, int, error) {
 	cmd := exec.Command("ffmpeg", "-i", "pipe:0", "-ac", "1", "-ar", "16000", "-c:a", "libopus", "-f", "ogg", "pipe:1")
 
 	var outBuffer bytes.Buffer
@@ -368,34 +368,23 @@ func convertAudioToOpus(inputData []byte) ([]byte, error) {
 
 	err := cmd.Run()
 	if err != nil {
-		return nil, fmt.Errorf("error during conversion: %v, details: %s", err, errBuffer.String())
+		return nil, 0, fmt.Errorf("error during conversion: %v, details: %s", err, errBuffer.String())
 	}
 
 	convertedData := outBuffer.Bytes()
 
-	return convertedData, nil
-}
-
-func getAudioDurationFromBytes(data []byte) (int, error) {
-	cmd := exec.Command("ffmpeg", "-i", "pipe:0", "-f", "null", "-")
-	cmd.Stdin = bytes.NewReader(data)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return 0, err
-	}
-
-	outputText := string(output)
+	outputText := errBuffer.String()
 
 	splitTime := strings.Split(outputText, "time=")
 
 	if len(splitTime) < 2 {
-		return 0, nil
+		return nil, 0, errors.New("duração não encontrada")
 	}
 
 	re := regexp.MustCompile(`(\d+):(\d+):(\d+\.\d+)`)
 	matches := re.FindStringSubmatch(string(splitTime[2]))
 	if len(matches) != 4 {
-		return 0, errors.New("formato de duração não encontrado")
+		return nil, 0, errors.New("formato de duração não encontrado")
 	}
 
 	hours, _ := strconv.ParseFloat(matches[1], 64)
@@ -403,7 +392,7 @@ func getAudioDurationFromBytes(data []byte) (int, error) {
 	seconds, _ := strconv.ParseFloat(matches[3], 64)
 	duration := int(hours*3600 + minutes*60 + seconds)
 
-	return duration, nil
+	return convertedData, duration, nil
 }
 
 func (s *sendService) SendMediaFile(data *MediaStruct, fileData []byte, instance *instance_model.Instance) (*MessageSendStruct, error) {
@@ -431,17 +420,16 @@ func (s *sendService) SendMediaFile(data *MediaStruct, fileData []byte, instance
 		}
 		uploadType = whatsmeow.MediaVideo
 	case "audio":
-		convertedData, err := convertAudioToOpus(fileData)
+		var convertedData []byte
+		var err error
+
+		convertedData, duration, err = convertAudioToOpusWithDuration(fileData)
 		if err != nil {
 			return nil, err
 		}
 		fileData = convertedData
 		mimeType = "audio/ogg; codecs=opus"
 		uploadType = whatsmeow.MediaAudio
-		duration, err = getAudioDurationFromBytes(fileData)
-		if err != nil {
-			return nil, err
-		}
 	case "document":
 		uploadType = whatsmeow.MediaDocument
 	default:
@@ -565,17 +553,16 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 		}
 		uploadType = whatsmeow.MediaVideo
 	} else if data.Type == "audio" {
-		convertedData, err := convertAudioToOpus(fileData)
+		var convertedData []byte
+		var err error
+
+		convertedData, duration, err = convertAudioToOpusWithDuration(fileData)
 		if err != nil {
 			return nil, err
 		}
 		fileData = convertedData
 		mimeType = "audio/ogg; codecs=opus"
 		uploadType = whatsmeow.MediaAudio
-		duration, err = getAudioDurationFromBytes(fileData)
-		if err != nil {
-			return nil, err
-		}
 	} else if data.Type == "document" {
 		uploadType = whatsmeow.MediaDocument
 	} else {
@@ -827,12 +814,6 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 		return nil, errors.New("no session found")
 	}
 
-	messageId := s.clientPointer[instance.Id].GenerateMessageID()
-
-	templateId := string(time.Now().UnixNano() / 1000000)
-
-	messageParamsJSON := `{"from":"api","templateId":` + templateId + `}`
-
 	buttons := []*waE2E.InteractiveMessage_NativeFlowMessage_NativeFlowButton{}
 
 	for _, v := range data.Buttons {
@@ -860,6 +841,12 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 			ButtonParamsJSON: paramsJSON,
 		})
 	}
+
+	messageId := s.clientPointer[instance.Id].GenerateMessageID()
+
+	templateId := string(time.Now().UnixNano() / 1000000)
+
+	messageParamsJSON := `{"from":"api","templateId":` + templateId + `}`
 
 	body := func() string {
 		t := "*" + data.Title + "*"
