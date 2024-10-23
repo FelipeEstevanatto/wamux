@@ -370,7 +370,7 @@ type ApiResponse struct {
 	Audio    string `json:"audio"`
 }
 
-func convertAudioWithApi(apiUrl string, convertData ConvertAudio) ([]byte, int, error) {
+func convertAudioWithApi(apiUrl string, apiKey string, convertData ConvertAudio) ([]byte, int, error) {
 	var requestBody bytes.Buffer
 	writer := multipart.NewWriter(&requestBody)
 
@@ -402,6 +402,7 @@ func convertAudioWithApi(apiUrl string, convertData ConvertAudio) ([]byte, int, 
 	}
 
 	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("apikey", apiKey)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -498,6 +499,7 @@ func (s *sendService) SendMediaFile(data *MediaStruct, fileData []byte, instance
 		uploadType = whatsmeow.MediaVideo
 	case "audio":
 		converterApiUrl := s.config.ApiAudioConverter
+		converterApiKey := s.config.ApiAudioConverterKey
 		var convertedData []byte
 		var err error
 		if converterApiUrl == "" {
@@ -507,7 +509,7 @@ func (s *sendService) SendMediaFile(data *MediaStruct, fileData []byte, instance
 				return nil, err
 			}
 		} else {
-			convertedData, duration, err = convertAudioWithApi(converterApiUrl, ConvertAudio{Base64: base64.StdEncoding.EncodeToString(fileData)})
+			convertedData, duration, err = convertAudioWithApi(converterApiUrl, converterApiKey, ConvertAudio{Base64: base64.StdEncoding.EncodeToString(fileData)})
 			if err != nil {
 				return nil, err
 			}
@@ -640,6 +642,7 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 		uploadType = whatsmeow.MediaVideo
 	} else if data.Type == "audio" {
 		converterApiUrl := s.config.ApiAudioConverter
+		converterApiKey := s.config.ApiAudioConverterKey
 		var convertedData []byte
 		var err error
 		if converterApiUrl == "" {
@@ -649,7 +652,7 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 				return nil, err
 			}
 		} else {
-			convertedData, duration, err = convertAudioWithApi(converterApiUrl, ConvertAudio{Base64: base64.StdEncoding.EncodeToString(fileData)})
+			convertedData, duration, err = convertAudioWithApi(converterApiUrl, converterApiKey, ConvertAudio{Base64: base64.StdEncoding.EncodeToString(fileData)})
 			if err != nil {
 				return nil, err
 			}
