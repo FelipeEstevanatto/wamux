@@ -1226,6 +1226,12 @@ func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, message
 				Participant:   proto.String(data.Quoted.Participant),
 				QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
 			}
+		case "VideoMessage":
+			msg.VideoMessage.ContextInfo = &waE2E.ContextInfo{
+				StanzaID:      proto.String(data.Quoted.MessageID),
+				Participant:   proto.String(data.Quoted.Participant),
+				QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
+			}
 		case "AudioMessage":
 			msg.AudioMessage.ContextInfo = &waE2E.ContextInfo{
 				StanzaID:      proto.String(data.Quoted.MessageID),
@@ -1271,6 +1277,8 @@ func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, message
 			msg.ExtendedTextMessage.ContextInfo = &waE2E.ContextInfo{}
 		case "ImageMessage":
 			msg.ImageMessage.ContextInfo = &waE2E.ContextInfo{}
+		case "VideoMessage":
+			msg.VideoMessage.ContextInfo = &waE2E.ContextInfo{}
 		case "AudioMessage":
 			msg.AudioMessage.ContextInfo = &waE2E.ContextInfo{}
 		case "DocumentMessage":
@@ -1305,19 +1313,21 @@ func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, message
 			case "ExtendedTextMessage":
 				msg.ExtendedTextMessage.ContextInfo.MentionedJID = mentionedJIDs
 			case "ImageMessage":
-				msg.ExtendedTextMessage.ContextInfo.MentionedJID = mentionedJIDs
+				msg.ImageMessage.ContextInfo.MentionedJID = mentionedJIDs
+			case "VideoMessage":
+				msg.VideoMessage.ContextInfo.MentionedJID = mentionedJIDs
 			case "AudioMessage":
-				msg.ExtendedTextMessage.ContextInfo.MentionedJID = mentionedJIDs
+				msg.AudioMessage.ContextInfo.MentionedJID = mentionedJIDs
 			case "DocumentMessage":
-				msg.ExtendedTextMessage.ContextInfo.MentionedJID = mentionedJIDs
+				msg.DocumentMessage.ContextInfo.MentionedJID = mentionedJIDs
 			case "PollCreationMessage":
-				msg.ExtendedTextMessage.ContextInfo.MentionedJID = mentionedJIDs
+				msg.PollCreationMessage.ContextInfo.MentionedJID = mentionedJIDs
 			case "StickerMessage":
-				msg.ExtendedTextMessage.ContextInfo.MentionedJID = mentionedJIDs
+				msg.StickerMessage.ContextInfo.MentionedJID = mentionedJIDs
 			case "LocationMessage":
-				msg.ExtendedTextMessage.ContextInfo.MentionedJID = mentionedJIDs
+				msg.LocationMessage.ContextInfo.MentionedJID = mentionedJIDs
 			case "ContactMessage":
-				msg.ExtendedTextMessage.ContextInfo.MentionedJID = mentionedJIDs
+				msg.ContactMessage.ContextInfo.MentionedJID = mentionedJIDs
 			}
 
 		}
@@ -1327,19 +1337,21 @@ func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, message
 			case "ExtendedTextMessage":
 				msg.ExtendedTextMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
 			case "ImageMessage":
-				msg.ExtendedTextMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
+				msg.ImageMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
+			case "VideoMessage":
+				msg.VideoMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
 			case "AudioMessage":
-				msg.ExtendedTextMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
+				msg.AudioMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
 			case "DocumentMessage":
-				msg.ExtendedTextMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
+				msg.DocumentMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
 			case "PollCreationMessage":
-				msg.ExtendedTextMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
+				msg.PollCreationMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
 			case "StickerMessage":
-				msg.ExtendedTextMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
+				msg.StickerMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
 			case "LocationMessage":
-				msg.ExtendedTextMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
+				msg.LocationMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
 			case "ContactMessage":
-				msg.ExtendedTextMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
+				msg.ContactMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
 			}
 		}
 	}
