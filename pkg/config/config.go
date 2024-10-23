@@ -22,6 +22,7 @@ type Config struct {
 	WebhookUrl           string
 	ClientName           string
 	ApiAudioConverter    string
+	ApiAudioConverterKey string
 }
 
 func (c Config) CreateAuthDB() (*gorm.DB, error) {
@@ -50,19 +51,20 @@ func (c Config) CreateUsersDB() (*gorm.DB, error) {
 
 func Load() *Config {
 	const (
-		POSTGRES_AUTH_DB       = "POSTGRES_AUTH_DB"
-		POSTGRES_USERS_DB      = "POSTGRES_USERS_DB"
-		DATABASE_SAVE_MESSAGES = "DATABASE_SAVE_MESSAGES"
-		GLOBAL_API_KEY         = "GLOBAL_API_KEY"
-		WA_DEBUG               = "DEBUG_ENABLED"
-		LOGTYPE                = "LOG_TYPE"
-		WEBHOOKFILES           = "WEBHOOK_FILES"
-		CONNECT_ON_STARTUP     = "CONNECT_ON_STARTUP"
-		OS_NAME                = "OS_NAME"
-		AMQP_URL               = "AMQP_URL"
-		WEBHOOK_URL            = "WEBHOOK_URL"
-		CLIENT_NAME            = "CLIENT_NAME"
-		API_AUDIO_CONVERTER    = "API_AUDIO_CONVERTER"
+		POSTGRES_AUTH_DB        = "POSTGRES_AUTH_DB"
+		POSTGRES_USERS_DB       = "POSTGRES_USERS_DB"
+		DATABASE_SAVE_MESSAGES  = "DATABASE_SAVE_MESSAGES"
+		GLOBAL_API_KEY          = "GLOBAL_API_KEY"
+		WA_DEBUG                = "DEBUG_ENABLED"
+		LOGTYPE                 = "LOG_TYPE"
+		WEBHOOKFILES            = "WEBHOOK_FILES"
+		CONNECT_ON_STARTUP      = "CONNECT_ON_STARTUP"
+		OS_NAME                 = "OS_NAME"
+		AMQP_URL                = "AMQP_URL"
+		WEBHOOK_URL             = "WEBHOOK_URL"
+		CLIENT_NAME             = "CLIENT_NAME"
+		API_AUDIO_CONVERTER     = "API_AUDIO_CONVERTER"
+		API_AUDIO_CONVERTER_KEY = "API_AUDIO_CONVERTER_KEY"
 	)
 
 	postgresAuthDB := os.Getenv(POSTGRES_AUTH_DB)
@@ -101,6 +103,7 @@ func Load() *Config {
 	webhookUrl := os.Getenv(WEBHOOK_URL)
 
 	apiAudioConverter := os.Getenv(API_AUDIO_CONVERTER)
+	apiAudioConverterKey := os.Getenv(API_AUDIO_CONVERTER_KEY)
 
 	return &Config{
 		PostgresAuthDB:       postgresAuthDB,
@@ -116,6 +119,7 @@ func Load() *Config {
 		WebhookUrl:           webhookUrl,
 		ClientName:           clientName,
 		ApiAudioConverter:    apiAudioConverter,
+		ApiAudioConverterKey: apiAudioConverterKey,
 	}
 }
 
