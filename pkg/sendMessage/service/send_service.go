@@ -1016,8 +1016,6 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 			Name:             name,
 			ButtonParamsJSON: paramsJSON,
 		})
-
-		fmt.Println(buttons)
 	}
 
 	messageId := s.clientPointer[instance.Id].GenerateMessageID()
