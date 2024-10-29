@@ -126,7 +126,11 @@ func migrate(db *gorm.DB) {
 	}
 }
 
-func initAuthDB() (*sql.DB, string, error) {
+func initAuthDB(config *config.Config) (*sql.DB, string, error) {
+	if config.PostgresAuthDB != "" {
+		return nil, "", nil
+	}
+
 	ex, err := os.Executable()
 	if err != nil {
 		panic(err)
@@ -222,7 +226,7 @@ func main() {
 		}(conn)
 	}
 
-	sqliteDB, exPath, err := initAuthDB()
+	sqliteDB, exPath, err := initAuthDB(config)
 	if err != nil {
 		log.Fatal(err)
 	}
