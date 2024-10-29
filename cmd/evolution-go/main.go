@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -9,12 +10,14 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gomessguii/logger"
 	"github.com/joho/godotenv"
 	"go.mau.fi/whatsmeow"
 	"gorm.io/gorm"
+	_ "modernc.org/sqlite"
 
 	chat_handler "github.com/EvolutionAPI/evolution-go/pkg/chat/handler"
 	chat_service "github.com/EvolutionAPI/evolution-go/pkg/chat/service"
@@ -51,8 +54,7 @@ import (
 
 var devMode = flag.Bool("dev", false, "Enable development mode")
 
-func setupRouter(db *gorm.DB, config *config.Config, conn *amqp.Connection) *gin.Engine {
-
+func setupRouter(db *gorm.DB, sqliteDB *sql.DB, config *config.Config, conn *amqp.Connection, exPath string) *gin.Engine {
 	killChannel := make(map[string](chan bool))
 	clientPointer := make(map[string]*whatsmeow.Client)
 	linkingCodeEventChannel := make(chan whatsmeow_service.LinkingCodeEvent)
@@ -71,6 +73,8 @@ func setupRouter(db *gorm.DB, config *config.Config, conn *amqp.Connection) *gin
 		linkingCodeEventChannel,
 		rabbitmqProducer,
 		webhookProducer,
+		sqliteDB,
+		exPath,
 	)
 	instanceService := instance_service.NewInstanceService(
 		instanceRepository,
@@ -120,6 +124,30 @@ func migrate(db *gorm.DB) {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func initAuthDB() (*sql.DB, string, error) {
+	ex, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
+	exPath := filepath.Dir(ex)
+
+	dbDirectory := exPath + "/dbdata"
+	_, err = os.Stat(dbDirectory)
+	if os.IsNotExist(err) {
+		errDir := os.MkdirAll(dbDirectory, 0751)
+		if errDir != nil {
+			panic("Could not create dbdata directory")
+		}
+	}
+
+	db, err := sql.Open("sqlite", exPath+"/dbdata/users.db?_pragma=foreign_keys(1)&_busy_timeout=3000")
+	if err != nil {
+		return nil, "", err
+	}
+
+	return db, exPath, nil
 }
 
 func checkLicense(licenseToken string) error {
@@ -194,7 +222,13 @@ func main() {
 		}(conn)
 	}
 
-	r := setupRouter(db, config, conn)
+	sqliteDB, exPath, err := initAuthDB()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer sqliteDB.Close()
+
+	r := setupRouter(db, sqliteDB, config, conn, exPath)
 
 	r.Run(":" + os.Getenv("SERVER_PORT"))
 }

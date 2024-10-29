@@ -2,6 +2,7 @@ package whatsmeow_service
 
 import (
 	"context"
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -49,6 +50,8 @@ type whatsmeowService struct {
 	linkingCodeEventChannel chan LinkingCodeEvent
 	rabbitmqProducer        producer_interfaces.Producer
 	webhookProducer         producer_interfaces.Producer
+	sqliteDB                *sql.DB
+	exPath                  string
 	// s3Client                *S3Client
 }
 
@@ -118,9 +121,17 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 
 	if w.config.WaDebug != "" {
 		dbLog := waLog.Stdout("Database", w.config.WaDebug, true)
-		container, err = sqlstore.New("postgres", w.config.PostgresAuthDB, dbLog)
+		if w.config.PostgresAuthDB != "" {
+			container, err = sqlstore.New("postgres", w.config.PostgresAuthDB, dbLog)
+		} else {
+			container, err = sqlstore.New("sqlite", "file:"+w.exPath+"/dbdata/main.db?_pragma=foreign_keys(1)&_busy_timeout=3000", dbLog)
+		}
 	} else {
-		container, err = sqlstore.New("postgres", w.config.PostgresAuthDB, nil)
+		if w.config.PostgresAuthDB != "" {
+			container, err = sqlstore.New("postgres", w.config.PostgresAuthDB, nil)
+		} else {
+			container, err = sqlstore.New("sqlite", "file:"+w.exPath+"/dbdata/main.db?_pragma=foreign_keys(1)&_busy_timeout=3000", nil)
+		}
 	}
 
 	if err != nil {
@@ -1141,6 +1152,8 @@ func NewWhatsmeowService(
 	linkingCodeEventChannel chan LinkingCodeEvent,
 	rabbitmqProducer producer_interfaces.Producer,
 	webhookProducer producer_interfaces.Producer,
+	sqliteDB *sql.DB,
+	exPath string,
 ) WhatsmeowService {
 	return &whatsmeowService{
 		instanceRepository:      instanceRepository,
@@ -1152,5 +1165,7 @@ func NewWhatsmeowService(
 		linkingCodeEventChannel: linkingCodeEventChannel,
 		rabbitmqProducer:        rabbitmqProducer,
 		webhookProducer:         webhookProducer,
+		sqliteDB:                sqliteDB,
+		exPath:                  exPath,
 	}
 }

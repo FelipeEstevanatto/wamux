@@ -68,7 +68,6 @@ func Load() *Config {
 	)
 
 	postgresAuthDB := os.Getenv(POSTGRES_AUTH_DB)
-	panicIfEmpty(POSTGRES_AUTH_DB, postgresAuthDB)
 
 	postgresUsersDB := os.Getenv(POSTGRES_USERS_DB)
 	panicIfEmpty(POSTGRES_USERS_DB, postgresUsersDB)
