@@ -10,6 +10,7 @@ import (
 
 	"github.com/gomessguii/logger"
 	whatsmeow_types "go.mau.fi/whatsmeow/types"
+	"golang.org/x/exp/rand"
 	"golang.org/x/net/proxy"
 )
 
@@ -21,6 +22,15 @@ type VCardStruct struct {
 	FullName     string `json:"fullName"`
 	Organization string `json:"organization"`
 	Phone        string `json:"phone"`
+}
+
+func GenerateRandomString(length int) string {
+	characters := "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = characters[rand.Intn(len(characters))]
+	}
+	return string(b)
 }
 
 func Find(slice []string, val string) bool {

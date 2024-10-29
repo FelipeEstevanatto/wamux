@@ -153,6 +153,10 @@ type Button struct {
 	CopyCode    string `json:"copyCode"`
 	URL         string `json:"url"`
 	PhoneNumber string `json:"phoneNumber"`
+	Currency    string `json:"currency"`
+	Name        string `json:"name"`
+	KeyType     string `json:"keyType"`
+	Key         string `json:"key"`
 }
 
 type ButtonStruct struct {
@@ -559,6 +563,17 @@ func (s *sendService) SendMediaFile(data *MediaStruct, fileData []byte, instance
 			FileLength:    proto.Uint64(uint64(len(fileData))),
 		}}
 		mediaType = "VideoMessage"
+	case "ptv":
+		media = &waE2E.Message{PtvMessage: &waE2E.VideoMessage{
+			URL:           proto.String(uploaded.URL),
+			DirectPath:    proto.String(uploaded.DirectPath),
+			MediaKey:      uploaded.MediaKey,
+			Mimetype:      proto.String(mimeType),
+			FileEncSHA256: uploaded.FileEncSHA256,
+			FileSHA256:    uploaded.FileSHA256,
+			FileLength:    proto.Uint64(uint64(len(fileData))),
+		}}
+		mediaType = "PtvMessage"
 	case "audio":
 		media = &waE2E.Message{AudioMessage: &waE2E.AudioMessage{
 			URL:           proto.String(uploaded.URL),
@@ -634,7 +649,7 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 			return nil, errors.New(errMsg)
 		}
 		uploadType = whatsmeow.MediaImage
-	} else if data.Type == "video" {
+	} else if data.Type == "video" || data.Type == "ptv" {
 		if mimeType != "video/mp4" {
 			errMsg := fmt.Sprintf("Invalid file format: '%s'. Only 'video/mp4' are accepted", mimeType)
 			return nil, errors.New(errMsg)
@@ -703,6 +718,17 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 		}}
 
 		mediaType = "VideoMessage"
+	case "ptv":
+		media = &waE2E.Message{PtvMessage: &waE2E.VideoMessage{
+			URL:           proto.String(uploaded.URL),
+			DirectPath:    proto.String(uploaded.DirectPath),
+			MediaKey:      uploaded.MediaKey,
+			Mimetype:      proto.String(mimeType),
+			FileEncSHA256: uploaded.FileEncSHA256,
+			FileSHA256:    uploaded.FileSHA256,
+			FileLength:    proto.Uint64(uint64(len(fileData))),
+		}}
+		mediaType = "PtvMessage"
 	case "audio":
 		media = &waE2E.Message{AudioMessage: &waE2E.AudioMessage{
 			URL:              proto.String(uploaded.URL),
@@ -906,9 +932,58 @@ func (s *sendService) SendContact(data *ContactStruct, instance *instance_model.
 	return messaged, nil
 }
 
+func mapKeyType(keyType string) string {
+	switch keyType {
+	case "phone":
+		return "PHONE"
+	case "email":
+		return "EMAIL"
+	case "cpf":
+		return "CPF"
+	case "cnpj":
+		return "CNPJ"
+	case "random":
+		return "EVP"
+	default:
+		return keyType
+	}
+}
+
 func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
 	if s.clientPointer[instance.Id] == nil {
 		return nil, errors.New("no session found")
+	}
+
+	hasReply := false
+	hasPix := false
+	hasOtherTypes := false
+	replyCount := 0
+
+	for _, v := range data.Buttons {
+		switch v.Type {
+		case "reply":
+			hasReply = true
+			replyCount++
+		case "pix":
+			hasPix = true
+		default:
+			hasOtherTypes = true
+		}
+	}
+
+	if hasReply {
+		if replyCount > 3 {
+			return nil, errors.New("máximo de 3 botões do tipo 'reply' permitidos")
+		}
+		if hasOtherTypes {
+			return nil, errors.New("botões do tipo 'reply' não podem ser misturados com outros tipos")
+		}
+	}
+
+	if hasPix {
+		if len(data.Buttons) > 1 {
+			return nil, errors.New("botão do tipo 'pix' não pode ser combinado com outros botões")
+		}
 	}
 
 	buttons := []*waE2E.InteractiveMessage_NativeFlowMessage_NativeFlowButton{}
@@ -931,37 +1006,29 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 		case "call":
 			name = proto.String("cta_call")
 			paramsJSON = proto.String(`{"display_text":"` + v.DisplayText + `","phone_number":"` + v.PhoneNumber + `"}`)
+		case "pix":
+			randomId := utils.GenerateRandomString(11)
+			name = proto.String("payment_info")
+			paramsJSON = proto.String(`{"currency":"` + v.Currency + `","total_amount":{"value":0,"offset":100},"reference_id":"` + randomId + `","type":"physical-goods","order":{"status":"pending","subtotal":{"value":0,"offset":100},"order_type":"ORDER","items":[{"name":"","amount":{"value":0,"offset":100},"quantity":0,"sale_amount":{"value":0,"offset":100}}]},"payment_settings":[{"type":"pix_static_code","pix_static_code":{"merchant_name":"` + v.Name + `","key":"` + v.Key + `","key_type":"` + mapKeyType(v.KeyType) + `"}}],"share_payment_status":false}`)
 		}
 
 		buttons = append(buttons, &waE2E.InteractiveMessage_NativeFlowMessage_NativeFlowButton{
 			Name:             name,
 			ButtonParamsJSON: paramsJSON,
 		})
+
+		fmt.Println(buttons)
 	}
 
 	messageId := s.clientPointer[instance.Id].GenerateMessageID()
-
 	templateId := string(time.Now().UnixNano() / 1000000)
-
 	messageParamsJSON := `{"from":"api","templateId":` + templateId + `}`
 
-	body := func() string {
-		t := "*" + data.Title + "*"
-		if data.Description != "" {
-			t += "\n\n" + data.Description + "\n"
-		}
-		return t
-	}()
+	var msg *waE2E.Message
 
-	msg := &waE2E.Message{ViewOnceMessage: &waE2E.FutureProofMessage{
-		Message: &waE2E.Message{
+	if hasPix {
+		msg = &waE2E.Message{
 			InteractiveMessage: &waE2E.InteractiveMessage{
-				Body: &waE2E.InteractiveMessage_Body{
-					Text: &body,
-				},
-				Footer: &waE2E.InteractiveMessage_Footer{
-					Text: &data.Footer,
-				},
 				InteractiveMessage: &waE2E.InteractiveMessage_NativeFlowMessage_{
 					NativeFlowMessage: &waE2E.InteractiveMessage_NativeFlowMessage{
 						Buttons:           buttons,
@@ -969,8 +1036,35 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 					},
 				},
 			},
-		},
-	}}
+		}
+	} else {
+		body := func() string {
+			t := "*" + data.Title + "*"
+			if data.Description != "" {
+				t += "\n\n" + data.Description + "\n"
+			}
+			return t
+		}()
+
+		msg = &waE2E.Message{ViewOnceMessage: &waE2E.FutureProofMessage{
+			Message: &waE2E.Message{
+				InteractiveMessage: &waE2E.InteractiveMessage{
+					Body: &waE2E.InteractiveMessage_Body{
+						Text: &body,
+					},
+					Footer: &waE2E.InteractiveMessage_Footer{
+						Text: &data.Footer,
+					},
+					InteractiveMessage: &waE2E.InteractiveMessage_NativeFlowMessage_{
+						NativeFlowMessage: &waE2E.InteractiveMessage_NativeFlowMessage{
+							Buttons:           buttons,
+							MessageParamsJSON: &messageParamsJSON,
+						},
+					},
+				},
+			},
+		}}
+	}
 
 	recipient, err := validateMessageFields(data.Number, &data.Quoted.MessageID, &data.Quoted.MessageID)
 	if err != nil {
@@ -1235,6 +1329,12 @@ func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, message
 				Participant:   proto.String(data.Quoted.Participant),
 				QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
 			}
+		case "PtvMessage":
+			msg.PtvMessage.ContextInfo = &waE2E.ContextInfo{
+				StanzaID:      proto.String(data.Quoted.MessageID),
+				Participant:   proto.String(data.Quoted.Participant),
+				QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
+			}
 		case "AudioMessage":
 			msg.AudioMessage.ContextInfo = &waE2E.ContextInfo{
 				StanzaID:      proto.String(data.Quoted.MessageID),
@@ -1282,6 +1382,8 @@ func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, message
 			msg.ImageMessage.ContextInfo = &waE2E.ContextInfo{}
 		case "VideoMessage":
 			msg.VideoMessage.ContextInfo = &waE2E.ContextInfo{}
+		case "PtvMessage":
+			msg.PtvMessage.ContextInfo = &waE2E.ContextInfo{}
 		case "AudioMessage":
 			msg.AudioMessage.ContextInfo = &waE2E.ContextInfo{}
 		case "DocumentMessage":
@@ -1319,6 +1421,8 @@ func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, message
 				msg.ImageMessage.ContextInfo.MentionedJID = mentionedJIDs
 			case "VideoMessage":
 				msg.VideoMessage.ContextInfo.MentionedJID = mentionedJIDs
+			case "PtvMessage":
+				msg.PtvMessage.ContextInfo.MentionedJID = mentionedJIDs
 			case "AudioMessage":
 				msg.AudioMessage.ContextInfo.MentionedJID = mentionedJIDs
 			case "DocumentMessage":
@@ -1343,6 +1447,8 @@ func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, message
 				msg.ImageMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
 			case "VideoMessage":
 				msg.VideoMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
+			case "PtvMessage":
+				msg.PtvMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
 			case "AudioMessage":
 				msg.AudioMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
 			case "DocumentMessage":
