@@ -374,6 +374,10 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 			}
 
 			go mycli.callWebhook(queueName, values)
+
+			// restart client
+			logger.LogInfo("Restarting client for user '%s'", cd.Instance.Id)
+			w.StartClient(cd)
 			return
 		default:
 			time.Sleep(1000 * time.Millisecond)
