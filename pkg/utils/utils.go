@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -46,45 +47,101 @@ func ParseJID(arg string) (whatsmeow_types.JID, bool) {
 	if arg == "" {
 		return whatsmeow_types.NewJID("", whatsmeow_types.DefaultUserServer), false
 	}
-	if arg[0] == '+' {
-		arg = arg[1:]
+
+	// Limpa o número primeiro
+	number := arg
+	number = strings.ReplaceAll(number, " ", "")
+	number = strings.ReplaceAll(number, "(", "")
+	number = strings.ReplaceAll(number, ")", "")
+
+	// Remove o + inicial se existir
+	if number[0] == '+' {
+		number = number[1:]
 	}
 
-	containsHyphen := strings.Contains(arg, "-")
-	endsWithTag := strings.HasSuffix(arg, "g.us")
+	// Verifica se é um grupo pelo formato original
+	containsHyphen := strings.Contains(number, "-")
+	endsWithTag := strings.HasSuffix(number, "g.us")
 
-	var recipient whatsmeow_types.JID
 	if containsHyphen && endsWithTag {
-		recipient, _ = whatsmeow_types.ParseJID(arg)
+		recipient, _ := whatsmeow_types.ParseJID(number)
 		return recipient, true
 	}
 
-	// Basic only digit check for recipient phone number, we want to remove @server and .session
-	phonenumber := ""
-	phonenumber = strings.Split(arg, "@")[0]
-	phonenumber = strings.Split(phonenumber, ":")[0]
-	b := true
-	for _, c := range phonenumber {
-		if c < '0' || c > '9' {
-			b = false
-			break
+	// Verifica formatos completos de JID
+	if strings.Contains(number, "@g.us") || strings.Contains(number, "@s.whatsapp.net") ||
+		strings.Contains(number, "@lid") || strings.Contains(number, "@broadcast") {
+		recipient, err := whatsmeow_types.ParseJID(number)
+		if err != nil {
+			logger.LogWarn("Invalid jid: %s", number)
+			return recipient, false
 		}
+		return recipient, true
 	}
-	if !b {
+
+	// Limpa o número para processamento
+	number = strings.Split(number, ":")[0]
+	number = strings.Split(number, "@")[0]
+
+	// Verifica se é um grupo pelo tamanho
+	if strings.Contains(number, "-") && len(number) >= 24 {
+		groupID := strings.Map(func(r rune) rune {
+			if (r >= '0' && r <= '9') || r == '-' {
+				return r
+			}
+			return -1
+		}, number)
+		return whatsmeow_types.NewJID(groupID, "g.us"), true
+	}
+
+	// Remove todos os caracteres não numéricos
+	number = strings.Map(func(r rune) rune {
+		if r >= '0' && r <= '9' {
+			return r
+		}
+		return -1
+	}, number)
+
+	// Verifica se é um número válido
+	if number == "" {
 		logger.LogWarn("Bad jid format, return empty")
 		recipient, _ := whatsmeow_types.ParseJID("")
 		return recipient, false
 	}
 
-	if !strings.ContainsRune(arg, '@') {
-		return whatsmeow_types.NewJID(arg, whatsmeow_types.DefaultUserServer), true
+	// Formatação para MX e AR
+	if len(number) >= 2 {
+		countryCode := number[:2]
+		if countryCode == "52" || countryCode == "54" {
+			if len(number) == 13 {
+				number = countryCode + number[3:]
+			}
+		}
+	}
+
+	// Formatação para BR
+	if len(number) == 13 && strings.HasPrefix(number, "55") {
+		ddd := number[2:4]
+		joker := number[5]
+		dddNum, _ := strconv.Atoi(ddd)
+		jokerNum := int(joker - '0')
+
+		if jokerNum < 7 || dddNum < 31 {
+			return whatsmeow_types.NewJID(number, whatsmeow_types.DefaultUserServer), true
+		}
+		number = number[:5] + number[6:]
+	}
+
+	// Retorna o JID formatado
+	if !strings.ContainsRune(number, '@') {
+		return whatsmeow_types.NewJID(number, whatsmeow_types.DefaultUserServer), true
 	} else {
-		recipient, err := whatsmeow_types.ParseJID(arg)
+		recipient, err := whatsmeow_types.ParseJID(number)
 		if err != nil {
-			logger.LogWarn("Invalid jid: %s", arg)
+			logger.LogWarn("Invalid jid: %s", number)
 			return recipient, false
 		} else if recipient.User == "" {
-			logger.LogError("Invalid jid. No user specified: %s", arg)
+			logger.LogError("Invalid jid. No user specified: %s", number)
 			return recipient, false
 		}
 		return recipient, true
