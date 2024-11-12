@@ -260,6 +260,10 @@ func (i instances) Status(instance *instance_model.Instance) (*StatusStruct, err
 }
 
 func (i instances) GetQr(instance *instance_model.Instance) (*QrcodeStruct, error) {
+	if i.clientPointer[instance.Id] == nil {
+		return nil, fmt.Errorf("no session found")
+	}
+
 	if i.clientPointer[instance.Id].IsLoggedIn() {
 		return nil, fmt.Errorf("session already logged in")
 	}
