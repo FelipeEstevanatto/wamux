@@ -124,18 +124,21 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		if w.config.PostgresAuthDB != "" {
 			container, err = sqlstore.New("postgres", w.config.PostgresAuthDB, dbLog)
 		} else {
-			container, err = sqlstore.New("sqlite", "file:"+w.exPath+"/dbdata/main.db?_pragma=foreign_keys(1)&_busy_timeout=3000", dbLog)
+			dsn := fmt.Sprintf("file:%s/dbdata/main.db?_pragma=foreign_keys(1)&_busy_timeout=5000&cache=shared&mode=rwc&_journal_mode=WAL", w.exPath)
+			container, err = sqlstore.New("sqlite", dsn, dbLog)
 		}
 	} else {
 		if w.config.PostgresAuthDB != "" {
 			container, err = sqlstore.New("postgres", w.config.PostgresAuthDB, nil)
 		} else {
-			container, err = sqlstore.New("sqlite", "file:"+w.exPath+"/dbdata/main.db?_pragma=foreign_keys(1)&_busy_timeout=3000", nil)
+			dsn := fmt.Sprintf("file:%s/dbdata/main.db?_pragma=foreign_keys(1)&_busy_timeout=5000&cache=shared&mode=rwc&_journal_mode=WAL", w.exPath)
+			container, err = sqlstore.New("sqlite", dsn, nil)
 		}
 	}
 
 	if err != nil {
-		panic(err)
+		logger.LogError("Failed to create container: %v", err)
+		return
 	}
 
 	if cd.Instance.Jid != "" {
