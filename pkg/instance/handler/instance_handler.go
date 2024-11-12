@@ -176,13 +176,13 @@ func (i *instanceHandler) Logout(ctx *gin.Context) {
 
 	instance, ok := getInstance.(*instance_model.Instance)
 	if !ok {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "instance not found"})
 		return
 	}
 
 	updateInstance, err := i.instanceService.Logout(instance)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -205,13 +205,13 @@ func (i *instanceHandler) Status(ctx *gin.Context) {
 
 	instance, ok := getInstance.(*instance_model.Instance)
 	if !ok {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "instance not found"})
 		return
 	}
 
 	status, err := i.instanceService.Status(instance)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -232,13 +232,13 @@ func (i *instanceHandler) Qr(ctx *gin.Context) {
 
 	instance, ok := getInstance.(*instance_model.Instance)
 	if !ok {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "instance not found"})
 		return
 	}
 
 	qrcode, err := i.instanceService.GetQr(instance)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
