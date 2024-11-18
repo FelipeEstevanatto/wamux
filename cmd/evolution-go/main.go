@@ -1,9 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"database/sql"
+	"encoding/json"
 	"flag"
+	"fmt"
+	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 
@@ -163,26 +168,26 @@ func initAuthDB(config *config.Config) (*sql.DB, string, error) {
 }
 
 func checkLicense(licenseToken string) error {
-	// licenseAPIURL := "https://check.evolution-api.com/check"
+	licenseAPIURL := "https://check.evolution-api.com/check"
 
-	// payload := map[string]string{
-	// 	"token": licenseToken,
-	// }
-	// jsonPayload, err := json.Marshal(payload)
-	// if err != nil {
-	// 	return err
-	// }
+	payload := map[string]string{
+		"token": licenseToken,
+	}
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
 
-	// resp, err := http.Post(licenseAPIURL, "application/json", bytes.NewBuffer(jsonPayload))
-	// if err != nil {
-	// 	return err
-	// }
-	// defer resp.Body.Close()
+	resp, err := http.Post(licenseAPIURL, "application/json", bytes.NewBuffer(jsonPayload))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
 
-	// if resp.StatusCode != http.StatusOK {
-	// 	bodyBytes, _ := ioutil.ReadAll(resp.Body)
-	// 	return fmt.Errorf("licença inválida: %s", string(bodyBytes))
-	// }
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := ioutil.ReadAll(resp.Body)
+		return fmt.Errorf("licença inválida: %s", string(bodyBytes))
+	}
 
 	return nil
 }
@@ -206,9 +211,11 @@ func main() {
 		log.Fatal("GlobalApiKey não configurado")
 	}
 
-	err := checkLicense(licenseToken)
-	if err != nil {
-		log.Fatalf("Falha na verificação de licença")
+	if !*devMode {
+		err := checkLicense(licenseToken)
+		if err != nil {
+			log.Fatalf("Falha na verificação de licença")
+		}
 	}
 
 	db, err := config.CreateUsersDB()
