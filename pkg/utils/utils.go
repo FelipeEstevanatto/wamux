@@ -109,24 +109,11 @@ func ParseJID(arg string) (whatsmeow_types.JID, bool) {
 		return recipient, false
 	}
 
-	// Formatação para MX e AR
-	if len(number) >= 2 {
-		countryCode := number[:2]
-		if countryCode == "52" || countryCode == "54" {
-			if len(number) == 13 {
-				number = countryCode + number[3:]
-			}
-		}
-	}
-
-	// Formatação para BR
 	if len(number) == 13 && strings.HasPrefix(number, "55") {
 		ddd := number[2:4]
-		joker := number[5]
 		dddNum, _ := strconv.Atoi(ddd)
-		jokerNum := int(joker - '0')
 
-		if jokerNum < 7 || dddNum < 31 {
+		if dddNum < 31 {
 			return whatsmeow_types.NewJID(number, whatsmeow_types.DefaultUserServer), true
 		}
 		number = number[:5] + number[6:]
