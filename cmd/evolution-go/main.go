@@ -45,6 +45,8 @@ import (
 	send_handler "github.com/EvolutionAPI/evolution-go/pkg/sendMessage/handler"
 	send_service "github.com/EvolutionAPI/evolution-go/pkg/sendMessage/service"
 	server_handler "github.com/EvolutionAPI/evolution-go/pkg/server/handler"
+	storage_interfaces "github.com/EvolutionAPI/evolution-go/pkg/storage/interfaces"
+	minio_storage "github.com/EvolutionAPI/evolution-go/pkg/storage/minio"
 	"github.com/EvolutionAPI/evolution-go/pkg/telemetry"
 	user_handler "github.com/EvolutionAPI/evolution-go/pkg/user/handler"
 	user_service "github.com/EvolutionAPI/evolution-go/pkg/user/service"
@@ -62,6 +64,21 @@ func setupRouter(db *gorm.DB, sqliteDB *sql.DB, config *config.Config, conn *amq
 	rabbitmqProducer := rabbitmq_producer.NewRabbitMQProducer(conn)
 	webhookProducer := webhook_producer.NewWebhookProducer(config.WebhookUrl)
 
+	var mediaStorage storage_interfaces.MediaStorage
+	var err error
+	if config.MinioEnabled {
+		mediaStorage, err = minio_storage.NewMinioMediaStorage(
+			config.MinioEndpoint,
+			config.MinioAccessKey,
+			config.MinioSecretKey,
+			config.MinioBucket,
+			config.MinioUseSSL,
+		)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
 	instanceRepository := instance_repository.NewInstanceRepository(db)
 	messageRepository := message_repository.NewMessageRepository(db)
 	whatsmeowService := whatsmeow_service.NewWhatsmeowService(
@@ -75,6 +92,7 @@ func setupRouter(db *gorm.DB, sqliteDB *sql.DB, config *config.Config, conn *amq
 		webhookProducer,
 		sqliteDB,
 		exPath,
+		mediaStorage,
 	)
 	instanceService := instance_service.NewInstanceService(
 		instanceRepository,
@@ -198,9 +216,11 @@ func main() {
 		log.Fatal("GlobalApiKey não configurado")
 	}
 
-	err := checkLicense(licenseToken)
-	if err != nil {
-		log.Fatalf("Falha na verificação de licença")
+	if !*devMode {
+		err := checkLicense(licenseToken)
+		if err != nil {
+			log.Fatalf("Falha na verificação de licença")
+		}
 	}
 
 	db, err := config.CreateUsersDB()
