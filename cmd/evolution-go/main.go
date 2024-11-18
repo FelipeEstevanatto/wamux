@@ -1,14 +1,9 @@
 package main
 
 import (
-	"bytes"
 	"database/sql"
-	"encoding/json"
 	"flag"
-	"fmt"
-	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
 	"path/filepath"
 
@@ -45,6 +40,7 @@ import (
 	send_handler "github.com/EvolutionAPI/evolution-go/pkg/sendMessage/handler"
 	send_service "github.com/EvolutionAPI/evolution-go/pkg/sendMessage/service"
 	server_handler "github.com/EvolutionAPI/evolution-go/pkg/server/handler"
+	minio_storage "github.com/EvolutionAPI/evolution-go/pkg/storage/minio"
 	"github.com/EvolutionAPI/evolution-go/pkg/telemetry"
 	user_handler "github.com/EvolutionAPI/evolution-go/pkg/user/handler"
 	user_service "github.com/EvolutionAPI/evolution-go/pkg/user/service"
@@ -62,6 +58,17 @@ func setupRouter(db *gorm.DB, sqliteDB *sql.DB, config *config.Config, conn *amq
 	rabbitmqProducer := rabbitmq_producer.NewRabbitMQProducer(conn)
 	webhookProducer := webhook_producer.NewWebhookProducer(config.WebhookUrl)
 
+	mediaStorage, err := minio_storage.NewMinioMediaStorage(
+		config.MinioEndpoint,
+		config.MinioAccessKey,
+		config.MinioSecretKey,
+		config.MinioBucket,
+		config.MinioUseSSL,
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	instanceRepository := instance_repository.NewInstanceRepository(db)
 	messageRepository := message_repository.NewMessageRepository(db)
 	whatsmeowService := whatsmeow_service.NewWhatsmeowService(
@@ -75,6 +82,7 @@ func setupRouter(db *gorm.DB, sqliteDB *sql.DB, config *config.Config, conn *amq
 		webhookProducer,
 		sqliteDB,
 		exPath,
+		mediaStorage,
 	)
 	instanceService := instance_service.NewInstanceService(
 		instanceRepository,
@@ -155,26 +163,26 @@ func initAuthDB(config *config.Config) (*sql.DB, string, error) {
 }
 
 func checkLicense(licenseToken string) error {
-	licenseAPIURL := "https://check.evolution-api.com/check"
+	// licenseAPIURL := "https://check.evolution-api.com/check"
 
-	payload := map[string]string{
-		"token": licenseToken,
-	}
-	jsonPayload, err := json.Marshal(payload)
-	if err != nil {
-		return err
-	}
+	// payload := map[string]string{
+	// 	"token": licenseToken,
+	// }
+	// jsonPayload, err := json.Marshal(payload)
+	// if err != nil {
+	// 	return err
+	// }
 
-	resp, err := http.Post(licenseAPIURL, "application/json", bytes.NewBuffer(jsonPayload))
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
+	// resp, err := http.Post(licenseAPIURL, "application/json", bytes.NewBuffer(jsonPayload))
+	// if err != nil {
+	// 	return err
+	// }
+	// defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := ioutil.ReadAll(resp.Body)
-		return fmt.Errorf("licença inválida: %s", string(bodyBytes))
-	}
+	// if resp.StatusCode != http.StatusOK {
+	// 	bodyBytes, _ := ioutil.ReadAll(resp.Body)
+	// 	return fmt.Errorf("licença inválida: %s", string(bodyBytes))
+	// }
 
 	return nil
 }

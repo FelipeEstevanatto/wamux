@@ -32,6 +32,7 @@ import (
 	"github.com/EvolutionAPI/evolution-go/pkg/internal/event_types"
 	message_model "github.com/EvolutionAPI/evolution-go/pkg/message/model"
 	message_repository "github.com/EvolutionAPI/evolution-go/pkg/message/repository"
+	storage_interfaces "github.com/EvolutionAPI/evolution-go/pkg/storage/interfaces"
 	"github.com/EvolutionAPI/evolution-go/pkg/utils"
 )
 
@@ -52,6 +53,7 @@ type whatsmeowService struct {
 	webhookProducer         producer_interfaces.Producer
 	sqliteDB                *sql.DB
 	exPath                  string
+	mediaStorage            storage_interfaces.MediaStorage
 	// s3Client                *S3Client
 }
 
@@ -71,6 +73,7 @@ type MyClient struct {
 	historySyncID      int32
 	rabbitmqProducer   producer_interfaces.Producer
 	webhookProducer    producer_interfaces.Producer
+	mediaStorage       storage_interfaces.MediaStorage
 }
 
 type ClientData struct {
@@ -204,6 +207,7 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		historySyncID:      0,
 		rabbitmqProducer:   w.rabbitmqProducer,
 		webhookProducer:    w.webhookProducer,
+		mediaStorage:       w.mediaStorage,
 	}
 
 	mycli.eventHandlerID = mycli.WAClient.AddEventHandler(mycli.myEventHandler)
@@ -717,16 +721,21 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 			if isMedia {
 				var data []byte
+				var mediaType string
 				var err error
 
 				if img != nil {
 					data, err = mycli.WAClient.Download(img)
+					mediaType = string(whatsmeow.GetMediaType(img))
 				} else if audio != nil {
 					data, err = mycli.WAClient.Download(audio)
+					mediaType = string(whatsmeow.GetMediaType(audio))
 				} else if document != nil {
 					data, err = mycli.WAClient.Download(document)
+					mediaType = string(whatsmeow.GetMediaType(document))
 				} else if video != nil {
 					data, err = mycli.WAClient.Download(video)
+					mediaType = string(whatsmeow.GetMediaType(video))
 				}
 
 				if err != nil {
@@ -734,14 +743,22 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 					return
 				}
 
-				encodeData := base64.StdEncoding.EncodeToString(data)
-
 				messageMap, ok := dataMap["Message"].(map[string]interface{})
 				if !ok {
 					messageMap = make(map[string]interface{})
 				}
 
-				messageMap["base64"] = encodeData
+				if mycli.config.MinioEnabled {
+					mediaURL, err := mycli.mediaStorage.Store(context.Background(), data, evt.Info.ID, mediaType)
+					if err != nil {
+						logger.LogError("Failed to store media")
+						return
+					}
+					messageMap["mediaUrl"] = mediaURL
+				} else {
+					encodeData := base64.StdEncoding.EncodeToString(data)
+					messageMap["base64"] = encodeData
+				}
 
 				dataMap["Message"] = messageMap
 			}
@@ -1161,6 +1178,7 @@ func NewWhatsmeowService(
 	webhookProducer producer_interfaces.Producer,
 	sqliteDB *sql.DB,
 	exPath string,
+	mediaStorage storage_interfaces.MediaStorage,
 ) WhatsmeowService {
 	return &whatsmeowService{
 		instanceRepository:      instanceRepository,
@@ -1174,5 +1192,6 @@ func NewWhatsmeowService(
 		webhookProducer:         webhookProducer,
 		sqliteDB:                sqliteDB,
 		exPath:                  exPath,
+		mediaStorage:            mediaStorage,
 	}
 }
