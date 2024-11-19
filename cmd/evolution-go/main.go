@@ -72,6 +72,7 @@ func setupRouter(db *gorm.DB, sqliteDB *sql.DB, config *config.Config, conn *amq
 			config.MinioAccessKey,
 			config.MinioSecretKey,
 			config.MinioBucket,
+			config.MinioRegion,
 			config.MinioUseSSL,
 		)
 		if err != nil {

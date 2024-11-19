@@ -37,6 +37,7 @@ type Config struct {
 	MinioBucket          string
 	MinioUseSSL          bool
 	MinioEnabled         bool
+	MinioRegion          string
 }
 
 func (c *Config) CreateAuthDB() (*gorm.DB, error) {
@@ -141,6 +142,7 @@ func Load() *Config {
 
 	minioEnabled := os.Getenv(config_env.MINIO_ENABLED) == "true"
 	if minioEnabled {
+		config.MinioEnabled = true
 		loadMinioConfig(config)
 	}
 
@@ -162,11 +164,14 @@ func loadMinioConfig(config *Config) {
 
 	minioUseSSL := os.Getenv(config_env.MINIO_USE_SSL) == "true"
 
+	minioRegion := os.Getenv(config_env.MINIO_REGION)
+
 	config.MinioEndpoint = minioEndpoint
 	config.MinioAccessKey = minioAccessKey
 	config.MinioSecretKey = minioSecretKey
 	config.MinioBucket = minioBucket
 	config.MinioUseSSL = minioUseSSL
+	config.MinioRegion = minioRegion
 }
 
 func panicIfEmpty(key, value string) {

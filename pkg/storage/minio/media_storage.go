@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
 
 	storage_interfaces "github.com/EvolutionAPI/evolution-go/pkg/storage/interfaces"
 	"github.com/minio/minio-go/v7"
@@ -20,13 +21,15 @@ func NewMinioMediaStorage(
 	endpoint,
 	accessKeyID,
 	secretAccessKey,
-	bucketName string,
+	bucketName,
+	region string,
 	useSSL bool,
 ) (storage_interfaces.MediaStorage, error) {
 	// Initialize MinIO client
 	client, err := minio.New(endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
 		Secure: useSSL,
+		Region: region,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create MinIO client: %w", err)
@@ -48,6 +51,13 @@ func NewMinioMediaStorage(
 	baseURL := fmt.Sprintf("https://%s/%s", endpoint, bucketName)
 	if !useSSL {
 		baseURL = fmt.Sprintf("http://%s/%s", endpoint, bucketName)
+	}
+
+	if region != "" && (strings.Contains(endpoint, "amazonaws.com") || strings.Contains(endpoint, "googlecloud.com")) {
+		baseURL = fmt.Sprintf("https://%s.%s/%s", bucketName, endpoint, region)
+		if !useSSL {
+			baseURL = fmt.Sprintf("http://%s.%s/%s", bucketName, endpoint, region)
+		}
 	}
 
 	return &MinioMediaStorage{
