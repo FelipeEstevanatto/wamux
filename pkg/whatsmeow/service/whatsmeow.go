@@ -805,6 +805,28 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 		}
 
+		delete(dataMap, "RawMessage")
+
+		if message, ok := dataMap["Message"].(map[string]interface{}); ok {
+			if imageMessage, ok := message["imageMessage"].(map[string]interface{}); ok {
+				delete(imageMessage, "JPEGThumbnail")
+				message["imageMessage"] = imageMessage
+				dataMap["Message"] = message
+			}
+
+			if videoMessage, ok := message["videoMessage"].(map[string]interface{}); ok {
+				delete(videoMessage, "JPEGThumbnail")
+				message["videoMessage"] = videoMessage
+				dataMap["Message"] = message
+			}
+
+			if documentMessage, ok := message["documentMessage"].(map[string]interface{}); ok {
+				delete(documentMessage, "JPEGThumbnail")
+				message["documentMessage"] = documentMessage
+				dataMap["Message"] = message
+			}
+		}
+
 		postMap["data"] = dataMap
 
 		logger.LogInfo("Message received with ID: %s from %s", evt.Info.ID, evt.Info.Chat)
