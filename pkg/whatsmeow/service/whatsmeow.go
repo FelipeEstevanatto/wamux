@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -721,21 +722,16 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 			if isMedia {
 				var data []byte
-				var mediaType string
 				var err error
 
 				if img != nil {
 					data, err = mycli.WAClient.Download(img)
-					mediaType = string(whatsmeow.GetMediaType(img))
 				} else if audio != nil {
 					data, err = mycli.WAClient.Download(audio)
-					mediaType = string(whatsmeow.GetMediaType(audio))
 				} else if document != nil {
 					data, err = mycli.WAClient.Download(document)
-					mediaType = string(whatsmeow.GetMediaType(document))
 				} else if video != nil {
 					data, err = mycli.WAClient.Download(video)
-					mediaType = string(whatsmeow.GetMediaType(video))
 				}
 
 				if err != nil {
@@ -749,12 +745,39 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 				}
 
 				if mycli.config.MinioEnabled {
-					mediaURL, err := mycli.mediaStorage.Store(context.Background(), data, evt.Info.ID, mediaType)
+					extension := ""
+					mimeType := ""
+
+					if img != nil {
+						extension = getExtensionFromMimeType(img.GetMimetype())
+						mimeType = img.GetMimetype()
+					} else if audio != nil {
+						extension = getExtensionFromMimeType(audio.GetMimetype())
+						mimeType = audio.GetMimetype()
+					} else if document != nil {
+						if document.GetFileName() != "" {
+							extension = filepath.Ext(document.GetFileName())
+						} else {
+							extension = getExtensionFromMimeType(document.GetMimetype())
+						}
+						mimeType = document.GetMimetype()
+					} else if video != nil {
+						extension = getExtensionFromMimeType(video.GetMimetype())
+						mimeType = video.GetMimetype()
+					} else if sticker != nil {
+						extension = getExtensionFromMimeType(sticker.GetMimetype())
+						mimeType = sticker.GetMimetype()
+					}
+
+					fileName := evt.Info.ID + extension
+
+					mediaURL, err := mycli.mediaStorage.Store(context.Background(), data, fileName, mimeType)
 					if err != nil {
-						logger.LogError("Failed to store media")
+						logger.LogError("Failed to store media: %v", err)
 						return
 					}
 					messageMap["mediaUrl"] = mediaURL
+					messageMap["mimetype"] = mimeType
 				} else {
 					encodeData := base64.StdEncoding.EncodeToString(data)
 					messageMap["base64"] = encodeData
@@ -1193,5 +1216,37 @@ func NewWhatsmeowService(
 		sqliteDB:                sqliteDB,
 		exPath:                  exPath,
 		mediaStorage:            mediaStorage,
+	}
+}
+
+func getExtensionFromMimeType(mimeType string) string {
+	switch mimeType {
+	case "image/jpeg":
+		return ".jpg"
+	case "image/png":
+		return ".png"
+	case "image/webp":
+		return ".webp"
+	case "video/mp4":
+		return ".mp4"
+	case "audio/ogg":
+		return ".ogg"
+	case "audio/mpeg":
+		return ".mp3"
+	case "application/pdf":
+		return ".pdf"
+	case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+		return ".docx"
+	case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+		return ".xlsx"
+	case "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+		return ".pptx"
+	default:
+		// Se não encontrar um tipo conhecido, extrai a extensão do mimetype
+		parts := strings.Split(mimeType, "/")
+		if len(parts) > 1 {
+			return "." + parts[1]
+		}
+		return ".bin"
 	}
 }

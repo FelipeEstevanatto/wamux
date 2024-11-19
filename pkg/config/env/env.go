@@ -26,4 +26,5 @@ const (
 	MINIO_BUCKET            = "MINIO_BUCKET"
 	MINIO_USE_SSL           = "MINIO_USE_SSL"
 	MINIO_ENABLED           = "MINIO_ENABLED"
+	MINIO_REGION            = "MINIO_REGION"
 )
