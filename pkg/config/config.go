@@ -27,6 +27,7 @@ type Config struct {
 	ConnectOnStartup     bool
 	OsName               string
 	AmqpUrl              string
+	AmqpGlobalEnabled    bool
 	WebhookUrl           string
 	ClientName           string
 	ApiAudioConverter    string
@@ -112,6 +113,7 @@ func Load() *Config {
 	panicIfEmpty(config_env.OS_NAME, osName)
 
 	amqpUrl := os.Getenv(config_env.AMQP_URL)
+	amqpGlobalEnabled := os.Getenv(config_env.AMQP_GLOBAL_ENABLED)
 
 	webhookUrl := os.Getenv(config_env.WEBHOOK_URL)
 
@@ -129,6 +131,7 @@ func Load() *Config {
 		ConnectOnStartup:     connectOnStartup == "true",
 		OsName:               osName,
 		AmqpUrl:              amqpUrl,
+		AmqpGlobalEnabled:    amqpGlobalEnabled == "true",
 		WebhookUrl:           webhookUrl,
 		ClientName:           clientName,
 		ApiAudioConverter:    apiAudioConverter,

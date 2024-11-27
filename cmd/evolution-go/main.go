@@ -61,7 +61,7 @@ func setupRouter(db *gorm.DB, sqliteDB *sql.DB, config *config.Config, conn *amq
 	clientPointer := make(map[string]*whatsmeow.Client)
 	linkingCodeEventChannel := make(chan whatsmeow_service.LinkingCodeEvent)
 
-	rabbitmqProducer := rabbitmq_producer.NewRabbitMQProducer(conn)
+	rabbitmqProducer := rabbitmq_producer.NewRabbitMQProducer(conn, config.AmqpGlobalEnabled)
 	webhookProducer := webhook_producer.NewWebhookProducer(config.WebhookUrl)
 
 	var mediaStorage storage_interfaces.MediaStorage

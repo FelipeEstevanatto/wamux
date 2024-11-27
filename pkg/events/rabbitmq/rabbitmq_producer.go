@@ -9,14 +9,17 @@ import (
 )
 
 type rabbitMQProducer struct {
-	conn *amqp.Connection
+	conn              *amqp.Connection
+	amqpGlobalEnabled bool
 }
 
 func NewRabbitMQProducer(
 	conn *amqp.Connection,
+	amqpGlobalEnabled bool,
 ) producer_interfaces.Producer {
 	return &rabbitMQProducer{
-		conn: conn,
+		conn:              conn,
+		amqpGlobalEnabled: amqpGlobalEnabled,
 	}
 }
 
@@ -46,29 +49,31 @@ func (p *rabbitMQProducer) Produce(
 		"x-queue-type": "quorum",
 	}
 
-	_, err = channel.QueueDeclare(
-		queueName, // name
-		true,      // durable
-		false,     // delete when unused
-		false,     // exclusive
-		false,     // no-wait
-		args,      // arguments (x-queue-type: quorum)
-	)
-	if err != nil {
-		return err
-	}
+	if p.amqpGlobalEnabled {
+		_, err = channel.QueueDeclare(
+			queueName, // name
+			true,      // durable
+			false,     // delete when unused
+			false,     // exclusive
+			false,     // no-wait
+			args,      // arguments (x-queue-type: quorum)
+		)
+		if err != nil {
+			return err
+		}
 
-	err = channel.Publish(
-		"",        // exchange
-		queueName, // routing key
-		false,     // mandatory
-		false,     // immediate
-		amqp.Publishing{
-			ContentType: "application/json",
-			Body:        payload,
-		})
-	if err != nil {
-		return err
+		err = channel.Publish(
+			"",        // exchange
+			queueName, // routing key
+			false,     // mandatory
+			false,     // immediate
+			amqp.Publishing{
+				ContentType: "application/json",
+				Body:        payload,
+			})
+		if err != nil {
+			return err
+		}
 	}
 
 	if rabbitmqEnable == "enabled" {
