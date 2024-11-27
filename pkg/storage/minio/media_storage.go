@@ -69,8 +69,15 @@ func NewMinioMediaStorage(
 
 func (m *MinioMediaStorage) Store(ctx context.Context, data []byte, fileName string, contentType string) (string, error) {
 	reader := bytes.NewReader(data)
+
+	// Definindo a política de acesso público para o objeto
+	userMetadata := map[string]string{
+		"x-amz-acl": "public-read",
+	}
+
 	_, err := m.client.PutObject(ctx, m.bucketName, fileName, reader, int64(len(data)), minio.PutObjectOptions{
-		ContentType: contentType,
+		ContentType:  contentType,
+		UserMetadata: userMetadata,
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to store object: %w", err)
