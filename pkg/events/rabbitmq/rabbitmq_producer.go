@@ -23,7 +23,7 @@ func NewRabbitMQProducer(
 func (p *rabbitMQProducer) Produce(
 	queueName string,
 	payload []byte,
-	webhookUrl string,
+	rabbitmqEnable string,
 ) error {
 	if queueName == "" {
 		return nil
@@ -69,6 +69,35 @@ func (p *rabbitMQProducer) Produce(
 		})
 	if err != nil {
 		return err
+	}
+
+	if rabbitmqEnable == "enabled" {
+		instanceQueueName := "instance." + queueName
+		_, err = channel.QueueDeclare(
+			instanceQueueName, // name
+			true,              // durable
+			false,             // delete when unused
+			false,             // exclusive
+			false,             // no-wait
+			args,              // arguments (x-queue-type: quorum)
+		)
+		if err != nil {
+			return err
+		}
+
+		err = channel.Publish(
+			"",                // exchange
+			instanceQueueName, // routing key
+			false,             // mandatory
+			false,             // immediate
+			amqp.Publishing{
+				ContentType: "application/json",
+				Body:        payload,
+			})
+
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

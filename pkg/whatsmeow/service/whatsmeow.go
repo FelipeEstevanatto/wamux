@@ -65,6 +65,7 @@ type MyClient struct {
 	token              string
 	subscriptions      []string
 	webhookUrl         string
+	rabbitmqEnable     string
 	instanceRepository instance_repository.InstanceRepository
 	messageRepository  message_repository.MessageRepository
 	clientPointer      map[string]*whatsmeow.Client
@@ -199,6 +200,7 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		token:              cd.Instance.Token,
 		subscriptions:      cd.Subscriptions,
 		webhookUrl:         cd.Instance.Webhook,
+		rabbitmqEnable:     cd.Instance.RabbitmqEnable,
 		instanceRepository: w.instanceRepository,
 		messageRepository:  w.messageRepository,
 		userInfoCache:      w.userInfoCache,
@@ -1115,8 +1117,8 @@ func contains(subscriptions []string, event string) bool {
 }
 
 func (mycli *MyClient) sendToQueueOrWebhook(queueName string, jsonData []byte) {
-	if mycli.config.AmqpUrl != "" {
-		err := mycli.rabbitmqProducer.Produce(queueName, jsonData, "")
+	if mycli.rabbitmqEnable == "true" {
+		err := mycli.rabbitmqProducer.Produce(queueName, jsonData, mycli.rabbitmqEnable)
 		if err != nil {
 			logger.LogError("Failed to send message to rabbitmq: %s", err)
 			return
