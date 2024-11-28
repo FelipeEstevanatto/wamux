@@ -52,10 +52,10 @@ type whatsmeowService struct {
 	linkingCodeEventChannel chan LinkingCodeEvent
 	rabbitmqProducer        producer_interfaces.Producer
 	webhookProducer         producer_interfaces.Producer
+	websocketProducer       producer_interfaces.Producer
 	sqliteDB                *sql.DB
 	exPath                  string
 	mediaStorage            storage_interfaces.MediaStorage
-	// s3Client                *S3Client
 }
 
 type MyClient struct {
@@ -66,6 +66,7 @@ type MyClient struct {
 	subscriptions      []string
 	webhookUrl         string
 	rabbitmqEnable     string
+	websocketEnable    string
 	instanceRepository instance_repository.InstanceRepository
 	messageRepository  message_repository.MessageRepository
 	clientPointer      map[string]*whatsmeow.Client
@@ -75,6 +76,7 @@ type MyClient struct {
 	historySyncID      int32
 	rabbitmqProducer   producer_interfaces.Producer
 	webhookProducer    producer_interfaces.Producer
+	websocketProducer  producer_interfaces.Producer
 	mediaStorage       storage_interfaces.MediaStorage
 }
 
@@ -201,6 +203,7 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		subscriptions:      cd.Subscriptions,
 		webhookUrl:         cd.Instance.Webhook,
 		rabbitmqEnable:     cd.Instance.RabbitmqEnable,
+		websocketEnable:    cd.Instance.WebSocketEnable,
 		instanceRepository: w.instanceRepository,
 		messageRepository:  w.messageRepository,
 		userInfoCache:      w.userInfoCache,
@@ -210,6 +213,7 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		historySyncID:      0,
 		rabbitmqProducer:   w.rabbitmqProducer,
 		webhookProducer:    w.webhookProducer,
+		websocketProducer:  w.websocketProducer,
 		mediaStorage:       w.mediaStorage,
 	}
 
@@ -1123,15 +1127,26 @@ func (mycli *MyClient) sendToQueueOrWebhook(queueName string, jsonData []byte) {
 			logger.LogError("[%s] Failed to send message to rabbitmq: %s", mycli.userID, err)
 			return
 		}
-		logger.LogInfo("[%s] Message enqueued successfully", mycli.userID)
+		logger.LogInfo("[%s] Message sent to rabbitmq successfully", mycli.userID)
 	}
 
-	err := mycli.webhookProducer.Produce(queueName, jsonData, mycli.webhookUrl, mycli.userID)
-	if err != nil {
-		logger.LogError("[%s] Failed to send message to webhook: %s", mycli.userID, err)
-		return
+	if mycli.websocketEnable == "enabled" || mycli.websocketEnable == "true" {
+		err := mycli.websocketProducer.Produce(queueName, jsonData, mycli.userID, mycli.token)
+		if err != nil {
+			logger.LogError("[%s] Failed to send message to websocket: %s", mycli.userID, err)
+			return
+		}
+		logger.LogInfo("[%s] Message sent to websocket successfully", mycli.userID)
 	}
-	logger.LogInfo("[%s] Message sent to webhook successfully", mycli.userID)
+
+	if mycli.webhookUrl != "" && mycli.webhookUrl != "disabled" {
+		err := mycli.webhookProducer.Produce(queueName, jsonData, mycli.webhookUrl, mycli.userID)
+		if err != nil {
+			logger.LogError("[%s] Failed to send message to webhook: %s", mycli.userID, err)
+			return
+		}
+		logger.LogInfo("[%s] Message sent to webhook successfully", mycli.userID)
+	}
 }
 
 func (w whatsmeowService) ConnectOnStartup(clientName string) {
@@ -1223,6 +1238,7 @@ func NewWhatsmeowService(
 	linkingCodeEventChannel chan LinkingCodeEvent,
 	rabbitmqProducer producer_interfaces.Producer,
 	webhookProducer producer_interfaces.Producer,
+	websocketProducer producer_interfaces.Producer,
 	sqliteDB *sql.DB,
 	exPath string,
 	mediaStorage storage_interfaces.MediaStorage,
@@ -1237,6 +1253,7 @@ func NewWhatsmeowService(
 		linkingCodeEventChannel: linkingCodeEventChannel,
 		rabbitmqProducer:        rabbitmqProducer,
 		webhookProducer:         webhookProducer,
+		websocketProducer:       websocketProducer,
 		sqliteDB:                sqliteDB,
 		exPath:                  exPath,
 		mediaStorage:            mediaStorage,

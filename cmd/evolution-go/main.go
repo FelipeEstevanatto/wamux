@@ -26,6 +26,7 @@ import (
 	config "github.com/EvolutionAPI/evolution-go/pkg/config"
 	rabbitmq_producer "github.com/EvolutionAPI/evolution-go/pkg/events/rabbitmq"
 	webhook_producer "github.com/EvolutionAPI/evolution-go/pkg/events/webhook"
+	websocket_producer "github.com/EvolutionAPI/evolution-go/pkg/events/websocket"
 	group_handler "github.com/EvolutionAPI/evolution-go/pkg/group/handler"
 	group_service "github.com/EvolutionAPI/evolution-go/pkg/group/service"
 	instance_handler "github.com/EvolutionAPI/evolution-go/pkg/instance/handler"
@@ -63,6 +64,7 @@ func setupRouter(db *gorm.DB, sqliteDB *sql.DB, config *config.Config, conn *amq
 
 	rabbitmqProducer := rabbitmq_producer.NewRabbitMQProducer(conn, config.AmqpGlobalEnabled)
 	webhookProducer := webhook_producer.NewWebhookProducer(config.WebhookUrl)
+	websocketProducer := websocket_producer.NewWebsocketProducer()
 
 	var mediaStorage storage_interfaces.MediaStorage
 	var err error
@@ -91,6 +93,7 @@ func setupRouter(db *gorm.DB, sqliteDB *sql.DB, config *config.Config, conn *amq
 		linkingCodeEventChannel,
 		rabbitmqProducer,
 		webhookProducer,
+		websocketProducer,
 		sqliteDB,
 		exPath,
 		mediaStorage,
@@ -133,6 +136,19 @@ func setupRouter(db *gorm.DB, sqliteDB *sql.DB, config *config.Config, conn *amq
 	if config.ConnectOnStartup {
 		go whatsmeowService.ConnectOnStartup(config.ClientName)
 	}
+
+	r.GET("/ws", func(c *gin.Context) {
+		token := c.Query("token")
+		instanceId := c.Query("instanceId")
+
+		if token != config.GlobalApiKey {
+			logger.LogError("Token inválido: %s", token)
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token inválido"})
+			return
+		}
+
+		websocket_producer.ServeWs(c.Writer, c.Request, instanceId, websocketProducer)
+	})
 
 	return r
 }
@@ -255,5 +271,6 @@ func main() {
 
 	r := setupRouter(db, sqliteDB, config, conn, exPath)
 
+	logger.LogInfo("Iniciando servidor na porta %s", os.Getenv("SERVER_PORT"))
 	r.Run(":" + os.Getenv("SERVER_PORT"))
 }
