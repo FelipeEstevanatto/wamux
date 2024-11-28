@@ -52,7 +52,7 @@ func (n *newsletterService) CreateNewsletter(data *CreateNewsletterStruct, insta
 		Description: data.Description,
 	})
 	if err != nil {
-		logger.LogError("error create newsletter: %v", err)
+		logger.LogError("[%s] error create newsletter: %v", instance.Id, err)
 		return nil, err
 	}
 
@@ -66,7 +66,7 @@ func (n *newsletterService) ListNewsletter(instance *instance_model.Instance) ([
 
 	newsletters, err := n.clientPointer[instance.Id].GetSubscribedNewsletters()
 	if err != nil {
-		logger.LogError("error list newsletters: %v", err)
+		logger.LogError("[%s] error list newsletters: %v", instance.Id, err)
 		return nil, err
 	}
 
@@ -80,7 +80,7 @@ func (n *newsletterService) GetNewsletter(data *GetNewsletterStruct, instance *i
 
 	newsletter, err := n.clientPointer[instance.Id].GetNewsletterInfo(data.JID)
 	if err != nil {
-		logger.LogError("error list newsletter: %v", err)
+		logger.LogError("[%s] error list newsletter: %v", instance.Id, err)
 		return nil, err
 	}
 
@@ -94,7 +94,7 @@ func (n *newsletterService) GetNewsletterInvite(data *GetNewsletterInviteStruct,
 
 	newsletter, err := n.clientPointer[instance.Id].GetNewsletterInfoWithInvite(data.Key)
 	if err != nil {
-		logger.LogError("error list newsletter: %v", err)
+		logger.LogError("[%s] error list newsletter: %v", instance.Id, err)
 		return nil, err
 	}
 
@@ -108,7 +108,7 @@ func (n *newsletterService) SubscribeNewsletter(data *GetNewsletterStruct, insta
 
 	_, err := n.clientPointer[instance.Id].NewsletterSubscribeLiveUpdates(context.TODO(), data.JID)
 	if err != nil {
-		logger.LogError("error list newsletter: %v", err)
+		logger.LogError("[%s] error list newsletter: %v", instance.Id, err)
 		return err
 	}
 
@@ -125,7 +125,7 @@ func (n *newsletterService) GetNewsletterMessages(data *GetNewsletterMessagesStr
 			Count: data.Count, Before: data.BeforeID,
 		})
 	if err != nil {
-		logger.LogError("error list newsletter: %v", err)
+		logger.LogError("[%s] error list newsletter: %v", instance.Id, err)
 		return nil, err
 	}
 

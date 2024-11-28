@@ -169,7 +169,7 @@ func (u *userService) GetAvatar(data *GetAvatarStruct, instance *instance_model.
 		return nil, errors.New("no profile picture found")
 	}
 
-	logger.LogInfo("Got avatar %s", pic.URL)
+	logger.LogInfo("[%s] Got avatar %s", instance.Id, pic.URL)
 
 	return pic, nil
 }

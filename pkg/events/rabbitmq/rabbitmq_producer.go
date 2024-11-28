@@ -27,6 +27,7 @@ func (p *rabbitMQProducer) Produce(
 	queueName string,
 	payload []byte,
 	rabbitmqEnable string,
+	userID string,
 ) error {
 	if queueName == "" {
 		return nil
@@ -41,7 +42,7 @@ func (p *rabbitMQProducer) Produce(
 	defer func(channel *amqp.Channel) {
 		err := channel.Close()
 		if err != nil {
-			logger.LogError("failed to close amqp channel", err)
+			logger.LogError("[%s] failed to close amqp channel", userID, err)
 		}
 	}(channel)
 
@@ -74,6 +75,8 @@ func (p *rabbitMQProducer) Produce(
 		if err != nil {
 			return err
 		}
+
+		logger.LogInfo("[%s] Message enqueued successfully to queue %s", userID, queueName)
 	}
 
 	if rabbitmqEnable == "enabled" {
@@ -103,6 +106,8 @@ func (p *rabbitMQProducer) Produce(
 		if err != nil {
 			return err
 		}
+
+		logger.LogInfo("[%s] Message enqueued successfully to queue %s", userID, instanceQueueName)
 	}
 	return nil
 }

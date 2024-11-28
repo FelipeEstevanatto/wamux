@@ -27,6 +27,7 @@ func (p *webhookProducer) Produce(
 	queueName string,
 	payload []byte,
 	webhookUrl string,
+	userID string,
 ) error {
 	splitQueue := strings.Split(queueName, ".")
 
@@ -35,30 +36,30 @@ func (p *webhookProducer) Produce(
 	}
 
 	if p.url != "" {
-		go sendWebhookWithRetry(p.url, payload, 5, 30*time.Second)
+		go sendWebhookWithRetry(p.url, payload, 5, 30*time.Second, userID)
 	}
 	if webhookUrl != "" {
-		go sendWebhookWithRetry(webhookUrl, payload, 5, 30*time.Second)
+		go sendWebhookWithRetry(webhookUrl, payload, 5, 30*time.Second, userID)
 	}
 
 	return nil
 }
 
-func sendWebhookWithRetry(url string, body []byte, maxRetries int, retryInterval time.Duration) {
+func sendWebhookWithRetry(url string, body []byte, maxRetries int, retryInterval time.Duration, userID string) {
 	for i := 0; i < maxRetries; i++ {
-		err := sendWebhook(url, body)
+		err := sendWebhook(url, body, userID)
 		if err == nil {
-			logger.LogInfo("webhook sent successfully", "url", url)
+			logger.LogInfo("[%s] webhook sent successfully", userID, "url", url)
 			return
 		}
-		logger.LogWarn("webhook failed", "url", url, "attempt", i+1, "error", err)
+		logger.LogWarn("[%s] webhook failed", userID, "url", url, "attempt", i+1, "error", err)
 
 		time.Sleep(retryInterval)
 	}
-	logger.LogError("webhook failed after maximum retries", "url", url)
+	logger.LogError("[%s] webhook failed after maximum retries", userID, "url", url)
 }
 
-func sendWebhook(url string, body []byte) error {
+func sendWebhook(url string, body []byte, userID string) error {
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
 	if err != nil {
 		return err
@@ -77,6 +78,6 @@ func sendWebhook(url string, body []byte) error {
 		return errors.New("received non-2xx response: " + resp.Status)
 	}
 
-	logger.LogInfo("webhook sent", "url", url, "status", resp.Status)
+	logger.LogInfo("[%s] webhook sent", userID, "url", url, "status", resp.Status)
 	return nil
 }

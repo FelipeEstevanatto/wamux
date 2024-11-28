@@ -117,7 +117,7 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 	} else {
 		for _, arg := range data.Subscribe {
 			if !event_types.IsEventType(arg) {
-				logger.LogWarn("Message type discarded '%s'", arg)
+				logger.LogWarn("[%s] Message type discarded '%s'", instance.Id, arg)
 				continue
 			}
 			if !utils.Find(subscribedEvents, arg) {
@@ -134,7 +134,7 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 
 	err := i.instanceRepository.Update(instance)
 	if err != nil {
-		logger.LogError("Error updating instance: %s", err)
+		logger.LogError("[%s] Error updating instance: %s", instance.Id, err)
 		return nil, "", "", err
 	}
 
@@ -151,7 +151,7 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 		var proxyConfig ProxyConfig
 		err := json.Unmarshal([]byte(instance.Proxy), &proxyConfig)
 		if err != nil {
-			logger.LogError("error unmarshalling proxy config")
+			logger.LogError("[%s] error unmarshalling proxy config", instance.Id, err)
 			return nil, "", "", err
 		}
 
@@ -183,7 +183,7 @@ func (i instances) Disconnect(instance *instance_model.Instance) (*instance_mode
 
 	if i.clientPointer[instance.Id].IsConnected() {
 		if i.clientPointer[instance.Id].IsLoggedIn() {
-			logger.LogInfo("Disconnection successful")
+			logger.LogInfo("[%s] Disconnection successful", instance.Id)
 			i.killChannel[instance.Id] <- true
 
 			instance.Events = ""
@@ -197,7 +197,7 @@ func (i instances) Disconnect(instance *instance_model.Instance) (*instance_mode
 		}
 	}
 
-	logger.LogWarn("Ignoring disconnect as it was not connected")
+	logger.LogWarn("[%s] Ignoring disconnect as it was not connected", instance.Id)
 	return instance, nil
 }
 
@@ -219,15 +219,15 @@ func (i instances) Logout(instance *instance_model.Instance) (*instance_model.In
 			return instance, err
 		}
 
-		logger.LogInfo("Logout successful")
+		logger.LogInfo("[%s] Logout successful", instance.Id)
 		i.killChannel[instance.Id] <- true
 	} else {
 		if i.clientPointer[instance.Id].IsConnected() {
 			// chama o disconnect
-			logger.LogInfo("Logout successful")
+			logger.LogInfo("[%s] Logout successful", instance.Id)
 			i.killChannel[instance.Id] <- true
 		} else {
-			logger.LogWarn("Ignoring logout as it was not connected")
+			logger.LogWarn("[%s] Ignoring logout as it was not connected", instance.Id)
 			return instance, fmt.Errorf("ignoring logout as it was not connected")
 
 		}
@@ -309,7 +309,7 @@ func (i instances) Pair(data *PairStruct, instance *instance_model.Instance) (*P
 	} else {
 		for _, arg := range eventArray {
 			if !event_types.IsEventType(arg) {
-				logger.LogWarn("Message type discarded '%s'", arg)
+				logger.LogWarn("[%s] Message type discarded '%s'", instance.Id, arg)
 				continue
 			}
 			if !utils.Find(subscribedEvents, arg) {
@@ -323,7 +323,7 @@ func (i instances) Pair(data *PairStruct, instance *instance_model.Instance) (*P
 
 	err := i.instanceRepository.Update(instance)
 	if err != nil {
-		logger.LogError("Error updating instance: %s", err)
+		logger.LogError("[%s] Error updating instance: %s", instance.Id, err)
 		return nil, err
 	}
 
@@ -340,7 +340,7 @@ func (i instances) Pair(data *PairStruct, instance *instance_model.Instance) (*P
 		var proxyConfig ProxyConfig
 		err := json.Unmarshal([]byte(instance.Proxy), &proxyConfig)
 		if err != nil {
-			logger.LogError("error unmarshalling proxy config")
+			logger.LogError("[%s] error unmarshalling proxy config", instance.Id, err)
 			return nil, err
 		}
 
@@ -351,7 +351,7 @@ func (i instances) Pair(data *PairStruct, instance *instance_model.Instance) (*P
 
 	go i.whatsmeowService.StartClient(clientData)
 
-	logger.LogInfo("Waiting 1 seconds")
+	logger.LogInfo("[%s] Waiting 1 seconds", instance.Id)
 	time.Sleep(1000 * time.Millisecond)
 
 	if i.clientPointer[instance.Id] != nil {
