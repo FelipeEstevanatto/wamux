@@ -47,7 +47,7 @@ func (l *labelService) ChatLabel(data *ChatLabelStruct, instance *instance_model
 
 	jid, ok := utils.ParseJID(data.JID)
 	if !ok {
-		logger.LogError("error parse community jid")
+		logger.LogError("[%s] error parse community jid", instance.Id)
 		return errors.New("error parse community jid")
 	}
 
@@ -57,7 +57,7 @@ func (l *labelService) ChatLabel(data *ChatLabelStruct, instance *instance_model
 		true,
 	))
 	if err != nil {
-		logger.LogError("error label chat: %v", err)
+		logger.LogError("[%s] error label chat: %v", instance.Id, err)
 		return err
 	}
 
@@ -71,7 +71,7 @@ func (l *labelService) MessageLabel(data *MessageLabelStruct, instance *instance
 
 	jid, ok := utils.ParseJID(data.JID)
 	if !ok {
-		logger.LogError("error parse community jid")
+		logger.LogError("[%s] error parse community jid", instance.Id)
 		return errors.New("error parse community jid")
 	}
 
@@ -82,7 +82,7 @@ func (l *labelService) MessageLabel(data *MessageLabelStruct, instance *instance
 		true,
 	))
 	if err != nil {
-		logger.LogError("error label message: %v", err)
+		logger.LogError("[%s] error label message: %v", instance.Id, err)
 		return err
 	}
 
@@ -101,7 +101,7 @@ func (l *labelService) EditLabel(data *EditLabelStruct, instance *instance_model
 		data.Deleted,
 	))
 	if err != nil {
-		logger.LogError("error label message: %v", err)
+		logger.LogError("[%s] error label message: %v", instance.Id, err)
 		return err
 	}
 
@@ -115,7 +115,7 @@ func (l *labelService) ChatUnlabel(data *ChatLabelStruct, instance *instance_mod
 
 	jid, ok := utils.ParseJID(data.JID)
 	if !ok {
-		logger.LogError("error parse community jid")
+		logger.LogError("[%s] error parse community jid", instance.Id)
 		return errors.New("error parse community jid")
 	}
 
@@ -125,7 +125,7 @@ func (l *labelService) ChatUnlabel(data *ChatLabelStruct, instance *instance_mod
 		false,
 	))
 	if err != nil {
-		logger.LogError("error label chat: %v", err)
+		logger.LogError("[%s] error label chat: %v", instance.Id, err)
 		return err
 	}
 
@@ -139,7 +139,7 @@ func (l *labelService) MessageUnlabel(data *MessageLabelStruct, instance *instan
 
 	jid, ok := utils.ParseJID(data.JID)
 	if !ok {
-		logger.LogError("error parse community jid")
+		logger.LogError("[%s] error parse community jid", instance.Id)
 		return errors.New("error parse community jid")
 	}
 
@@ -150,7 +150,7 @@ func (l *labelService) MessageUnlabel(data *MessageLabelStruct, instance *instan
 		false,
 	))
 	if err != nil {
-		logger.LogError("error label message: %v", err)
+		logger.LogError("[%s] error label message: %v", instance.Id, err)
 		return err
 	}
 

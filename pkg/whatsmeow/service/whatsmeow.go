@@ -1118,7 +1118,7 @@ func contains(subscriptions []string, event string) bool {
 
 func (mycli *MyClient) sendToQueueOrWebhook(queueName string, jsonData []byte) {
 	if mycli.rabbitmqEnable == "true" {
-		err := mycli.rabbitmqProducer.Produce(queueName, jsonData, mycli.rabbitmqEnable)
+		err := mycli.rabbitmqProducer.Produce(queueName, jsonData, mycli.rabbitmqEnable, mycli.userID)
 		if err != nil {
 			logger.LogError("[%s] Failed to send message to rabbitmq: %s", mycli.userID, err)
 			return
@@ -1126,7 +1126,7 @@ func (mycli *MyClient) sendToQueueOrWebhook(queueName string, jsonData []byte) {
 		logger.LogInfo("[%s] Message enqueued successfully", mycli.userID)
 	}
 
-	err := mycli.webhookProducer.Produce(queueName, jsonData, mycli.webhookUrl)
+	err := mycli.webhookProducer.Produce(queueName, jsonData, mycli.webhookUrl, mycli.userID)
 	if err != nil {
 		logger.LogError("[%s] Failed to send message to webhook: %s", mycli.userID, err)
 		return

@@ -33,7 +33,7 @@ func (p *websocketProducer) RemoveClient(instanceID string) {
 	delete(p.clients, instanceID)
 }
 
-func (p *websocketProducer) Produce(queueName string, payload []byte, _ string) error {
+func (p *websocketProducer) Produce(queueName string, payload []byte, _ string, userID string) error {
 	instanceID := strings.Split(queueName, ".")[0]
 
 	p.clientsMux.RLock()
@@ -46,9 +46,11 @@ func (p *websocketProducer) Produce(queueName string, payload []byte, _ string) 
 
 	err := client.WriteMessage(websocket.TextMessage, payload)
 	if err != nil {
-		logger.LogError("failed to send websocket message", "error", err)
+		logger.LogError("[%s] failed to send websocket message", userID, "error", err)
 		return err
 	}
+
+	logger.LogInfo("[%s] Message sent to websocket successfully to queue %s", userID, queueName)
 
 	return nil
 }

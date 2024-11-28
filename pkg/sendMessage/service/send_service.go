@@ -533,7 +533,7 @@ func (s *sendService) SendMediaFile(data *MediaStruct, fileData []byte, instance
 		return nil, err
 	}
 
-	logger.LogInfo("Media uploaded with size %d", uploaded.FileLength)
+	logger.LogInfo("[%s] Media uploaded with size %d", instance.Id, uploaded.FileLength)
 
 	var media *waE2E.Message
 	var mediaType string
@@ -686,7 +686,7 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 		return nil, err
 	}
 
-	logger.LogInfo("Media uploaded with %s", uploaded.FileLength)
+	logger.LogInfo("[%s] Media uploaded with %s", instance.Id, uploaded.FileLength)
 
 	var media *waE2E.Message
 	var mediaType string
@@ -1066,7 +1066,7 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 
 	recipient, err := validateMessageFields(data.Number, &data.Quoted.MessageID, &data.Quoted.MessageID)
 	if err != nil {
-		logger.LogError("Error validating message fields: %v", err)
+		logger.LogError("[%s] Error validating message fields: %v", instance.Id, err)
 		return nil, err
 	}
 
@@ -1225,7 +1225,7 @@ func (s *sendService) SendList(data *ListStruct, instance *instance_model.Instan
 
 	recipient, err := validateMessageFields(data.Number, &data.Quoted.MessageID, &data.Quoted.MessageID)
 	if err != nil {
-		logger.LogError("Error validating message fields: %v", err)
+		logger.LogError("[%s] Error validating message fields: %v", instance.Id, err)
 		return nil, err
 	}
 
@@ -1277,7 +1277,7 @@ func (s *sendService) SendList(data *ListStruct, instance *instance_model.Instan
 func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, messageType string, data *SendDataStruct) (*MessageSendStruct, error) {
 	recipient, err := validateMessageFields(data.Number, &data.Quoted.MessageID, &data.Quoted.MessageID)
 	if err != nil {
-		logger.LogError("Error validating message fields: %v", err)
+		logger.LogError("[%s] Error validating message fields: %v", instanceId, err)
 		return nil, err
 	}
 
@@ -1491,7 +1491,7 @@ func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, message
 		},
 	}
 
-	logger.LogInfo("Message sent to %s", data.Number)
+	logger.LogInfo("[%s] Message sent to %s", instanceId, data.Number)
 	return messageSent, nil
 }
 

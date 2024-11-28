@@ -43,13 +43,13 @@ func (c *chatService) ChatPin(data *BodyStruct, instance *instance_model.Instanc
 
 	recipient, ok := utils.ParseJID(data.Chat)
 	if !ok {
-		logger.LogError("Error validating message fields")
+		logger.LogError("[%s] Error validating message fields", instance.Id)
 		return "", errors.New("invalid phone number")
 	}
 
 	err := c.clientPointer[instance.Id].SendAppState(appstate.BuildPin(recipient, true))
 	if err != nil {
-		logger.LogError("error pin chat: %v", err)
+		logger.LogError("[%s] error pin chat: %v", instance.Id, err)
 		return "", err
 	}
 
@@ -65,13 +65,13 @@ func (c *chatService) ChatUnpin(data *BodyStruct, instance *instance_model.Insta
 
 	recipient, ok := utils.ParseJID(data.Chat)
 	if !ok {
-		logger.LogError("Error validating message fields")
+		logger.LogError("[%s] Error validating message fields", instance.Id)
 		return "", errors.New("invalid phone number")
 	}
 
 	err := c.clientPointer[instance.Id].SendAppState(appstate.BuildPin(recipient, false))
 	if err != nil {
-		logger.LogError("error unpin chat: %v", err)
+		logger.LogError("[%s] error unpin chat: %v", instance.Id, err)
 		return "", err
 	}
 
@@ -87,13 +87,13 @@ func (c *chatService) ChatArchive(data *BodyStruct, instance *instance_model.Ins
 
 	recipient, ok := utils.ParseJID(data.Chat)
 	if !ok {
-		logger.LogError("Error validating message fields")
+		logger.LogError("[%s] Error validating message fields", instance.Id)
 		return "", errors.New("invalid phone number")
 	}
 
 	err := c.clientPointer[instance.Id].SendAppState(appstate.BuildArchive(recipient, true, time.Time{}, nil))
 	if err != nil {
-		logger.LogError("error archive chat: %v", err)
+		logger.LogError("[%s] error archive chat: %v", instance.Id, err)
 		return "", err
 	}
 
@@ -109,13 +109,13 @@ func (c *chatService) ChatMute(data *BodyStruct, instance *instance_model.Instan
 
 	recipient, ok := utils.ParseJID(data.Chat)
 	if !ok {
-		logger.LogError("Error validating message fields")
+		logger.LogError("[%s] Error validating message fields", instance.Id)
 		return "", errors.New("invalid phone number")
 	}
 
 	err := c.clientPointer[instance.Id].SendAppState(appstate.BuildMute(recipient, true, 1*time.Hour))
 	if err != nil {
-		logger.LogError("error mute chat: %v", err)
+		logger.LogError("[%s] error mute chat: %v", instance.Id, err)
 		return "", err
 	}
 
@@ -140,7 +140,7 @@ func (c *chatService) HistorySyncRequest(data *HistorySyncRequestStruct, instanc
 
 	res, err := c.clientPointer[instance.Id].SendMessage(context.Background(), messageInfo.Chat, histRequest, whatsmeow.SendRequestExtra{Peer: true})
 	if err != nil {
-		logger.LogError("error history sync request: %v", err)
+		logger.LogError("[%s] error history sync request: %v", instance.Id, err)
 		return "", err
 	}
 

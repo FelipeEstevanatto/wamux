@@ -93,7 +93,7 @@ func (g *groupService) ListGroups(instance *instance_model.Instance) ([]*types.G
 
 	resp, err := g.clientPointer[instance.Id].GetJoinedGroups()
 	if err != nil {
-		logger.LogError("error mute chat: %v", err)
+		logger.LogError("[%s] error mute chat: %v", instance.Id, err)
 		return nil, err
 	}
 
@@ -116,13 +116,13 @@ func (g *groupService) GetGroupInfo(data *GetGroupInfoStruct, instance *instance
 
 	recipient, ok := utils.ParseJID(data.GroupJID)
 	if !ok {
-		logger.LogError("Error validating message fields")
+		logger.LogError("[%s] Error validating message fields", instance.Id)
 		return nil, errors.New("invalid group jid")
 	}
 
 	resp, err := g.clientPointer[instance.Id].GetGroupInfo(recipient)
 	if err != nil {
-		logger.LogError("error mute chat: %v", err)
+		logger.LogError("[%s] error mute chat: %v", instance.Id, err)
 		return nil, err
 	}
 
@@ -136,13 +136,13 @@ func (g *groupService) GetGroupInviteLink(data *GetGroupInviteLinkStruct, instan
 
 	recipient, ok := utils.ParseJID(data.GroupJID)
 	if !ok {
-		logger.LogError("Error validating message fields")
+		logger.LogError("[%s] Error validating message fields", instance.Id)
 		return "", errors.New("invalid group jid")
 	}
 
 	resp, err := g.clientPointer[instance.Id].GetGroupInviteLink(recipient, data.Reset)
 	if err != nil {
-		logger.LogError("error mute chat: %v", err)
+		logger.LogError("[%s] error mute chat: %v", instance.Id, err)
 		return "", err
 	}
 
@@ -156,7 +156,7 @@ func (g *groupService) SetGroupPhoto(data *SetGroupPhotoStruct, instance *instan
 
 	recipient, ok := utils.ParseJID(data.GroupJID)
 	if !ok {
-		logger.LogError("Error validating message fields")
+		logger.LogError("[%s] Error validating message fields", instance.Id)
 		return "", errors.New("invalid group jid")
 	}
 
@@ -166,32 +166,32 @@ func (g *groupService) SetGroupPhoto(data *SetGroupPhotoStruct, instance *instan
 	if strings.HasPrefix(data.Image, "http://") || strings.HasPrefix(data.Image, "https://") {
 		resp, err := http.Get(data.Image)
 		if err != nil {
-			logger.LogError("Could not download image from URL")
+			logger.LogError("[%s] Could not download image from URL", instance.Id)
 			return "", fmt.Errorf("failed to fetch image from URL: %v", err)
 		}
 		defer resp.Body.Close()
 
 		fileData, err = io.ReadAll(resp.Body)
 		if err != nil {
-			logger.LogError("Could not read image data from URL")
+			logger.LogError("[%s] Could not read image data from URL", instance.Id)
 			return "", fmt.Errorf("failed to read image data: %v", err)
 		}
 
 	} else if strings.HasPrefix(data.Image, "data:image/jpeg;base64,") || strings.HasPrefix(data.Image, "data:image/png;base64,") {
 		dataURL, err := dataurl.DecodeString(data.Image)
 		if err != nil {
-			logger.LogError("Could not decode base64 encoded data from payload")
+			logger.LogError("[%s] Could not decode base64 encoded data from payload", instance.Id)
 			return "", err
 		}
 		fileData = dataURL.Data
 	} else {
-		logger.LogError("Image data should start with \"data:image/jpeg;base64,\" or be a valid URL")
+		logger.LogError("[%s] Image data should start with \"data:image/jpeg;base64,\" or be a valid URL", instance.Id)
 		return "", errors.New("image data should be a valid URL or start with \"data:image/jpeg;base64,\"")
 	}
 
 	pictureID, err := g.clientPointer[instance.Id].SetGroupPhoto(recipient, fileData)
 	if err != nil {
-		logger.LogError("Error setting group photo: %v", err)
+		logger.LogError("[%s] Error setting group photo: %v", instance.Id, err)
 		return "", err
 	}
 
@@ -205,13 +205,13 @@ func (g *groupService) SetGroupName(data *SetGroupNameStruct, instance *instance
 
 	recipient, ok := utils.ParseJID(data.GroupJID)
 	if !ok {
-		logger.LogError("Error validating message fields")
+		logger.LogError("[%s] Error validating message fields", instance.Id)
 		return errors.New("invalid group jid")
 	}
 
 	err := g.clientPointer[instance.Id].SetGroupName(recipient, data.Name)
 	if err != nil {
-		logger.LogError("error mute chat: %v", err)
+		logger.LogError("[%s] error mute chat: %v", instance.Id, err)
 		return err
 	}
 
@@ -225,13 +225,13 @@ func (g *groupService) SetGroupDescription(data *SetGroupDescriptionStruct, inst
 
 	recipient, ok := utils.ParseJID(data.GroupJID)
 	if !ok {
-		logger.LogError("Error validating message fields")
+		logger.LogError("[%s] Error validating message fields", instance.Id)
 		return errors.New("invalid group jid")
 	}
 
 	err := g.clientPointer[instance.Id].SetGroupDescription(recipient, data.Description)
 	if err != nil {
-		logger.LogError("error mute chat: %v", err)
+		logger.LogError("[%s] error mute chat: %v", instance.Id, err)
 		return err
 	}
 
@@ -248,7 +248,7 @@ func (g *groupService) CreateGroup(data *CreateGroupStruct, instance *instance_m
 		recipient, ok := utils.ParseJID(participant)
 		participants = append(participants, recipient)
 		if !ok {
-			logger.LogError("Error validating message fields")
+			logger.LogError("[%s] Error validating message fields", instance.Id)
 			return nil, errors.New("invalid phone number")
 		}
 	}
@@ -258,7 +258,7 @@ func (g *groupService) CreateGroup(data *CreateGroupStruct, instance *instance_m
 		Participants: participants,
 	})
 	if err != nil {
-		logger.LogError("error create group: %v", err)
+		logger.LogError("[%s] error create group: %v", instance.Id, err)
 		return nil, err
 	}
 
@@ -272,7 +272,7 @@ func (g *groupService) CreateGroup(data *CreateGroupStruct, instance *instance_m
 	var added []types.JID
 	infoResp, err := g.clientPointer[instance.Id].GetGroupInfo(resp.JID)
 	if err != nil {
-		logger.LogError("error get group info: %v", err)
+		logger.LogError("[%s] error get group info: %v", instance.Id, err)
 		return nil, err
 	}
 	for _, add := range infoResp.Participants {
@@ -300,14 +300,14 @@ func (g *groupService) UpdateParticipant(data *AddParticipantStruct, instance *i
 		recipient, ok := utils.ParseJID(participant)
 		participants = append(participants, recipient)
 		if !ok {
-			logger.LogError("Error validating message fields")
+			logger.LogError("[%s] Error validating message fields", instance.Id)
 			return errors.New("invalid phone number")
 		}
 	}
 
 	_, err := g.clientPointer[instance.Id].UpdateGroupParticipants(data.GroupJID, participants, data.Action)
 	if err != nil {
-		logger.LogError("error create group: %v", err)
+		logger.LogError("[%s] error create group: %v", instance.Id, err)
 		return err
 	}
 
@@ -321,7 +321,7 @@ func (g *groupService) GetMyGroups(instance *instance_model.Instance) ([]types.G
 
 	resp, err := g.clientPointer[instance.Id].GetJoinedGroups()
 	if err != nil {
-		logger.LogError("error create group: %v", err)
+		logger.LogError("[%s] error create group: %v", instance.Id, err)
 		return nil, err
 	}
 
@@ -329,7 +329,7 @@ func (g *groupService) GetMyGroups(instance *instance_model.Instance) ([]types.G
 	var jidClear = strings.Split(jid, ".")[0]
 	jidOfAdmin, ok := utils.ParseJID(jidClear)
 	if !ok {
-		logger.LogError("Error validating message fields")
+		logger.LogError("[%s] Error validating message fields", instance.Id)
 		return nil, errors.New("invalid phone number")
 	}
 	var adminGroups []types.GroupInfo
@@ -350,7 +350,7 @@ func (g *groupService) JoinGroupLink(data *JoinGroupStruct, instance *instance_m
 
 	_, err := g.clientPointer[instance.Id].JoinGroupWithLink(data.Code)
 	if err != nil {
-		logger.LogError("error create group: %v", err)
+		logger.LogError("[%s] error create group: %v", instance.Id, err)
 		return err
 	}
 
@@ -364,7 +364,7 @@ func (g *groupService) LeaveGroup(data *LeaveGroupStruct, instance *instance_mod
 
 	err := g.clientPointer[instance.Id].LeaveGroup(data.GroupJID)
 	if err != nil {
-		logger.LogError("error leave group: %v", err)
+		logger.LogError("[%s] error leave group: %v", instance.Id, err)
 		return err
 	}
 

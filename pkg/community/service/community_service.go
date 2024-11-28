@@ -42,7 +42,7 @@ func (c *communityService) CreateCommunity(data *CreateCommunityStruct, instance
 		},
 	})
 	if err != nil {
-		logger.LogError("error create community: %v", err)
+		logger.LogError("[%s] error create community: %v", instance.Id, err)
 		return nil, err
 	}
 
@@ -56,7 +56,7 @@ func (c *communityService) CommunityAdd(data *AddParticipantStruct, instance *in
 
 	communityJID, ok := utils.ParseJID(data.CommunityJID)
 	if !ok {
-		logger.LogError("error parse community jid")
+		logger.LogError("[%s] error parse community jid", instance.Id)
 		return nil, errors.New("error parse community jid")
 	}
 
@@ -69,7 +69,7 @@ func (c *communityService) CommunityAdd(data *AddParticipantStruct, instance *in
 		err := c.clientPointer[instance.Id].LinkGroup(communityJID, groupJID)
 
 		if err != nil {
-			logger.LogError("error link group: %v", err)
+			logger.LogError("[%s] error link group: %v", instance.Id, err)
 			failedList = append(failedList, groupJID.String())
 		}
 
@@ -89,7 +89,7 @@ func (c *communityService) CommunityRemove(data *AddParticipantStruct, instance 
 
 	communityJID, ok := utils.ParseJID(data.CommunityJID)
 	if !ok {
-		logger.LogError("error parse community jid")
+		logger.LogError("[%s] error parse community jid", instance.Id)
 		return nil, errors.New("error parse community jid")
 	}
 
@@ -102,7 +102,7 @@ func (c *communityService) CommunityRemove(data *AddParticipantStruct, instance 
 		err := c.clientPointer[instance.Id].UnlinkGroup(communityJID, groupJID)
 
 		if err != nil {
-			logger.LogError("error link group: %v", err)
+			logger.LogError("[%s] error link group: %v", instance.Id, err)
 			failedList = append(failedList, groupJID.String())
 		}
 

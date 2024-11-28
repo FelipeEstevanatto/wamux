@@ -88,12 +88,12 @@ func (m *messageService) React(data *ReactStruct, instance *instance_model.Insta
 
 	recipient, ok := utils.ParseJID(data.Number)
 	if !ok {
-		logger.LogError("Error validating message fields")
+		logger.LogError("[%s] Error validating message fields", instance.Id)
 		return nil, errors.New("invalid phone number")
 	}
 
 	if data.Id == "" {
-		logger.LogError("Missing Id in Payload")
+		logger.LogError("[%s] Missing Id in Payload", instance.Id)
 		return nil, errors.New("missing id in payload")
 	} else {
 		msgId = data.Id
@@ -162,7 +162,7 @@ func (m *messageService) ChatPresence(data *ChatPresenceStruct, instance *instan
 
 	recipient, ok := utils.ParseJID(data.Number)
 	if !ok {
-		logger.LogError("Error validating message fields")
+		logger.LogError("[%s] Error validating message fields", instance.Id)
 		return "", errors.New("invalid phone number")
 	}
 
@@ -191,13 +191,13 @@ func (m *messageService) MarkRead(data *MarkReadStruct, instance *instance_model
 
 	jid, ok := utils.ParseJID(data.Number)
 	if !ok {
-		logger.LogError("Error validating message fields")
+		logger.LogError("[%s] Error validating message fields", instance.Id)
 		return "", errors.New("invalid phone number")
 	}
 
 	err := m.clientPointer[instance.Id].MarkRead(data.Id, time.Now(), jid, jid)
 	if err != nil {
-		logger.LogError("error marking message as read: %v", err)
+		logger.LogError("[%s] error marking message as read: %v", instance.Id, err)
 		return "", errors.New("error marking message as read")
 	}
 
@@ -231,7 +231,7 @@ func (m *messageService) DownloadMedia(data *DownloadMediaStruct, instance *inst
 	if os.IsNotExist(err) {
 		errDir := os.MkdirAll(userDirectory, 0751)
 		if errDir != nil {
-			logger.LogError("Could not create user directory (%s)", userDirectory)
+			logger.LogError("[%s] Could not create user directory (%s)", instance.Id, userDirectory)
 			return nil, "", errDir
 		}
 	}
@@ -239,7 +239,7 @@ func (m *messageService) DownloadMedia(data *DownloadMediaStruct, instance *inst
 	if img != nil {
 		mediaData, err = m.clientPointer[instance.Id].Download(img)
 		if err != nil {
-			logger.LogError("Failed to download image")
+			logger.LogError("[%s] Failed to download image", instance.Id)
 			msg := fmt.Sprintf("Failed to download image %v", err)
 			return nil, "", errors.New(msg)
 		}
@@ -249,7 +249,7 @@ func (m *messageService) DownloadMedia(data *DownloadMediaStruct, instance *inst
 	if audio != nil {
 		mediaData, err = m.clientPointer[instance.Id].Download(audio)
 		if err != nil {
-			logger.LogError("Failed to download audio")
+			logger.LogError("[%s] Failed to download audio", instance.Id)
 			msg := fmt.Sprintf("Failed to download audio %v", err)
 			return nil, "", errors.New(msg)
 		}
@@ -259,7 +259,7 @@ func (m *messageService) DownloadMedia(data *DownloadMediaStruct, instance *inst
 	if document != nil {
 		mediaData, err = m.clientPointer[instance.Id].Download(document)
 		if err != nil {
-			logger.LogError("Failed to download document")
+			logger.LogError("[%s] Failed to download document", instance.Id)
 			msg := fmt.Sprintf("Failed to download document %v", err)
 			return nil, "", errors.New(msg)
 		}
@@ -269,8 +269,7 @@ func (m *messageService) DownloadMedia(data *DownloadMediaStruct, instance *inst
 	if video != nil {
 		mediaData, err = m.clientPointer[instance.Id].Download(video)
 		if err != nil {
-
-			logger.LogError("Failed to download video")
+			logger.LogError("[%s] Failed to download video", instance.Id)
 			msg := fmt.Sprintf("Failed to download video %v", err)
 			return nil, "", errors.New(msg)
 		}
@@ -280,7 +279,7 @@ func (m *messageService) DownloadMedia(data *DownloadMediaStruct, instance *inst
 	if sticker != nil {
 		mediaData, err = m.clientPointer[instance.Id].Download(sticker)
 		if err != nil {
-			logger.LogError("Failed to download sticker")
+			logger.LogError("[%s] Failed to download sticker", instance.Id)
 			msg := fmt.Sprintf("Failed to download sticker %v", err)
 			return nil, "", errors.New(msg)
 		}
@@ -316,7 +315,7 @@ func (m *messageService) DeleteMessageEveryone(data *MessageStruct, instance *in
 
 	recipient, ok := utils.ParseJID(data.Chat)
 	if !ok {
-		logger.LogError("Error validating message fields")
+		logger.LogError("[%s] Error validating message fields", instance.Id)
 		return "", "", errors.New("invalid phone number")
 	}
 
@@ -324,7 +323,7 @@ func (m *messageService) DeleteMessageEveryone(data *MessageStruct, instance *in
 		context.Background(),
 		recipient, m.clientPointer[instance.Id].BuildRevoke(recipient, types.EmptyJID, data.MessageID))
 	if err != nil {
-		logger.LogError("error revoking message: %v", err)
+		logger.LogError("[%s] error revoking message: %v", instance.Id, err)
 		return "", "", err
 	}
 
@@ -342,7 +341,7 @@ func (m *messageService) EditMessage(data *EditMessageStruct, instance *instance
 
 	recipient, ok := utils.ParseJID(data.Chat)
 	if !ok {
-		logger.LogError("Error validating message fields")
+		logger.LogError("[%s] Error validating message fields", instance.Id)
 		return "", "", errors.New("invalid phone number")
 	}
 
@@ -356,7 +355,7 @@ func (m *messageService) EditMessage(data *EditMessageStruct, instance *instance
 				Conversation: proto.String(data.Message),
 			}))
 	if err != nil {
-		logger.LogError("error revoking message: %v", err)
+		logger.LogError("[%s] error revoking message: %v", instance.Id, err)
 		return "", "", err
 	}
 
