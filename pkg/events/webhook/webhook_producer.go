@@ -3,6 +3,8 @@ package webhook_producer
 import (
 	"bytes"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -74,10 +76,15 @@ func sendWebhook(url string, body []byte, userID string) error {
 	}
 	defer resp.Body.Close()
 
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("erro ao ler resposta: %v", err)
+	}
+
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return errors.New("received non-2xx response: " + resp.Status)
 	}
 
-	logger.LogInfo("[%s] webhook sent", userID, "url", url, "status", resp.Status)
+	logger.LogInfo("[%s] webhook sent", userID, "url", url, "status", resp.Status, "response", string(responseBody))
 	return nil
 }
