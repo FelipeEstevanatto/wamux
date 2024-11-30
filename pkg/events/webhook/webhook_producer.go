@@ -49,9 +49,9 @@ func (p *webhookProducer) Produce(
 
 func sendWebhookWithRetry(url string, body []byte, maxRetries int, retryInterval time.Duration, userID string) {
 	for i := 0; i < maxRetries; i++ {
-		err := sendWebhook(url, body, userID)
+		err, responseBody, statusCode := sendWebhook(url, body, userID)
 		if err == nil {
-			logger.LogInfo("[%s] webhook sent successfully", userID, "url", url)
+			logger.LogInfo("[%s] webhook sent successfully", userID, "url", url, "status", statusCode, "response", string(responseBody))
 			return
 		}
 		logger.LogWarn("[%s] webhook failed", userID, "url", url, "attempt", i+1, "error", err)
@@ -61,10 +61,10 @@ func sendWebhookWithRetry(url string, body []byte, maxRetries int, retryInterval
 	logger.LogError("[%s] webhook failed after maximum retries", userID, "url", url)
 }
 
-func sendWebhook(url string, body []byte, userID string) error {
+func sendWebhook(url string, body []byte, userID string) (error, []byte, int) {
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
 	if err != nil {
-		return err
+		return err, nil, 0
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -72,19 +72,18 @@ func sendWebhook(url string, body []byte, userID string) error {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return err, nil, 0
 	}
 	defer resp.Body.Close()
 
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("erro ao ler resposta: %v", err)
+		return fmt.Errorf("erro ao ler resposta: %v", err), nil, 0
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return errors.New("received non-2xx response: " + resp.Status)
+		return errors.New("received non-2xx response: " + resp.Status), responseBody, resp.StatusCode
 	}
 
-	logger.LogInfo("[%s] webhook sent", userID, "url", url, "status", resp.Status, "response", string(responseBody))
-	return nil
+	return nil, responseBody, resp.StatusCode
 }
