@@ -4,7 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"strings"
+	"net/url"
+	"time"
 
 	storage_interfaces "github.com/EvolutionAPI/evolution-go/pkg/storage/interfaces"
 	"github.com/minio/minio-go/v7"
@@ -17,6 +18,22 @@ type MinioMediaStorage struct {
 	baseURL    string
 }
 
+func setBucketPolicy(client *minio.Client, bucketName string) error {
+	policy := `{
+		"Version": "2012-10-17",
+		"Statement": [
+			{
+				"Effect": "Allow",
+				"Principal": "*",
+				"Action": ["s3:GetObject"],
+				"Resource": ["arn:aws:s3:::` + bucketName + `/*"]
+			}
+		]
+	}`
+
+	return client.SetBucketPolicy(context.Background(), bucketName, policy)
+}
+
 func NewMinioMediaStorage(
 	endpoint,
 	accessKeyID,
@@ -25,7 +42,6 @@ func NewMinioMediaStorage(
 	region string,
 	useSSL bool,
 ) (storage_interfaces.MediaStorage, error) {
-	// Initialize MinIO client
 	client, err := minio.New(endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
 		Secure: useSSL,
@@ -35,29 +51,15 @@ func NewMinioMediaStorage(
 		return nil, fmt.Errorf("failed to create MinIO client: %w", err)
 	}
 
-	// Create bucket if it doesn't exist
-	exists, err := client.BucketExists(context.Background(), bucketName)
+	// Set bucket policy to allow public access
+	err = setBucketPolicy(client, bucketName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check bucket existence: %w", err)
-	}
-
-	if !exists {
-		err = client.MakeBucket(context.Background(), bucketName, minio.MakeBucketOptions{})
-		if err != nil {
-			return nil, fmt.Errorf("failed to create bucket: %w", err)
-		}
+		return nil, fmt.Errorf("failed to set bucket policy: %w", err)
 	}
 
 	baseURL := fmt.Sprintf("https://%s/%s", endpoint, bucketName)
 	if !useSSL {
 		baseURL = fmt.Sprintf("http://%s/%s", endpoint, bucketName)
-	}
-
-	if region != "" && (strings.Contains(endpoint, "amazonaws.com") || strings.Contains(endpoint, "googlecloud.com")) {
-		baseURL = fmt.Sprintf("https://%s.%s/%s", bucketName, endpoint, region)
-		if !useSSL {
-			baseURL = fmt.Sprintf("http://%s.%s/%s", bucketName, endpoint, region)
-		}
 	}
 
 	return &MinioMediaStorage{
@@ -70,20 +72,23 @@ func NewMinioMediaStorage(
 func (m *MinioMediaStorage) Store(ctx context.Context, data []byte, fileName string, contentType string) (string, error) {
 	reader := bytes.NewReader(data)
 
-	// Definindo a política de acesso público para o objeto
-	userMetadata := map[string]string{
-		"x-amz-acl": "public-read",
-	}
-
 	_, err := m.client.PutObject(ctx, m.bucketName, fileName, reader, int64(len(data)), minio.PutObjectOptions{
-		ContentType:  contentType,
-		UserMetadata: userMetadata,
+		ContentType: contentType,
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to store object: %w", err)
 	}
 
-	return fmt.Sprintf("%s/%s", m.baseURL, fileName), nil
+	// Gerando URL assinada com validade de 100 anos
+	reqParams := make(url.Values)
+	presignedURL, err := m.client.PresignedGetObject(ctx, m.bucketName, fileName, time.Hour*24*7, reqParams)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate presigned URL: %w", err)
+	}
+
+	fmt.Println(presignedURL.String())
+
+	return presignedURL.String(), nil
 }
 
 func (m *MinioMediaStorage) Delete(ctx context.Context, fileName string) error {
@@ -101,5 +106,14 @@ func (m *MinioMediaStorage) GetURL(ctx context.Context, fileName string) (string
 		return "", fmt.Errorf("failed to get object stats: %w", err)
 	}
 
-	return fmt.Sprintf("%s/%s", m.baseURL, fileName), nil
+	// Gerando URL assinada com validade de 100 anos
+	reqParams := make(url.Values)
+	presignedURL, err := m.client.PresignedGetObject(ctx, m.bucketName, fileName, time.Hour*24*7, reqParams)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate presigned URL: %w", err)
+	}
+
+	fmt.Println(presignedURL.String())
+
+	return presignedURL.String(), nil
 }
