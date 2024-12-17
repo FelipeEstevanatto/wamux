@@ -278,13 +278,18 @@ func (i instances) GetQr(instance *instance_model.Instance) (*QrcodeStruct, erro
 	}
 
 	code := instance.Qrcode
+	if code == "" {
+		return nil, fmt.Errorf("no QR code available")
+	}
 
-	base64 := strings.Split(code, "|")[0]
-	code = strings.Split(code, "|")[1]
+	parts := strings.Split(code, "|")
+	if len(parts) < 2 {
+		return nil, fmt.Errorf("invalid QR code format")
+	}
 
 	qr := &QrcodeStruct{
-		Qrcode: base64,
-		Code:   code,
+		Qrcode: parts[0],
+		Code:   parts[1],
 	}
 
 	return qr, nil
