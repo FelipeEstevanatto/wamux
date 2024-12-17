@@ -21,6 +21,7 @@ require (
 	github.com/vincent-petithory/dataurl v1.0.0
 	go.mau.fi/whatsmeow v0.0.0-20241015144315-3fa42c3d6a28
 	golang.org/x/exp v0.0.0-20241108190413-2d47ceb2692f
+	golang.org/x/image v0.0.0-20211028202545-6944b10bf410
 	golang.org/x/net v0.31.0
 	google.golang.org/protobuf v1.35.2
 	gorm.io/driver/postgres v1.5.9

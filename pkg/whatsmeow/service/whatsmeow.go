@@ -1,16 +1,19 @@
 package whatsmeow_service
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image/png"
 	"math/rand"
-	"path/filepath"
 	"strings"
 	"time"
+
+	"golang.org/x/image/webp"
 
 	"github.com/gomessguii/logger"
 	_ "github.com/lib/pq"
@@ -729,15 +732,45 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			if isMedia {
 				var data []byte
 				var err error
+				var extension string
+				var mimeType string
 
 				if img != nil {
 					data, err = mycli.WAClient.Download(img)
+					extension = ".jpg"
+					mimeType = "image/jpeg"
 				} else if audio != nil {
 					data, err = mycli.WAClient.Download(audio)
+					extension = ".ogg"
+					mimeType = "audio/ogg"
 				} else if document != nil {
 					data, err = mycli.WAClient.Download(document)
+					extension = getExtensionFromMimeType(document.GetMimetype())
+					mimeType = document.GetMimetype()
 				} else if video != nil {
 					data, err = mycli.WAClient.Download(video)
+					extension = ".mp4"
+					mimeType = "video/mp4"
+				} else if sticker != nil {
+					data, err = mycli.WAClient.Download(sticker)
+					extension = ".png"
+					mimeType = "image/png"
+
+					webpReader := bytes.NewReader(data)
+					img, err := webp.Decode(webpReader)
+					if err != nil {
+						logger.LogError("[%s] Failed to decode webp image: %v", mycli.userID, err)
+						return
+					}
+
+					var pngBuffer bytes.Buffer
+					err = png.Encode(&pngBuffer, img)
+					if err != nil {
+						logger.LogError("[%s] Failed to encode png image: %v", mycli.userID, err)
+						return
+					}
+
+					data = pngBuffer.Bytes()
 				}
 
 				if err != nil {
@@ -751,30 +784,6 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 				}
 
 				if mycli.config.MinioEnabled {
-					extension := ""
-					mimeType := ""
-
-					if img != nil {
-						extension = getExtensionFromMimeType(img.GetMimetype())
-						mimeType = img.GetMimetype()
-					} else if audio != nil {
-						extension = getExtensionFromMimeType(audio.GetMimetype())
-						mimeType = audio.GetMimetype()
-					} else if document != nil {
-						if document.GetFileName() != "" {
-							extension = filepath.Ext(document.GetFileName())
-						} else {
-							extension = getExtensionFromMimeType(document.GetMimetype())
-						}
-						mimeType = document.GetMimetype()
-					} else if video != nil {
-						extension = getExtensionFromMimeType(video.GetMimetype())
-						mimeType = video.GetMimetype()
-					} else if sticker != nil {
-						extension = getExtensionFromMimeType(sticker.GetMimetype())
-						mimeType = sticker.GetMimetype()
-					}
-
 					fileName := evt.Info.ID + extension
 
 					mediaURL, err := mycli.mediaStorage.Store(context.Background(), data, fileName, mimeType)
