@@ -69,14 +69,21 @@ func ParseJID(arg string) (whatsmeow_types.JID, bool) {
 	}
 
 	// Verifica formatos completos de JID
-	if strings.Contains(number, "@g.us") || strings.Contains(number, "@s.whatsapp.net") ||
-		strings.Contains(number, "@lid") || strings.Contains(number, "@broadcast") {
+	// if strings.Contains(number, "@g.us") || strings.Contains(number, "@s.whatsapp.net") ||
+	// 	strings.Contains(number, "@lid") || strings.Contains(number, "@broadcast") {
+	if strings.Contains(number, "@g.us") ||
+		strings.Contains(number, "@lid") ||
+		strings.Contains(number, "@broadcast") {
 		recipient, err := whatsmeow_types.ParseJID(number)
 		if err != nil {
 			logger.LogWarn("Invalid jid: %s", number)
 			return recipient, false
 		}
 		return recipient, true
+	}
+
+	if strings.Contains(number, "@s.whatsapp.net") {
+		number = strings.Split(number, "@")[0]
 	}
 
 	// Limpa o número para processamento
@@ -110,13 +117,28 @@ func ParseJID(arg string) (whatsmeow_types.JID, bool) {
 	}
 
 	if len(number) == 13 && strings.HasPrefix(number, "55") {
+		// Extrai o DDD
 		ddd := number[2:4]
-		dddNum, _ := strconv.Atoi(ddd)
 
+		// Converte o DDD para inteiro
+		dddNum, err := strconv.Atoi(ddd)
+		if err != nil {
+			// Retorna número inválido em caso de erro na conversão
+			return whatsmeow_types.NewJID(number, whatsmeow_types.DefaultUserServer), false
+		}
+
+		// Verifica se o DDD é menor que 31
 		if dddNum < 31 {
+			// Retorna o número como válido
 			return whatsmeow_types.NewJID(number, whatsmeow_types.DefaultUserServer), true
 		}
-		number = number[:5] + number[6:]
+
+		// Extrai partes do número (DDI e restante)
+		ddi := number[0:2]
+		numberEnd := number[5:]
+
+		// Remove o '9' adicional após o DDD
+		number = ddi + ddd + numberEnd
 	}
 
 	// Retorna o JID formatado
