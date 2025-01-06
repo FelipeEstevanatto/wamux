@@ -65,6 +65,7 @@ type MyClient struct {
 	WAClient           *whatsmeow.Client
 	eventHandlerID     uint32
 	userID             string
+	Instance           *instance_model.Instance
 	token              string
 	subscriptions      []string
 	webhookUrl         string
@@ -206,6 +207,7 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 	}
 
 	mycli := MyClient{
+		Instance:           cd.Instance,
 		WAClient:           client,
 		eventHandlerID:     1,
 		userID:             cd.Instance.Id,
@@ -519,9 +521,10 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 				logger.LogWarn("[%s] Marked self as unavailable", mycli.userID)
 			}
 
-			err = mycli.instanceRepository.UpdateConnected(userID, true)
+			mycli.Instance.Connected = true
+			err = mycli.instanceRepository.Update(mycli.Instance)
 			if err != nil {
-				logger.LogError("[%s] Error updating instance: %s", mycli.userID, err)
+				logger.LogError("[%s] Error updating instance: %s", mycli.Instance.Id, err)
 			}
 		}
 	case *events.PairSuccess:
@@ -918,9 +921,10 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		logger.LogInfo("[%s] Logged out for reason %s", mycli.userID, evt.Reason.String())
 		mycli.killChannel[mycli.userID] <- true
 
-		err := mycli.instanceRepository.UpdateConnected(mycli.userID, false)
+		mycli.Instance.Connected = false
+		err := mycli.instanceRepository.Update(mycli.Instance)
 		if err != nil {
-			logger.LogError("[%s] Error updating instance: %s", mycli.userID, err)
+			logger.LogError("[%s] Error updating instance: %s", mycli.Instance.Id, err)
 		}
 
 		if postMap["data"] != nil {
