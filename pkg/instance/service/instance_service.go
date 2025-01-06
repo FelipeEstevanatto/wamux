@@ -208,34 +208,49 @@ func (i instances) Logout(instance *instance_model.Instance) (*instance_model.In
 		return instance, fmt.Errorf("no session found")
 	}
 
-	if i.clientPointer[instance.Id].IsLoggedIn() && i.clientPointer[instance.Id].IsConnected() {
-		err := i.clientPointer[instance.Id].Logout()
+	client := i.clientPointer[instance.Id]
+
+	if client.IsLoggedIn() && client.IsConnected() {
+		err := client.Logout()
 		if err != nil {
 			return instance, err
 		}
 
 		instance.Jid = ""
-
 		err = i.instanceRepository.Update(instance)
 		if err != nil {
 			return instance, err
 		}
 
-		logger.LogInfo("[%s] Logout successful", instance.Id)
-		i.killChannel[instance.Id] <- true
-	} else {
-		if i.clientPointer[instance.Id].IsConnected() {
-			// chama o disconnect
-			logger.LogInfo("[%s] Logout successful", instance.Id)
-			i.killChannel[instance.Id] <- true
-		} else {
-			logger.LogWarn("[%s] Ignoring logout as it was not connected", instance.Id)
-			return instance, fmt.Errorf("ignoring logout as it was not connected")
-
+		select {
+		case i.killChannel[instance.Id] <- true:
+		case <-time.After(5 * time.Second):
 		}
+
+		delete(i.clientPointer, instance.Id)
+		delete(i.killChannel, instance.Id)
+
+		logger.LogInfo("[%s] Logout successful", instance.Id)
+		return instance, nil
 	}
 
-	return instance, nil
+	if client.IsConnected() {
+		client.Disconnect()
+
+		select {
+		case i.killChannel[instance.Id] <- true:
+		case <-time.After(5 * time.Second):
+		}
+
+		delete(i.clientPointer, instance.Id)
+		delete(i.killChannel, instance.Id)
+
+		logger.LogInfo("[%s] Disconnection successful", instance.Id)
+		return instance, nil
+	}
+
+	logger.LogWarn("[%s] Ignoring logout as it was not connected", instance.Id)
+	return instance, fmt.Errorf("ignoring logout as it was not connected")
 }
 
 func (i instances) Status(instance *instance_model.Instance) (*StatusStruct, error) {

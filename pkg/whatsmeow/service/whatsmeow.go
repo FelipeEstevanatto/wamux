@@ -166,6 +166,13 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 	if deviceStore == nil {
 		logger.LogWarn("[%s] No store found. Creating new one", cd.Instance.Id)
 		deviceStore = container.NewDevice()
+
+		// Atualiza o status de conexão para false no banco
+		cd.Instance.Connected = false
+		err := w.instanceRepository.Update(cd.Instance)
+		if err != nil {
+			logger.LogError("[%s] Error updating instance: %s", cd.Instance.Id, err)
+		}
 	}
 
 	store.DeviceProps.PlatformType = waCompanionReg.DeviceProps_CHROME.Enum()
@@ -489,17 +496,17 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			dataMap["jid"] = mycli.WAClient.Store.ID.String()
 			dataMap["pushName"] = mycli.WAClient.Store.PushName
 
-			jid, ok := utils.ParseJID(mycli.WAClient.Store.ID.ToNonAD().User)
-			if ok {
-				profilePicUrl, err := mycli.clientPointer[mycli.userID].GetProfilePictureInfo(jid, &whatsmeow.GetProfilePictureParams{
-					Preview: false,
-				})
-				if err != nil {
-					logger.LogError("[%s] Failed to get profile picture info: %v", mycli.userID, err)
-				} else {
-					dataMap["profilePicUrl"] = profilePicUrl.URL
-				}
-			}
+			// jid, ok := utils.ParseJID(mycli.WAClient.Store.ID.ToNonAD().User)
+			// if ok {
+			// 	profilePicUrl, err := mycli.clientPointer[mycli.userID].GetProfilePictureInfo(jid, &whatsmeow.GetProfilePictureParams{
+			// 		Preview: false,
+			// 	})
+			// 	if err != nil {
+			// 		logger.LogError("[%s] Failed to get profile picture info: %v", mycli.userID, err)
+			// 	} else {
+			// 		dataMap["profilePicUrl"] = profilePicUrl.URL
+			// 	}
+			// }
 
 			postMap["data"] = dataMap
 
@@ -583,17 +590,17 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			dataMap["pushName"] = mycli.WAClient.Store.PushName
 		}
 
-		jid, ok := utils.ParseJID(mycli.WAClient.Store.ID.ToNonAD().User)
-		if ok {
-			profilePicUrl, err := mycli.clientPointer[mycli.userID].GetProfilePictureInfo(jid, &whatsmeow.GetProfilePictureParams{
-				Preview: false,
-			})
-			if err != nil {
-				logger.LogError("[%s] Failed to get profile picture info: %v", mycli.userID, err)
-			} else {
-				dataMap["profilePicUrl"] = profilePicUrl.URL
-			}
-		}
+		// jid, ok := utils.ParseJID(mycli.WAClient.Store.ID.ToNonAD().User)
+		// if ok {
+		// 	profilePicUrl, err := mycli.clientPointer[mycli.userID].GetProfilePictureInfo(jid, &whatsmeow.GetProfilePictureParams{
+		// 		Preview: false,
+		// 	})
+		// 	if err != nil {
+		// 		logger.LogError("[%s] Failed to get profile picture info: %v", mycli.userID, err)
+		// 	} else {
+		// 		dataMap["profilePicUrl"] = profilePicUrl.URL
+		// 	}
+		// }
 
 		postMap["data"] = dataMap
 	case *events.StreamReplaced:
@@ -810,15 +817,15 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			}
 		}
 
-		profilePicUrl, err := mycli.clientPointer[mycli.userID].GetProfilePictureInfo(evt.Info.Chat, &whatsmeow.GetProfilePictureParams{
-			Preview: false,
-		})
-		if err != nil {
-			logger.LogError("[%s] Failed to get profile picture info: %v", mycli.userID, err)
-		} else {
-			dataMap["profilePicUrl"] = profilePicUrl.URL
+		// profilePicUrl, err := mycli.clientPointer[mycli.userID].GetProfilePictureInfo(evt.Info.Chat, &whatsmeow.GetProfilePictureParams{
+		// 	Preview: false,
+		// })
+		// if err != nil {
+		// 	logger.LogError("[%s] Failed to get profile picture info: %v", mycli.userID, err)
+		// } else {
+		// 	dataMap["profilePicUrl"] = profilePicUrl.URL
 
-		}
+		// }
 
 		delete(dataMap, "RawMessage")
 
@@ -844,7 +851,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 		postMap["data"] = dataMap
 
-		logger.LogInfo("[%s] Message received with ID: %s from %s", mycli.userID, evt.Info.ID, evt.Info.Chat)
+		logger.LogInfo("[%s] Message received with ID: %s from %s with type %s", mycli.userID, evt.Info.ID, evt.Info.Chat, evt.Info.Type)
 	case *events.Receipt:
 		doWebhook = true
 		postMap["event"] = "Receipt"

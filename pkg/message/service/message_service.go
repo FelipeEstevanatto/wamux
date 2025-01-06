@@ -319,6 +319,8 @@ func (m *messageService) DeleteMessageEveryone(data *MessageStruct, instance *in
 		return "", "", errors.New("invalid phone number")
 	}
 
+	logger.LogInfo("Revoking message %s from %s", data.MessageID, recipient)
+
 	resp, err := m.clientPointer[instance.Id].SendMessage(
 		context.Background(),
 		recipient, m.clientPointer[instance.Id].BuildRevoke(recipient, types.EmptyJID, data.MessageID))
