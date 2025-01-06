@@ -217,6 +217,7 @@ func (i instances) Logout(instance *instance_model.Instance) (*instance_model.In
 		}
 
 		instance.Jid = ""
+		instance.Connected = false
 		err = i.instanceRepository.Update(instance)
 		if err != nil {
 			return instance, err
