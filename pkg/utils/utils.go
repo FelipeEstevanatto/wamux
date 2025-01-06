@@ -82,8 +82,15 @@ func ParseJID(arg string) (whatsmeow_types.JID, bool) {
 		return recipient, true
 	}
 
-	if strings.Contains(number, "@s.whatsapp.net") {
+	if strings.Contains(number, "@s.whatsapp.net") && !strings.Contains(number, ":") {
 		number = strings.Split(number, "@")[0]
+	} else if strings.Contains(number, "@s.whatsapp.net") && strings.Contains(number, ":") {
+		recipient, err := whatsmeow_types.ParseJID(number)
+		if err != nil {
+			logger.LogWarn("Invalid jid: %s", number)
+			return recipient, false
+		}
+		return recipient, true
 	}
 
 	// Limpa o número para processamento
