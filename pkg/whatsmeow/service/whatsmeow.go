@@ -168,7 +168,6 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		logger.LogWarn("[%s] No store found. Creating new one", cd.Instance.Id)
 		deviceStore = container.NewDevice()
 
-		// Atualiza o status de conexão para false no banco
 		cd.Instance.Connected = false
 		err := w.instanceRepository.Update(cd.Instance)
 		if err != nil {
@@ -1025,7 +1024,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 		_, found := mycli.userInfoCache.Get(mycli.token)
 		if !found {
-			logger.LogWarn("[%s] Could not call queue as there is no user for this token with token %s", mycli.userID, mycli.token)
+			logger.LogWarn("[%s] Could not call queue for event %s as there is no user for this token with token %s", mycli.userID, postMap["event"], mycli.token)
 		}
 
 		postMap["instanceToken"] = mycli.token
