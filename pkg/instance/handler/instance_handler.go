@@ -13,6 +13,7 @@ import (
 type InstanceHandler interface {
 	Create(ctx *gin.Context)
 	Connect(ctx *gin.Context)
+	Reconnect(ctx *gin.Context)
 	Disconnect(ctx *gin.Context)
 	Logout(ctx *gin.Context)
 	Delete(ctx *gin.Context)
@@ -131,6 +132,33 @@ func (i *instanceHandler) Connect(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+}
+
+// Reconnect to instance
+// @Summary Reconnect to instance
+// @Description Reconnect to instance
+// @Tags Instance
+// @Accept json
+// @Produce json
+// @Success 200 {object} gin.H "Instance reconnected successfully"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /instance/reconnect [post]
+func (i *instanceHandler) Reconnect(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	err := i.instanceService.Reconnect(instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success"})
 }
 
 // Disconnect from instance
