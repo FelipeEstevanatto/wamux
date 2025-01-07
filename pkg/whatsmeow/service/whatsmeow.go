@@ -1015,6 +1015,15 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	case *events.NewsletterLeave:
 		doWebhook = true
 		postMap["event"] = "NewsletterLeave"
+	case *events.UndecryptableMessage:
+		logger.LogWarn("[%s] Undecryptable message received: %s", mycli.userID, evt.Info.ID)
+		if strings.HasPrefix(evt.Info.ID, "66") || strings.HasPrefix(evt.Info.ID, "67") {
+			logger.LogError("[%s] ID dos capeta, reiniciando conexao", mycli.userID)
+			mycli.WAClient.Disconnect()
+			mycli.WAClient.Connect()
+		} else {
+			logger.LogWarn("[%s] ID nao é dos capeta, segue o baile", mycli.userID)
+		}
 	default:
 		logger.LogWarn("[%s] Unhandled event %s: %+v", mycli.userID, fmt.Sprintf("%T", evt), evt)
 		return
