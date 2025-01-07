@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gomessguii/logger"
+	"go.mau.fi/whatsmeow/proto/waCompanionReg"
 	whatsmeow_types "go.mau.fi/whatsmeow/types"
 	"golang.org/x/exp/rand"
 	"golang.org/x/net/proxy"
@@ -253,4 +255,58 @@ func GetObject(message []byte, keyFind string) string {
 		}
 	}
 	return ""
+}
+
+func WhatsAppGetUserOS() string {
+	switch runtime.GOOS {
+	case "windows":
+		return "Windows"
+	case "darwin":
+		return "macOS"
+	default:
+		return "Linux"
+	}
+}
+
+func WhatsAppGetUserAgent(agentType string) waCompanionReg.DeviceProps_PlatformType {
+	switch strings.ToLower(agentType) {
+	case "desktop":
+		return waCompanionReg.DeviceProps_DESKTOP
+	case "mac":
+		return waCompanionReg.DeviceProps_CATALINA
+	case "android":
+		return waCompanionReg.DeviceProps_ANDROID_AMBIGUOUS
+	case "android-phone":
+		return waCompanionReg.DeviceProps_ANDROID_PHONE
+	case "andorid-tablet":
+		return waCompanionReg.DeviceProps_ANDROID_TABLET
+	case "ios-phone":
+		return waCompanionReg.DeviceProps_IOS_PHONE
+	case "ios-catalyst":
+		return waCompanionReg.DeviceProps_IOS_CATALYST
+	case "ipad":
+		return waCompanionReg.DeviceProps_IPAD
+	case "wearos":
+		return waCompanionReg.DeviceProps_WEAR_OS
+	case "ie":
+		return waCompanionReg.DeviceProps_IE
+	case "edge":
+		return waCompanionReg.DeviceProps_EDGE
+	case "chrome":
+		return waCompanionReg.DeviceProps_CHROME
+	case "safari":
+		return waCompanionReg.DeviceProps_SAFARI
+	case "firefox":
+		return waCompanionReg.DeviceProps_FIREFOX
+	case "opera":
+		return waCompanionReg.DeviceProps_OPERA
+	case "uwp":
+		return waCompanionReg.DeviceProps_UWP
+	case "aloha":
+		return waCompanionReg.DeviceProps_ALOHA
+	case "tv-tcl":
+		return waCompanionReg.DeviceProps_TCL_TV
+	default:
+		return waCompanionReg.DeviceProps_UNKNOWN
+	}
 }

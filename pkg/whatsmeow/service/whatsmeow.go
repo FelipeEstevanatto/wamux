@@ -22,7 +22,6 @@ import (
 	"github.com/skip2/go-qrcode"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/appstate"
-	"go.mau.fi/whatsmeow/proto/waCompanionReg"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/store"
 	"go.mau.fi/whatsmeow/store/sqlstore"
@@ -44,6 +43,7 @@ import (
 type WhatsmeowService interface {
 	StartClient(clientData *ClientData)
 	ConnectOnStartup(clientName string)
+	ReconnectClient(instanceId string) error
 }
 
 type whatsmeowService struct {
@@ -116,6 +116,28 @@ type LinkingCodeEvent struct {
 	Token       string
 }
 
+func (w whatsmeowService) ReconnectClient(instanceId string) error {
+	if w.clientPointer[instanceId] != nil {
+		// Make Sure WebSocket Connection is Disconnected
+		w.clientPointer[instanceId].Disconnect()
+
+		// Make Sure Store ID is not Empty
+		// To do Reconnection
+		if w.clientPointer[instanceId] != nil {
+			err := w.clientPointer[instanceId].Connect()
+			if err != nil {
+				return err
+			}
+
+			return nil
+		}
+
+		return errors.New("WhatsApp Client Store ID is Empty, Please Re-Login and Scan QR Code Again")
+	}
+
+	return errors.New("WhatsApp Client is not Valid")
+}
+
 func (w whatsmeowService) StartClient(cd *ClientData) {
 
 	logger.LogInfo("Starting websocket connection to Whatsapp for user '%s'", cd.Instance.Id)
@@ -184,7 +206,11 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 
 	var version clientVersion
 
-	store.DeviceProps.PlatformType = waCompanionReg.DeviceProps_CHROME.Enum()
+	store.DeviceProps.PlatformType = utils.WhatsAppGetUserAgent("chrome").Enum()
+	if cd.Instance.OsName == "" {
+		cd.Instance.OsName = utils.WhatsAppGetUserOS()
+	}
+
 	store.DeviceProps.Os = &cd.Instance.OsName
 	store.DeviceProps.RequireFullSync = proto.Bool(false)
 
@@ -1282,7 +1308,12 @@ func (w whatsmeowService) ConnectOnStartup(clientName string) {
 			}
 		}
 
-		go w.StartClient(clientData)
+		w.StartClient(clientData)
+
+		err = w.ReconnectClient(instance.Id)
+		if err != nil {
+			logger.LogError("[%s] Error reconnecting client: %s", instance.Id, err)
+		}
 	}
 }
 
