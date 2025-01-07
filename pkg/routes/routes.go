@@ -59,6 +59,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.GET("/qr", r.instanceHandler.Qr)
 			routes.POST("/pair", r.instanceHandler.Pair)
 			routes.POST("/disconnect", r.instanceHandler.Disconnect)
+			routes.POST("/reconnect", r.instanceHandler.Reconnect)
 			routes.DELETE("/logout", r.instanceHandler.Logout)
 		}
 	}

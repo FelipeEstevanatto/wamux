@@ -1073,11 +1073,14 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	case *events.UndecryptableMessage:
 		logger.LogWarn("[%s] Undecryptable message received: %s", mycli.userID, evt.Info.ID)
 		if strings.HasPrefix(evt.Info.ID, "66") || strings.HasPrefix(evt.Info.ID, "67") {
-			logger.LogError("[%s] ID dos capeta, reiniciando conexao", mycli.userID)
+			logger.LogError("[%s] ID 66 or 67 found, reconnecting client", mycli.userID)
 			mycli.WAClient.Disconnect()
-			mycli.WAClient.Connect()
+			err := mycli.WAClient.Connect()
+			if err != nil {
+				logger.LogError("[%s] Error reconnecting client: %s", mycli.userID, err)
+			}
 		} else {
-			logger.LogWarn("[%s] ID nao é dos capeta, segue o baile", mycli.userID)
+			logger.LogWarn("[%s] ID is not 66 or 67, skipping", mycli.userID)
 		}
 	default:
 		logger.LogWarn("[%s] Unhandled event %s: %+v", mycli.userID, fmt.Sprintf("%T", evt), evt)
@@ -1308,12 +1311,12 @@ func (w whatsmeowService) ConnectOnStartup(clientName string) {
 			}
 		}
 
-		w.StartClient(clientData)
+		go w.StartClient(clientData)
 
-		err = w.ReconnectClient(instance.Id)
-		if err != nil {
-			logger.LogError("[%s] Error reconnecting client: %s", instance.Id, err)
-		}
+		// err = w.ReconnectClient(instance.Id)
+		// if err != nil {
+		// 	logger.LogError("[%s] Error reconnecting client: %s", instance.Id, err)
+		// }
 	}
 }
 
