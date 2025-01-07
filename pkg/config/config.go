@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/gomessguii/logger"
 	"gorm.io/driver/postgres"
@@ -39,6 +40,9 @@ type Config struct {
 	MinioUseSSL          bool
 	MinioEnabled         bool
 	MinioRegion          string
+	WhatsappVersionMajor int
+	WhatsappVersionMinor int
+	WhatsappVersionPatch int
 }
 
 func (c *Config) CreateAuthDB() (*gorm.DB, error) {
@@ -120,6 +124,24 @@ func Load() *Config {
 	apiAudioConverter := os.Getenv(config_env.API_AUDIO_CONVERTER)
 	apiAudioConverterKey := os.Getenv(config_env.API_AUDIO_CONVERTER_KEY)
 
+	whatsappVersionMajor := os.Getenv(config_env.WHATSAPP_VERSION_MAJOR)
+	whatsappVersionMinor := os.Getenv(config_env.WHATSAPP_VERSION_MINOR)
+	whatsappVersionPatch := os.Getenv(config_env.WHATSAPP_VERSION_PATCH)
+
+	// Convertendo para int com valores padrão caso estejam vazios
+	major := 0
+	if whatsappVersionMajor != "" {
+		major, _ = strconv.Atoi(whatsappVersionMajor)
+	}
+	minor := 0
+	if whatsappVersionMinor != "" {
+		minor, _ = strconv.Atoi(whatsappVersionMinor)
+	}
+	patch := 0
+	if whatsappVersionPatch != "" {
+		patch, _ = strconv.Atoi(whatsappVersionPatch)
+	}
+
 	config := &Config{
 		PostgresAuthDB:       postgresAuthDB,
 		postgresUsersDB:      postgresUsersDB,
@@ -141,6 +163,9 @@ func Load() *Config {
 		PostgresUser:         postgresUser,
 		PostgresPassword:     postgresPassword,
 		PostgresDB:           postgresDB,
+		WhatsappVersionMajor: major,
+		WhatsappVersionMinor: minor,
+		WhatsappVersionPatch: patch,
 	}
 
 	minioEnabled := os.Getenv(config_env.MINIO_ENABLED) == "true"
