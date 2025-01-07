@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"golang.org/x/image/webp"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/gomessguii/logger"
 	_ "github.com/lib/pq"
@@ -175,8 +176,33 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		}
 	}
 
+	type clientVersion struct {
+		Major int
+		Minor int
+		Patch int
+	}
+
+	var version clientVersion
+
 	store.DeviceProps.PlatformType = waCompanionReg.DeviceProps_CHROME.Enum()
 	store.DeviceProps.Os = &cd.Instance.OsName
+	store.DeviceProps.RequireFullSync = proto.Bool(false)
+
+	if w.config.WhatsappVersionMajor != 0 && w.config.WhatsappVersionMinor != 0 && w.config.WhatsappVersionPatch != 0 {
+		logger.LogInfo("[%s] Setting whatsapp version to %d.%d.%d", cd.Instance.Id, w.config.WhatsappVersionMajor, w.config.WhatsappVersionMinor, w.config.WhatsappVersionPatch)
+		version.Major = w.config.WhatsappVersionMajor
+		if err == nil {
+			store.DeviceProps.Version.Primary = proto.Uint32(uint32(version.Major))
+		}
+		version.Minor = w.config.WhatsappVersionMinor
+		if err == nil {
+			store.DeviceProps.Version.Secondary = proto.Uint32(uint32(version.Minor))
+		}
+		version.Patch = w.config.WhatsappVersionPatch
+		if err == nil {
+			store.DeviceProps.Version.Tertiary = proto.Uint32(uint32(version.Patch))
+		}
+	}
 
 	clientLog := waLog.Stdout("Client", w.config.WaDebug, true)
 	var client *whatsmeow.Client
@@ -204,6 +230,9 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 			logger.LogInfo("[%s] Proxy enabled", cd.Instance.Id)
 		}
 	}
+
+	client.EnableAutoReconnect = true
+	client.AutoTrustIdentity = true
 
 	mycli := MyClient{
 		Instance:           cd.Instance,
