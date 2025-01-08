@@ -163,7 +163,7 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 		}
 	}
 
-	go i.whatsmeowService.StartClient(clientData)
+	go i.whatsmeowService.StartClient(clientData, false)
 
 	// logger.LogInfo("Waiting 1 seconds")
 	// time.Sleep(1000 * time.Millisecond)
@@ -381,7 +381,7 @@ func (i instances) Pair(data *PairStruct, instance *instance_model.Instance) (*P
 		}
 	}
 
-	go i.whatsmeowService.StartClient(clientData)
+	go i.whatsmeowService.StartClient(clientData, false)
 
 	logger.LogInfo("[%s] Waiting 1 seconds", instance.Id)
 	time.Sleep(1000 * time.Millisecond)
