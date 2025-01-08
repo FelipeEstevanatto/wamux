@@ -1013,8 +1013,6 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		dataMap := postMap["data"].(map[string]interface{})
 
 		dataMap["reason"] = evt.Reason.String()
-
-		postMap["data"] = dataMap
 	case *events.ChatPresence:
 		doWebhook = true
 		postMap["event"] = "ChatPresence"
