@@ -6,6 +6,7 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 
 	_ "github.com/EvolutionAPI/evolution-go/docs"
+	call_handler "github.com/EvolutionAPI/evolution-go/pkg/call/handler"
 	chat_handler "github.com/EvolutionAPI/evolution-go/pkg/chat/handler"
 	community_handler "github.com/EvolutionAPI/evolution-go/pkg/community/handler"
 	group_handler "github.com/EvolutionAPI/evolution-go/pkg/group/handler"
@@ -27,6 +28,7 @@ type Routes struct {
 	messageHandler    message_handler.MessageHandler
 	chatHandler       chat_handler.ChatHandler
 	groupHandler      group_handler.GroupHandler
+	callHandler       call_handler.CallHandler
 	communityHandler  community_handler.CommunityHandler
 	labelHandler      label_handler.LabelHandler
 	newsletterHandler newsletter_handler.NewsletterHandler
@@ -139,6 +141,13 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.POST("/leave", r.groupHandler.LeaveGroup)
 		}
 	}
+	routes = eng.Group("/call")
+	{
+		routes.Use(r.authMiddleware.Auth)
+		{
+			routes.POST("/reject", r.callHandler.RejectCall)
+		}
+	}
 	routes = eng.Group("/community")
 	{
 		routes.Use(r.authMiddleware.Auth)
@@ -188,6 +197,7 @@ func NewRouter(
 	messageHandler message_handler.MessageHandler,
 	chatHandler chat_handler.ChatHandler,
 	groupHandler group_handler.GroupHandler,
+	callHandler call_handler.CallHandler,
 	communityHandler community_handler.CommunityHandler,
 	labelHandler label_handler.LabelHandler,
 	newsletterHandler newsletter_handler.NewsletterHandler,
@@ -201,6 +211,7 @@ func NewRouter(
 		messageHandler:    messageHandler,
 		chatHandler:       chatHandler,
 		groupHandler:      groupHandler,
+		callHandler:       callHandler,
 		communityHandler:  communityHandler,
 		labelHandler:      labelHandler,
 		newsletterHandler: newsletterHandler,

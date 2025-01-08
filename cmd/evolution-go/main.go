@@ -19,6 +19,8 @@ import (
 	"gorm.io/gorm"
 	_ "modernc.org/sqlite"
 
+	call_handler "github.com/EvolutionAPI/evolution-go/pkg/call/handler"
+	call_service "github.com/EvolutionAPI/evolution-go/pkg/call/service"
 	chat_handler "github.com/EvolutionAPI/evolution-go/pkg/chat/handler"
 	chat_service "github.com/EvolutionAPI/evolution-go/pkg/chat/service"
 	community_handler "github.com/EvolutionAPI/evolution-go/pkg/community/handler"
@@ -111,6 +113,7 @@ func setupRouter(db *gorm.DB, sqliteDB *sql.DB, config *config.Config, conn *amq
 	messageService := message_service.NewMessageService(clientPointer, messageRepository)
 	chatService := chat_service.NewChatService(clientPointer)
 	groupService := group_service.NewGroupService(clientPointer)
+	callService := call_service.NewCallService(clientPointer)
 	communityService := community_service.NewCommunityService(clientPointer)
 	labelService := label_service.NewLabelService(clientPointer)
 	newsletterService := newsletter_service.NewNewsletterService(clientPointer)
@@ -127,6 +130,7 @@ func setupRouter(db *gorm.DB, sqliteDB *sql.DB, config *config.Config, conn *amq
 		message_handler.NewMessageHandler(messageService),
 		chat_handler.NewChatHandler(chatService),
 		group_handler.NewGroupHandler(groupService),
+		call_handler.NewCallHandler(callService),
 		community_handler.NewCommunityHandler(communityService),
 		label_handler.NewLabelHandler(labelService),
 		newsletter_handler.NewNewsletterHandler(newsletterService),
