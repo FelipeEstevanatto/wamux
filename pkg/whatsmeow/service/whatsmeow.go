@@ -41,7 +41,7 @@ import (
 )
 
 type WhatsmeowService interface {
-	StartClient(clientData *ClientData)
+	StartClient(clientData *ClientData, reconnect bool)
 	ConnectOnStartup(clientName string)
 	ReconnectClient(instanceId string) error
 }
@@ -118,6 +118,7 @@ type LinkingCodeEvent struct {
 
 func (w whatsmeowService) ReconnectClient(instanceId string) error {
 	if w.clientPointer[instanceId] != nil {
+		logger.LogInfo("[%s] Reconnecting client", instanceId)
 		// Make Sure WebSocket Connection is Disconnected
 		w.clientPointer[instanceId].Disconnect()
 
@@ -129,6 +130,8 @@ func (w whatsmeowService) ReconnectClient(instanceId string) error {
 				return err
 			}
 
+			logger.LogInfo("[%s] Client reconnected", instanceId)
+
 			return nil
 		}
 
@@ -138,7 +141,7 @@ func (w whatsmeowService) ReconnectClient(instanceId string) error {
 	return errors.New("WhatsApp Client is not Valid")
 }
 
-func (w whatsmeowService) StartClient(cd *ClientData) {
+func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 
 	logger.LogInfo("Starting websocket connection to Whatsapp for user '%s'", cd.Instance.Id)
 
@@ -413,6 +416,13 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		}
 	}
 
+	if reconnect {
+		err := w.ReconnectClient(cd.Instance.Id)
+		if err != nil {
+			logger.LogError("[%s] Error reconnecting client: %s", cd.Instance.Id, err)
+		}
+	}
+
 	for {
 		select {
 		case <-w.killChannel[cd.Instance.Id]:
@@ -457,7 +467,7 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 
 			// restart client
 			logger.LogInfo("[%s] Restarting client", cd.Instance.Id)
-			w.StartClient(cd)
+			w.StartClient(cd, false)
 			return
 		default:
 			time.Sleep(1000 * time.Millisecond)
@@ -1311,7 +1321,7 @@ func (w whatsmeowService) ConnectOnStartup(clientName string) {
 			}
 		}
 
-		go w.StartClient(clientData)
+		go w.StartClient(clientData, true)
 
 		// err = w.ReconnectClient(instance.Id)
 		// if err != nil {
