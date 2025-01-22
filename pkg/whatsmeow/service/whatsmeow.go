@@ -60,6 +60,7 @@ type whatsmeowService struct {
 	sqliteDB                *sql.DB
 	exPath                  string
 	mediaStorage            storage_interfaces.MediaStorage
+	processedMessages       *cache.Cache
 }
 
 type MyClient struct {
@@ -83,6 +84,7 @@ type MyClient struct {
 	webhookProducer    producer_interfaces.Producer
 	websocketProducer  producer_interfaces.Producer
 	mediaStorage       storage_interfaces.MediaStorage
+	processedMessages  *cache.Cache
 }
 
 type ClientData struct {
@@ -284,6 +286,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 		webhookProducer:    w.webhookProducer,
 		websocketProducer:  w.websocketProducer,
 		mediaStorage:       w.mediaStorage,
+		processedMessages:  w.processedMessages,
 	}
 
 	mycli.eventHandlerID = mycli.WAClient.AddEventHandler(mycli.myEventHandler)
@@ -760,6 +763,14 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			}
 		}
 
+		messageKey := fmt.Sprintf("%s_%s", mycli.userID, evt.Info.ID)
+		if _, found := mycli.processedMessages.Get(messageKey); found {
+			logger.LogInfo("[%s] Message duplicated ignored: %s", mycli.userID, evt.Info.ID)
+			return
+		}
+
+		mycli.processedMessages.Set(messageKey, true, 30*time.Minute)
+
 		var quotedMessage *waE2E.Message
 		var stanzaID string
 
@@ -883,16 +894,6 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 				dataMap["groupData"] = groupData
 			}
 		}
-
-		// profilePicUrl, err := mycli.clientPointer[mycli.userID].GetProfilePictureInfo(evt.Info.Chat, &whatsmeow.GetProfilePictureParams{
-		// 	Preview: false,
-		// })
-		// if err != nil {
-		// 	logger.LogError("[%s] Failed to get profile picture info: %v", mycli.userID, err)
-		// } else {
-		// 	dataMap["profilePicUrl"] = profilePicUrl.URL
-
-		// }
 
 		delete(dataMap, "RawMessage")
 
@@ -1324,7 +1325,6 @@ func (w whatsmeowService) ConnectOnStartup(clientName string) {
 		// err = w.ReconnectClient(instance.Id)
 		// if err != nil {
 		// 	logger.LogError("[%s] Error reconnecting client: %s", instance.Id, err)
-		// }
 	}
 }
 
@@ -1356,6 +1356,7 @@ func NewWhatsmeowService(
 		sqliteDB:                sqliteDB,
 		exPath:                  exPath,
 		mediaStorage:            mediaStorage,
+		processedMessages:       cache.New(30*time.Minute, 1*time.Hour),
 	}
 }
 
