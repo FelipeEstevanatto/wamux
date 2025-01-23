@@ -1098,10 +1098,10 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 	if doWebhook {
 
-		_, found := mycli.userInfoCache.Get(mycli.token)
-		if !found {
-			logger.LogWarn("[%s] Could not call queue for event %s as there is no user for this token with token %s", mycli.userID, postMap["event"], mycli.token)
-		}
+		// _, found := mycli.userInfoCache.Get(mycli.token)
+		// if !found {
+		// 	logger.LogWarn("[%s] Could not call queue for event %s as there is no user for this token with token %s", mycli.userID, postMap["event"], mycli.token)
+		// }
 
 		postMap["instanceToken"] = mycli.token
 		postMap["instanceId"] = mycli.userID
