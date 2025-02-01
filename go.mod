@@ -19,11 +19,11 @@ require (
 	github.com/swaggo/gin-swagger v1.6.0
 	github.com/swaggo/swag v1.16.3
 	github.com/vincent-petithory/dataurl v1.0.0
-	go.mau.fi/whatsmeow v0.0.0-20250104105216-918c879fcd19
-	golang.org/x/exp v0.0.0-20241215155358-4a5509556b9e
+	go.mau.fi/whatsmeow v0.0.0-20250131212655-c3c6a06399a5
+	golang.org/x/exp v0.0.0-20250103183323-7d7fa50e5329
 	golang.org/x/image v0.0.0-20211028202545-6944b10bf410
-	golang.org/x/net v0.33.0
-	google.golang.org/protobuf v1.36.1
+	golang.org/x/net v0.34.0
+	google.golang.org/protobuf v1.36.4
 	gorm.io/driver/postgres v1.5.9
 	gorm.io/gorm v1.25.10
 	modernc.org/sqlite v1.33.1
@@ -74,11 +74,11 @@ require (
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
 	go.mau.fi/libsignal v0.1.1 // indirect
-	go.mau.fi/util v0.8.3 // indirect
+	go.mau.fi/util v0.8.4 // indirect
 	golang.org/x/arch v0.10.0 // indirect
-	golang.org/x/crypto v0.31.0 // indirect
+	golang.org/x/crypto v0.32.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect
-	golang.org/x/sys v0.28.0 // indirect
+	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
 	golang.org/x/tools v0.28.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

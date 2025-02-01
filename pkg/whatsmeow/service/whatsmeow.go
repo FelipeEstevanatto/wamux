@@ -1051,12 +1051,6 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	case *events.LabelEdit:
 		doWebhook = true
 		postMap["event"] = "LabelEdit"
-		// store label for later use
-		// action := evt.Action
-		// labelID := evt.LabelID
-		// actionColor := evt.Action.Color
-		// actionName := evt.Action.Name
-		// actionDeleted := evt.Action.Deleted
 		logger.LogInfo("[%s] Got label edit %+v", mycli.userID, evt.Action)
 		dataMap := postMap["data"].(map[string]interface{})
 		dataMap["labelID"] = evt.LabelID
