@@ -342,7 +342,6 @@ func (s *sendService) SendLink(data *LinkStruct, instance *instance_model.Instan
 		ExtendedTextMessage: &waE2E.ExtendedTextMessage{
 			Text:          &data.Text,
 			Title:         &data.Title,
-			CanonicalURL:  &data.Url,
 			MatchedText:   &matchedText,
 			JPEGThumbnail: fileData,
 			Description:   &data.Description,
@@ -1409,7 +1408,7 @@ func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, message
 
 			var mentionedJIDs []string
 			for _, jid := range allParticipants {
-				mentionedJIDs = append(mentionedJIDs, jid.String())
+				mentionedJIDs = append(mentionedJIDs, jid.JID.String())
 			}
 
 			switch messageType {
