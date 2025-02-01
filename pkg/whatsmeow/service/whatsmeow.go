@@ -763,13 +763,13 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			}
 		}
 
-		messageKey := fmt.Sprintf("%s_%s", mycli.userID, evt.Info.ID)
-		if _, found := mycli.processedMessages.Get(messageKey); found {
-			logger.LogInfo("[%s] Message duplicated ignored: %s", mycli.userID, evt.Info.ID)
-			return
-		}
+		// messageKey := fmt.Sprintf("%s_%s", mycli.userID, evt.Info.ID)
+		// if _, found := mycli.processedMessages.Get(messageKey); found {
+		// 	logger.LogInfo("[%s] Message duplicated ignored: %s", mycli.userID, evt.Info.ID)
+		// 	return
+		// }
 
-		mycli.processedMessages.Set(messageKey, true, 30*time.Minute)
+		// mycli.processedMessages.Set(messageKey, true, 30*time.Minute)
 
 		var quotedMessage *waE2E.Message
 		var stanzaID string
@@ -1058,12 +1058,29 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		// actionName := evt.Action.Name
 		// actionDeleted := evt.Action.Deleted
 		logger.LogInfo("[%s] Got label edit %+v", mycli.userID, evt.Action)
+		dataMap := postMap["data"].(map[string]interface{})
+		dataMap["labelID"] = evt.LabelID
+		dataMap["action"] = evt.Action
+		dataMap["Timestamp"] = evt.Timestamp
+		postMap["data"] = dataMap
 	case *events.LabelAssociationChat:
 		doWebhook = true
 		postMap["event"] = "LabelAssociationChat"
+
+		dataMap := postMap["data"].(map[string]interface{})
+		dataMap["labelID"] = evt.LabelID
+		dataMap["action"] = evt.Action
+		dataMap["Timestamp"] = evt.Timestamp
+		postMap["data"] = dataMap
+
 	case *events.LabelAssociationMessage:
 		doWebhook = true
 		postMap["event"] = "LabelAssociationMessage"
+		dataMap := postMap["data"].(map[string]interface{})
+		dataMap["labelID"] = evt.LabelID
+		dataMap["action"] = evt.Action
+		dataMap["Timestamp"] = evt.Timestamp
+		postMap["data"] = dataMap
 	case *events.Contact:
 		doWebhook = true
 		postMap["event"] = "Contact"
