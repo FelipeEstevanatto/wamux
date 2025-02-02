@@ -2,6 +2,7 @@ package instance_service
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -84,6 +85,45 @@ type PairStruct struct {
 
 type PairReturnStruct struct {
 	PairingCode string
+}
+
+func (i *instances) ensureClientConnected(instanceId string) (*whatsmeow.Client, error) {
+	client := i.clientPointer[instanceId]
+	logger.LogInfo("[%s] Checking client connection status - Client exists: %v", instanceId, client != nil)
+
+	if client == nil {
+		logger.LogInfo("[%s] No client found, attempting to start new instance", instanceId)
+		err := i.whatsmeowService.StartInstance(instanceId)
+		if err != nil {
+			logger.LogError("[%s] Failed to start instance: %v", instanceId, err)
+			return nil, errors.New("no active session found")
+		}
+
+		logger.LogInfo("[%s] Instance started, waiting 2 seconds...", instanceId)
+		time.Sleep(2 * time.Second)
+
+		client = i.clientPointer[instanceId]
+		logger.LogInfo("[%s] Checking new client - Exists: %v, Connected: %v",
+			instanceId,
+			client != nil,
+			client != nil && client.IsConnected())
+
+		if client == nil || !client.IsConnected() {
+			logger.LogError("[%s] New client validation failed - Exists: %v, Connected: %v",
+				instanceId,
+				client != nil,
+				client != nil && client.IsConnected())
+			return nil, errors.New("no active session found")
+		}
+	} else if !client.IsConnected() {
+		logger.LogError("[%s] Existing client is disconnected - Connected status: %v",
+			instanceId,
+			client.IsConnected())
+		return nil, errors.New("client disconnected")
+	}
+
+	logger.LogInfo("[%s] Client successfully validated - Connected: %v", instanceId, client.IsConnected())
+	return client, nil
 }
 
 func (i instances) Create(data *CreateStruct) (*instance_model.Instance, error) {
@@ -180,20 +220,22 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 }
 
 func (i instances) Reconnect(instance *instance_model.Instance) error {
-	if i.clientPointer[instance.Id] == nil {
-		return fmt.Errorf("no session found")
+	_, err := i.ensureClientConnected(instance.Id)
+	if err != nil {
+		return err
 	}
 
 	return i.whatsmeowService.ReconnectClient(instance.Id)
 }
 
 func (i instances) Disconnect(instance *instance_model.Instance) (*instance_model.Instance, error) {
-	if i.clientPointer[instance.Id] == nil {
-		return instance, fmt.Errorf("no session found")
+	client, err := i.ensureClientConnected(instance.Id)
+	if err != nil {
+		return instance, err
 	}
 
-	if i.clientPointer[instance.Id].IsConnected() {
-		if i.clientPointer[instance.Id].IsLoggedIn() {
+	if client.IsConnected() {
+		if client.IsLoggedIn() {
 			logger.LogInfo("[%s] Disconnection successful", instance.Id)
 			i.killChannel[instance.Id] <- true
 
@@ -213,11 +255,10 @@ func (i instances) Disconnect(instance *instance_model.Instance) (*instance_mode
 }
 
 func (i instances) Logout(instance *instance_model.Instance) (*instance_model.Instance, error) {
-	if i.clientPointer[instance.Id] == nil {
-		return instance, fmt.Errorf("no session found")
+	client, err := i.ensureClientConnected(instance.Id)
+	if err != nil {
+		return instance, err
 	}
-
-	client := i.clientPointer[instance.Id]
 
 	if client.IsLoggedIn() && client.IsConnected() {
 		err := client.Logout()
@@ -264,18 +305,19 @@ func (i instances) Logout(instance *instance_model.Instance) (*instance_model.In
 }
 
 func (i instances) Status(instance *instance_model.Instance) (*StatusStruct, error) {
-	if i.clientPointer[instance.Id] == nil {
-		return nil, fmt.Errorf("no session found")
+	client, err := i.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
 	}
 
-	isConnected := i.clientPointer[instance.Id].IsConnected()
-	isLoggedIn := i.clientPointer[instance.Id].IsLoggedIn()
+	isConnected := client.IsConnected()
+	isLoggedIn := client.IsLoggedIn()
 
 	var myJid *types.JID
 	var name string
 	if isLoggedIn {
-		myJid = i.clientPointer[instance.Id].Store.ID
-		name = i.clientPointer[instance.Id].Store.PushName
+		myJid = client.Store.ID
+		name = client.Store.PushName
 	}
 
 	status := &StatusStruct{
@@ -289,15 +331,16 @@ func (i instances) Status(instance *instance_model.Instance) (*StatusStruct, err
 }
 
 func (i instances) GetQr(instance *instance_model.Instance) (*QrcodeStruct, error) {
-	if i.clientPointer[instance.Id] == nil {
-		return nil, fmt.Errorf("no session found")
+	client, err := i.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
 	}
 
-	if i.clientPointer[instance.Id].IsLoggedIn() {
+	if client.IsLoggedIn() {
 		return nil, fmt.Errorf("session already logged in")
 	}
 
-	instance, err := i.instanceRepository.GetInstanceByID(instance.Id)
+	instance, err = i.instanceRepository.GetInstanceByID(instance.Id)
 	if err != nil {
 		return nil, err
 	}

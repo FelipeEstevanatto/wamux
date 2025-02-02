@@ -7,6 +7,7 @@ import (
 
 	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
 	"github.com/EvolutionAPI/evolution-go/pkg/utils"
+	whatsmeow_service "github.com/EvolutionAPI/evolution-go/pkg/whatsmeow/service"
 	"github.com/gomessguii/logger"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/appstate"
@@ -22,7 +23,8 @@ type ChatService interface {
 }
 
 type chatService struct {
-	clientPointer map[string]*whatsmeow.Client
+	clientPointer    map[string]*whatsmeow.Client
+	whatsmeowService whatsmeow_service.WhatsmeowService
 }
 
 type BodyStruct struct {
@@ -34,9 +36,49 @@ type HistorySyncRequestStruct struct {
 	Count       int                `json:"count"`
 }
 
+func (c *chatService) ensureClientConnected(instanceId string) (*whatsmeow.Client, error) {
+	client := c.clientPointer[instanceId]
+	logger.LogInfo("[%s] Checking client connection status - Client exists: %v", instanceId, client != nil)
+
+	if client == nil {
+		logger.LogInfo("[%s] No client found, attempting to start new instance", instanceId)
+		err := c.whatsmeowService.StartInstance(instanceId)
+		if err != nil {
+			logger.LogError("[%s] Failed to start instance: %v", instanceId, err)
+			return nil, errors.New("no active session found")
+		}
+
+		logger.LogInfo("[%s] Instance started, waiting 2 seconds...", instanceId)
+		time.Sleep(2 * time.Second)
+
+		client = c.clientPointer[instanceId]
+		logger.LogInfo("[%s] Checking new client - Exists: %v, Connected: %v",
+			instanceId,
+			client != nil,
+			client != nil && client.IsConnected())
+
+		if client == nil || !client.IsConnected() {
+			logger.LogError("[%s] New client validation failed - Exists: %v, Connected: %v",
+				instanceId,
+				client != nil,
+				client != nil && client.IsConnected())
+			return nil, errors.New("no active session found")
+		}
+	} else if !client.IsConnected() {
+		logger.LogError("[%s] Existing client is disconnected - Connected status: %v",
+			instanceId,
+			client.IsConnected())
+		return nil, errors.New("client disconnected")
+	}
+
+	logger.LogInfo("[%s] Client successfully validated - Connected: %v", instanceId, client.IsConnected())
+	return client, nil
+}
+
 func (c *chatService) ChatPin(data *BodyStruct, instance *instance_model.Instance) (string, error) {
-	if c.clientPointer[instance.Id] == nil {
-		return "", errors.New("no session found")
+	client, err := c.ensureClientConnected(instance.Id)
+	if err != nil {
+		return "", err
 	}
 
 	var ts time.Time
@@ -47,7 +89,7 @@ func (c *chatService) ChatPin(data *BodyStruct, instance *instance_model.Instanc
 		return "", errors.New("invalid phone number")
 	}
 
-	err := c.clientPointer[instance.Id].SendAppState(appstate.BuildPin(recipient, true))
+	err = client.SendAppState(appstate.BuildPin(recipient, true))
 	if err != nil {
 		logger.LogError("[%s] error pin chat: %v", instance.Id, err)
 		return "", err
@@ -57,8 +99,9 @@ func (c *chatService) ChatPin(data *BodyStruct, instance *instance_model.Instanc
 }
 
 func (c *chatService) ChatUnpin(data *BodyStruct, instance *instance_model.Instance) (string, error) {
-	if c.clientPointer[instance.Id] == nil {
-		return "", errors.New("no session found")
+	client, err := c.ensureClientConnected(instance.Id)
+	if err != nil {
+		return "", err
 	}
 
 	var ts time.Time
@@ -69,7 +112,7 @@ func (c *chatService) ChatUnpin(data *BodyStruct, instance *instance_model.Insta
 		return "", errors.New("invalid phone number")
 	}
 
-	err := c.clientPointer[instance.Id].SendAppState(appstate.BuildPin(recipient, false))
+	err = client.SendAppState(appstate.BuildPin(recipient, false))
 	if err != nil {
 		logger.LogError("[%s] error unpin chat: %v", instance.Id, err)
 		return "", err
@@ -79,8 +122,9 @@ func (c *chatService) ChatUnpin(data *BodyStruct, instance *instance_model.Insta
 }
 
 func (c *chatService) ChatArchive(data *BodyStruct, instance *instance_model.Instance) (string, error) {
-	if c.clientPointer[instance.Id] == nil {
-		return "", errors.New("no session found")
+	client, err := c.ensureClientConnected(instance.Id)
+	if err != nil {
+		return "", err
 	}
 
 	var ts time.Time
@@ -91,7 +135,7 @@ func (c *chatService) ChatArchive(data *BodyStruct, instance *instance_model.Ins
 		return "", errors.New("invalid phone number")
 	}
 
-	err := c.clientPointer[instance.Id].SendAppState(appstate.BuildArchive(recipient, true, time.Time{}, nil))
+	err = client.SendAppState(appstate.BuildArchive(recipient, true, time.Time{}, nil))
 	if err != nil {
 		logger.LogError("[%s] error archive chat: %v", instance.Id, err)
 		return "", err
@@ -101,8 +145,9 @@ func (c *chatService) ChatArchive(data *BodyStruct, instance *instance_model.Ins
 }
 
 func (c *chatService) ChatMute(data *BodyStruct, instance *instance_model.Instance) (string, error) {
-	if c.clientPointer[instance.Id] == nil {
-		return "", errors.New("no session found")
+	client, err := c.ensureClientConnected(instance.Id)
+	if err != nil {
+		return "", err
 	}
 
 	var ts time.Time
@@ -113,7 +158,7 @@ func (c *chatService) ChatMute(data *BodyStruct, instance *instance_model.Instan
 		return "", errors.New("invalid phone number")
 	}
 
-	err := c.clientPointer[instance.Id].SendAppState(appstate.BuildMute(recipient, true, 1*time.Hour))
+	err = client.SendAppState(appstate.BuildMute(recipient, true, 1*time.Hour))
 	if err != nil {
 		logger.LogError("[%s] error mute chat: %v", instance.Id, err)
 		return "", err
@@ -123,8 +168,9 @@ func (c *chatService) ChatMute(data *BodyStruct, instance *instance_model.Instan
 }
 
 func (c *chatService) HistorySyncRequest(data *HistorySyncRequestStruct, instance *instance_model.Instance) (string, error) {
-	if c.clientPointer[instance.Id] == nil {
-		return "", errors.New("no session found")
+	client, err := c.ensureClientConnected(instance.Id)
+	if err != nil {
+		return "", err
 	}
 
 	messageInfo := types.MessageInfo{
@@ -136,9 +182,9 @@ func (c *chatService) HistorySyncRequest(data *HistorySyncRequestStruct, instanc
 		Timestamp: data.MessageInfo.Timestamp,
 	}
 
-	histRequest := c.clientPointer[instance.Id].BuildHistorySyncRequest(&messageInfo, data.Count)
+	histRequest := client.BuildHistorySyncRequest(&messageInfo, data.Count)
 
-	res, err := c.clientPointer[instance.Id].SendMessage(context.Background(), messageInfo.Chat, histRequest, whatsmeow.SendRequestExtra{Peer: true})
+	res, err := client.SendMessage(context.Background(), messageInfo.Chat, histRequest, whatsmeow.SendRequestExtra{Peer: true})
 	if err != nil {
 		logger.LogError("[%s] error history sync request: %v", instance.Id, err)
 		return "", err
@@ -149,8 +195,10 @@ func (c *chatService) HistorySyncRequest(data *HistorySyncRequestStruct, instanc
 
 func NewChatService(
 	clientPointer map[string]*whatsmeow.Client,
+	whatsmeowService whatsmeow_service.WhatsmeowService,
 ) ChatService {
 	return &chatService{
-		clientPointer: clientPointer,
+		clientPointer:    clientPointer,
+		whatsmeowService: whatsmeowService,
 	}
 }

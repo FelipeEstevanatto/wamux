@@ -12,6 +12,7 @@ import (
 type InstanceRepository interface {
 	Create(instance instance_model.Instance) (*instance_model.Instance, error)
 	GetInstanceByID(instanceId string) (*instance_model.Instance, error)
+	GetConnectedInstanceByID(instanceId string) (*instance_model.Instance, error)
 	GetInstanceByToken(token string) (*instance_model.Instance, error)
 	Update(*instance_model.Instance) error
 	UpdateConnected(userId string, status bool) error
@@ -51,6 +52,16 @@ func (i *instanceRepository) GetInstanceByID(instanceId string) (*instance_model
 
 	var instance instance_model.Instance
 	err := i.db.Where("id = ?", instanceId).First(&instance).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &instance, nil
+}
+
+func (i *instanceRepository) GetConnectedInstanceByID(instanceId string) (*instance_model.Instance, error) {
+	var instance instance_model.Instance
+	err := i.db.Where("id = ? AND connected = ?", instanceId, true).First(&instance).Error
 	if err != nil {
 		return nil, err
 	}

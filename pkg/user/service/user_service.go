@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
 	"github.com/EvolutionAPI/evolution-go/pkg/utils"
@@ -94,9 +95,49 @@ type PrivacyStruct struct {
 	Online       types.PrivacySetting `json:"online"`
 }
 
+func (u *userService) ensureClientConnected(instanceId string) (*whatsmeow.Client, error) {
+	client := u.clientPointer[instanceId]
+	logger.LogInfo("[%s] Checking client connection status - Client exists: %v", instanceId, client != nil)
+
+	if client == nil {
+		logger.LogInfo("[%s] No client found, attempting to start new instance", instanceId)
+		err := u.whatsmeowService.StartInstance(instanceId)
+		if err != nil {
+			logger.LogError("[%s] Failed to start instance: %v", instanceId, err)
+			return nil, errors.New("no active session found")
+		}
+
+		logger.LogInfo("[%s] Instance started, waiting 2 seconds...", instanceId)
+		time.Sleep(2 * time.Second)
+
+		client = u.clientPointer[instanceId]
+		logger.LogInfo("[%s] Checking new client - Exists: %v, Connected: %v",
+			instanceId,
+			client != nil,
+			client != nil && client.IsConnected())
+
+		if client == nil || !client.IsConnected() {
+			logger.LogError("[%s] New client validation failed - Exists: %v, Connected: %v",
+				instanceId,
+				client != nil,
+				client != nil && client.IsConnected())
+			return nil, errors.New("no active session found")
+		}
+	} else if !client.IsConnected() {
+		logger.LogError("[%s] Existing client is disconnected - Connected status: %v",
+			instanceId,
+			client.IsConnected())
+		return nil, errors.New("client disconnected")
+	}
+
+	logger.LogInfo("[%s] Client successfully validated - Connected: %v", instanceId, client.IsConnected())
+	return client, nil
+}
+
 func (u *userService) GetUser(data *CheckUserStruct, instance *instance_model.Instance) (*UserCollection, error) {
-	if u.clientPointer[instance.Id] == nil {
-		return nil, errors.New("no session found")
+	client, err := u.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
 	}
 
 	var jids []types.JID
@@ -107,7 +148,7 @@ func (u *userService) GetUser(data *CheckUserStruct, instance *instance_model.In
 		}
 		jids = append(jids, jid)
 	}
-	resp, err := u.clientPointer[instance.Id].GetUserInfo(jids)
+	resp, err := client.GetUserInfo(jids)
 	if err != nil {
 		return nil, err
 	}
@@ -123,11 +164,12 @@ func (u *userService) GetUser(data *CheckUserStruct, instance *instance_model.In
 }
 
 func (u *userService) CheckUser(data *CheckUserStruct, instance *instance_model.Instance) (*CheckUserCollection, error) {
-	if u.clientPointer[instance.Id] == nil {
-		return nil, errors.New("no session found")
+	client, err := u.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
 	}
 
-	resp, err := u.clientPointer[instance.Id].IsOnWhatsApp(data.Number)
+	resp, err := client.IsOnWhatsApp(data.Number)
 	if err != nil {
 		return nil, err
 	}
@@ -147,8 +189,9 @@ func (u *userService) CheckUser(data *CheckUserStruct, instance *instance_model.
 }
 
 func (u *userService) GetAvatar(data *GetAvatarStruct, instance *instance_model.Instance) (*types.ProfilePictureInfo, error) {
-	if u.clientPointer[instance.Id] == nil {
-		return nil, errors.New("no session found")
+	client, err := u.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
 	}
 
 	jid, ok := utils.ParseJID(data.Number)
@@ -158,7 +201,7 @@ func (u *userService) GetAvatar(data *GetAvatarStruct, instance *instance_model.
 
 	var pic *types.ProfilePictureInfo
 
-	pic, err := u.clientPointer[instance.Id].GetProfilePictureInfo(jid, &whatsmeow.GetProfilePictureParams{
+	pic, err = client.GetProfilePictureInfo(jid, &whatsmeow.GetProfilePictureParams{
 		Preview: data.Preview,
 	})
 	if err != nil {
@@ -175,11 +218,12 @@ func (u *userService) GetAvatar(data *GetAvatarStruct, instance *instance_model.
 }
 
 func (u *userService) GetContacts(instance *instance_model.Instance) ([]ContactInfo, error) {
-	if u.clientPointer[instance.Id] == nil {
-		return nil, errors.New("no session found")
+	client, err := u.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
 	}
 
-	contacts, err := u.clientPointer[instance.Id].Store.Contacts.GetAllContacts()
+	contacts, err := client.Store.Contacts.GetAllContacts()
 	if err != nil {
 		return nil, err
 	}
@@ -202,18 +246,20 @@ func (u *userService) GetContacts(instance *instance_model.Instance) ([]ContactI
 }
 
 func (u *userService) GetPrivacy(instance *instance_model.Instance) (types.PrivacySettings, error) {
-	if u.clientPointer[instance.Id] == nil {
-		return types.PrivacySettings{}, errors.New("no session found")
+	client, err := u.ensureClientConnected(instance.Id)
+	if err != nil {
+		return types.PrivacySettings{}, err
 	}
 
-	privacy := u.clientPointer[instance.Id].GetPrivacySettings()
+	privacy := client.GetPrivacySettings()
 
 	return privacy, nil
 }
 
 func (u *userService) SetPrivacy(data *PrivacyStruct, instance *instance_model.Instance) (*types.PrivacySettings, error) {
-	if u.clientPointer[instance.Id] == nil {
-		return nil, errors.New("no session found")
+	client, err := u.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
 	}
 
 	privacySettings := []struct {
@@ -230,20 +276,21 @@ func (u *userService) SetPrivacy(data *PrivacyStruct, instance *instance_model.I
 	}
 
 	for _, setting := range privacySettings {
-		_, err := u.clientPointer[instance.Id].SetPrivacySetting(setting.name, setting.value)
+		_, err := client.SetPrivacySetting(setting.name, setting.value)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	privacy := u.clientPointer[instance.Id].GetPrivacySettings()
+	privacy := client.GetPrivacySettings()
 
 	return &privacy, nil
 }
 
 func (u *userService) BlockContact(data *BlockStruct, instance *instance_model.Instance) (*types.Blocklist, error) {
-	if u.clientPointer[instance.Id] == nil {
-		return nil, errors.New("no session found")
+	client, err := u.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
 	}
 
 	jid, ok := utils.ParseJID(data.Number)
@@ -251,7 +298,7 @@ func (u *userService) BlockContact(data *BlockStruct, instance *instance_model.I
 		return nil, errors.New("invalid phone number")
 	}
 
-	resp, err := u.clientPointer[instance.Id].UpdateBlocklist(jid, events.BlocklistChangeActionBlock)
+	resp, err := client.UpdateBlocklist(jid, events.BlocklistChangeActionBlock)
 	if err != nil {
 		return nil, err
 	}
@@ -260,8 +307,9 @@ func (u *userService) BlockContact(data *BlockStruct, instance *instance_model.I
 }
 
 func (u *userService) UnlockContact(data *BlockStruct, instance *instance_model.Instance) (*types.Blocklist, error) {
-	if u.clientPointer[instance.Id] == nil {
-		return nil, errors.New("no session found")
+	client, err := u.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
 	}
 
 	jid, ok := utils.ParseJID(data.Number)
@@ -269,7 +317,7 @@ func (u *userService) UnlockContact(data *BlockStruct, instance *instance_model.
 		return nil, errors.New("invalid phone number")
 	}
 
-	resp, err := u.clientPointer[instance.Id].UpdateBlocklist(jid, events.BlocklistChangeActionUnblock)
+	resp, err := client.UpdateBlocklist(jid, events.BlocklistChangeActionUnblock)
 	if err != nil {
 		return nil, err
 	}
@@ -278,11 +326,12 @@ func (u *userService) UnlockContact(data *BlockStruct, instance *instance_model.
 }
 
 func (u *userService) GetBlockList(instance *instance_model.Instance) (*types.Blocklist, error) {
-	if u.clientPointer[instance.Id] == nil {
-		return nil, errors.New("no session found")
+	client, err := u.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
 	}
 
-	resp, err := u.clientPointer[instance.Id].GetBlocklist()
+	resp, err := client.GetBlocklist()
 	if err != nil {
 		return nil, err
 	}
@@ -291,8 +340,9 @@ func (u *userService) GetBlockList(instance *instance_model.Instance) (*types.Bl
 }
 
 func (u *userService) SetProfilePicture(data *SetProfilePictureStruct, instance *instance_model.Instance) (bool, error) {
-	if u.clientPointer[instance.Id] == nil {
-		return false, errors.New("no session found")
+	client, err := u.ensureClientConnected(instance.Id)
+	if err != nil {
+		return false, err
 	}
 
 	var filedata []byte
@@ -308,7 +358,7 @@ func (u *userService) SetProfilePicture(data *SetProfilePictureStruct, instance 
 		return false, fmt.Errorf("failed to read image data: %v", err)
 	}
 
-	_, err = u.clientPointer[instance.Id].SetGroupPhoto(types.EmptyJID, filedata)
+	_, err = client.SetGroupPhoto(types.EmptyJID, filedata)
 	if err != nil {
 		return false, err
 	}
@@ -317,11 +367,12 @@ func (u *userService) SetProfilePicture(data *SetProfilePictureStruct, instance 
 }
 
 func (u *userService) SetProfileName(data *SetProfileNameStruct, instance *instance_model.Instance) (bool, error) {
-	if u.clientPointer[instance.Id] == nil {
-		return false, errors.New("no session found")
+	client, err := u.ensureClientConnected(instance.Id)
+	if err != nil {
+		return false, err
 	}
 
-	err := u.clientPointer[instance.Id].SetGroupName(types.EmptyJID, data.Name)
+	err = client.SetGroupName(types.EmptyJID, data.Name)
 	if err != nil {
 		return false, err
 	}
@@ -330,11 +381,12 @@ func (u *userService) SetProfileName(data *SetProfileNameStruct, instance *insta
 }
 
 func (u *userService) SetProfileStatus(data *SetProfileStatusStruct, instance *instance_model.Instance) (bool, error) {
-	if u.clientPointer[instance.Id] == nil {
-		return false, errors.New("no session found")
+	client, err := u.ensureClientConnected(instance.Id)
+	if err != nil {
+		return false, err
 	}
 
-	err := u.clientPointer[instance.Id].SetStatusMessage(data.Status)
+	err = client.SetStatusMessage(data.Status)
 	if err != nil {
 		return false, err
 	}
