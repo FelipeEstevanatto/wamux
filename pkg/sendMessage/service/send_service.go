@@ -201,6 +201,45 @@ type MessageSendStruct struct {
 	MessageContextInfo *waE2E.ContextInfo
 }
 
+func (s *sendService) ensureClientConnected(instanceId string) (*whatsmeow.Client, error) {
+	client := s.clientPointer[instanceId]
+	logger.LogInfo("[%s] Checking client connection status - Client exists: %v", instanceId, client != nil)
+
+	if client == nil {
+		logger.LogInfo("[%s] No client found, attempting to start new instance", instanceId)
+		err := s.whatsmeowService.StartInstance(instanceId)
+		if err != nil {
+			logger.LogError("[%s] Failed to start instance: %v", instanceId, err)
+			return nil, errors.New("no active session found")
+		}
+
+		logger.LogInfo("[%s] Instance started, waiting 2 seconds...", instanceId)
+		time.Sleep(2 * time.Second)
+
+		client = s.clientPointer[instanceId]
+		logger.LogInfo("[%s] Checking new client - Exists: %v, Connected: %v",
+			instanceId,
+			client != nil,
+			client != nil && client.IsConnected())
+
+		if client == nil || !client.IsConnected() {
+			logger.LogError("[%s] New client validation failed - Exists: %v, Connected: %v",
+				instanceId,
+				client != nil,
+				client != nil && client.IsConnected())
+			return nil, errors.New("no active session found")
+		}
+	} else if !client.IsConnected() {
+		logger.LogError("[%s] Existing client is disconnected - Connected status: %v",
+			instanceId,
+			client.IsConnected())
+		return nil, errors.New("client disconnected")
+	}
+
+	logger.LogInfo("[%s] Client successfully validated - Connected: %v", instanceId, client.IsConnected())
+	return client, nil
+}
+
 func validateMessageFields(phone string, messageID *string, participant *string) (types.JID, error) {
 
 	recipient, ok := utils.ParseJID(phone)
@@ -234,8 +273,9 @@ func findURL(text string) string {
 }
 
 func (s *sendService) SendText(data *TextStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
-	if s.clientPointer[instance.Id] == nil {
-		return nil, errors.New("no session found")
+	_, err := s.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
 	}
 
 	msg := &waE2E.Message{
@@ -311,8 +351,9 @@ func fetchLinkMetadata(url string) (string, string, string, error) {
 }
 
 func (s *sendService) SendLink(data *LinkStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
-	if s.clientPointer[instance.Id] == nil {
-		return nil, errors.New("no session found")
+	_, err := s.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
 	}
 
 	matchedText := findURL(data.Text)
@@ -477,8 +518,9 @@ func convertAudioToOpusWithDuration(inputData []byte) ([]byte, int, error) {
 }
 
 func (s *sendService) SendMediaFile(data *MediaStruct, fileData []byte, instance *instance_model.Instance) (*MessageSendStruct, error) {
-	if s.clientPointer[instance.Id] == nil {
-		return nil, errors.New("no session found")
+	client, err := s.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
 	}
 
 	mime, _ := mimetype.DetectReader(bytes.NewReader(fileData))
@@ -527,7 +569,7 @@ func (s *sendService) SendMediaFile(data *MediaStruct, fileData []byte, instance
 		return nil, errors.New("invalid media type")
 	}
 
-	uploaded, err := s.clientPointer[instance.Id].Upload(context.Background(), fileData, uploadType)
+	uploaded, err := client.Upload(context.Background(), fileData, uploadType)
 	if err != nil {
 		return nil, err
 	}
@@ -618,8 +660,9 @@ func (s *sendService) SendMediaFile(data *MediaStruct, fileData []byte, instance
 }
 
 func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
-	if s.clientPointer[instance.Id] == nil {
-		return nil, errors.New("no session found")
+	client, err := s.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
 	}
 
 	var uploaded whatsmeow.UploadResponse
@@ -680,7 +723,7 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 		return nil, errors.New("invalid media type")
 	}
 
-	uploaded, err = s.clientPointer[instance.Id].Upload(context.Background(), fileData, uploadType)
+	uploaded, err = client.Upload(context.Background(), fileData, uploadType)
 	if err != nil {
 		return nil, err
 	}
@@ -777,11 +820,12 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 }
 
 func (s *sendService) SendPoll(data *PollStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
-	if s.clientPointer[instance.Id] == nil {
-		return nil, errors.New("no session found")
+	client, err := s.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
 	}
 
-	msg := s.clientPointer[instance.Id].BuildPollCreation(data.Question, data.Options, data.MaxAnswer)
+	msg := client.BuildPollCreation(data.Question, data.Options, data.MaxAnswer)
 
 	message, err := s.SendMessage(instance.Id, msg, "PollCreationMessage", &SendDataStruct{
 		Id:           data.Id,
@@ -823,8 +867,9 @@ func convertToWebP(imageData string) ([]byte, error) {
 }
 
 func (s *sendService) SendSticker(data *StickerStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
-	if s.clientPointer[instance.Id] == nil {
-		return nil, errors.New("no session found")
+	client, err := s.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
 	}
 
 	var uploaded whatsmeow.UploadResponse
@@ -838,7 +883,7 @@ func (s *sendService) SendSticker(data *StickerStruct, instance *instance_model.
 
 		filedata = webpData
 
-		uploaded, err = s.clientPointer[instance.Id].Upload(context.Background(), filedata, whatsmeow.MediaImage)
+		uploaded, err = client.Upload(context.Background(), filedata, whatsmeow.MediaImage)
 		if err != nil {
 			return nil, fmt.Errorf("failed to upload sticker: %v", err)
 		}
@@ -872,8 +917,9 @@ func (s *sendService) SendSticker(data *StickerStruct, instance *instance_model.
 }
 
 func (s *sendService) SendLocation(data *LocationStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
-	if s.clientPointer[instance.Id] == nil {
-		return nil, errors.New("no session found")
+	_, err := s.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
 	}
 
 	msg := &waE2E.Message{LocationMessage: &waE2E.LocationMessage{
@@ -899,8 +945,9 @@ func (s *sendService) SendLocation(data *LocationStruct, instance *instance_mode
 }
 
 func (s *sendService) SendContact(data *ContactStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
-	if s.clientPointer[instance.Id] == nil {
-		return nil, errors.New("no session found")
+	_, err := s.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
 	}
 
 	VCstring := utils.GenerateVC(utils.VCardStruct{
@@ -949,8 +996,9 @@ func mapKeyType(keyType string) string {
 }
 
 func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
-	if s.clientPointer[instance.Id] == nil {
-		return nil, errors.New("no session found")
+	client, err := s.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
 	}
 
 	hasReply := false
@@ -1017,7 +1065,7 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 		})
 	}
 
-	messageId := s.clientPointer[instance.Id].GenerateMessageID()
+	messageId := client.GenerateMessageID()
 	templateId := string(time.Now().UnixNano() / 1000000)
 	messageParamsJSON := `{"from":"api","templateId":` + templateId + `}`
 
@@ -1070,20 +1118,20 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 	}
 
 	if data.Delay > 0 {
-		err := s.clientPointer[instance.Id].SendChatPresence(recipient, types.ChatPresence("composing"), types.ChatPresenceMedia(""))
+		err := client.SendChatPresence(recipient, types.ChatPresence("composing"), types.ChatPresenceMedia(""))
 		if err != nil {
 			return nil, err
 		}
 
 		time.Sleep(time.Duration(data.Delay) * time.Millisecond)
 
-		err = s.clientPointer[instance.Id].SendChatPresence(recipient, types.ChatPresence("paused"), types.ChatPresenceMedia(""))
+		err = client.SendChatPresence(recipient, types.ChatPresence("paused"), types.ChatPresenceMedia(""))
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	response, err := s.clientPointer[instance.Id].SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{ID: messageId})
+	response, err := client.SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{ID: messageId})
 	if err != nil {
 		return nil, err
 	}
@@ -1091,7 +1139,7 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 	messageInfo := types.MessageInfo{
 		MessageSource: types.MessageSource{
 			Chat:     recipient,
-			Sender:   *s.clientPointer[instance.Id].Store.ID,
+			Sender:   *client.Store.ID,
 			IsFromMe: true,
 			IsGroup:  false,
 		},
@@ -1173,11 +1221,12 @@ func sectionsToString(data *ListStruct) (string, error) {
 }
 
 func (s *sendService) SendList(data *ListStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
-	if s.clientPointer[instance.Id] == nil {
-		return nil, errors.New("no session found")
+	client, err := s.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
 	}
 
-	messageId := s.clientPointer[instance.Id].GenerateMessageID()
+	messageId := client.GenerateMessageID()
 
 	templateId := string(time.Now().UnixNano() / 1000000)
 
@@ -1229,7 +1278,7 @@ func (s *sendService) SendList(data *ListStruct, instance *instance_model.Instan
 	}
 
 	if data.Delay > 0 {
-		err := s.clientPointer[instance.Id].SendChatPresence(recipient, types.ChatPresence("composing"), types.ChatPresenceMedia(""))
+		err := client.SendChatPresence(recipient, types.ChatPresence("composing"), types.ChatPresenceMedia(""))
 		if err != nil {
 			return nil, err
 		}

@@ -2,9 +2,11 @@ package label_service
 
 import (
 	"errors"
+	"time"
 
 	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
 	"github.com/EvolutionAPI/evolution-go/pkg/utils"
+	whatsmeow_service "github.com/EvolutionAPI/evolution-go/pkg/whatsmeow/service"
 	"github.com/gomessguii/logger"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/appstate"
@@ -19,7 +21,8 @@ type LabelService interface {
 }
 
 type labelService struct {
-	clientPointer map[string]*whatsmeow.Client
+	clientPointer    map[string]*whatsmeow.Client
+	whatsmeowService whatsmeow_service.WhatsmeowService
 }
 
 type ChatLabelStruct struct {
@@ -40,9 +43,49 @@ type EditLabelStruct struct {
 	Deleted bool   `json:"deleted"`
 }
 
+func (l *labelService) ensureClientConnected(instanceId string) (*whatsmeow.Client, error) {
+	client := l.clientPointer[instanceId]
+	logger.LogInfo("[%s] Checking client connection status - Client exists: %v", instanceId, client != nil)
+
+	if client == nil {
+		logger.LogInfo("[%s] No client found, attempting to start new instance", instanceId)
+		err := l.whatsmeowService.StartInstance(instanceId)
+		if err != nil {
+			logger.LogError("[%s] Failed to start instance: %v", instanceId, err)
+			return nil, errors.New("no active session found")
+		}
+
+		logger.LogInfo("[%s] Instance started, waiting 2 seconds...", instanceId)
+		time.Sleep(2 * time.Second)
+
+		client = l.clientPointer[instanceId]
+		logger.LogInfo("[%s] Checking new client - Exists: %v, Connected: %v",
+			instanceId,
+			client != nil,
+			client != nil && client.IsConnected())
+
+		if client == nil || !client.IsConnected() {
+			logger.LogError("[%s] New client validation failed - Exists: %v, Connected: %v",
+				instanceId,
+				client != nil,
+				client != nil && client.IsConnected())
+			return nil, errors.New("no active session found")
+		}
+	} else if !client.IsConnected() {
+		logger.LogError("[%s] Existing client is disconnected - Connected status: %v",
+			instanceId,
+			client.IsConnected())
+		return nil, errors.New("client disconnected")
+	}
+
+	logger.LogInfo("[%s] Client successfully validated - Connected: %v", instanceId, client.IsConnected())
+	return client, nil
+}
+
 func (l *labelService) ChatLabel(data *ChatLabelStruct, instance *instance_model.Instance) error {
-	if l.clientPointer[instance.Id] == nil {
-		return errors.New("no session found")
+	client, err := l.ensureClientConnected(instance.Id)
+	if err != nil {
+		return err
 	}
 
 	jid, ok := utils.ParseJID(data.JID)
@@ -51,7 +94,7 @@ func (l *labelService) ChatLabel(data *ChatLabelStruct, instance *instance_model
 		return errors.New("error parse community jid")
 	}
 
-	err := l.clientPointer[instance.Id].SendAppState(appstate.BuildLabelChat(
+	err = client.SendAppState(appstate.BuildLabelChat(
 		jid,
 		data.LabelID,
 		true,
@@ -65,8 +108,9 @@ func (l *labelService) ChatLabel(data *ChatLabelStruct, instance *instance_model
 }
 
 func (l *labelService) MessageLabel(data *MessageLabelStruct, instance *instance_model.Instance) error {
-	if l.clientPointer[instance.Id] == nil {
-		return errors.New("no session found")
+	client, err := l.ensureClientConnected(instance.Id)
+	if err != nil {
+		return err
 	}
 
 	jid, ok := utils.ParseJID(data.JID)
@@ -75,7 +119,7 @@ func (l *labelService) MessageLabel(data *MessageLabelStruct, instance *instance
 		return errors.New("error parse community jid")
 	}
 
-	err := l.clientPointer[instance.Id].SendAppState(appstate.BuildLabelMessage(
+	err = client.SendAppState(appstate.BuildLabelMessage(
 		jid,
 		data.LabelID,
 		data.MessageID,
@@ -90,11 +134,12 @@ func (l *labelService) MessageLabel(data *MessageLabelStruct, instance *instance
 }
 
 func (l *labelService) EditLabel(data *EditLabelStruct, instance *instance_model.Instance) error {
-	if l.clientPointer[instance.Id] == nil {
-		return errors.New("no session found")
+	client, err := l.ensureClientConnected(instance.Id)
+	if err != nil {
+		return err
 	}
 
-	err := l.clientPointer[instance.Id].SendAppState(appstate.BuildLabelEdit(
+	err = client.SendAppState(appstate.BuildLabelEdit(
 		data.LabelID,
 		data.Name,
 		int32(data.Color),
@@ -109,8 +154,9 @@ func (l *labelService) EditLabel(data *EditLabelStruct, instance *instance_model
 }
 
 func (l *labelService) ChatUnlabel(data *ChatLabelStruct, instance *instance_model.Instance) error {
-	if l.clientPointer[instance.Id] == nil {
-		return errors.New("no session found")
+	client, err := l.ensureClientConnected(instance.Id)
+	if err != nil {
+		return err
 	}
 
 	jid, ok := utils.ParseJID(data.JID)
@@ -119,7 +165,7 @@ func (l *labelService) ChatUnlabel(data *ChatLabelStruct, instance *instance_mod
 		return errors.New("error parse community jid")
 	}
 
-	err := l.clientPointer[instance.Id].SendAppState(appstate.BuildLabelChat(
+	err = client.SendAppState(appstate.BuildLabelChat(
 		jid,
 		data.LabelID,
 		false,
@@ -133,8 +179,9 @@ func (l *labelService) ChatUnlabel(data *ChatLabelStruct, instance *instance_mod
 }
 
 func (l *labelService) MessageUnlabel(data *MessageLabelStruct, instance *instance_model.Instance) error {
-	if l.clientPointer[instance.Id] == nil {
-		return errors.New("no session found")
+	client, err := l.ensureClientConnected(instance.Id)
+	if err != nil {
+		return err
 	}
 
 	jid, ok := utils.ParseJID(data.JID)
@@ -143,7 +190,7 @@ func (l *labelService) MessageUnlabel(data *MessageLabelStruct, instance *instan
 		return errors.New("error parse community jid")
 	}
 
-	err := l.clientPointer[instance.Id].SendAppState(appstate.BuildLabelMessage(
+	err = client.SendAppState(appstate.BuildLabelMessage(
 		jid,
 		data.LabelID,
 		data.MessageID,
@@ -159,8 +206,10 @@ func (l *labelService) MessageUnlabel(data *MessageLabelStruct, instance *instan
 
 func NewLabelService(
 	clientPointer map[string]*whatsmeow.Client,
+	whatsmeowService whatsmeow_service.WhatsmeowService,
 ) LabelService {
 	return &labelService{
-		clientPointer: clientPointer,
+		clientPointer:    clientPointer,
+		whatsmeowService: whatsmeowService,
 	}
 }

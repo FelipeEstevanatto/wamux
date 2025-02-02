@@ -2,9 +2,11 @@ package community_service
 
 import (
 	"errors"
+	"time"
 
 	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
 	"github.com/EvolutionAPI/evolution-go/pkg/utils"
+	whatsmeow_service "github.com/EvolutionAPI/evolution-go/pkg/whatsmeow/service"
 	"github.com/gin-gonic/gin"
 	"github.com/gomessguii/logger"
 	"go.mau.fi/whatsmeow"
@@ -18,7 +20,8 @@ type CommunityService interface {
 }
 
 type communityService struct {
-	clientPointer map[string]*whatsmeow.Client
+	clientPointer    map[string]*whatsmeow.Client
+	whatsmeowService whatsmeow_service.WhatsmeowService
 }
 
 type CreateCommunityStruct struct {
@@ -30,12 +33,52 @@ type AddParticipantStruct struct {
 	GroupJID     []string `json:"groupJid"`
 }
 
-func (c *communityService) CreateCommunity(data *CreateCommunityStruct, instance *instance_model.Instance) (*types.GroupInfo, error) {
-	if c.clientPointer[instance.Id] == nil {
-		return nil, errors.New("no session found")
+func (c *communityService) ensureClientConnected(instanceId string) (*whatsmeow.Client, error) {
+	client := c.clientPointer[instanceId]
+	logger.LogInfo("[%s] Checking client connection status - Client exists: %v", instanceId, client != nil)
+
+	if client == nil {
+		logger.LogInfo("[%s] No client found, attempting to start new instance", instanceId)
+		err := c.whatsmeowService.StartInstance(instanceId)
+		if err != nil {
+			logger.LogError("[%s] Failed to start instance: %v", instanceId, err)
+			return nil, errors.New("no active session found")
+		}
+
+		logger.LogInfo("[%s] Instance started, waiting 2 seconds...", instanceId)
+		time.Sleep(2 * time.Second)
+
+		client = c.clientPointer[instanceId]
+		logger.LogInfo("[%s] Checking new client - Exists: %v, Connected: %v",
+			instanceId,
+			client != nil,
+			client != nil && client.IsConnected())
+
+		if client == nil || !client.IsConnected() {
+			logger.LogError("[%s] New client validation failed - Exists: %v, Connected: %v",
+				instanceId,
+				client != nil,
+				client != nil && client.IsConnected())
+			return nil, errors.New("no active session found")
+		}
+	} else if !client.IsConnected() {
+		logger.LogError("[%s] Existing client is disconnected - Connected status: %v",
+			instanceId,
+			client.IsConnected())
+		return nil, errors.New("client disconnected")
 	}
 
-	resp, err := c.clientPointer[instance.Id].CreateGroup(whatsmeow.ReqCreateGroup{
+	logger.LogInfo("[%s] Client successfully validated - Connected: %v", instanceId, client.IsConnected())
+	return client, nil
+}
+
+func (c *communityService) CreateCommunity(data *CreateCommunityStruct, instance *instance_model.Instance) (*types.GroupInfo, error) {
+	client, err := c.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := client.CreateGroup(whatsmeow.ReqCreateGroup{
 		Name: data.CommunityName,
 		GroupParent: types.GroupParent{
 			IsParent: true,
@@ -50,8 +93,9 @@ func (c *communityService) CreateCommunity(data *CreateCommunityStruct, instance
 }
 
 func (c *communityService) CommunityAdd(data *AddParticipantStruct, instance *instance_model.Instance) (gin.H, error) {
-	if c.clientPointer[instance.Id] == nil {
-		return nil, errors.New("no session found")
+	client, err := c.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
 	}
 
 	communityJID, ok := utils.ParseJID(data.CommunityJID)
@@ -65,14 +109,11 @@ func (c *communityService) CommunityAdd(data *AddParticipantStruct, instance *in
 
 	for _, participant := range data.GroupJID {
 		groupJID, _ := utils.ParseJID(participant)
-
-		err := c.clientPointer[instance.Id].LinkGroup(communityJID, groupJID)
-
+		err := client.LinkGroup(communityJID, groupJID)
 		if err != nil {
 			logger.LogError("[%s] error link group: %v", instance.Id, err)
 			failedList = append(failedList, groupJID.String())
 		}
-
 		successList = append(failedList, groupJID.String())
 	}
 
@@ -83,8 +124,9 @@ func (c *communityService) CommunityAdd(data *AddParticipantStruct, instance *in
 }
 
 func (c *communityService) CommunityRemove(data *AddParticipantStruct, instance *instance_model.Instance) (gin.H, error) {
-	if c.clientPointer[instance.Id] == nil {
-		return nil, errors.New("no session found")
+	client, err := c.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
 	}
 
 	communityJID, ok := utils.ParseJID(data.CommunityJID)
@@ -98,14 +140,11 @@ func (c *communityService) CommunityRemove(data *AddParticipantStruct, instance 
 
 	for _, participant := range data.GroupJID {
 		groupJID, _ := utils.ParseJID(participant)
-
-		err := c.clientPointer[instance.Id].UnlinkGroup(communityJID, groupJID)
-
+		err := client.UnlinkGroup(communityJID, groupJID)
 		if err != nil {
 			logger.LogError("[%s] error link group: %v", instance.Id, err)
 			failedList = append(failedList, groupJID.String())
 		}
-
 		successList = append(failedList, groupJID.String())
 	}
 
@@ -117,8 +156,10 @@ func (c *communityService) CommunityRemove(data *AddParticipantStruct, instance 
 
 func NewCommunityService(
 	clientPointer map[string]*whatsmeow.Client,
+	whatsmeowService whatsmeow_service.WhatsmeowService,
 ) CommunityService {
 	return &communityService{
-		clientPointer: clientPointer,
+		clientPointer:    clientPointer,
+		whatsmeowService: whatsmeowService,
 	}
 }

@@ -6,9 +6,11 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
 	"github.com/EvolutionAPI/evolution-go/pkg/utils"
+	whatsmeow_service "github.com/EvolutionAPI/evolution-go/pkg/whatsmeow/service"
 	"github.com/gin-gonic/gin"
 	"github.com/gomessguii/logger"
 	"github.com/vincent-petithory/dataurl"
@@ -31,7 +33,8 @@ type GroupService interface {
 }
 
 type groupService struct {
-	clientPointer map[string]*whatsmeow.Client
+	clientPointer    map[string]*whatsmeow.Client
+	whatsmeowService whatsmeow_service.WhatsmeowService
 }
 
 type SimpleGroupInfo struct {
@@ -86,14 +89,54 @@ type LeaveGroupStruct struct {
 	GroupJID types.JID `json:"groupJid"`
 }
 
-func (g *groupService) ListGroups(instance *instance_model.Instance) ([]*types.GroupInfo, error) {
-	if g.clientPointer[instance.Id] == nil {
-		return nil, errors.New("no session found")
+func (g *groupService) ensureClientConnected(instanceId string) (*whatsmeow.Client, error) {
+	client := g.clientPointer[instanceId]
+	logger.LogInfo("[%s] Checking client connection status - Client exists: %v", instanceId, client != nil)
+
+	if client == nil {
+		logger.LogInfo("[%s] No client found, attempting to start new instance", instanceId)
+		err := g.whatsmeowService.StartInstance(instanceId)
+		if err != nil {
+			logger.LogError("[%s] Failed to start instance: %v", instanceId, err)
+			return nil, errors.New("no active session found")
+		}
+
+		logger.LogInfo("[%s] Instance started, waiting 2 seconds...", instanceId)
+		time.Sleep(2 * time.Second)
+
+		client = g.clientPointer[instanceId]
+		logger.LogInfo("[%s] Checking new client - Exists: %v, Connected: %v",
+			instanceId,
+			client != nil,
+			client != nil && client.IsConnected())
+
+		if client == nil || !client.IsConnected() {
+			logger.LogError("[%s] New client validation failed - Exists: %v, Connected: %v",
+				instanceId,
+				client != nil,
+				client != nil && client.IsConnected())
+			return nil, errors.New("no active session found")
+		}
+	} else if !client.IsConnected() {
+		logger.LogError("[%s] Existing client is disconnected - Connected status: %v",
+			instanceId,
+			client.IsConnected())
+		return nil, errors.New("client disconnected")
 	}
 
-	resp, err := g.clientPointer[instance.Id].GetJoinedGroups()
+	logger.LogInfo("[%s] Client successfully validated - Connected: %v", instanceId, client.IsConnected())
+	return client, nil
+}
+
+func (g *groupService) ListGroups(instance *instance_model.Instance) ([]*types.GroupInfo, error) {
+	client, err := g.ensureClientConnected(instance.Id)
 	if err != nil {
-		logger.LogError("[%s] error mute chat: %v", instance.Id, err)
+		return nil, err
+	}
+
+	resp, err := client.GetJoinedGroups()
+	if err != nil {
+		logger.LogError("[%s] error getting groups: %v", instance.Id, err)
 		return nil, err
 	}
 
@@ -110,8 +153,9 @@ func (g *groupService) ListGroups(instance *instance_model.Instance) ([]*types.G
 }
 
 func (g *groupService) GetGroupInfo(data *GetGroupInfoStruct, instance *instance_model.Instance) (*types.GroupInfo, error) {
-	if g.clientPointer[instance.Id] == nil {
-		return nil, errors.New("no session found")
+	client, err := g.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
 	}
 
 	recipient, ok := utils.ParseJID(data.GroupJID)
@@ -120,7 +164,7 @@ func (g *groupService) GetGroupInfo(data *GetGroupInfoStruct, instance *instance
 		return nil, errors.New("invalid group jid")
 	}
 
-	resp, err := g.clientPointer[instance.Id].GetGroupInfo(recipient)
+	resp, err := client.GetGroupInfo(recipient)
 	if err != nil {
 		logger.LogError("[%s] error mute chat: %v", instance.Id, err)
 		return nil, err
@@ -130,8 +174,9 @@ func (g *groupService) GetGroupInfo(data *GetGroupInfoStruct, instance *instance
 }
 
 func (g *groupService) GetGroupInviteLink(data *GetGroupInviteLinkStruct, instance *instance_model.Instance) (string, error) {
-	if g.clientPointer[instance.Id] == nil {
-		return "", errors.New("no session found")
+	client, err := g.ensureClientConnected(instance.Id)
+	if err != nil {
+		return "", err
 	}
 
 	recipient, ok := utils.ParseJID(data.GroupJID)
@@ -140,7 +185,7 @@ func (g *groupService) GetGroupInviteLink(data *GetGroupInviteLinkStruct, instan
 		return "", errors.New("invalid group jid")
 	}
 
-	resp, err := g.clientPointer[instance.Id].GetGroupInviteLink(recipient, data.Reset)
+	resp, err := client.GetGroupInviteLink(recipient, data.Reset)
 	if err != nil {
 		logger.LogError("[%s] error mute chat: %v", instance.Id, err)
 		return "", err
@@ -150,8 +195,9 @@ func (g *groupService) GetGroupInviteLink(data *GetGroupInviteLinkStruct, instan
 }
 
 func (g *groupService) SetGroupPhoto(data *SetGroupPhotoStruct, instance *instance_model.Instance) (string, error) {
-	if g.clientPointer[instance.Id] == nil {
-		return "", errors.New("no session found")
+	client, err := g.ensureClientConnected(instance.Id)
+	if err != nil {
+		return "", err
 	}
 
 	recipient, ok := utils.ParseJID(data.GroupJID)
@@ -161,7 +207,6 @@ func (g *groupService) SetGroupPhoto(data *SetGroupPhotoStruct, instance *instan
 	}
 
 	var fileData []byte
-	var err error
 
 	if strings.HasPrefix(data.Image, "http://") || strings.HasPrefix(data.Image, "https://") {
 		resp, err := http.Get(data.Image)
@@ -189,7 +234,7 @@ func (g *groupService) SetGroupPhoto(data *SetGroupPhotoStruct, instance *instan
 		return "", errors.New("image data should be a valid URL or start with \"data:image/jpeg;base64,\"")
 	}
 
-	pictureID, err := g.clientPointer[instance.Id].SetGroupPhoto(recipient, fileData)
+	pictureID, err := client.SetGroupPhoto(recipient, fileData)
 	if err != nil {
 		logger.LogError("[%s] Error setting group photo: %v", instance.Id, err)
 		return "", err
@@ -199,8 +244,9 @@ func (g *groupService) SetGroupPhoto(data *SetGroupPhotoStruct, instance *instan
 }
 
 func (g *groupService) SetGroupName(data *SetGroupNameStruct, instance *instance_model.Instance) error {
-	if g.clientPointer[instance.Id] == nil {
-		return errors.New("no session found")
+	client, err := g.ensureClientConnected(instance.Id)
+	if err != nil {
+		return err
 	}
 
 	recipient, ok := utils.ParseJID(data.GroupJID)
@@ -209,7 +255,7 @@ func (g *groupService) SetGroupName(data *SetGroupNameStruct, instance *instance
 		return errors.New("invalid group jid")
 	}
 
-	err := g.clientPointer[instance.Id].SetGroupName(recipient, data.Name)
+	err = client.SetGroupName(recipient, data.Name)
 	if err != nil {
 		logger.LogError("[%s] error mute chat: %v", instance.Id, err)
 		return err
@@ -219,8 +265,9 @@ func (g *groupService) SetGroupName(data *SetGroupNameStruct, instance *instance
 }
 
 func (g *groupService) SetGroupDescription(data *SetGroupDescriptionStruct, instance *instance_model.Instance) error {
-	if g.clientPointer[instance.Id] == nil {
-		return errors.New("no session found")
+	client, err := g.ensureClientConnected(instance.Id)
+	if err != nil {
+		return err
 	}
 
 	recipient, ok := utils.ParseJID(data.GroupJID)
@@ -229,7 +276,7 @@ func (g *groupService) SetGroupDescription(data *SetGroupDescriptionStruct, inst
 		return errors.New("invalid group jid")
 	}
 
-	err := g.clientPointer[instance.Id].SetGroupDescription(recipient, data.Description)
+	err = client.SetGroupDescription(recipient, data.Description)
 	if err != nil {
 		logger.LogError("[%s] error mute chat: %v", instance.Id, err)
 		return err
@@ -239,8 +286,9 @@ func (g *groupService) SetGroupDescription(data *SetGroupDescriptionStruct, inst
 }
 
 func (g *groupService) CreateGroup(data *CreateGroupStruct, instance *instance_model.Instance) (gin.H, error) {
-	if g.clientPointer[instance.Id] == nil {
-		return nil, errors.New("no session found")
+	client, err := g.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
 	}
 
 	var participants []types.JID
@@ -253,7 +301,7 @@ func (g *groupService) CreateGroup(data *CreateGroupStruct, instance *instance_m
 		}
 	}
 
-	resp, err := g.clientPointer[instance.Id].CreateGroup(whatsmeow.ReqCreateGroup{
+	resp, err := client.CreateGroup(whatsmeow.ReqCreateGroup{
 		Name:         data.GroupName,
 		Participants: participants,
 	})
@@ -270,7 +318,7 @@ func (g *groupService) CreateGroup(data *CreateGroupStruct, instance *instance_m
 	}
 
 	var added []types.JID
-	infoResp, err := g.clientPointer[instance.Id].GetGroupInfo(resp.JID)
+	infoResp, err := client.GetGroupInfo(resp.JID)
 	if err != nil {
 		logger.LogError("[%s] error get group info: %v", instance.Id, err)
 		return nil, err
@@ -291,8 +339,9 @@ func (g *groupService) CreateGroup(data *CreateGroupStruct, instance *instance_m
 }
 
 func (g *groupService) UpdateParticipant(data *AddParticipantStruct, instance *instance_model.Instance) error {
-	if g.clientPointer[instance.Id] == nil {
-		return errors.New("no session found")
+	client, err := g.ensureClientConnected(instance.Id)
+	if err != nil {
+		return err
 	}
 
 	var participants []types.JID
@@ -305,7 +354,7 @@ func (g *groupService) UpdateParticipant(data *AddParticipantStruct, instance *i
 		}
 	}
 
-	_, err := g.clientPointer[instance.Id].UpdateGroupParticipants(data.GroupJID, participants, data.Action)
+	_, err = client.UpdateGroupParticipants(data.GroupJID, participants, data.Action)
 	if err != nil {
 		logger.LogError("[%s] error create group: %v", instance.Id, err)
 		return err
@@ -315,17 +364,18 @@ func (g *groupService) UpdateParticipant(data *AddParticipantStruct, instance *i
 }
 
 func (g *groupService) GetMyGroups(instance *instance_model.Instance) ([]types.GroupInfo, error) {
-	if g.clientPointer[instance.Id] == nil {
-		return nil, errors.New("no session found")
+	client, err := g.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
 	}
 
-	resp, err := g.clientPointer[instance.Id].GetJoinedGroups()
+	resp, err := client.GetJoinedGroups()
 	if err != nil {
 		logger.LogError("[%s] error create group: %v", instance.Id, err)
 		return nil, err
 	}
 
-	var jid string = g.clientPointer[instance.Id].Store.ID.String()
+	var jid string = client.Store.ID.String()
 	var jidClear = strings.Split(jid, ".")[0]
 	jidOfAdmin, ok := utils.ParseJID(jidClear)
 	if !ok {
@@ -344,11 +394,12 @@ func (g *groupService) GetMyGroups(instance *instance_model.Instance) ([]types.G
 }
 
 func (g *groupService) JoinGroupLink(data *JoinGroupStruct, instance *instance_model.Instance) error {
-	if g.clientPointer[instance.Id] == nil {
-		return errors.New("no session found")
+	client, err := g.ensureClientConnected(instance.Id)
+	if err != nil {
+		return err
 	}
 
-	_, err := g.clientPointer[instance.Id].JoinGroupWithLink(data.Code)
+	_, err = client.JoinGroupWithLink(data.Code)
 	if err != nil {
 		logger.LogError("[%s] error create group: %v", instance.Id, err)
 		return err
@@ -358,11 +409,12 @@ func (g *groupService) JoinGroupLink(data *JoinGroupStruct, instance *instance_m
 }
 
 func (g *groupService) LeaveGroup(data *LeaveGroupStruct, instance *instance_model.Instance) error {
-	if g.clientPointer[instance.Id] == nil {
-		return errors.New("no session found")
+	client, err := g.ensureClientConnected(instance.Id)
+	if err != nil {
+		return err
 	}
 
-	err := g.clientPointer[instance.Id].LeaveGroup(data.GroupJID)
+	err = client.LeaveGroup(data.GroupJID)
 	if err != nil {
 		logger.LogError("[%s] error leave group: %v", instance.Id, err)
 		return err
@@ -373,8 +425,10 @@ func (g *groupService) LeaveGroup(data *LeaveGroupStruct, instance *instance_mod
 
 func NewGroupService(
 	clientPointer map[string]*whatsmeow.Client,
+	whatsmeowService whatsmeow_service.WhatsmeowService,
 ) GroupService {
 	return &groupService{
-		clientPointer: clientPointer,
+		clientPointer:    clientPointer,
+		whatsmeowService: whatsmeowService,
 	}
 }

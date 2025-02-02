@@ -3,8 +3,10 @@ package newsletter_service
 import (
 	"context"
 	"errors"
+	"time"
 
 	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
+	whatsmeow_service "github.com/EvolutionAPI/evolution-go/pkg/whatsmeow/service"
 	"github.com/gomessguii/logger"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types"
@@ -20,7 +22,8 @@ type NewsletterService interface {
 }
 
 type newsletterService struct {
-	clientPointer map[string]*whatsmeow.Client
+	clientPointer    map[string]*whatsmeow.Client
+	whatsmeowService whatsmeow_service.WhatsmeowService
 }
 
 type CreateNewsletterStruct struct {
@@ -42,12 +45,52 @@ type GetNewsletterMessagesStruct struct {
 	BeforeID int       `json:"before_id"`
 }
 
-func (n *newsletterService) CreateNewsletter(data *CreateNewsletterStruct, instance *instance_model.Instance) (*types.NewsletterMetadata, error) {
-	if n.clientPointer[instance.Id] == nil {
-		return nil, errors.New("no session found")
+func (n *newsletterService) ensureClientConnected(instanceId string) (*whatsmeow.Client, error) {
+	client := n.clientPointer[instanceId]
+	logger.LogInfo("[%s] Checking client connection status - Client exists: %v", instanceId, client != nil)
+
+	if client == nil {
+		logger.LogInfo("[%s] No client found, attempting to start new instance", instanceId)
+		err := n.whatsmeowService.StartInstance(instanceId)
+		if err != nil {
+			logger.LogError("[%s] Failed to start instance: %v", instanceId, err)
+			return nil, errors.New("no active session found")
+		}
+
+		logger.LogInfo("[%s] Instance started, waiting 2 seconds...", instanceId)
+		time.Sleep(2 * time.Second)
+
+		client = n.clientPointer[instanceId]
+		logger.LogInfo("[%s] Checking new client - Exists: %v, Connected: %v",
+			instanceId,
+			client != nil,
+			client != nil && client.IsConnected())
+
+		if client == nil || !client.IsConnected() {
+			logger.LogError("[%s] New client validation failed - Exists: %v, Connected: %v",
+				instanceId,
+				client != nil,
+				client != nil && client.IsConnected())
+			return nil, errors.New("no active session found")
+		}
+	} else if !client.IsConnected() {
+		logger.LogError("[%s] Existing client is disconnected - Connected status: %v",
+			instanceId,
+			client.IsConnected())
+		return nil, errors.New("client disconnected")
 	}
 
-	newsletter, err := n.clientPointer[instance.Id].CreateNewsletter(whatsmeow.CreateNewsletterParams{
+	logger.LogInfo("[%s] Client successfully validated - Connected: %v", instanceId, client.IsConnected())
+	return client, nil
+}
+
+func (n *newsletterService) CreateNewsletter(data *CreateNewsletterStruct, instance *instance_model.Instance) (*types.NewsletterMetadata, error) {
+	client, err := n.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	newsletter, err := client.CreateNewsletter(whatsmeow.CreateNewsletterParams{
 		Name:        data.Name,
 		Description: data.Description,
 	})
@@ -60,11 +103,12 @@ func (n *newsletterService) CreateNewsletter(data *CreateNewsletterStruct, insta
 }
 
 func (n *newsletterService) ListNewsletter(instance *instance_model.Instance) ([]*types.NewsletterMetadata, error) {
-	if n.clientPointer[instance.Id] == nil {
-		return nil, errors.New("no session found")
+	client, err := n.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
 	}
 
-	newsletters, err := n.clientPointer[instance.Id].GetSubscribedNewsletters()
+	newsletters, err := client.GetSubscribedNewsletters()
 	if err != nil {
 		logger.LogError("[%s] error list newsletters: %v", instance.Id, err)
 		return nil, err
@@ -74,11 +118,12 @@ func (n *newsletterService) ListNewsletter(instance *instance_model.Instance) ([
 }
 
 func (n *newsletterService) GetNewsletter(data *GetNewsletterStruct, instance *instance_model.Instance) (*types.NewsletterMetadata, error) {
-	if n.clientPointer[instance.Id] == nil {
-		return nil, errors.New("no session found")
+	client, err := n.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
 	}
 
-	newsletter, err := n.clientPointer[instance.Id].GetNewsletterInfo(data.JID)
+	newsletter, err := client.GetNewsletterInfo(data.JID)
 	if err != nil {
 		logger.LogError("[%s] error list newsletter: %v", instance.Id, err)
 		return nil, err
@@ -88,11 +133,12 @@ func (n *newsletterService) GetNewsletter(data *GetNewsletterStruct, instance *i
 }
 
 func (n *newsletterService) GetNewsletterInvite(data *GetNewsletterInviteStruct, instance *instance_model.Instance) (*types.NewsletterMetadata, error) {
-	if n.clientPointer[instance.Id] == nil {
-		return nil, errors.New("no session found")
+	client, err := n.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
 	}
 
-	newsletter, err := n.clientPointer[instance.Id].GetNewsletterInfoWithInvite(data.Key)
+	newsletter, err := client.GetNewsletterInfoWithInvite(data.Key)
 	if err != nil {
 		logger.LogError("[%s] error list newsletter: %v", instance.Id, err)
 		return nil, err
@@ -102,11 +148,12 @@ func (n *newsletterService) GetNewsletterInvite(data *GetNewsletterInviteStruct,
 }
 
 func (n *newsletterService) SubscribeNewsletter(data *GetNewsletterStruct, instance *instance_model.Instance) error {
-	if n.clientPointer[instance.Id] == nil {
-		return errors.New("no session found")
+	client, err := n.ensureClientConnected(instance.Id)
+	if err != nil {
+		return err
 	}
 
-	_, err := n.clientPointer[instance.Id].NewsletterSubscribeLiveUpdates(context.TODO(), data.JID)
+	_, err = client.NewsletterSubscribeLiveUpdates(context.TODO(), data.JID)
 	if err != nil {
 		logger.LogError("[%s] error list newsletter: %v", instance.Id, err)
 		return err
@@ -116,11 +163,12 @@ func (n *newsletterService) SubscribeNewsletter(data *GetNewsletterStruct, insta
 }
 
 func (n *newsletterService) GetNewsletterMessages(data *GetNewsletterMessagesStruct, instance *instance_model.Instance) ([]*types.NewsletterMessage, error) {
-	if n.clientPointer[instance.Id] == nil {
-		return nil, errors.New("no session found")
+	client, err := n.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
 	}
 
-	messages, err := n.clientPointer[instance.Id].GetNewsletterMessages(data.JID,
+	messages, err := client.GetNewsletterMessages(data.JID,
 		&whatsmeow.GetNewsletterMessagesParams{
 			Count: data.Count, Before: data.BeforeID,
 		})
@@ -134,8 +182,10 @@ func (n *newsletterService) GetNewsletterMessages(data *GetNewsletterMessagesStr
 
 func NewNewsletterService(
 	clientPointer map[string]*whatsmeow.Client,
+	whatsmeowService whatsmeow_service.WhatsmeowService,
 ) NewsletterService {
 	return &newsletterService{
-		clientPointer: clientPointer,
+		clientPointer:    clientPointer,
+		whatsmeowService: whatsmeowService,
 	}
 }

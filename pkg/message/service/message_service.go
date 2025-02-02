@@ -13,6 +13,7 @@ import (
 	message_model "github.com/EvolutionAPI/evolution-go/pkg/message/model"
 	message_repository "github.com/EvolutionAPI/evolution-go/pkg/message/repository"
 	"github.com/EvolutionAPI/evolution-go/pkg/utils"
+	whatsmeow_service "github.com/EvolutionAPI/evolution-go/pkg/whatsmeow/service"
 	"github.com/gomessguii/logger"
 	"github.com/vincent-petithory/dataurl"
 	"go.mau.fi/whatsmeow"
@@ -35,6 +36,7 @@ type MessageService interface {
 type messageService struct {
 	clientPointer     map[string]*whatsmeow.Client
 	messageRepository message_repository.MessageRepository
+	whatsmeowService  whatsmeow_service.WhatsmeowService
 }
 
 type ReactStruct struct {
@@ -79,9 +81,49 @@ type MessageSendStruct struct {
 	MessageContextInfo *waE2E.ContextInfo
 }
 
+func (m *messageService) ensureClientConnected(instanceId string) (*whatsmeow.Client, error) {
+	client := m.clientPointer[instanceId]
+	logger.LogInfo("[%s] Checking client connection status - Client exists: %v", instanceId, client != nil)
+
+	if client == nil {
+		logger.LogInfo("[%s] No client found, attempting to start new instance", instanceId)
+		err := m.whatsmeowService.StartInstance(instanceId)
+		if err != nil {
+			logger.LogError("[%s] Failed to start instance: %v", instanceId, err)
+			return nil, errors.New("no active session found")
+		}
+
+		logger.LogInfo("[%s] Instance started, waiting 2 seconds...", instanceId)
+		time.Sleep(2 * time.Second)
+
+		client = m.clientPointer[instanceId]
+		logger.LogInfo("[%s] Checking new client - Exists: %v, Connected: %v",
+			instanceId,
+			client != nil,
+			client != nil && client.IsConnected())
+
+		if client == nil || !client.IsConnected() {
+			logger.LogError("[%s] New client validation failed - Exists: %v, Connected: %v",
+				instanceId,
+				client != nil,
+				client != nil && client.IsConnected())
+			return nil, errors.New("no active session found")
+		}
+	} else if !client.IsConnected() {
+		logger.LogError("[%s] Existing client is disconnected - Connected status: %v",
+			instanceId,
+			client.IsConnected())
+		return nil, errors.New("client disconnected")
+	}
+
+	logger.LogInfo("[%s] Client successfully validated - Connected: %v", instanceId, client.IsConnected())
+	return client, nil
+}
+
 func (m *messageService) React(data *ReactStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
-	if m.clientPointer[instance.Id] == nil {
-		return nil, errors.New("no session found")
+	client, err := m.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
 	}
 
 	msgId := ""
@@ -122,7 +164,7 @@ func (m *messageService) React(data *ReactStruct, instance *instance_model.Insta
 		},
 	}
 
-	response, err := m.clientPointer[instance.Id].SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{
+	response, err := client.SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{
 		ID: msgId,
 	})
 	if err != nil {
@@ -135,7 +177,7 @@ func (m *messageService) React(data *ReactStruct, instance *instance_model.Insta
 	messageInfo := types.MessageInfo{
 		MessageSource: types.MessageSource{
 			Chat:     recipient,
-			Sender:   *m.clientPointer[instance.Id].Store.ID,
+			Sender:   *client.Store.ID,
 			IsFromMe: true,
 			IsGroup:  isGroup,
 		},
@@ -154,8 +196,9 @@ func (m *messageService) React(data *ReactStruct, instance *instance_model.Insta
 }
 
 func (m *messageService) ChatPresence(data *ChatPresenceStruct, instance *instance_model.Instance) (string, error) {
-	if m.clientPointer[instance.Id] == nil {
-		return "", errors.New("no session found")
+	client, err := m.ensureClientConnected(instance.Id)
+	if err != nil {
+		return "", err
 	}
 
 	var ts time.Time
@@ -172,7 +215,7 @@ func (m *messageService) ChatPresence(data *ChatPresenceStruct, instance *instan
 		media = "audio"
 	}
 
-	err := m.clientPointer[instance.Id].SendChatPresence(recipient, types.ChatPresence(data.State), types.ChatPresenceMedia(media))
+	err = client.SendChatPresence(recipient, types.ChatPresence(data.State), types.ChatPresenceMedia(media))
 	if err != nil {
 		return "", err
 	}
@@ -183,8 +226,9 @@ func (m *messageService) ChatPresence(data *ChatPresenceStruct, instance *instan
 }
 
 func (m *messageService) MarkRead(data *MarkReadStruct, instance *instance_model.Instance) (string, error) {
-	if m.clientPointer[instance.Id] == nil {
-		return "", errors.New("no session found")
+	client, err := m.ensureClientConnected(instance.Id)
+	if err != nil {
+		return "", err
 	}
 
 	var ts time.Time
@@ -195,7 +239,7 @@ func (m *messageService) MarkRead(data *MarkReadStruct, instance *instance_model
 		return "", errors.New("invalid phone number")
 	}
 
-	err := m.clientPointer[instance.Id].MarkRead(data.Id, time.Now(), jid, jid)
+	err = client.MarkRead(data.Id, time.Now(), jid, jid)
 	if err != nil {
 		logger.LogError("[%s] error marking message as read: %v", instance.Id, err)
 		return "", errors.New("error marking message as read")
@@ -205,8 +249,9 @@ func (m *messageService) MarkRead(data *MarkReadStruct, instance *instance_model
 }
 
 func (m *messageService) DownloadMedia(data *DownloadMediaStruct, instance *instance_model.Instance, request *http.Request) (*dataurl.DataURL, string, error) {
-	if m.clientPointer[instance.Id] == nil {
-		return nil, "", errors.New("no session found")
+	client, err := m.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, "", err
 	}
 
 	var ts time.Time
@@ -227,7 +272,7 @@ func (m *messageService) DownloadMedia(data *DownloadMediaStruct, instance *inst
 	}
 
 	userDirectory := fmt.Sprintf(`files/user_%s`, instance.Id)
-	_, err := os.Stat(userDirectory)
+	_, err = os.Stat(userDirectory)
 	if os.IsNotExist(err) {
 		errDir := os.MkdirAll(userDirectory, 0751)
 		if errDir != nil {
@@ -237,7 +282,7 @@ func (m *messageService) DownloadMedia(data *DownloadMediaStruct, instance *inst
 	}
 
 	if img != nil {
-		mediaData, err = m.clientPointer[instance.Id].Download(img)
+		mediaData, err = client.Download(img)
 		if err != nil {
 			logger.LogError("[%s] Failed to download image", instance.Id)
 			msg := fmt.Sprintf("Failed to download image %v", err)
@@ -247,7 +292,7 @@ func (m *messageService) DownloadMedia(data *DownloadMediaStruct, instance *inst
 	}
 
 	if audio != nil {
-		mediaData, err = m.clientPointer[instance.Id].Download(audio)
+		mediaData, err = client.Download(audio)
 		if err != nil {
 			logger.LogError("[%s] Failed to download audio", instance.Id)
 			msg := fmt.Sprintf("Failed to download audio %v", err)
@@ -292,8 +337,9 @@ func (m *messageService) DownloadMedia(data *DownloadMediaStruct, instance *inst
 }
 
 func (m *messageService) GetMessageStatus(data *MessageStatusStruct, instance *instance_model.Instance) (*message_model.Message, string, error) {
-	if m.clientPointer[instance.Id] == nil {
-		return nil, "", errors.New("no session found")
+	_, err := m.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, "", err
 	}
 
 	var ts time.Time
@@ -307,8 +353,9 @@ func (m *messageService) GetMessageStatus(data *MessageStatusStruct, instance *i
 }
 
 func (m *messageService) DeleteMessageEveryone(data *MessageStruct, instance *instance_model.Instance) (string, string, error) {
-	if m.clientPointer[instance.Id] == nil {
-		return "", "", errors.New("no session found")
+	client, err := m.ensureClientConnected(instance.Id)
+	if err != nil {
+		return "", "", err
 	}
 
 	var ts time.Time
@@ -321,9 +368,10 @@ func (m *messageService) DeleteMessageEveryone(data *MessageStruct, instance *in
 
 	logger.LogInfo("Revoking message %s from %s", data.MessageID, recipient)
 
-	resp, err := m.clientPointer[instance.Id].SendMessage(
+	resp, err := client.SendMessage(
 		context.Background(),
-		recipient, m.clientPointer[instance.Id].BuildRevoke(recipient, types.EmptyJID, data.MessageID))
+		recipient,
+		client.BuildRevoke(recipient, types.EmptyJID, data.MessageID))
 	if err != nil {
 		logger.LogError("[%s] error revoking message: %v", instance.Id, err)
 		return "", "", err
@@ -335,8 +383,9 @@ func (m *messageService) DeleteMessageEveryone(data *MessageStruct, instance *in
 }
 
 func (m *messageService) EditMessage(data *EditMessageStruct, instance *instance_model.Instance) (string, string, error) {
-	if m.clientPointer[instance.Id] == nil {
-		return "", "", errors.New("no session found")
+	client, err := m.ensureClientConnected(instance.Id)
+	if err != nil {
+		return "", "", err
 	}
 
 	var ts time.Time
@@ -347,10 +396,10 @@ func (m *messageService) EditMessage(data *EditMessageStruct, instance *instance
 		return "", "", errors.New("invalid phone number")
 	}
 
-	resp, err := m.clientPointer[instance.Id].SendMessage(
+	resp, err := client.SendMessage(
 		context.Background(),
 		recipient,
-		m.clientPointer[instance.Id].BuildEdit(
+		client.BuildEdit(
 			recipient,
 			data.MessageID,
 			&waE2E.Message{
@@ -369,9 +418,11 @@ func (m *messageService) EditMessage(data *EditMessageStruct, instance *instance
 func NewMessageService(
 	clientPointer map[string]*whatsmeow.Client,
 	messageRepository message_repository.MessageRepository,
+	whatsmeowService whatsmeow_service.WhatsmeowService,
 ) MessageService {
 	return &messageService{
 		clientPointer:     clientPointer,
 		messageRepository: messageRepository,
+		whatsmeowService:  whatsmeowService,
 	}
 }

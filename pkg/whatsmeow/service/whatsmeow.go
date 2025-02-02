@@ -43,6 +43,7 @@ import (
 type WhatsmeowService interface {
 	StartClient(clientData *ClientData, reconnect bool)
 	ConnectOnStartup(clientName string)
+	StartInstance(instanceId string) error
 	ReconnectClient(instanceId string) error
 }
 
@@ -1255,6 +1256,71 @@ func (mycli *MyClient) sendToQueueOrWebhook(queueName string, jsonData []byte) {
 	}
 }
 
+func (w whatsmeowService) StartInstance(instanceId string) error {
+	instance, err := w.instanceRepository.GetConnectedInstanceByID(instanceId)
+	if err != nil {
+		return err
+	}
+
+	logger.LogInfo("[%s] Starting client", instance.Id)
+
+	v := Values{map[string]string{
+		"Id":     instance.Id,
+		"Jid":    instance.Jid,
+		"Token":  instance.Token,
+		"Events": instance.Events,
+		"osName": instance.OsName,
+		"Proxy":  instance.Proxy,
+	}}
+
+	w.userInfoCache.Set(instance.Token, v, cache.NoExpiration)
+
+	eventArray := strings.Split(instance.Events, ",")
+
+	var subscribedEvents []string
+
+	if len(eventArray) < 1 {
+		subscribedEvents = append(subscribedEvents, event_types.MESSAGE)
+	} else {
+		for _, arg := range eventArray {
+			if !event_types.IsEventType(arg) {
+				logger.LogWarn("[%s] Message type discarded", instanceId, arg)
+				continue
+			}
+			if !utils.Find(subscribedEvents, arg) {
+				subscribedEvents = append(subscribedEvents, arg)
+			}
+
+		}
+	}
+
+	w.killChannel[instance.Id] = make(chan bool)
+
+	clientData := &ClientData{
+		Instance:      instance,
+		Subscriptions: subscribedEvents,
+		Phone:         "",
+		IsProxy:       false,
+	}
+
+	if instance.Proxy != "" {
+		var proxyConfig ProxyConfig
+		err := json.Unmarshal([]byte(instance.Proxy), &proxyConfig)
+		if err != nil {
+			logger.LogError("[%s] error unmarshalling proxy config", instanceId)
+			return err
+		}
+
+		if proxyConfig.Host != "" {
+			clientData.IsProxy = true
+		}
+	}
+
+	go w.StartClient(clientData, true)
+
+	return nil
+}
+
 func (w whatsmeowService) ConnectOnStartup(clientName string) {
 	logger.LogInfo("Connecting all instances on startup")
 	var instances []*instance_model.Instance
@@ -1279,63 +1345,10 @@ func (w whatsmeowService) ConnectOnStartup(clientName string) {
 	for _, instance := range instances {
 		logger.LogInfo("[%s] Starting client for user '%s'", clientName, instance.Id)
 
-		v := Values{map[string]string{
-			"Id":     instance.Id,
-			"Jid":    instance.Jid,
-			"Token":  instance.Token,
-			"Events": instance.Events,
-			"osName": instance.OsName,
-			"Proxy":  instance.Proxy,
-		}}
-
-		w.userInfoCache.Set(instance.Token, v, cache.NoExpiration)
-
-		eventArray := strings.Split(instance.Events, ",")
-
-		var subscribedEvents []string
-
-		if len(eventArray) < 1 {
-			subscribedEvents = append(subscribedEvents, event_types.MESSAGE)
-		} else {
-			for _, arg := range eventArray {
-				if !event_types.IsEventType(arg) {
-					logger.LogWarn("[%s] Message type discarded '%s'", clientName, arg)
-					continue
-				}
-				if !utils.Find(subscribedEvents, arg) {
-					subscribedEvents = append(subscribedEvents, arg)
-				}
-
-			}
+		err := w.StartInstance(instance.Id)
+		if err != nil {
+			logger.LogError("[%s] Error starting client: %s", instance.Id, err)
 		}
-
-		w.killChannel[instance.Id] = make(chan bool)
-
-		clientData := &ClientData{
-			Instance:      instance,
-			Subscriptions: subscribedEvents,
-			Phone:         "",
-			IsProxy:       false,
-		}
-
-		if instance.Proxy != "" {
-			var proxyConfig ProxyConfig
-			err := json.Unmarshal([]byte(instance.Proxy), &proxyConfig)
-			if err != nil {
-				logger.LogError("[%s] error unmarshalling proxy config", clientName)
-				return
-			}
-
-			if proxyConfig.Host != "" {
-				clientData.IsProxy = true
-			}
-		}
-
-		go w.StartClient(clientData, true)
-
-		// err = w.ReconnectClient(instance.Id)
-		// if err != nil {
-		// 	logger.LogError("[%s] Error reconnecting client: %s", instance.Id, err)
 	}
 }
 
