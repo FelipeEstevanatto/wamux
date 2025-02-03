@@ -164,6 +164,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.POST("/chat", r.labelHandler.ChatLabel)
 			routes.POST("/message", r.labelHandler.MessageLabel)
 			routes.POST("/edit", r.labelHandler.EditLabel)
+			routes.GET("/list", r.labelHandler.GetLabels)
 		}
 	}
 	routes = eng.Group("/unlabel")

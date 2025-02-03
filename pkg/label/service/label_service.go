@@ -5,6 +5,8 @@ import (
 	"time"
 
 	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
+	label_model "github.com/EvolutionAPI/evolution-go/pkg/label/model"
+	label_repository "github.com/EvolutionAPI/evolution-go/pkg/label/repository"
 	"github.com/EvolutionAPI/evolution-go/pkg/utils"
 	whatsmeow_service "github.com/EvolutionAPI/evolution-go/pkg/whatsmeow/service"
 	"github.com/gomessguii/logger"
@@ -18,11 +20,13 @@ type LabelService interface {
 	EditLabel(data *EditLabelStruct, instance *instance_model.Instance) error
 	ChatUnlabel(data *ChatLabelStruct, instance *instance_model.Instance) error
 	MessageUnlabel(data *MessageLabelStruct, instance *instance_model.Instance) error
+	GetLabels(instance *instance_model.Instance) ([]label_model.Label, error)
 }
 
 type labelService struct {
 	clientPointer    map[string]*whatsmeow.Client
 	whatsmeowService whatsmeow_service.WhatsmeowService
+	labelRepository  label_repository.LabelRepository
 }
 
 type ChatLabelStruct struct {
@@ -204,12 +208,29 @@ func (l *labelService) MessageUnlabel(data *MessageLabelStruct, instance *instan
 	return nil
 }
 
+func (l *labelService) GetLabels(instance *instance_model.Instance) ([]label_model.Label, error) {
+	_, err := l.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	labels, err := l.labelRepository.GetAllLabelsByInstanceID(instance.Id)
+	if err != nil {
+		logger.LogError("[%s] error fetching labels from database: %v", instance.Id, err)
+		return nil, err
+	}
+
+	return labels, nil
+}
+
 func NewLabelService(
 	clientPointer map[string]*whatsmeow.Client,
 	whatsmeowService whatsmeow_service.WhatsmeowService,
+	labelRepository label_repository.LabelRepository,
 ) LabelService {
 	return &labelService{
 		clientPointer:    clientPointer,
 		whatsmeowService: whatsmeowService,
+		labelRepository:  labelRepository,
 	}
 }
