@@ -310,3 +310,10 @@ func WhatsAppGetUserAgent(agentType string) waCompanionReg.DeviceProps_PlatformT
 		return waCompanionReg.DeviceProps_UNKNOWN
 	}
 }
+
+func GetStringValue(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}

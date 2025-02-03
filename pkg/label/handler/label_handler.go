@@ -14,6 +14,7 @@ type LabelHandler interface {
 	EditLabel(ctx *gin.Context)
 	ChatUnlabel(ctx *gin.Context)
 	MessageUnlabel(ctx *gin.Context)
+	GetLabels(ctx *gin.Context)
 }
 
 type labelHandler struct {
@@ -258,6 +259,33 @@ func (l *labelHandler) MessageUnlabel(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "success"})
+}
+
+// Get all labels
+// @Summary Get all labels
+// @Description Get all labels
+// @Tags Label
+// @Accept json
+// @Produce json
+// @Success 200 {object} gin.H "success"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /label [get]
+func (l *labelHandler) GetLabels(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	labels, err := l.labelService.GetLabels(instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, labels)
 }
 
 func NewLabelHandler(

@@ -36,6 +36,8 @@ import (
 	instance_repository "github.com/EvolutionAPI/evolution-go/pkg/instance/repository"
 	instance_service "github.com/EvolutionAPI/evolution-go/pkg/instance/service"
 	label_handler "github.com/EvolutionAPI/evolution-go/pkg/label/handler"
+	label_model "github.com/EvolutionAPI/evolution-go/pkg/label/model"
+	label_repository "github.com/EvolutionAPI/evolution-go/pkg/label/repository"
 	label_service "github.com/EvolutionAPI/evolution-go/pkg/label/service"
 	message_handler "github.com/EvolutionAPI/evolution-go/pkg/message/handler"
 	message_model "github.com/EvolutionAPI/evolution-go/pkg/message/model"
@@ -86,9 +88,11 @@ func setupRouter(db *gorm.DB, sqliteDB *sql.DB, config *config.Config, conn *amq
 
 	instanceRepository := instance_repository.NewInstanceRepository(db)
 	messageRepository := message_repository.NewMessageRepository(db)
+	labelRepository := label_repository.NewLabelRepository(db)
 	whatsmeowService := whatsmeow_service.NewWhatsmeowService(
 		instanceRepository,
 		message_repository.NewMessageRepository(db),
+		labelRepository,
 		config,
 		killChannel,
 		clientPointer,
@@ -115,7 +119,7 @@ func setupRouter(db *gorm.DB, sqliteDB *sql.DB, config *config.Config, conn *amq
 	groupService := group_service.NewGroupService(clientPointer, whatsmeowService)
 	callService := call_service.NewCallService(clientPointer, whatsmeowService)
 	communityService := community_service.NewCommunityService(clientPointer, whatsmeowService)
-	labelService := label_service.NewLabelService(clientPointer, whatsmeowService)
+	labelService := label_service.NewLabelService(clientPointer, whatsmeowService, labelRepository)
 	newsletterService := newsletter_service.NewNewsletterService(clientPointer, whatsmeowService)
 
 	telemetry := telemetry.NewTelemetryService()
@@ -158,7 +162,7 @@ func setupRouter(db *gorm.DB, sqliteDB *sql.DB, config *config.Config, conn *amq
 }
 
 func migrate(db *gorm.DB) {
-	err := db.AutoMigrate(&instance_model.Instance{}, &message_model.Message{})
+	err := db.AutoMigrate(&instance_model.Instance{}, &message_model.Message{}, &label_model.Label{})
 
 	if err != nil {
 		log.Fatal(err)

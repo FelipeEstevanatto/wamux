@@ -34,6 +34,8 @@ import (
 	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
 	instance_repository "github.com/EvolutionAPI/evolution-go/pkg/instance/repository"
 	"github.com/EvolutionAPI/evolution-go/pkg/internal/event_types"
+	label_model "github.com/EvolutionAPI/evolution-go/pkg/label/model"
+	label_repository "github.com/EvolutionAPI/evolution-go/pkg/label/repository"
 	message_model "github.com/EvolutionAPI/evolution-go/pkg/message/model"
 	message_repository "github.com/EvolutionAPI/evolution-go/pkg/message/repository"
 	storage_interfaces "github.com/EvolutionAPI/evolution-go/pkg/storage/interfaces"
@@ -50,6 +52,7 @@ type WhatsmeowService interface {
 type whatsmeowService struct {
 	instanceRepository      instance_repository.InstanceRepository
 	messageRepository       message_repository.MessageRepository
+	labelRepository         label_repository.LabelRepository
 	config                  *config.Config
 	killChannel             map[string](chan bool)
 	userInfoCache           *cache.Cache
@@ -76,6 +79,7 @@ type MyClient struct {
 	websocketEnable    string
 	instanceRepository instance_repository.InstanceRepository
 	messageRepository  message_repository.MessageRepository
+	labelRepository    label_repository.LabelRepository
 	clientPointer      map[string]*whatsmeow.Client
 	killChannel        map[string](chan bool)
 	userInfoCache      *cache.Cache
@@ -278,6 +282,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 		websocketEnable:    cd.Instance.WebSocketEnable,
 		instanceRepository: w.instanceRepository,
 		messageRepository:  w.messageRepository,
+		labelRepository:    w.labelRepository,
 		userInfoCache:      w.userInfoCache,
 		clientPointer:      w.clientPointer,
 		killChannel:        w.killChannel,
@@ -764,13 +769,13 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			}
 		}
 
-		// messageKey := fmt.Sprintf("%s_%s", mycli.userID, evt.Info.ID)
-		// if _, found := mycli.processedMessages.Get(messageKey); found {
-		// 	logger.LogInfo("[%s] Message duplicated ignored: %s", mycli.userID, evt.Info.ID)
-		// 	return
-		// }
+		messageKey := fmt.Sprintf("%s_%s", mycli.userID, evt.Info.ID)
+		if _, found := mycli.processedMessages.Get(messageKey); found {
+			logger.LogInfo("[%s] Message duplicated ignored: %s", mycli.userID, evt.Info.ID)
+			return
+		}
 
-		// mycli.processedMessages.Set(messageKey, true, 30*time.Minute)
+		mycli.processedMessages.Set(messageKey, true, 30*time.Minute)
 
 		var quotedMessage *waE2E.Message
 		var stanzaID string
@@ -1053,6 +1058,20 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		doWebhook = true
 		postMap["event"] = "LabelEdit"
 		logger.LogInfo("[%s] Got label edit %+v", mycli.userID, evt.Action)
+
+		label := label_model.Label{
+			InstanceID:   mycli.userID,
+			LabelID:      evt.LabelID,
+			LabelName:    utils.GetStringValue(evt.Action.Name),
+			LabelColor:   fmt.Sprintf("%d", evt.Action.Color),
+			PredefinedId: fmt.Sprintf("%d", evt.Action.PredefinedID),
+		}
+
+		err := mycli.labelRepository.UpsertLabel(label)
+		if err != nil {
+			logger.LogError("[%s] Failed to upsert label: %v", mycli.userID, err)
+		}
+
 		dataMap := postMap["data"].(map[string]interface{})
 		dataMap["labelID"] = evt.LabelID
 		dataMap["action"] = evt.Action
@@ -1067,7 +1086,6 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		dataMap["action"] = evt.Action
 		dataMap["Timestamp"] = evt.Timestamp
 		postMap["data"] = dataMap
-
 	case *events.LabelAssociationMessage:
 		doWebhook = true
 		postMap["event"] = "LabelAssociationMessage"
@@ -1355,6 +1373,7 @@ func (w whatsmeowService) ConnectOnStartup(clientName string) {
 func NewWhatsmeowService(
 	instanceRepository instance_repository.InstanceRepository,
 	messageRepository message_repository.MessageRepository,
+	labelRepository label_repository.LabelRepository,
 	config *config.Config,
 	killChannel map[string](chan bool),
 	clientPointer map[string]*whatsmeow.Client,
@@ -1369,6 +1388,7 @@ func NewWhatsmeowService(
 	return &whatsmeowService{
 		instanceRepository:      instanceRepository,
 		messageRepository:       messageRepository,
+		labelRepository:         labelRepository,
 		config:                  config,
 		killChannel:             killChannel,
 		userInfoCache:           cache.New(5*time.Minute, 10*time.Minute),
