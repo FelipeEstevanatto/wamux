@@ -190,7 +190,7 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 		IsProxy:       false,
 	}
 
-	if instance.Proxy != "" {
+	if instance.Proxy != "" || i.config.ProxyHost != "" {
 		var proxyConfig ProxyConfig
 		err := json.Unmarshal([]byte(instance.Proxy), &proxyConfig)
 		if err != nil {
@@ -198,7 +198,7 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 			return nil, "", "", err
 		}
 
-		if proxyConfig.Host != "" {
+		if proxyConfig.Host != "" || i.config.ProxyHost != "" {
 			clientData.IsProxy = true
 		}
 	}
@@ -411,7 +411,7 @@ func (i instances) Pair(data *PairStruct, instance *instance_model.Instance) (*P
 		IsProxy:       false,
 	}
 
-	if instance.Proxy != "" {
+	if instance.Proxy != "" || i.config.ProxyHost != "" {
 		var proxyConfig ProxyConfig
 		err := json.Unmarshal([]byte(instance.Proxy), &proxyConfig)
 		if err != nil {
@@ -419,7 +419,7 @@ func (i instances) Pair(data *PairStruct, instance *instance_model.Instance) (*P
 			return nil, err
 		}
 
-		if proxyConfig.Host != "" {
+		if proxyConfig.Host != "" || i.config.ProxyHost != "" {
 			clientData.IsProxy = true
 		}
 	}

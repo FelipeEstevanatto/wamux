@@ -258,7 +258,28 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 			return
 		}
 
-		proxy, err := utils.CreateSocks5Proxy(proxyConfig.Host, proxyConfig.Port, proxyConfig.Username, proxyConfig.Password)
+		proxyHost := proxyConfig.Host
+		proxyPort := proxyConfig.Port
+		proxyUsername := proxyConfig.Username
+		proxyPassword := proxyConfig.Password
+
+		if proxyConfig.Host == "" {
+			proxyHost = w.config.ProxyHost
+		}
+
+		if proxyConfig.Port == "" {
+			proxyPort = w.config.ProxyPort
+		}
+
+		if proxyConfig.Username == "" {
+			proxyUsername = w.config.ProxyUsername
+		}
+
+		if proxyConfig.Password == "" {
+			proxyPassword = w.config.ProxyPassword
+		}
+
+		proxy, err := utils.CreateSocks5Proxy(proxyHost, proxyPort, proxyUsername, proxyPassword)
 		if err != nil {
 			logger.LogError("[%s] Proxy error, disabling proxy", cd.Instance.Id)
 		} else {
@@ -767,15 +788,15 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			} else {
 				return
 			}
-		}
+		} else {
+			messageKey := fmt.Sprintf("%s_%s", mycli.userID, evt.Info.ID)
+			if _, found := mycli.processedMessages.Get(messageKey); found {
+				logger.LogInfo("[%s] Message duplicated ignored: %s", mycli.userID, evt.Info.ID)
+				return
+			}
 
-		messageKey := fmt.Sprintf("%s_%s", mycli.userID, evt.Info.ID)
-		if _, found := mycli.processedMessages.Get(messageKey); found {
-			logger.LogInfo("[%s] Message duplicated ignored: %s", mycli.userID, evt.Info.ID)
-			return
+			mycli.processedMessages.Set(messageKey, true, 30*time.Minute)
 		}
-
-		mycli.processedMessages.Set(messageKey, true, 30*time.Minute)
 
 		var quotedMessage *waE2E.Message
 		var stanzaID string
@@ -935,6 +956,14 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			if evt.Type == types.ReceiptTypeRead {
 				postMap["state"] = "Read"
 				for _, v := range evt.MessageIDs {
+					messageKey := fmt.Sprintf("%s_%s_%s", mycli.userID, v, "Read")
+					if _, found := mycli.processedMessages.Get(messageKey); found {
+						logger.LogInfo("[%s] Message duplicated ignored: %s", mycli.userID, v)
+						continue
+					}
+
+					mycli.processedMessages.Set(messageKey, true, 30*time.Minute)
+
 					var message message_model.Message
 
 					message.MessageID = v
@@ -958,6 +987,14 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			message.Timestamp = evt.Timestamp.Format("2006-01-02 15:04:05")
 			message.Status = "Delivered"
 			message.Source = evt.Chat.ToNonAD().User
+
+			messageKey := fmt.Sprintf("%s_%s_%s", mycli.userID, evt.MessageIDs[0], "Delivered")
+			if _, found := mycli.processedMessages.Get(messageKey); found {
+				logger.LogInfo("[%s] Message duplicated ignored: %s", mycli.userID, evt.MessageIDs[0])
+				return
+			}
+
+			mycli.processedMessages.Set(messageKey, true, 30*time.Minute)
 
 			if mycli.config.DatabaseSaveMessages {
 				go mycli.messageRepository.InsertMessage(message)
