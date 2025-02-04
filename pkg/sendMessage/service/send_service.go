@@ -630,8 +630,9 @@ func (s *sendService) SendMediaFile(data *MediaStruct, fileData []byte, instance
 		mediaType = "AudioMessage"
 	case "document":
 		media = &waE2E.Message{DocumentMessage: &waE2E.DocumentMessage{
-			URL:           proto.String(uploaded.URL),
 			FileName:      &data.Filename,
+			Caption:       proto.String(data.Caption),
+			URL:           proto.String(uploaded.URL),
 			DirectPath:    proto.String(uploaded.DirectPath),
 			MediaKey:      uploaded.MediaKey,
 			Mimetype:      proto.String(mimeType),
@@ -639,6 +640,16 @@ func (s *sendService) SendMediaFile(data *MediaStruct, fileData []byte, instance
 			FileSHA256:    uploaded.FileSHA256,
 			FileLength:    proto.Uint64(uint64(len(fileData))),
 		}}
+
+		if media.GetDocumentMessage().GetCaption() != "" {
+			media.DocumentWithCaptionMessage = &waE2E.FutureProofMessage{
+				Message: &waE2E.Message{
+					DocumentMessage: media.DocumentMessage,
+				},
+			}
+			media.DocumentMessage = nil
+		}
+
 		mediaType = "DocumentMessage"
 	default:
 		return nil, errors.New("invalid media type")
@@ -791,6 +802,7 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 		media = &waE2E.Message{DocumentMessage: &waE2E.DocumentMessage{
 			URL:           proto.String(uploaded.URL),
 			FileName:      &data.Filename,
+			Caption:       proto.String(data.Caption),
 			DirectPath:    proto.String(uploaded.DirectPath),
 			MediaKey:      uploaded.MediaKey,
 			Mimetype:      proto.String(mimeType),
@@ -798,6 +810,15 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 			FileSHA256:    uploaded.FileSHA256,
 			FileLength:    proto.Uint64(uint64(len(fileData))),
 		}}
+
+		if media.GetDocumentMessage().GetCaption() != "" {
+			media.DocumentWithCaptionMessage = &waE2E.FutureProofMessage{
+				Message: &waE2E.Message{
+					DocumentMessage: media.DocumentMessage,
+				},
+			}
+			media.DocumentMessage = nil
+		}
 
 		mediaType = "DocumentMessage"
 	default:
@@ -1388,10 +1409,18 @@ func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, message
 				QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
 			}
 		case "DocumentMessage":
-			msg.DocumentMessage.ContextInfo = &waE2E.ContextInfo{
-				StanzaID:      proto.String(data.Quoted.MessageID),
-				Participant:   proto.String(data.Quoted.Participant),
-				QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
+			if msg.DocumentMessage != nil {
+				msg.DocumentMessage.ContextInfo = &waE2E.ContextInfo{
+					StanzaID:      proto.String(data.Quoted.MessageID),
+					Participant:   proto.String(data.Quoted.Participant),
+					QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
+				}
+			} else if msg.DocumentWithCaptionMessage != nil {
+				msg.DocumentWithCaptionMessage.Message.DocumentMessage.ContextInfo = &waE2E.ContextInfo{
+					StanzaID:      proto.String(data.Quoted.MessageID),
+					Participant:   proto.String(data.Quoted.Participant),
+					QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
+				}
 			}
 		case "PollCreationMessage":
 			msg.PollCreationMessage.ContextInfo = &waE2E.ContextInfo{
@@ -1433,7 +1462,11 @@ func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, message
 		case "AudioMessage":
 			msg.AudioMessage.ContextInfo = &waE2E.ContextInfo{}
 		case "DocumentMessage":
-			msg.DocumentMessage.ContextInfo = &waE2E.ContextInfo{}
+			if msg.DocumentMessage != nil {
+				msg.DocumentMessage.ContextInfo = &waE2E.ContextInfo{}
+			} else if msg.DocumentWithCaptionMessage != nil {
+				msg.DocumentWithCaptionMessage.Message.DocumentMessage.ContextInfo = &waE2E.ContextInfo{}
+			}
 		case "PollCreationMessage":
 			msg.PollCreationMessage.ContextInfo = &waE2E.ContextInfo{}
 		case "StickerMessage":
