@@ -1,4 +1,4 @@
-FROM golang:1.22-alpine as build
+FROM golang:1.22.4-alpine as build
 
 RUN apk update && apk add --no-cache git build-base libjpeg-turbo-dev libwebp-dev
 
