@@ -43,6 +43,10 @@ type Config struct {
 	WhatsappVersionMajor int
 	WhatsappVersionMinor int
 	WhatsappVersionPatch int
+	ProxyHost            string
+	ProxyPort            string
+	ProxyUsername        string
+	ProxyPassword        string
 }
 
 func (c *Config) CreateAuthDB() (*gorm.DB, error) {
@@ -128,6 +132,11 @@ func Load() *Config {
 	whatsappVersionMinor := os.Getenv(config_env.WHATSAPP_VERSION_MINOR)
 	whatsappVersionPatch := os.Getenv(config_env.WHATSAPP_VERSION_PATCH)
 
+	proxyHost := os.Getenv(config_env.PROXY_HOST)
+	proxyPort := os.Getenv(config_env.PROXY_PORT)
+	proxyUsername := os.Getenv(config_env.PROXY_USERNAME)
+	proxyPassword := os.Getenv(config_env.PROXY_PASSWORD)
+
 	// Convertendo para int com valores padrão caso estejam vazios
 	major := 0
 	if whatsappVersionMajor != "" {
@@ -166,6 +175,10 @@ func Load() *Config {
 		WhatsappVersionMajor: major,
 		WhatsappVersionMinor: minor,
 		WhatsappVersionPatch: patch,
+		ProxyHost:            proxyHost,
+		ProxyPort:            proxyPort,
+		ProxyUsername:        proxyUsername,
+		ProxyPassword:        proxyPassword,
 	}
 
 	minioEnabled := os.Getenv(config_env.MINIO_ENABLED) == "true"
