@@ -1164,14 +1164,9 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	}
 
 	if doWebhook {
-
-		// _, found := mycli.userInfoCache.Get(mycli.token)
-		// if !found {
-		// 	logger.LogWarn("[%s] Could not call queue for event %s as there is no user for this token with token %s", mycli.userID, postMap["event"], mycli.token)
-		// }
-
 		postMap["instanceToken"] = mycli.token
 		postMap["instanceId"] = mycli.userID
+		postMap["instanceName"] = mycli.Instance.Name
 
 		values, err := json.Marshal(postMap)
 		if err != nil {
@@ -1180,12 +1175,15 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		}
 
 		var queueName string
-
 		if _, ok := postMap["event"]; ok {
 			queueName = strings.ToLower(fmt.Sprintf("%s.%s", userID, postMap["event"]))
 		}
 
 		go mycli.callWebhook(queueName, values)
+
+		if mycli.config.AmqpGlobalEnabled {
+			go mycli.sendToGlobalQueues(postMap["event"].(string), values)
+		}
 	}
 }
 
@@ -1471,4 +1469,21 @@ func getExtensionFromMimeType(mimeType string) string {
 		}
 		return ".bin"
 	}
+}
+
+func (mycli *MyClient) sendToGlobalQueues(eventType string, payload []byte) {
+	eventTypeUpper := strings.ToUpper(eventType)
+	if !utils.Find(mycli.config.AmqpGlobalEvents, eventTypeUpper) {
+		return
+	}
+
+	globalQueueName := strings.ToLower(fmt.Sprintf("global.%s", eventType))
+
+	err := mycli.rabbitmqProducer.Produce(globalQueueName, payload, "true", mycli.userID)
+	if err != nil {
+		logger.LogError("[%s] Failed to send message to global queue %s: %v", mycli.userID, globalQueueName, err)
+		return
+	}
+
+	logger.LogInfo("[%s] Message sent to global queue %s successfully", mycli.userID, globalQueueName)
 }

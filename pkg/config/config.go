@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/gomessguii/logger"
 	"gorm.io/driver/postgres"
@@ -47,6 +48,7 @@ type Config struct {
 	ProxyPort            string
 	ProxyUsername        string
 	ProxyPassword        string
+	AmqpGlobalEvents     []string
 }
 
 func (c *Config) CreateAuthDB() (*gorm.DB, error) {
@@ -151,6 +153,11 @@ func Load() *Config {
 		patch, _ = strconv.Atoi(whatsappVersionPatch)
 	}
 
+	amqpGlobalEvents := strings.Split(os.Getenv(config_env.AMQP_GLOBAL_EVENTS), ",")
+	if len(amqpGlobalEvents) == 1 && amqpGlobalEvents[0] == "" {
+		amqpGlobalEvents = []string{}
+	}
+
 	config := &Config{
 		PostgresAuthDB:       postgresAuthDB,
 		postgresUsersDB:      postgresUsersDB,
@@ -179,6 +186,7 @@ func Load() *Config {
 		ProxyPort:            proxyPort,
 		ProxyUsername:        proxyUsername,
 		ProxyPassword:        proxyPassword,
+		AmqpGlobalEvents:     amqpGlobalEvents,
 	}
 
 	minioEnabled := os.Getenv(config_env.MINIO_ENABLED) == "true"

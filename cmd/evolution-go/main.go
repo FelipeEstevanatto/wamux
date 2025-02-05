@@ -26,6 +26,7 @@ import (
 	community_handler "github.com/EvolutionAPI/evolution-go/pkg/community/handler"
 	community_service "github.com/EvolutionAPI/evolution-go/pkg/community/service"
 	config "github.com/EvolutionAPI/evolution-go/pkg/config"
+	producer_interfaces "github.com/EvolutionAPI/evolution-go/pkg/events/interfaces"
 	rabbitmq_producer "github.com/EvolutionAPI/evolution-go/pkg/events/rabbitmq"
 	webhook_producer "github.com/EvolutionAPI/evolution-go/pkg/events/webhook"
 	websocket_producer "github.com/EvolutionAPI/evolution-go/pkg/events/websocket"
@@ -66,7 +67,21 @@ func setupRouter(db *gorm.DB, sqliteDB *sql.DB, config *config.Config, conn *amq
 	clientPointer := make(map[string]*whatsmeow.Client)
 	linkingCodeEventChannel := make(chan whatsmeow_service.LinkingCodeEvent)
 
-	rabbitmqProducer := rabbitmq_producer.NewRabbitMQProducer(conn, config.AmqpGlobalEnabled)
+	var rabbitmqProducer producer_interfaces.Producer
+	if conn != nil {
+		rabbitmqProducer = rabbitmq_producer.NewRabbitMQProducer(
+			conn,
+			config.AmqpGlobalEnabled,
+			config.AmqpGlobalEvents,
+		)
+	} else {
+		rabbitmqProducer = rabbitmq_producer.NewRabbitMQProducer(
+			nil,
+			false,
+			nil,
+		)
+	}
+
 	webhookProducer := webhook_producer.NewWebhookProducer(config.WebhookUrl)
 	websocketProducer := websocket_producer.NewWebsocketProducer()
 
@@ -259,16 +274,17 @@ func main() {
 	var conn *amqp.Connection
 
 	if config.AmqpUrl != "" {
-		conn, err := amqp.Dial(config.AmqpUrl)
+		conn, err = amqp.Dial(config.AmqpUrl)
 		if err != nil {
-			logger.LogFatal("Failed to connect to RabbitMQ, err: %v", err)
+			logger.LogError("Failed to connect to RabbitMQ, err: %v", err)
+		} else {
+			defer func(conn *amqp.Connection) {
+				err := conn.Close()
+				if err != nil {
+					logger.LogError("Failed to close RabbitMQ connection, err: %v", err)
+				}
+			}(conn)
 		}
-		defer func(conn *amqp.Connection) {
-			err := conn.Close()
-			if err != nil {
-				logger.LogFatal("Failed to close RabbitMQ connection, err: %v", err)
-			}
-		}(conn)
 	}
 
 	sqliteDB, exPath, err := initAuthDB(config)
