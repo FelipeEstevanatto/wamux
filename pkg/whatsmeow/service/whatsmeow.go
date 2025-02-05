@@ -1472,18 +1472,55 @@ func getExtensionFromMimeType(mimeType string) string {
 }
 
 func (mycli *MyClient) sendToGlobalQueues(eventType string, payload []byte) {
-	eventTypeUpper := strings.ToUpper(eventType)
-	if !utils.Find(mycli.config.AmqpGlobalEvents, eventTypeUpper) {
+	logger.LogInfo("[%s] Starting sendToGlobalQueues for event: %s", mycli.userID, eventType)
+
+	// Mapeia o evento do Whatsmeow para o tipo de evento global
+	var globalEventType string
+	switch eventType {
+	case "Message":
+		globalEventType = "MESSAGE"
+	case "Receipt":
+		globalEventType = "READ_RECEIPT"
+	case "Presence":
+		globalEventType = "PRESENCE"
+	case "HistorySync":
+		globalEventType = "HISTORY_SYNC"
+	case "ChatPresence":
+		globalEventType = "CHAT_PRESENCE"
+	case "CallOffer", "CallAccept", "CallTerminate", "CallOfferNotice", "CallRelayLatency":
+		globalEventType = "CALL"
+	case "Connected", "PairSuccess", "TemporaryBan", "LoggedOut", "ConnectFailure", "Disconnected":
+		globalEventType = "CONNECTION"
+	case "LabelEdit", "LabelAssociationChat", "LabelAssociationMessage":
+		globalEventType = "LABEL"
+	case "Contact":
+		globalEventType = "CONTACT"
+	case "GroupInfo", "JoinedGroup":
+		globalEventType = "GROUP"
+	case "NewsletterJoin", "NewsletterLeave":
+		globalEventType = "NEWSLETTER"
+	case "QRCode", "QRTimeout", "QRSuccess":
+		globalEventType = "QRCODE"
+	default:
+		logger.LogInfo("[%s] Event %s not mapped to global event type", mycli.userID, eventType)
 		return
 	}
 
-	globalQueueName := strings.ToLower(fmt.Sprintf("global.%s", eventType))
+	// Verifica se o evento está na lista de eventos globais
+	if !utils.Find(mycli.config.AmqpGlobalEvents, globalEventType) {
+		logger.LogInfo("[%s] Global event %s not in configured events: %v", mycli.userID, globalEventType, mycli.config.AmqpGlobalEvents)
+		return
+	}
 
-	err := mycli.rabbitmqProducer.Produce(globalQueueName, payload, "true", mycli.userID)
+	// Nome da fila global usando o evento mapeado
+	queueName := strings.ToLower(eventType)
+	logger.LogInfo("[%s] Queue name for global event: %s", mycli.userID, queueName)
+
+	err := mycli.rabbitmqProducer.Produce(queueName, payload, "true", mycli.userID)
 	if err != nil {
-		logger.LogError("[%s] Failed to send message to global queue %s: %v", mycli.userID, globalQueueName, err)
+		logger.LogError("[%s] Failed to send message to global queue %s: %v", mycli.userID, queueName, err)
 		return
 	}
 
-	logger.LogInfo("[%s] Message sent to global queue %s successfully", mycli.userID, globalQueueName)
+	logger.LogInfo("[%s] Successfully sent message to global queue %s", mycli.userID, queueName)
 }
