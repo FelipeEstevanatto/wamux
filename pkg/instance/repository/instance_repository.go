@@ -7,6 +7,12 @@ import (
 	"github.com/gomessguii/logger"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+
+	label_model "github.com/EvolutionAPI/evolution-go/pkg/label/model"
+	label_repository "github.com/EvolutionAPI/evolution-go/pkg/label/repository"
+
+	message_model "github.com/EvolutionAPI/evolution-go/pkg/message/model"
+	message_repository "github.com/EvolutionAPI/evolution-go/pkg/message/repository"
 )
 
 type InstanceRepository interface {
@@ -24,7 +30,9 @@ type InstanceRepository interface {
 }
 
 type instanceRepository struct {
-	db *gorm.DB
+	db          *gorm.DB
+	labelRepo   label_repository.LabelRepository
+	messageRepo message_repository.MessageRepository
 }
 
 func (i *instanceRepository) Create(instance instance_model.Instance) (*instance_model.Instance, error) {
@@ -116,9 +124,28 @@ func (i *instanceRepository) GetAll(clientName string) ([]*instance_model.Instan
 }
 
 func (i *instanceRepository) Delete(instanceId string) error {
-	return i.db.Where("id = ?", instanceId).Delete(&instance_model.Instance{}).Error
+	return i.db.Transaction(func(tx *gorm.DB) error {
+		// Deleta todas as labels associadas à instância
+		if err := tx.Where("instance_id = ?", instanceId).Delete(&label_model.Label{}).Error; err != nil {
+			return fmt.Errorf("erro ao deletar labels: %v", err)
+		}
+
+		// Deleta todas as mensagens associadas à instância
+		if err := tx.Where("source = ?", instanceId).Delete(&message_model.Message{}).Error; err != nil {
+			return fmt.Errorf("erro ao deletar mensagens: %v", err)
+		}
+
+		// Deleta a instância
+		if err := tx.Where("id = ?", instanceId).Delete(&instance_model.Instance{}).Error; err != nil {
+			return fmt.Errorf("erro ao deletar instância: %v", err)
+		}
+
+		return nil
+	})
 }
 
 func NewInstanceRepository(db *gorm.DB) InstanceRepository {
-	return &instanceRepository{db: db}
+	return &instanceRepository{
+		db: db,
+	}
 }
