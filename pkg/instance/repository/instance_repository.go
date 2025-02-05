@@ -20,6 +20,7 @@ type InstanceRepository interface {
 	GetInstanceByID(instanceId string) (*instance_model.Instance, error)
 	GetConnectedInstanceByID(instanceId string) (*instance_model.Instance, error)
 	GetInstanceByToken(token string) (*instance_model.Instance, error)
+	GetInstanceByName(name string) (*instance_model.Instance, error)
 	Update(*instance_model.Instance) error
 	UpdateConnected(userId string, status bool) error
 	UpdateJid(userId string, jid string) error
@@ -45,6 +46,16 @@ func (i *instanceRepository) Create(instance instance_model.Instance) (*instance
 func (i *instanceRepository) GetInstanceByToken(token string) (*instance_model.Instance, error) {
 	var instance instance_model.Instance
 	err := i.db.Where("token = ?", token).First(&instance).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &instance, nil
+}
+
+func (i *instanceRepository) GetInstanceByName(name string) (*instance_model.Instance, error) {
+	var instance instance_model.Instance
+	err := i.db.Where("name = ?", name).First(&instance).Error
 	if err != nil {
 		return nil, err
 	}

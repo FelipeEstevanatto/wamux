@@ -66,7 +66,6 @@ var devMode = flag.Bool("dev", false, "Enable development mode")
 func setupRouter(db *gorm.DB, sqliteDB *sql.DB, config *config.Config, conn *amqp.Connection, exPath string) *gin.Engine {
 	killChannel := make(map[string](chan bool))
 	clientPointer := make(map[string]*whatsmeow.Client)
-	linkingCodeEventChannel := make(chan whatsmeow_service.LinkingCodeEvent)
 
 	var rabbitmqProducer producer_interfaces.Producer
 	if conn != nil {
@@ -93,7 +92,6 @@ func setupRouter(db *gorm.DB, sqliteDB *sql.DB, config *config.Config, conn *amq
 			config.NatsGlobalEvents,
 		)
 	} else {
-		logger.LogInfo("NATS disabled")
 		natsProducer = nats_producer.NewNatsProducer(
 			"",
 			false,
@@ -130,7 +128,6 @@ func setupRouter(db *gorm.DB, sqliteDB *sql.DB, config *config.Config, conn *amq
 		config,
 		killChannel,
 		clientPointer,
-		linkingCodeEventChannel,
 		rabbitmqProducer,
 		webhookProducer,
 		websocketProducer,
@@ -143,7 +140,6 @@ func setupRouter(db *gorm.DB, sqliteDB *sql.DB, config *config.Config, conn *amq
 		instanceRepository,
 		killChannel,
 		clientPointer,
-		linkingCodeEventChannel,
 		whatsmeowService,
 		config,
 	)
