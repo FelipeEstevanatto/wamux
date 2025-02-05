@@ -65,6 +65,7 @@ type whatsmeowService struct {
 	exPath                  string
 	mediaStorage            storage_interfaces.MediaStorage
 	processedMessages       *cache.Cache
+	natsProducer            producer_interfaces.Producer
 }
 
 type MyClient struct {
@@ -76,6 +77,7 @@ type MyClient struct {
 	subscriptions      []string
 	webhookUrl         string
 	rabbitmqEnable     string
+	natsEnable         string
 	websocketEnable    string
 	instanceRepository instance_repository.InstanceRepository
 	messageRepository  message_repository.MessageRepository
@@ -90,6 +92,7 @@ type MyClient struct {
 	websocketProducer  producer_interfaces.Producer
 	mediaStorage       storage_interfaces.MediaStorage
 	processedMessages  *cache.Cache
+	natsProducer       producer_interfaces.Producer
 }
 
 type ClientData struct {
@@ -300,6 +303,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 		subscriptions:      cd.Subscriptions,
 		webhookUrl:         cd.Instance.Webhook,
 		rabbitmqEnable:     cd.Instance.RabbitmqEnable,
+		natsEnable:         cd.Instance.NatsEnable,
 		websocketEnable:    cd.Instance.WebSocketEnable,
 		instanceRepository: w.instanceRepository,
 		messageRepository:  w.messageRepository,
@@ -314,6 +318,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 		websocketProducer:  w.websocketProducer,
 		mediaStorage:       w.mediaStorage,
 		processedMessages:  w.processedMessages,
+		natsProducer:       w.natsProducer,
 	}
 
 	mycli.eventHandlerID = mycli.WAClient.AddEventHandler(mycli.myEventHandler)
@@ -402,7 +407,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 
 					go mycli.callWebhook(queueName, values)
 
-					if mycli.config.AmqpGlobalEnabled {
+					if mycli.config.AmqpGlobalEnabled || mycli.config.NatsGlobalEnabled {
 						go mycli.sendToGlobalQueues(postMap["event"].(string), values)
 					}
 				} else if evt.Event == "timeout" {
@@ -442,7 +447,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 
 					go mycli.callWebhook(queueName, values)
 
-					if mycli.config.AmqpGlobalEnabled {
+					if mycli.config.AmqpGlobalEnabled || mycli.config.NatsGlobalEnabled {
 						go mycli.sendToGlobalQueues(postMap["event"].(string), values)
 					}
 				} else if evt.Event == "success" {
@@ -503,7 +508,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 
 			go mycli.callWebhook(queueName, values)
 
-			if mycli.config.AmqpGlobalEnabled {
+			if mycli.config.AmqpGlobalEnabled || mycli.config.NatsGlobalEnabled {
 				go mycli.sendToGlobalQueues(postMap["event"].(string), values)
 			}
 
@@ -1219,7 +1224,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 		go mycli.callWebhook(queueName, values)
 
-		if mycli.config.AmqpGlobalEnabled {
+		if mycli.config.AmqpGlobalEnabled || mycli.config.NatsGlobalEnabled {
 			go mycli.sendToGlobalQueues(postMap["event"].(string), values)
 		}
 	}
@@ -1326,6 +1331,15 @@ func (mycli *MyClient) sendToQueueOrWebhook(queueName string, jsonData []byte) {
 			return
 		}
 		logger.LogInfo("[%s] Message sent to rabbitmq successfully", mycli.userID)
+	}
+
+	if mycli.natsEnable == "true" {
+		err := mycli.natsProducer.Produce(queueName, jsonData, mycli.natsEnable, mycli.userID)
+		if err != nil {
+			logger.LogError("[%s] Failed to send message to nats: %s", mycli.userID, err)
+			return
+		}
+		logger.LogInfo("[%s] Message sent to nats successfully", mycli.userID)
 	}
 
 	if mycli.websocketEnable == "enabled" || mycli.websocketEnable == "true" {
@@ -1457,6 +1471,7 @@ func NewWhatsmeowService(
 	sqliteDB *sql.DB,
 	exPath string,
 	mediaStorage storage_interfaces.MediaStorage,
+	natsProducer producer_interfaces.Producer,
 ) WhatsmeowService {
 	return &whatsmeowService{
 		instanceRepository:      instanceRepository,
@@ -1474,6 +1489,7 @@ func NewWhatsmeowService(
 		exPath:                  exPath,
 		mediaStorage:            mediaStorage,
 		processedMessages:       cache.New(30*time.Minute, 1*time.Hour),
+		natsProducer:            natsProducer,
 	}
 }
 
@@ -1531,7 +1547,7 @@ func (mycli *MyClient) sendToGlobalQueues(eventType string, payload []byte) {
 		globalEventType = "CONNECTION"
 	case "LabelEdit", "LabelAssociationChat", "LabelAssociationMessage":
 		globalEventType = "LABEL"
-	case "Contact":
+	case "Contact", "PushName":
 		globalEventType = "CONTACT"
 	case "GroupInfo", "JoinedGroup":
 		globalEventType = "GROUP"
@@ -1545,20 +1561,36 @@ func (mycli *MyClient) sendToGlobalQueues(eventType string, payload []byte) {
 	}
 
 	// Verifica se o evento está na lista de eventos globais
-	if !utils.Find(mycli.config.AmqpGlobalEvents, globalEventType) {
-		logger.LogInfo("[%s] Global event %s not in configured events: %v", mycli.userID, globalEventType, mycli.config.AmqpGlobalEvents)
-		return
+	if mycli.config.AmqpGlobalEnabled && utils.Find(mycli.config.AmqpGlobalEvents, globalEventType) {
+		// Nome da fila global usando o evento mapeado
+		queueName := strings.ToLower(eventType)
+		logger.LogInfo("[%s] Queue name for global event: %s", mycli.userID, queueName)
+
+		// Envia para RabbitMQ se estiver habilitado
+		if mycli.config.AmqpGlobalEnabled {
+			err := mycli.rabbitmqProducer.Produce(queueName, payload, "false", mycli.userID)
+			if err != nil {
+				logger.LogError("[%s] Failed to send message to RabbitMQ global queue %s: %v", mycli.userID, queueName, err)
+			} else {
+				logger.LogInfo("[%s] Successfully sent message to RabbitMQ global queue %s", mycli.userID, queueName)
+			}
+		}
 	}
 
-	// Nome da fila global usando o evento mapeado
-	queueName := strings.ToLower(eventType)
-	logger.LogInfo("[%s] Queue name for global event: %s", mycli.userID, queueName)
+	// Verifica se o evento está na lista de eventos globais
+	if mycli.config.NatsGlobalEnabled && utils.Find(mycli.config.NatsGlobalEvents, globalEventType) {
+		// Nome da fila global usando o evento mapeado
+		queueName := strings.ToLower(eventType)
+		logger.LogInfo("[%s] Queue name for global event: %s", mycli.userID, queueName)
 
-	err := mycli.rabbitmqProducer.Produce(queueName, payload, "true", mycli.userID)
-	if err != nil {
-		logger.LogError("[%s] Failed to send message to global queue %s: %v", mycli.userID, queueName, err)
-		return
+		// Envia para NATS se estiver habilitado
+		if mycli.config.NatsGlobalEnabled && utils.Find(mycli.config.NatsGlobalEvents, globalEventType) {
+			err := mycli.natsProducer.Produce(queueName, payload, "false", mycli.userID)
+			if err != nil {
+				logger.LogError("[%s] Failed to send message to NATS global subject %s: %v", mycli.userID, queueName, err)
+			} else {
+				logger.LogInfo("[%s] Successfully sent message to NATS global subject %s", mycli.userID, queueName)
+			}
+		}
 	}
-
-	logger.LogInfo("[%s] Successfully sent message to global queue %s", mycli.userID, queueName)
 }
