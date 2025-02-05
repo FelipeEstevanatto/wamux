@@ -27,6 +27,7 @@ import (
 	community_service "github.com/EvolutionAPI/evolution-go/pkg/community/service"
 	config "github.com/EvolutionAPI/evolution-go/pkg/config"
 	producer_interfaces "github.com/EvolutionAPI/evolution-go/pkg/events/interfaces"
+	nats_producer "github.com/EvolutionAPI/evolution-go/pkg/events/nats"
 	rabbitmq_producer "github.com/EvolutionAPI/evolution-go/pkg/events/rabbitmq"
 	webhook_producer "github.com/EvolutionAPI/evolution-go/pkg/events/webhook"
 	websocket_producer "github.com/EvolutionAPI/evolution-go/pkg/events/websocket"
@@ -69,6 +70,7 @@ func setupRouter(db *gorm.DB, sqliteDB *sql.DB, config *config.Config, conn *amq
 
 	var rabbitmqProducer producer_interfaces.Producer
 	if conn != nil {
+		logger.LogInfo("RabbitMQ enabled")
 		rabbitmqProducer = rabbitmq_producer.NewRabbitMQProducer(
 			conn,
 			config.AmqpGlobalEnabled,
@@ -77,6 +79,23 @@ func setupRouter(db *gorm.DB, sqliteDB *sql.DB, config *config.Config, conn *amq
 	} else {
 		rabbitmqProducer = rabbitmq_producer.NewRabbitMQProducer(
 			nil,
+			false,
+			nil,
+		)
+	}
+
+	var natsProducer producer_interfaces.Producer
+	if config.NatsUrl != "" {
+		logger.LogInfo("NATS enabled")
+		natsProducer = nats_producer.NewNatsProducer(
+			config.NatsUrl,
+			config.NatsGlobalEnabled,
+			config.NatsGlobalEvents,
+		)
+	} else {
+		logger.LogInfo("NATS disabled")
+		natsProducer = nats_producer.NewNatsProducer(
+			"",
 			false,
 			nil,
 		)
@@ -118,6 +137,7 @@ func setupRouter(db *gorm.DB, sqliteDB *sql.DB, config *config.Config, conn *amq
 		sqliteDB,
 		exPath,
 		mediaStorage,
+		natsProducer,
 	)
 	instanceService := instance_service.NewInstanceService(
 		instanceRepository,

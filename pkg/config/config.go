@@ -49,6 +49,9 @@ type Config struct {
 	ProxyUsername        string
 	ProxyPassword        string
 	AmqpGlobalEvents     []string
+	NatsUrl              string
+	NatsGlobalEnabled    bool
+	NatsGlobalEvents     []string
 }
 
 func (c *Config) CreateAuthDB() (*gorm.DB, error) {
@@ -158,6 +161,13 @@ func Load() *Config {
 		amqpGlobalEvents = []string{}
 	}
 
+	natsUrl := os.Getenv(config_env.NATS_URL)
+	natsGlobalEnabled := os.Getenv(config_env.NATS_GLOBAL_ENABLED)
+	natsGlobalEvents := strings.Split(os.Getenv(config_env.NATS_GLOBAL_EVENTS), ",")
+	if len(natsGlobalEvents) == 1 && natsGlobalEvents[0] == "" {
+		natsGlobalEvents = []string{}
+	}
+
 	config := &Config{
 		PostgresAuthDB:       postgresAuthDB,
 		postgresUsersDB:      postgresUsersDB,
@@ -187,6 +197,9 @@ func Load() *Config {
 		ProxyUsername:        proxyUsername,
 		ProxyPassword:        proxyPassword,
 		AmqpGlobalEvents:     amqpGlobalEvents,
+		NatsUrl:              natsUrl,
+		NatsGlobalEnabled:    natsGlobalEnabled == "true",
+		NatsGlobalEvents:     natsGlobalEvents,
 	}
 
 	minioEnabled := os.Getenv(config_env.MINIO_ENABLED) == "true"

@@ -12,6 +12,7 @@ type Instance struct {
 	Webhook         string `json:"webhook"`
 	RabbitmqEnable  string `json:"rabbitmqEnable"`
 	WebSocketEnable string `json:"websocketEnable"`
+	NatsEnable      string `json:"natsEnable"`
 	Jid             string `json:"jid" gorm:"column:jid"`
 	Qrcode          string `json:"qrcode" gorm:"type:text"`
 	Connected       bool   `json:"connected"`
