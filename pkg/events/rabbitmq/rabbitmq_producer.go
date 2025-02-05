@@ -77,39 +77,42 @@ func (p *rabbitMQProducer) Produce(
 	rabbitmqEnable string,
 	userID string,
 ) error {
-	if queueName == "" {
+	logger.LogInfo("[%s] RabbitMQ Producer - Starting produce for queue: %s", userID, queueName)
+	logger.LogInfo("[%s] RabbitMQ Producer - Global enabled: %v", userID, p.amqpGlobalEnabled)
+
+	if p.conn == nil {
+		logger.LogWarn("[%s] RabbitMQ connection is nil", userID)
 		return nil
 	}
 
-	queueName = strings.ToLower(queueName)
-
 	channel, err := p.conn.Channel()
 	if err != nil {
+		logger.LogError("[%s] Failed to open channel: %v", userID, err)
 		return err
 	}
-	defer func(channel *amqp.Channel) {
-		err := channel.Close()
-		if err != nil {
-			logger.LogError("[%s] failed to close amqp channel", userID, err)
-		}
-	}(channel)
+	defer channel.Close()
 
 	args := amqp.Table{
 		"x-queue-type": "quorum",
 	}
 
 	if p.amqpGlobalEnabled {
+		logger.LogInfo("[%s] Declaring global queue: %s", userID, queueName)
+
 		_, err = channel.QueueDeclare(
 			queueName, // name
 			true,      // durable
 			false,     // delete when unused
 			false,     // exclusive
 			false,     // no-wait
-			args,      // arguments (x-queue-type: quorum)
+			args,      // arguments
 		)
 		if err != nil {
+			logger.LogError("[%s] Failed to declare queue %s: %v", userID, queueName, err)
 			return err
 		}
+
+		logger.LogInfo("[%s] Publishing message to queue: %s", userID, queueName)
 
 		err = channel.Publish(
 			"",        // exchange
@@ -121,10 +124,11 @@ func (p *rabbitMQProducer) Produce(
 				Body:        payload,
 			})
 		if err != nil {
+			logger.LogError("[%s] Failed to publish message to queue %s: %v", userID, queueName, err)
 			return err
 		}
 
-		logger.LogInfo("[%s] Message enqueued successfully to queue %s", userID, queueName)
+		logger.LogInfo("[%s] Message published successfully to queue: %s", userID, queueName)
 	}
 
 	if rabbitmqEnable == "enabled" {
