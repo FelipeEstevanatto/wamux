@@ -50,22 +50,21 @@ type WhatsmeowService interface {
 }
 
 type whatsmeowService struct {
-	instanceRepository      instance_repository.InstanceRepository
-	messageRepository       message_repository.MessageRepository
-	labelRepository         label_repository.LabelRepository
-	config                  *config.Config
-	killChannel             map[string](chan bool)
-	userInfoCache           *cache.Cache
-	clientPointer           map[string]*whatsmeow.Client
-	linkingCodeEventChannel chan LinkingCodeEvent
-	rabbitmqProducer        producer_interfaces.Producer
-	webhookProducer         producer_interfaces.Producer
-	websocketProducer       producer_interfaces.Producer
-	sqliteDB                *sql.DB
-	exPath                  string
-	mediaStorage            storage_interfaces.MediaStorage
-	processedMessages       *cache.Cache
-	natsProducer            producer_interfaces.Producer
+	instanceRepository instance_repository.InstanceRepository
+	messageRepository  message_repository.MessageRepository
+	labelRepository    label_repository.LabelRepository
+	config             *config.Config
+	killChannel        map[string](chan bool)
+	userInfoCache      *cache.Cache
+	clientPointer      map[string]*whatsmeow.Client
+	rabbitmqProducer   producer_interfaces.Producer
+	webhookProducer    producer_interfaces.Producer
+	websocketProducer  producer_interfaces.Producer
+	sqliteDB           *sql.DB
+	exPath             string
+	mediaStorage       storage_interfaces.MediaStorage
+	processedMessages  *cache.Cache
+	natsProducer       producer_interfaces.Producer
 }
 
 type MyClient struct {
@@ -119,11 +118,6 @@ type ProxyConfig struct {
 	Password string `json:"password"`
 	Port     string `json:"port"`
 	Username string `json:"username"`
-}
-
-type LinkingCodeEvent struct {
-	LinkingCode string
-	Token       string
 }
 
 func (w whatsmeowService) ReconnectClient(instanceId string) error {
@@ -338,28 +332,11 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 				logger.LogError("[%s] Failed to get QR channel", cd.Instance.Id)
 			}
 		} else {
-			if cd.Phone != "" {
-				logger.LogInfo("[%s] Requesting pairing code", cd.Instance.Id)
-				client.Connect()
-				linkingCode, err := client.PairPhone(cd.Phone, true, whatsmeow.PairClientChrome, "Chrome (Linux)")
-				if err != nil {
-					logger.LogError("[%s] something went wrong calling pair phone", cd.Instance.Id)
-				}
-
-				logger.LogInfo("[%s] Pairing code: %s", cd.Instance.Id, linkingCode)
-
-				linkingCodeEvent := LinkingCodeEvent{
-					LinkingCode: linkingCode,
-					Token:       cd.Instance.Token,
-				}
-
-				w.linkingCodeEventChannel <- linkingCodeEvent
-			} else {
-				err = client.Connect()
-				if err != nil {
-					panic(err)
-				}
+			err = client.Connect()
+			if err != nil {
+				panic(err)
 			}
+
 			for evt := range qrChan {
 				logger.LogInfo("[%s] Received QR code event %s", cd.Instance.Id, evt.Event)
 				if evt.Event == "code" {
@@ -1464,7 +1441,6 @@ func NewWhatsmeowService(
 	config *config.Config,
 	killChannel map[string](chan bool),
 	clientPointer map[string]*whatsmeow.Client,
-	linkingCodeEventChannel chan LinkingCodeEvent,
 	rabbitmqProducer producer_interfaces.Producer,
 	webhookProducer producer_interfaces.Producer,
 	websocketProducer producer_interfaces.Producer,
@@ -1474,22 +1450,21 @@ func NewWhatsmeowService(
 	natsProducer producer_interfaces.Producer,
 ) WhatsmeowService {
 	return &whatsmeowService{
-		instanceRepository:      instanceRepository,
-		messageRepository:       messageRepository,
-		labelRepository:         labelRepository,
-		config:                  config,
-		killChannel:             killChannel,
-		userInfoCache:           cache.New(5*time.Minute, 10*time.Minute),
-		clientPointer:           clientPointer,
-		linkingCodeEventChannel: linkingCodeEventChannel,
-		rabbitmqProducer:        rabbitmqProducer,
-		webhookProducer:         webhookProducer,
-		websocketProducer:       websocketProducer,
-		sqliteDB:                sqliteDB,
-		exPath:                  exPath,
-		mediaStorage:            mediaStorage,
-		processedMessages:       cache.New(30*time.Minute, 1*time.Hour),
-		natsProducer:            natsProducer,
+		instanceRepository: instanceRepository,
+		messageRepository:  messageRepository,
+		labelRepository:    labelRepository,
+		config:             config,
+		killChannel:        killChannel,
+		userInfoCache:      cache.New(5*time.Minute, 10*time.Minute),
+		clientPointer:      clientPointer,
+		rabbitmqProducer:   rabbitmqProducer,
+		webhookProducer:    webhookProducer,
+		websocketProducer:  websocketProducer,
+		sqliteDB:           sqliteDB,
+		exPath:             exPath,
+		mediaStorage:       mediaStorage,
+		processedMessages:  cache.New(30*time.Minute, 1*time.Hour),
+		natsProducer:       natsProducer,
 	}
 }
 

@@ -35,12 +35,11 @@ type InstanceService interface {
 }
 
 type instances struct {
-	instanceRepository      instance_repository.InstanceRepository
-	config                  *config.Config
-	killChannel             map[string](chan bool)
-	clientPointer           map[string]*whatsmeow.Client
-	linkingCodeEventChannel chan whatsmeow_service.LinkingCodeEvent
-	whatsmeowService        whatsmeow_service.WhatsmeowService
+	instanceRepository instance_repository.InstanceRepository
+	config             *config.Config
+	killChannel        map[string](chan bool)
+	clientPointer      map[string]*whatsmeow.Client
+	whatsmeowService   whatsmeow_service.WhatsmeowService
 }
 
 type ProxyConfig struct {
@@ -131,6 +130,12 @@ func (i instances) Create(data *CreateStruct) (*instance_model.Instance, error) 
 	proxyJson, err := json.Marshal(data.Proxy)
 	if err != nil {
 		return nil, err
+	}
+
+	findInstance, _ := i.instanceRepository.GetInstanceByName(data.Name)
+
+	if findInstance != nil {
+		return nil, fmt.Errorf("instance already exists")
 	}
 
 	instance := instance_model.Instance{
@@ -366,87 +371,12 @@ func (i instances) GetQr(instance *instance_model.Instance) (*QrcodeStruct, erro
 }
 
 func (i instances) Pair(data *PairStruct, instance *instance_model.Instance) (*PairReturnStruct, error) {
-	if i.clientPointer[instance.Id] != nil {
-		i.clientPointer[instance.Id].Disconnect()
-		delete(i.clientPointer, instance.Id)
-		// return nil, fmt.Errorf("client set to nil")
-	}
-
-	var eventArray []string
-	var subscribedEvents []string
-
-	if len(data.Subscribe) > 0 {
-		eventArray = data.Subscribe
-	} else {
-		eventArray = strings.Split(instance.Events, ",")
-	}
-
-	if len(eventArray) < 1 {
-		subscribedEvents = append(subscribedEvents, "MESSAGE")
-	} else {
-		for _, arg := range eventArray {
-			if !event_types.IsEventType(arg) {
-				logger.LogWarn("[%s] Message type discarded '%s'", instance.Id, arg)
-				continue
-			}
-			if !utils.Find(subscribedEvents, arg) {
-				subscribedEvents = append(subscribedEvents, arg)
-			}
-
-		}
-	}
-
-	instance.Events = strings.Join(subscribedEvents, ",")
-
-	err := i.instanceRepository.Update(instance)
+	code, err := i.clientPointer[instance.Id].PairPhone(data.Phone, true, whatsmeow.PairClientChrome, "Chrome (Linux)")
 	if err != nil {
-		logger.LogError("[%s] Error updating instance: %s", instance.Id, err)
-		return nil, err
+		logger.LogError("[%s] something went wrong calling pair phone", instance.Id)
 	}
 
-	i.killChannel[instance.Id] = make(chan bool)
-
-	clientData := &whatsmeow_service.ClientData{
-		Instance:      instance,
-		Subscriptions: subscribedEvents,
-		Phone:         data.Phone,
-		IsProxy:       false,
-	}
-
-	if instance.Proxy != "" || i.config.ProxyHost != "" {
-		var proxyConfig ProxyConfig
-		err := json.Unmarshal([]byte(instance.Proxy), &proxyConfig)
-		if err != nil {
-			logger.LogError("[%s] error unmarshalling proxy config", instance.Id, err)
-			return nil, err
-		}
-
-		if proxyConfig.Host != "" || i.config.ProxyHost != "" {
-			clientData.IsProxy = true
-		}
-	}
-
-	go i.whatsmeowService.StartClient(clientData, false)
-
-	logger.LogInfo("[%s] Waiting 1 seconds", instance.Id)
-	time.Sleep(1000 * time.Millisecond)
-
-	if i.clientPointer[instance.Id] != nil {
-		if !i.clientPointer[instance.Id].IsConnected() {
-			return nil, fmt.Errorf("failed to connect")
-		}
-	} else {
-		return nil, fmt.Errorf("failed to connect")
-	}
-
-	select {
-	case evt := <-i.linkingCodeEventChannel:
-		code := evt.LinkingCode
-		return &PairReturnStruct{PairingCode: code}, nil
-
-	case <-time.After(10 * time.Second):
-		return nil, fmt.Errorf("timeout waiting for linking code event")
-	}
+	return &PairReturnStruct{PairingCode: code}, nil
 }
 
 func (i instances) GetAll() ([]*instance_model.Instance, error) {
@@ -512,16 +442,14 @@ func NewInstanceService(
 	instanceRepository instance_repository.InstanceRepository,
 	killChannel map[string](chan bool),
 	clientPointer map[string]*whatsmeow.Client,
-	linkingCodeEventChannel chan whatsmeow_service.LinkingCodeEvent,
 	whatsmeowService whatsmeow_service.WhatsmeowService,
 	config *config.Config,
 ) InstanceService {
 	return &instances{
-		instanceRepository:      instanceRepository,
-		killChannel:             killChannel,
-		clientPointer:           clientPointer,
-		linkingCodeEventChannel: linkingCodeEventChannel,
-		whatsmeowService:        whatsmeowService,
-		config:                  config,
+		instanceRepository: instanceRepository,
+		killChannel:        killChannel,
+		clientPointer:      clientPointer,
+		whatsmeowService:   whatsmeowService,
+		config:             config,
 	}
 }
