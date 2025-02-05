@@ -1,6 +1,7 @@
 package rabbitmq_producer
 
 import (
+	"fmt"
 	"strings"
 
 	producer_interfaces "github.com/EvolutionAPI/evolution-go/pkg/events/interfaces"
@@ -11,15 +12,62 @@ import (
 type rabbitMQProducer struct {
 	conn              *amqp.Connection
 	amqpGlobalEnabled bool
+	amqpGlobalEvents  []string
 }
 
 func NewRabbitMQProducer(
 	conn *amqp.Connection,
 	amqpGlobalEnabled bool,
+	amqpGlobalEvents []string,
 ) producer_interfaces.Producer {
-	return &rabbitMQProducer{
+	producer := &rabbitMQProducer{
 		conn:              conn,
 		amqpGlobalEnabled: amqpGlobalEnabled,
+		amqpGlobalEvents:  amqpGlobalEvents,
+	}
+
+	// Declara as filas globais se estiver habilitado
+	if amqpGlobalEnabled {
+		producer.declareGlobalQueues()
+	}
+
+	return producer
+}
+
+func (p *rabbitMQProducer) declareGlobalQueues() {
+	if p.conn == nil {
+		return
+	}
+
+	channel, err := p.conn.Channel()
+	if err != nil {
+		logger.LogError("Failed to open channel for declaring global queues: %v", err)
+		return
+	}
+	defer channel.Close()
+
+	args := amqp.Table{
+		"x-queue-type": "quorum",
+	}
+
+	// Declara uma fila global para cada tipo de evento configurado
+	for _, eventType := range p.amqpGlobalEvents {
+		queueName := strings.ToLower(fmt.Sprintf("%s", eventType))
+
+		_, err = channel.QueueDeclare(
+			queueName, // name
+			true,      // durable
+			false,     // delete when unused
+			false,     // exclusive
+			false,     // no-wait
+			args,      // arguments
+		)
+		if err != nil {
+			logger.LogError("Failed to declare global queue %s: %v", queueName, err)
+			continue
+		}
+
+		logger.LogInfo("Global queue %s declared successfully", queueName)
 	}
 }
 
