@@ -222,7 +222,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 	}
 
 	store.DeviceProps.Os = &cd.Instance.OsName
-	store.DeviceProps.RequireFullSync = proto.Bool(false)
+	store.DeviceProps.RequireFullSync = proto.Bool(true)
 
 	if w.config.WhatsappVersionMajor != 0 && w.config.WhatsappVersionMinor != 0 && w.config.WhatsappVersionPatch != 0 {
 		logger.LogInfo("[%s] Setting whatsapp version to %d.%d.%d", cd.Instance.Id, w.config.WhatsappVersionMajor, w.config.WhatsappVersionMinor, w.config.WhatsappVersionPatch)
@@ -401,6 +401,10 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 					}
 
 					go mycli.callWebhook(queueName, values)
+
+					if mycli.config.AmqpGlobalEnabled {
+						go mycli.sendToGlobalQueues(postMap["event"].(string), values)
+					}
 				} else if evt.Event == "timeout" {
 					cd.Instance.Qrcode = ""
 
@@ -437,6 +441,10 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 					}
 
 					go mycli.callWebhook(queueName, values)
+
+					if mycli.config.AmqpGlobalEnabled {
+						go mycli.sendToGlobalQueues(postMap["event"].(string), values)
+					}
 				} else if evt.Event == "success" {
 					logger.LogInfo("[%s] QR pairing ok!", cd.Instance.Id)
 				} else {
@@ -495,6 +503,10 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 
 			go mycli.callWebhook(queueName, values)
 
+			if mycli.config.AmqpGlobalEnabled {
+				go mycli.sendToGlobalQueues(postMap["event"].(string), values)
+			}
+
 			// restart client
 			logger.LogInfo("[%s] Restarting client", cd.Instance.Id)
 			w.StartClient(cd, false)
@@ -512,11 +524,22 @@ func schedulePresenceUpdates(mycli *MyClient) {
 	for {
 		select {
 		case <-ticker.C:
+			// Verificar se a instância ainda existe
+			_, err := mycli.instanceRepository.GetInstanceByID(mycli.userID)
+			if err != nil {
+				logger.LogInfo("[%s] Instance no longer exists, stopping presence updates", mycli.userID)
+				return // Encerra a goroutine se a instância não existir mais
+			}
+
 			processPresenceUpdates(mycli)
 
 			ticker.Stop()
 			randomInterval := time.Duration(1+rand.Intn(3)) * time.Hour
 			ticker = time.NewTicker(randomInterval)
+
+		case <-mycli.killChannel[mycli.userID]:
+			logger.LogInfo("[%s] Received kill signal, stopping presence updates", mycli.userID)
+			return // Encerra a goroutine quando receber sinal de kill
 		}
 	}
 }
@@ -1126,6 +1149,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	case *events.LabelAssociationMessage:
 		doWebhook = true
 		postMap["event"] = "LabelAssociationMessage"
+
 		dataMap := postMap["data"].(map[string]interface{})
 		dataMap["labelID"] = evt.LabelID
 		dataMap["action"] = evt.Action
@@ -1134,6 +1158,20 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	case *events.Contact:
 		doWebhook = true
 		postMap["event"] = "Contact"
+
+		dataMap := postMap["data"].(map[string]interface{})
+		dataMap["action"] = evt.Action
+		dataMap["JID"] = evt.JID
+		postMap["data"] = dataMap
+	case *events.PushName:
+		doWebhook = true
+		postMap["event"] = "PushName"
+
+		dataMap := postMap["data"].(map[string]interface{})
+		dataMap["oldPushName"] = evt.OldPushName
+		dataMap["newPushName"] = evt.NewPushName
+		dataMap["JID"] = evt.JID
+		postMap["data"] = dataMap
 	case *events.GroupInfo:
 		doWebhook = true
 		postMap["event"] = "GroupInfo"
