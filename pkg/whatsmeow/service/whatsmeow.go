@@ -695,18 +695,6 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			dataMap["pushName"] = mycli.WAClient.Store.PushName
 		}
 
-		// jid, ok := utils.ParseJID(mycli.WAClient.Store.ID.ToNonAD().User)
-		// if ok {
-		// 	profilePicUrl, err := mycli.clientPointer[mycli.userID].GetProfilePictureInfo(jid, &whatsmeow.GetProfilePictureParams{
-		// 		Preview: false,
-		// 	})
-		// 	if err != nil {
-		// 		logger.LogError("[%s] Failed to get profile picture info: %v", mycli.userID, err)
-		// 	} else {
-		// 		dataMap["profilePicUrl"] = profilePicUrl.URL
-		// 	}
-		// }
-
 		postMap["data"] = dataMap
 	case *events.StreamReplaced:
 		logger.LogInfo("[%s] Received StreamReplaced event", mycli.userID)
@@ -744,6 +732,15 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	case *events.Message:
 		doWebhook = true
 		postMap["event"] = "Message"
+
+		if evt.Info.Chat.Server == types.HiddenUserServer || evt.Info.Sender.Server == types.HiddenUserServer {
+			return
+		}
+
+		parsedMessageType := utils.GetMessageType(evt.Message)
+		if parsedMessageType == "ignore" || strings.HasPrefix(parsedMessageType, "unknown_protocol_") {
+			return
+		}
 
 		if postMap["data"] != nil {
 			jsonBytes, err := json.Marshal(postMap["data"])
@@ -1157,6 +1154,8 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		dataMap["newPushName"] = evt.NewPushName
 		dataMap["JID"] = evt.JID
 		postMap["data"] = dataMap
+	case *events.IdentityChange:
+		doWebhook = false
 	case *events.GroupInfo:
 		doWebhook = true
 		postMap["event"] = "GroupInfo"
