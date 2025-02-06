@@ -369,6 +369,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 
 					postMap["instanceToken"] = mycli.token
 					postMap["instanceId"] = mycli.userID
+					postMap["instanceName"] = cd.Instance.Name
 
 					var queueName string
 
@@ -409,6 +410,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 
 					postMap["instanceToken"] = mycli.token
 					postMap["instanceId"] = mycli.userID
+					postMap["instanceName"] = cd.Instance.Name
 
 					var queueName string
 
@@ -470,6 +472,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 
 			postMap["instanceToken"] = mycli.token
 			postMap["instanceId"] = mycli.userID
+			postMap["instanceName"] = cd.Instance.Name
 
 			var queueName string
 
@@ -1265,7 +1268,7 @@ func (mycli *MyClient) callWebhook(queueName string, jsonData []byte) {
 			logger.LogInfo("[%s] Event received of type %s", mycli.userID, eventType)
 			mycli.sendToQueueOrWebhook(queueName, jsonData)
 		}
-	case "Contact":
+	case "Contact", "PushName":
 		if contains(mycli.subscriptions, "CONTACT") {
 			logger.LogInfo("[%s] Event received of type %s", mycli.userID, eventType)
 			mycli.sendToQueueOrWebhook(queueName, jsonData)
@@ -1434,40 +1437,6 @@ func (w whatsmeowService) ConnectOnStartup(clientName string) {
 	}
 }
 
-func NewWhatsmeowService(
-	instanceRepository instance_repository.InstanceRepository,
-	messageRepository message_repository.MessageRepository,
-	labelRepository label_repository.LabelRepository,
-	config *config.Config,
-	killChannel map[string](chan bool),
-	clientPointer map[string]*whatsmeow.Client,
-	rabbitmqProducer producer_interfaces.Producer,
-	webhookProducer producer_interfaces.Producer,
-	websocketProducer producer_interfaces.Producer,
-	sqliteDB *sql.DB,
-	exPath string,
-	mediaStorage storage_interfaces.MediaStorage,
-	natsProducer producer_interfaces.Producer,
-) WhatsmeowService {
-	return &whatsmeowService{
-		instanceRepository: instanceRepository,
-		messageRepository:  messageRepository,
-		labelRepository:    labelRepository,
-		config:             config,
-		killChannel:        killChannel,
-		userInfoCache:      cache.New(5*time.Minute, 10*time.Minute),
-		clientPointer:      clientPointer,
-		rabbitmqProducer:   rabbitmqProducer,
-		webhookProducer:    webhookProducer,
-		websocketProducer:  websocketProducer,
-		sqliteDB:           sqliteDB,
-		exPath:             exPath,
-		mediaStorage:       mediaStorage,
-		processedMessages:  cache.New(30*time.Minute, 1*time.Hour),
-		natsProducer:       natsProducer,
-	}
-}
-
 func getExtensionFromMimeType(mimeType string) string {
 	switch mimeType {
 	case "image/jpeg":
@@ -1567,5 +1536,39 @@ func (mycli *MyClient) sendToGlobalQueues(eventType string, payload []byte) {
 				logger.LogInfo("[%s] Successfully sent message to NATS global subject %s", mycli.userID, queueName)
 			}
 		}
+	}
+}
+
+func NewWhatsmeowService(
+	instanceRepository instance_repository.InstanceRepository,
+	messageRepository message_repository.MessageRepository,
+	labelRepository label_repository.LabelRepository,
+	config *config.Config,
+	killChannel map[string](chan bool),
+	clientPointer map[string]*whatsmeow.Client,
+	rabbitmqProducer producer_interfaces.Producer,
+	webhookProducer producer_interfaces.Producer,
+	websocketProducer producer_interfaces.Producer,
+	sqliteDB *sql.DB,
+	exPath string,
+	mediaStorage storage_interfaces.MediaStorage,
+	natsProducer producer_interfaces.Producer,
+) WhatsmeowService {
+	return &whatsmeowService{
+		instanceRepository: instanceRepository,
+		messageRepository:  messageRepository,
+		labelRepository:    labelRepository,
+		config:             config,
+		killChannel:        killChannel,
+		userInfoCache:      cache.New(5*time.Minute, 10*time.Minute),
+		clientPointer:      clientPointer,
+		rabbitmqProducer:   rabbitmqProducer,
+		webhookProducer:    webhookProducer,
+		websocketProducer:  websocketProducer,
+		sqliteDB:           sqliteDB,
+		exPath:             exPath,
+		mediaStorage:       mediaStorage,
+		processedMessages:  cache.New(30*time.Minute, 1*time.Hour),
+		natsProducer:       natsProducer,
 	}
 }
