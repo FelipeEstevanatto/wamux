@@ -1512,7 +1512,7 @@ func (mycli *MyClient) sendToGlobalQueues(eventType string, payload []byte) {
 
 		// Envia para RabbitMQ se estiver habilitado
 		if mycli.config.AmqpGlobalEnabled {
-			err := mycli.rabbitmqProducer.Produce(queueName, payload, "false", mycli.userID)
+			err := mycli.rabbitmqProducer.Produce(queueName, payload, "global", mycli.userID)
 			if err != nil {
 				logger.LogError("[%s] Failed to send message to RabbitMQ global queue %s: %v", mycli.userID, queueName, err)
 			} else {
@@ -1529,7 +1529,7 @@ func (mycli *MyClient) sendToGlobalQueues(eventType string, payload []byte) {
 
 		// Envia para NATS se estiver habilitado
 		if mycli.config.NatsGlobalEnabled && utils.Find(mycli.config.NatsGlobalEvents, globalEventType) {
-			err := mycli.natsProducer.Produce(queueName, payload, "false", mycli.userID)
+			err := mycli.natsProducer.Produce(queueName, payload, "global", mycli.userID)
 			if err != nil {
 				logger.LogError("[%s] Failed to send message to NATS global subject %s: %v", mycli.userID, queueName, err)
 			} else {

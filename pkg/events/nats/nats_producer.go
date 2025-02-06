@@ -1,8 +1,6 @@
 package nats_producer
 
 import (
-	"fmt"
-
 	producer_interfaces "github.com/EvolutionAPI/evolution-go/pkg/events/interfaces"
 	"github.com/gomessguii/logger"
 	"github.com/nats-io/nats.go"
@@ -50,7 +48,7 @@ func (p *natsProducer) Produce(
 		return nil
 	}
 
-	if p.natsGlobalEnabled {
+	if natsEnable == "global" {
 		logger.LogInfo("[%s] Publishing to global subject: %s", userID, queueName)
 		err := p.conn.Publish(queueName, payload)
 		if err != nil {
@@ -61,13 +59,12 @@ func (p *natsProducer) Produce(
 	}
 
 	if natsEnable == "enabled" {
-		instanceSubject := fmt.Sprintf("instance.%s", queueName)
-		err := p.conn.Publish(instanceSubject, payload)
+		err := p.conn.Publish(queueName, payload)
 		if err != nil {
-			logger.LogError("[%s] Failed to publish message to instance subject %s: %v", userID, instanceSubject, err)
+			logger.LogError("[%s] Failed to publish message to instance subject %s: %v", userID, queueName, err)
 			return err
 		}
-		logger.LogInfo("[%s] Message published successfully to instance subject: %s", userID, instanceSubject)
+		logger.LogInfo("[%s] Message published successfully to instance subject: %s", userID, queueName)
 	}
 
 	return nil
