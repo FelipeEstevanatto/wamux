@@ -51,7 +51,7 @@ func (p *rabbitMQProducer) Produce(
 		"x-queue-type": "quorum",
 	}
 
-	if p.amqpGlobalEnabled {
+	if rabbitmqEnable == "global" {
 		logger.LogInfo("[%s] Declaring global queue: %s", userID, queueName)
 
 		_, err = channel.QueueDeclare(
@@ -87,24 +87,23 @@ func (p *rabbitMQProducer) Produce(
 	}
 
 	if rabbitmqEnable == "enabled" {
-		instanceQueueName := "instance." + queueName
 		_, err = channel.QueueDeclare(
-			instanceQueueName, // name
-			true,              // durable
-			false,             // delete when unused
-			false,             // exclusive
-			false,             // no-wait
-			args,              // arguments (x-queue-type: quorum)
+			queueName, // name
+			true,      // durable
+			false,     // delete when unused
+			false,     // exclusive
+			false,     // no-wait
+			args,      // arguments (x-queue-type: quorum)
 		)
 		if err != nil {
 			return err
 		}
 
 		err = channel.Publish(
-			"",                // exchange
-			instanceQueueName, // routing key
-			false,             // mandatory
-			false,             // immediate
+			"",        // exchange
+			queueName, // routing key
+			false,     // mandatory
+			false,     // immediate
 			amqp.Publishing{
 				ContentType: "application/json",
 				Body:        payload,
@@ -114,7 +113,7 @@ func (p *rabbitMQProducer) Produce(
 			return err
 		}
 
-		logger.LogInfo("[%s] Message enqueued successfully to queue %s", userID, instanceQueueName)
+		logger.LogInfo("[%s] Message enqueued successfully to queue %s", userID, queueName)
 	}
 	return nil
 }
