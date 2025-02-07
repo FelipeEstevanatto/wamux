@@ -289,8 +289,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 		}
 	}
 
-	client.EnableAutoReconnect = false
-	client.DisableLoginAutoReconnect = true
+	client.EnableAutoReconnect = true
 	client.AutoTrustIdentity = true
 
 	mycli := MyClient{
@@ -960,6 +959,8 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	case *events.Receipt:
 		doWebhook = true
 		postMap["event"] = "Receipt"
+		logger.LogInfo("[%s] Receipt received with ID: %s from %s with type %s", mycli.userID, evt.MessageIDs[0], evt.SourceString(), evt.Type)
+
 		if evt.Type == types.ReceiptTypeRead || evt.Type == types.ReceiptTypeReadSelf {
 
 			logger.LogInfo("[%s] Message was read by %s", mycli.userID, evt.SourceString())
@@ -988,7 +989,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			} else {
 				postMap["state"] = "ReadSelf"
 			}
-		} else if evt.Type == types.ReceiptTypeReadSelf {
+		} else if evt.Type == types.ReceiptTypeDelivered {
 			postMap["state"] = "Delivered"
 
 			var message message_model.Message

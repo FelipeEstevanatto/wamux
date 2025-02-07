@@ -123,7 +123,6 @@ func Load() *Config {
 	}
 
 	osName := os.Getenv(config_env.OS_NAME)
-	panicIfEmpty(config_env.OS_NAME, osName)
 
 	amqpUrl := os.Getenv(config_env.AMQP_URL)
 	amqpGlobalEnabled := os.Getenv(config_env.AMQP_GLOBAL_ENABLED)
