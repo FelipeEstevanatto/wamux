@@ -20,7 +20,7 @@ require (
 	github.com/swaggo/gin-swagger v1.6.0
 	github.com/swaggo/swag v1.16.3
 	github.com/vincent-petithory/dataurl v1.0.0
-	go.mau.fi/whatsmeow v0.0.0-20250204095649-a75587ab11d7
+	go.mau.fi/whatsmeow v0.0.0-20250210124836-838d5eeaf73e
 	golang.org/x/exp v0.0.0-20250103183323-7d7fa50e5329
 	golang.org/x/image v0.0.0-20211028202545-6944b10bf410
 	golang.org/x/net v0.34.0
