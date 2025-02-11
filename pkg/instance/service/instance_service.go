@@ -385,6 +385,14 @@ func (i instances) GetAll() ([]*instance_model.Instance, error) {
 		return nil, err
 	}
 
+	for _, instance := range instances {
+		if client := i.clientPointer[instance.Id]; client != nil {
+			instance.Connected = client.IsLoggedIn()
+		} else {
+			instance.Connected = false
+		}
+	}
+
 	return instances, nil
 }
 
