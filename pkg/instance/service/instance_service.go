@@ -402,6 +402,13 @@ func (i instances) Info(instanceId string) (*instance_model.Instance, error) {
 		return nil, err
 	}
 
+	// Atualiza o status connected com base no estado real do cliente
+	if client := i.clientPointer[instance.Id]; client != nil {
+		instance.Connected = client.IsLoggedIn()
+	} else {
+		instance.Connected = false
+	}
+
 	return instance, nil
 }
 
