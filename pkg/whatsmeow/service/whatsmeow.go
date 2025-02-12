@@ -1029,6 +1029,18 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			postMap["state"] = "online"
 			logger.LogInfo("[%s] User is now online", mycli.userID)
 		}
+	case *events.Archive:
+		doWebhook = true
+		postMap["event"] = "Archive"
+
+		dataMap := postMap["data"].(map[string]interface{})
+		dataMap["JID"] = evt.JID
+		dataMap["Timestamp"] = evt.Timestamp
+		dataMap["Action"] = evt.Action
+		dataMap["FromFullSync"] = evt.FromFullSync
+		postMap["data"] = dataMap
+
+		logger.LogInfo("[%s] Chat archived", mycli.userID)
 	case *events.HistorySync:
 		doWebhook = true
 		postMap["event"] = "HistorySync"
@@ -1253,7 +1265,7 @@ func (mycli *MyClient) callWebhook(queueName string, jsonData []byte) {
 			logger.LogInfo("[%s] Event received of type %s", mycli.userID, eventType)
 			mycli.sendToQueueOrWebhook(queueName, jsonData)
 		}
-	case "ChatPresence":
+	case "ChatPresence", "Archive":
 		if contains(mycli.subscriptions, "CHAT_PRESENCE") {
 			logger.LogInfo("[%s] Event received of type %s", mycli.userID, eventType)
 			mycli.sendToQueueOrWebhook(queueName, jsonData)
@@ -1488,7 +1500,7 @@ func (mycli *MyClient) sendToGlobalQueues(eventType string, payload []byte) {
 		globalEventType = "PRESENCE"
 	case "HistorySync":
 		globalEventType = "HISTORY_SYNC"
-	case "ChatPresence":
+	case "ChatPresence", "Archive":
 		globalEventType = "CHAT_PRESENCE"
 	case "CallOffer", "CallAccept", "CallTerminate", "CallOfferNotice", "CallRelayLatency":
 		globalEventType = "CALL"
