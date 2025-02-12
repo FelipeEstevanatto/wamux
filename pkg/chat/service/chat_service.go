@@ -18,7 +18,9 @@ type ChatService interface {
 	ChatPin(data *BodyStruct, instance *instance_model.Instance) (string, error)
 	ChatUnpin(data *BodyStruct, instance *instance_model.Instance) (string, error)
 	ChatArchive(data *BodyStruct, instance *instance_model.Instance) (string, error)
+	ChatUnarchive(data *BodyStruct, instance *instance_model.Instance) (string, error)
 	ChatMute(data *BodyStruct, instance *instance_model.Instance) (string, error)
+	ChatUnmute(data *BodyStruct, instance *instance_model.Instance) (string, error)
 	HistorySyncRequest(data *HistorySyncRequestStruct, instance *instance_model.Instance) (string, error)
 }
 
@@ -144,6 +146,29 @@ func (c *chatService) ChatArchive(data *BodyStruct, instance *instance_model.Ins
 	return ts.String(), nil
 }
 
+func (c *chatService) ChatUnarchive(data *BodyStruct, instance *instance_model.Instance) (string, error) {
+	client, err := c.ensureClientConnected(instance.Id)
+	if err != nil {
+		return "", err
+	}
+
+	var ts time.Time
+
+	recipient, ok := utils.ParseJID(data.Chat)
+	if !ok {
+		logger.LogError("[%s] Error validating message fields", instance.Id)
+		return "", errors.New("invalid phone number")
+	}
+
+	err = client.SendAppState(appstate.BuildArchive(recipient, false, time.Time{}, nil))
+	if err != nil {
+		logger.LogError("[%s] error unarchive chat: %v", instance.Id, err)
+		return "", err
+	}
+
+	return ts.String(), nil
+}
+
 func (c *chatService) ChatMute(data *BodyStruct, instance *instance_model.Instance) (string, error) {
 	client, err := c.ensureClientConnected(instance.Id)
 	if err != nil {
@@ -161,6 +186,29 @@ func (c *chatService) ChatMute(data *BodyStruct, instance *instance_model.Instan
 	err = client.SendAppState(appstate.BuildMute(recipient, true, 1*time.Hour))
 	if err != nil {
 		logger.LogError("[%s] error mute chat: %v", instance.Id, err)
+		return "", err
+	}
+
+	return ts.String(), nil
+}
+
+func (c *chatService) ChatUnmute(data *BodyStruct, instance *instance_model.Instance) (string, error) {
+	client, err := c.ensureClientConnected(instance.Id)
+	if err != nil {
+		return "", err
+	}
+
+	var ts time.Time
+
+	recipient, ok := utils.ParseJID(data.Chat)
+	if !ok {
+		logger.LogError("[%s] Error validating message fields", instance.Id)
+		return "", errors.New("invalid phone number")
+	}
+
+	err = client.SendAppState(appstate.BuildMute(recipient, false, 0*time.Hour))
+	if err != nil {
+		logger.LogError("[%s] error unmute chat: %v", instance.Id, err)
 		return "", err
 	}
 

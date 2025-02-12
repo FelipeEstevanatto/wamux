@@ -12,7 +12,9 @@ type ChatHandler interface {
 	ChatPin(ctx *gin.Context)
 	ChatUnpin(ctx *gin.Context)
 	ChatArchive(ctx *gin.Context)
+	ChatUnarchive(ctx *gin.Context)
 	ChatMute(ctx *gin.Context)
+	ChatUnmute(ctx *gin.Context)
 	HistorySyncRequest(ctx *gin.Context)
 }
 
@@ -155,6 +157,51 @@ func (c *chatHandler) ChatArchive(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
 }
 
+// Unarchive a chat
+// @Summary Unarchive a chat
+// @Description Unarchive a chat
+// @Tags Chat
+// @Accept json
+// @Produce json
+// @Param message body chat_service.BodyStruct true "Chat"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /chat/unarchive [post]
+func (c *chatHandler) ChatUnarchive(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	var data *chat_service.BodyStruct
+	err := ctx.ShouldBindBodyWithJSON(&data)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if data.Chat == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "chat is required"})
+		return
+	}
+
+	ts, err := c.chatService.ChatUnarchive(data, instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	responseData := gin.H{
+		"timestamp": ts,
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+}
+
 // Mute a chat
 // @Summary Mute a chat
 // @Description Mute a chat
@@ -188,6 +235,51 @@ func (c *chatHandler) ChatMute(ctx *gin.Context) {
 	}
 
 	ts, err := c.chatService.ChatMute(data, instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	responseData := gin.H{
+		"timestamp": ts,
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+}
+
+// Unmute a chat
+// @Summary Unmute a chat
+// @Description Unmute a chat
+// @Tags Chat
+// @Accept json
+// @Produce json
+// @Param message body chat_service.BodyStruct true "Chat"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /chat/unmute [post]
+func (c *chatHandler) ChatUnmute(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	var data *chat_service.BodyStruct
+	err := ctx.ShouldBindBodyWithJSON(&data)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if data.Chat == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "chat is required"})
+		return
+	}
+
+	ts, err := c.chatService.ChatUnmute(data, instance)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
