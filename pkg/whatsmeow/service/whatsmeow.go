@@ -1321,7 +1321,7 @@ func contains(subscriptions []string, event string) bool {
 }
 
 func (mycli *MyClient) sendToQueueOrWebhook(queueName string, jsonData []byte) {
-	if mycli.rabbitmqEnable == "true" {
+	if mycli.rabbitmqEnable == "enabled" || mycli.rabbitmqEnable == "true" {
 		err := mycli.rabbitmqProducer.Produce(queueName, jsonData, mycli.rabbitmqEnable, mycli.userID)
 		if err != nil {
 			logger.LogError("[%s] Failed to send message to rabbitmq: %s", mycli.userID, err)
@@ -1330,7 +1330,7 @@ func (mycli *MyClient) sendToQueueOrWebhook(queueName string, jsonData []byte) {
 		logger.LogInfo("[%s] Message sent to rabbitmq successfully", mycli.userID)
 	}
 
-	if mycli.natsEnable == "true" {
+	if mycli.natsEnable == "enabled" || mycli.natsEnable == "true" {
 		err := mycli.natsProducer.Produce(queueName, jsonData, mycli.natsEnable, mycli.userID)
 		if err != nil {
 			logger.LogError("[%s] Failed to send message to nats: %s", mycli.userID, err)
