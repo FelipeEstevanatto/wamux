@@ -1131,30 +1131,16 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		if err != nil {
 			logger.LogError("[%s] Failed to upsert label: %v", mycli.userID, err)
 		}
-
-		dataMap := postMap["data"].(map[string]interface{})
-		dataMap["labelID"] = evt.LabelID
-		dataMap["action"] = evt.Action
-		dataMap["Timestamp"] = evt.Timestamp
-		postMap["data"] = dataMap
 	case *events.LabelAssociationChat:
 		doWebhook = true
 		postMap["event"] = "LabelAssociationChat"
 
-		dataMap := postMap["data"].(map[string]interface{})
-		dataMap["labelID"] = evt.LabelID
-		dataMap["action"] = evt.Action
-		dataMap["Timestamp"] = evt.Timestamp
-		postMap["data"] = dataMap
+		logger.LogInfo("[%s] Label association chat received %+v", mycli.userID, evt)
 	case *events.LabelAssociationMessage:
 		doWebhook = true
 		postMap["event"] = "LabelAssociationMessage"
 
-		dataMap := postMap["data"].(map[string]interface{})
-		dataMap["labelID"] = evt.LabelID
-		dataMap["action"] = evt.Action
-		dataMap["Timestamp"] = evt.Timestamp
-		postMap["data"] = dataMap
+		logger.LogInfo("[%s] Label association message received %+v", mycli.userID, evt)
 	case *events.Contact:
 		doWebhook = true
 		postMap["event"] = "Contact"
@@ -1243,6 +1229,8 @@ func (mycli *MyClient) callWebhook(queueName string, jsonData []byte) {
 		mycli.sendToQueueOrWebhook(queueName, jsonData)
 		return
 	}
+
+	logger.LogInfo("[%s] mycli.subscriptions %s eventType %s", mycli.userID, mycli.subscriptions, eventType)
 
 	switch eventType {
 	case "Message":
