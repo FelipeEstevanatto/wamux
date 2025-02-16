@@ -1144,20 +1144,9 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	case *events.Contact:
 		doWebhook = true
 		postMap["event"] = "Contact"
-
-		dataMap := postMap["data"].(map[string]interface{})
-		dataMap["action"] = evt.Action
-		dataMap["JID"] = evt.JID
-		postMap["data"] = dataMap
 	case *events.PushName:
 		doWebhook = true
 		postMap["event"] = "PushName"
-
-		dataMap := postMap["data"].(map[string]interface{})
-		dataMap["oldPushName"] = evt.OldPushName
-		dataMap["newPushName"] = evt.NewPushName
-		dataMap["JID"] = evt.JID
-		postMap["data"] = dataMap
 	case *events.IdentityChange:
 		doWebhook = false
 	case *events.GroupInfo:
