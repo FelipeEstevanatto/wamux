@@ -1,6 +1,8 @@
 module github.com/EvolutionAPI/evolution-go
 
-go 1.22.4
+go 1.23.0
+
+toolchain go1.23.6
 
 require (
 	github.com/chai2010/webp v1.1.1
@@ -20,11 +22,11 @@ require (
 	github.com/swaggo/gin-swagger v1.6.0
 	github.com/swaggo/swag v1.16.3
 	github.com/vincent-petithory/dataurl v1.0.0
-	go.mau.fi/whatsmeow v0.0.0-20250210124836-838d5eeaf73e
-	golang.org/x/exp v0.0.0-20250103183323-7d7fa50e5329
+	go.mau.fi/whatsmeow v0.0.0-20250216151842-97deed8f95f7
+	golang.org/x/exp v0.0.0-20250215185904-eff6e970281f
 	golang.org/x/image v0.0.0-20211028202545-6944b10bf410
-	golang.org/x/net v0.34.0
-	google.golang.org/protobuf v1.36.4
+	golang.org/x/net v0.35.0
+	google.golang.org/protobuf v1.36.5
 	gorm.io/driver/postgres v1.5.9
 	gorm.io/gorm v1.25.10
 	modernc.org/sqlite v1.33.1
@@ -76,14 +78,14 @@ require (
 	github.com/rs/zerolog v1.33.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
-	go.mau.fi/libsignal v0.1.1 // indirect
-	go.mau.fi/util v0.8.4 // indirect
+	go.mau.fi/libsignal v0.1.2 // indirect
+	go.mau.fi/util v0.8.5 // indirect
 	golang.org/x/arch v0.10.0 // indirect
-	golang.org/x/crypto v0.32.0 // indirect
-	golang.org/x/sync v0.10.0 // indirect
-	golang.org/x/sys v0.29.0 // indirect
-	golang.org/x/text v0.21.0 // indirect
-	golang.org/x/tools v0.28.0 // indirect
+	golang.org/x/crypto v0.33.0 // indirect
+	golang.org/x/sync v0.11.0 // indirect
+	golang.org/x/sys v0.30.0 // indirect
+	golang.org/x/text v0.22.0 // indirect
+	golang.org/x/tools v0.30.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	modernc.org/gc/v3 v3.0.0-20240107210532-573471604cb6 // indirect
 	modernc.org/libc v1.55.3 // indirect
