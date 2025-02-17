@@ -698,6 +698,10 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 
 	mime, _ := mimetype.DetectReader(bytes.NewReader(fileData))
 	mimeType := mime.String()
+	if strings.HasSuffix(strings.ToLower(data.Url), ".mp4") {
+		mimeType = "video/mp4"
+	}
+
 	logger.LogInfo("[%s] Tipo MIME detectado: %s", instance.Id, mimeType)
 
 	var uploadType whatsmeow.MediaType
