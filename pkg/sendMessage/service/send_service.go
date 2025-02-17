@@ -671,75 +671,85 @@ func (s *sendService) SendMediaFile(data *MediaStruct, fileData []byte, instance
 }
 
 func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
+	logger.LogInfo("[%s] Iniciando envio de media url: %s", instance.Id, data.Url)
+	startTime := time.Now()
+
 	client, err := s.ensureClientConnected(instance.Id)
 	if err != nil {
 		return nil, err
 	}
 
-	var uploaded whatsmeow.UploadResponse
-	var fileData []byte
+	logger.LogInfo("[%s] Iniciando download da URL: %s", instance.Id, data.Url)
 
 	resp, err := http.Get(data.Url)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	fileData, err = io.ReadAll(resp.Body)
+
+	logger.LogInfo("[%s] Download concluído em %v. Lendo dados...", instance.Id, time.Since(startTime))
+
+	downloadStart := time.Now()
+	fileData, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
+	logger.LogInfo("[%s] Leitura dos dados concluída em %v. Tamanho: %d bytes", instance.Id, time.Since(downloadStart), len(fileData))
 
 	mime, _ := mimetype.DetectReader(bytes.NewReader(fileData))
-
 	mimeType := mime.String()
+	logger.LogInfo("[%s] Tipo MIME detectado: %s", instance.Id, mimeType)
 
 	var uploadType whatsmeow.MediaType
 	var duration int
 
-	if data.Type == "image" {
+	processingStart := time.Now()
+	switch data.Type {
+	case "image":
 		if mimeType != "image/jpeg" && mimeType != "image/png" {
 			errMsg := fmt.Sprintf("Invalid file format: '%s'. Only 'image/jpeg' and 'image/png' are accepted", mimeType)
 			return nil, errors.New(errMsg)
 		}
 		uploadType = whatsmeow.MediaImage
-	} else if data.Type == "video" || data.Type == "ptv" {
+	case "video", "ptv":
 		if mimeType != "video/mp4" {
 			errMsg := fmt.Sprintf("Invalid file format: '%s'. Only 'video/mp4' are accepted", mimeType)
 			return nil, errors.New(errMsg)
 		}
 		uploadType = whatsmeow.MediaVideo
-	} else if data.Type == "audio" {
+	case "audio":
+		logger.LogInfo("[%s] Iniciando conversão de áudio...", instance.Id)
 		converterApiUrl := s.config.ApiAudioConverter
 		converterApiKey := s.config.ApiAudioConverterKey
 		var convertedData []byte
 		var err error
 		if converterApiUrl == "" {
-
+			logger.LogInfo("[%s] Usando conversão local...", instance.Id)
 			convertedData, duration, err = convertAudioToOpusWithDuration(fileData)
-			if err != nil {
-				return nil, err
-			}
 		} else {
+			logger.LogInfo("[%s] Usando API de conversão...", instance.Id)
 			convertedData, duration, err = convertAudioWithApi(converterApiUrl, converterApiKey, ConvertAudio{Base64: base64.StdEncoding.EncodeToString(fileData)})
-			if err != nil {
-				return nil, err
-			}
+		}
+		if err != nil {
+			return nil, err
 		}
 		fileData = convertedData
 		mimeType = "audio/ogg; codecs=opus"
 		uploadType = whatsmeow.MediaAudio
-	} else if data.Type == "document" {
+		logger.LogInfo("[%s] Conversão de áudio concluída em %v", instance.Id, time.Since(processingStart))
+	case "document":
 		uploadType = whatsmeow.MediaDocument
-	} else {
+	default:
 		return nil, errors.New("invalid media type")
 	}
 
-	uploaded, err = client.Upload(context.Background(), fileData, uploadType)
+	logger.LogInfo("[%s] Iniciando upload para WhatsApp...", instance.Id)
+	uploadStart := time.Now()
+	uploaded, err := client.Upload(context.Background(), fileData, uploadType)
 	if err != nil {
 		return nil, err
 	}
-
-	logger.LogInfo("[%s] Media uploaded with %s", instance.Id, uploaded.FileLength)
+	logger.LogInfo("[%s] Upload concluído em %v. Tamanho: %d", instance.Id, time.Since(uploadStart), uploaded.FileLength)
 
 	var media *waE2E.Message
 	var mediaType string
@@ -756,7 +766,6 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 			FileSHA256:    uploaded.FileSHA256,
 			FileLength:    proto.Uint64(uint64(len(fileData))),
 		}}
-
 		mediaType = "ImageMessage"
 	case "video":
 		media = &waE2E.Message{VideoMessage: &waE2E.VideoMessage{
@@ -769,7 +778,6 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 			FileSHA256:    uploaded.FileSHA256,
 			FileLength:    proto.Uint64(uint64(len(fileData))),
 		}}
-
 		mediaType = "VideoMessage"
 	case "ptv":
 		media = &waE2E.Message{PtvMessage: &waE2E.VideoMessage{
@@ -796,7 +804,6 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 			Waveform:         []byte(*proto.String("OjAnExISDgsKCAkJBwgkHAQEBBEFAwMNAxAcKCgkFzM0QUE4Jh4eKAoKChcLCwkeFgkJCQo3JiQmIiIRPz8/Ow==")),
 			Seconds:          proto.Uint32(uint32(duration)),
 		}}
-
 		mediaType = "AudioMessage"
 	case "document":
 		media = &waE2E.Message{DocumentMessage: &waE2E.DocumentMessage{
@@ -825,6 +832,7 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 		return nil, errors.New("invalid media type")
 	}
 
+	messageStart := time.Now()
 	message, err := s.SendMessage(instance.Id, media, mediaType, &SendDataStruct{
 		Id:           data.Id,
 		Number:       data.Number,
@@ -836,6 +844,10 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 	if err != nil {
 		return nil, err
 	}
+	logger.LogInfo("[%s] Mensagem enviada em %v", instance.Id, time.Since(messageStart))
+
+	totalTime := time.Since(startTime)
+	logger.LogInfo("[%s] Processo completo em %v", instance.Id, totalTime)
 
 	return message, nil
 }
