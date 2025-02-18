@@ -79,6 +79,15 @@ func (i *instanceHandler) Create(ctx *gin.Context) {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": "proxy host is required"})
 			return
 		}
+	} else {
+		if i.config.ProxyHost != "" && i.config.ProxyPort != "" && i.config.ProxyUsername != "" && i.config.ProxyPassword != "" {
+			data.Proxy = &instance_service.ProxyConfig{
+				Host:     i.config.ProxyHost,
+				Port:     i.config.ProxyPort,
+				Username: i.config.ProxyUsername,
+				Password: i.config.ProxyPassword,
+			}
+		}
 	}
 
 	createdInstance, err := i.instanceService.Create(data)
