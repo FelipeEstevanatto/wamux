@@ -1341,6 +1341,16 @@ func (w whatsmeowService) StartInstance(instanceId string) error {
 		return err
 	}
 
+	if instance.Proxy == "" && w.config.ProxyHost != "" && w.config.ProxyPort != "" && w.config.ProxyUsername != "" && w.config.ProxyPassword != "" {
+		instance.Proxy = fmt.Sprintf(`{"host": "%s", "port": "%s", "username": "%s", "password": "%s"}`, w.config.ProxyHost, w.config.ProxyPort, w.config.ProxyUsername, w.config.ProxyPassword)
+
+		err = w.instanceRepository.Update(instance)
+		if err != nil {
+			logger.LogError("[%s] Failed to update instance: %s", instanceId, err)
+			return err
+		}
+	}
+
 	logger.LogInfo("[%s] Starting client", instance.Id)
 
 	v := Values{map[string]string{
