@@ -531,9 +531,12 @@ func (s *sendService) SendMediaFile(data *MediaStruct, fileData []byte, instance
 
 	switch data.Type {
 	case "image":
-		if mimeType != "image/jpeg" && mimeType != "image/png" {
-			errMsg := fmt.Sprintf("Invalid file format: '%s'. Only 'image/jpeg' and 'image/png' are accepted", mimeType)
+		if mimeType != "image/jpeg" && mimeType != "image/png" && mimeType != "image/webp" {
+			errMsg := fmt.Sprintf("Invalid file format: '%s'. Only 'image/jpeg', 'image/png' and 'image/webp' are accepted", mimeType)
 			return nil, errors.New(errMsg)
+		}
+		if mimeType == "image/webp" {
+			mimeType = "image/jpeg"
 		}
 		uploadType = whatsmeow.MediaImage
 	case "video":
@@ -710,11 +713,15 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 	processingStart := time.Now()
 	switch data.Type {
 	case "image":
-		if mimeType != "image/jpeg" && mimeType != "image/png" {
-			errMsg := fmt.Sprintf("Invalid file format: '%s'. Only 'image/jpeg' and 'image/png' are accepted", mimeType)
+		if mimeType != "image/jpeg" && mimeType != "image/png" && mimeType != "image/webp" {
+			errMsg := fmt.Sprintf("Invalid file format: '%s'. Only 'image/jpeg', 'image/png' and 'image/webp' are accepted", mimeType)
 			return nil, errors.New(errMsg)
 		}
+		if mimeType == "image/webp" {
+			mimeType = "image/jpeg"
+		}
 		uploadType = whatsmeow.MediaImage
+
 	case "video", "ptv":
 		if mimeType != "video/mp4" {
 			errMsg := fmt.Sprintf("Invalid file format: '%s'. Only 'video/mp4' are accepted", mimeType)
