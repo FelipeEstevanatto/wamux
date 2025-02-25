@@ -284,7 +284,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 		if err != nil {
 			logger.LogError("[%s] Proxy error, disabling proxy", cd.Instance.Id)
 		} else {
-			client.SetProxy(proxy)
+			client.SetSOCKSProxy(proxy)
 			logger.LogInfo("[%s] Proxy enabled", cd.Instance.Id)
 		}
 	}
