@@ -3,8 +3,6 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"net/url"
 	"runtime"
 	"strconv"
 	"strings"
@@ -167,7 +165,7 @@ func ParseJID(arg string) (whatsmeow_types.JID, bool) {
 	}
 }
 
-func CreateSocks5Proxy(socks5Host, socks5Port, user, password string) (func(*http.Request) (*url.URL, error), error) {
+func CreateSocks5Proxy(socks5Host, socks5Port, user, password string) (proxy.Dialer, error) {
 	auth := &proxy.Auth{
 		User:     user,
 		Password: password,
@@ -178,19 +176,21 @@ func CreateSocks5Proxy(socks5Host, socks5Port, user, password string) (func(*htt
 		return nil, err
 	}
 
-	return func(req *http.Request) (*url.URL, error) {
-		host := req.URL.Host
-		if !strings.Contains(host, ":") {
-			host = fmt.Sprintf("%s:443", host) // Adiciona porta padrão 443 se não especificada
-		}
-		conn, err := dialer.Dial("tcp", host)
-		if err != nil {
-			return nil, err
-		}
-		defer conn.Close()
+	return dialer, nil
 
-		return nil, nil
-	}, nil
+	// return func(req *http.Request) (*url.URL, error) {
+	// 	host := req.URL.Host
+	// 	if !strings.Contains(host, ":") {
+	// 		host = fmt.Sprintf("%s:443", host) // Adiciona porta padrão 443 se não especificada
+	// 	}
+	// 	conn, err := dialer.Dial("tcp", host)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	defer conn.Close()
+
+	// 	return nil, nil
+	// }, nil
 }
 
 func UpdateUserInfo(values interface{}, field string, value string) interface{} {
