@@ -3,6 +3,8 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
 	"runtime"
 	"strconv"
 	"strings"
@@ -163,6 +165,17 @@ func ParseJID(arg string) (whatsmeow_types.JID, bool) {
 		}
 		return recipient, true
 	}
+}
+
+func CreateHTTPProxy(httpHost, httpPort, user, password string) (func(*http.Request) (*url.URL, error), error) {
+	address := fmt.Sprintf("http://%s:%s@%s:%s", user, password, httpHost, httpPort)
+
+	parsed, err := url.Parse(address)
+	if err != nil {
+		return nil, err
+	}
+
+	return http.ProxyURL(parsed), nil
 }
 
 func CreateSocks5Proxy(socks5Host, socks5Port, user, password string) (proxy.Dialer, error) {

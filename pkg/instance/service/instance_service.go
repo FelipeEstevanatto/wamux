@@ -409,6 +409,8 @@ func (i instances) Info(instanceId string) (*instance_model.Instance, error) {
 		instance.Connected = false
 	}
 
+	instance.Proxy = ""
+
 	return instance, nil
 }
 
