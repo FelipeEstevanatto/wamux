@@ -391,6 +391,8 @@ func (i instances) GetAll() ([]*instance_model.Instance, error) {
 		} else {
 			instance.Connected = false
 		}
+
+		instance.Proxy = ""
 	}
 
 	return instances, nil
