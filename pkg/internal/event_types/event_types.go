@@ -3,6 +3,7 @@ package event_types
 const (
 	ALL           = "ALL"
 	MESSAGE       = "MESSAGE"
+	SEND_MESSAGE  = "SEND_MESSAGE"
 	READ_RECEIPT  = "READ_RECEIPT"
 	PRESENCE      = "PRESENCE"
 	HISTORY_SYNC  = "HISTORY_SYNC"
@@ -19,6 +20,7 @@ const (
 var validEventTypes = map[string]bool{
 	ALL:           true,
 	MESSAGE:       true,
+	SEND_MESSAGE:  true,
 	READ_RECEIPT:  true,
 	PRESENCE:      true,
 	HISTORY_SYNC:  true,

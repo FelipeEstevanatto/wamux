@@ -284,7 +284,7 @@ func (s *sendService) SendText(data *TextStruct, instance *instance_model.Instan
 		},
 	}
 
-	message, err := s.SendMessage(instance.Id, msg, "ExtendedTextMessage", &SendDataStruct{
+	message, err := s.SendMessage(instance, msg, "ExtendedTextMessage", &SendDataStruct{
 		Id:           data.Id,
 		Number:       data.Number,
 		Quoted:       data.Quoted,
@@ -389,7 +389,7 @@ func (s *sendService) SendLink(data *LinkStruct, instance *instance_model.Instan
 		},
 	}
 
-	message, err := s.SendMessage(instance.Id, msg, "ExtendedTextMessage", &SendDataStruct{
+	message, err := s.SendMessage(instance, msg, "ExtendedTextMessage", &SendDataStruct{
 		Id:           data.Id,
 		Number:       data.Number,
 		Quoted:       data.Quoted,
@@ -655,7 +655,7 @@ func (s *sendService) SendMediaFile(data *MediaStruct, fileData []byte, instance
 		return nil, errors.New("invalid media type")
 	}
 
-	message, err := s.SendMessage(instance.Id, media, mediaType, &SendDataStruct{
+	message, err := s.SendMessage(instance, media, mediaType, &SendDataStruct{
 		Id:           data.Id,
 		Number:       data.Number,
 		Quoted:       data.Quoted,
@@ -837,7 +837,7 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 	}
 
 	messageStart := time.Now()
-	message, err := s.SendMessage(instance.Id, media, mediaType, &SendDataStruct{
+	message, err := s.SendMessage(instance, media, mediaType, &SendDataStruct{
 		Id:           data.Id,
 		Number:       data.Number,
 		Quoted:       data.Quoted,
@@ -864,7 +864,7 @@ func (s *sendService) SendPoll(data *PollStruct, instance *instance_model.Instan
 
 	msg := client.BuildPollCreation(data.Question, data.Options, data.MaxAnswer)
 
-	message, err := s.SendMessage(instance.Id, msg, "PollCreationMessage", &SendDataStruct{
+	message, err := s.SendMessage(instance, msg, "PollCreationMessage", &SendDataStruct{
 		Id:           data.Id,
 		Number:       data.Number,
 		Quoted:       data.Quoted,
@@ -938,7 +938,7 @@ func (s *sendService) SendSticker(data *StickerStruct, instance *instance_model.
 		FileLength:    proto.Uint64(uint64(len(filedata))),
 	}}
 
-	message, err := s.SendMessage(instance.Id, msg, "StickerMessage", &SendDataStruct{
+	message, err := s.SendMessage(instance, msg, "StickerMessage", &SendDataStruct{
 		Id:           data.Id,
 		Number:       data.Number,
 		Quoted:       data.Quoted,
@@ -966,7 +966,7 @@ func (s *sendService) SendLocation(data *LocationStruct, instance *instance_mode
 		Address:          &data.Address,
 	}}
 
-	message, err := s.SendMessage(instance.Id, msg, "LocationMessage", &SendDataStruct{
+	message, err := s.SendMessage(instance, msg, "LocationMessage", &SendDataStruct{
 		Id:           data.Id,
 		Number:       data.Number,
 		Quoted:       data.Quoted,
@@ -1000,7 +1000,7 @@ func (s *sendService) SendContact(data *ContactStruct, instance *instance_model.
 		Vcard:       &VCstring,
 	}}
 
-	messaged, err := s.SendMessage(instance.Id, msg, "ContactMessage", &SendDataStruct{
+	messaged, err := s.SendMessage(instance, msg, "ContactMessage", &SendDataStruct{
 		Id:           data.Id,
 		Number:       data.Number,
 		Quoted:       data.Quoted,
@@ -1359,16 +1359,16 @@ func (s *sendService) SendList(data *ListStruct, instance *instance_model.Instan
 	return messageSent, nil
 }
 
-func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, messageType string, data *SendDataStruct) (*MessageSendStruct, error) {
+func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.Message, messageType string, data *SendDataStruct) (*MessageSendStruct, error) {
 	recipient, err := validateMessageFields(data.Number, &data.Quoted.MessageID, &data.Quoted.MessageID)
 	if err != nil {
-		logger.LogError("[%s] Error validating message fields: %v", instanceId, err)
+		logger.LogError("[%s] Error validating message fields: %v", instance.Id, err)
 		return nil, err
 	}
 
 	var message string
 	if data.Id == "" {
-		message = s.clientPointer[instanceId].GenerateMessageID()
+		message = s.clientPointer[instance.Id].GenerateMessageID()
 	} else {
 		message = data.Id
 	}
@@ -1379,14 +1379,14 @@ func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, message
 			media = "audio"
 		}
 
-		err := s.clientPointer[instanceId].SendChatPresence(recipient, types.ChatPresence("composing"), types.ChatPresenceMedia(media))
+		err := s.clientPointer[instance.Id].SendChatPresence(recipient, types.ChatPresence("composing"), types.ChatPresenceMedia(media))
 		if err != nil {
 			return nil, err
 		}
 
 		time.Sleep(time.Duration(data.Delay) * time.Millisecond)
 
-		err = s.clientPointer[instanceId].SendChatPresence(recipient, types.ChatPresence("paused"), types.ChatPresenceMedia(media))
+		err = s.clientPointer[instance.Id].SendChatPresence(recipient, types.ChatPresence("paused"), types.ChatPresenceMedia(media))
 		if err != nil {
 			return nil, err
 		}
@@ -1499,7 +1499,7 @@ func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, message
 	isGroup := strings.Contains(data.Number, "@g.us")
 	if isGroup {
 		if data.MentionAll {
-			allParticipants, err := s.clientPointer[instanceId].GetGroupRequestParticipants(recipient)
+			allParticipants, err := s.clientPointer[instance.Id].GetGroupRequestParticipants(recipient)
 			if err != nil {
 				return nil, err
 			}
@@ -1560,7 +1560,7 @@ func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, message
 		}
 	}
 
-	response, err := s.clientPointer[instanceId].SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{ID: message})
+	response, err := s.clientPointer[instance.Id].SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{ID: message})
 	if err != nil {
 		return nil, err
 	}
@@ -1568,7 +1568,7 @@ func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, message
 	messageInfo := types.MessageInfo{
 		MessageSource: types.MessageSource{
 			Chat:     recipient,
-			Sender:   *s.clientPointer[instanceId].Store.ID,
+			Sender:   *s.clientPointer[instance.Id].Store.ID,
 			IsFromMe: true,
 			IsGroup:  isGroup,
 		},
@@ -1588,7 +1588,35 @@ func (s *sendService) SendMessage(instanceId string, msg *waE2E.Message, message
 		},
 	}
 
-	logger.LogInfo("[%s] Message sent to %s", instanceId, data.Number)
+	postMap := make(map[string]interface{})
+
+	postMap["event"] = "SendMessage"
+
+	postMap["data"] = messageSent
+
+	postMap["instanceToken"] = instance.Token
+	postMap["instanceId"] = instance.Id
+	postMap["instanceName"] = instance.Name
+
+	var queueName string
+
+	if _, ok := postMap["event"]; ok {
+		queueName = strings.ToLower(fmt.Sprintf("%s.%s", instance.Id, postMap["event"]))
+	}
+
+	values, err := json.Marshal(postMap)
+	if err != nil {
+		logger.LogError("[%s] Failed to marshal JSON for queue", instance.Id)
+		return nil, err
+	}
+
+	go s.whatsmeowService.CallWebhook(instance, queueName, values)
+
+	if s.config.AmqpGlobalEnabled || s.config.NatsGlobalEnabled {
+		go s.whatsmeowService.SendToGlobalQueues(postMap["event"].(string), values, instance.Id)
+	}
+
+	logger.LogInfo("[%s] Message sent to %s", instance.Id, data.Number)
 	return messageSent, nil
 }
 

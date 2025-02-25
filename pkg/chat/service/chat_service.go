@@ -21,7 +21,7 @@ type ChatService interface {
 	ChatUnarchive(data *BodyStruct, instance *instance_model.Instance) (string, error)
 	ChatMute(data *BodyStruct, instance *instance_model.Instance) (string, error)
 	ChatUnmute(data *BodyStruct, instance *instance_model.Instance) (string, error)
-	HistorySyncRequest(data *HistorySyncRequestStruct, instance *instance_model.Instance) (string, error)
+	HistorySyncRequest(data *HistorySyncRequestStruct, instance *instance_model.Instance) (*whatsmeow.SendResponse, error)
 }
 
 type chatService struct {
@@ -215,16 +215,17 @@ func (c *chatService) ChatUnmute(data *BodyStruct, instance *instance_model.Inst
 	return ts.String(), nil
 }
 
-func (c *chatService) HistorySyncRequest(data *HistorySyncRequestStruct, instance *instance_model.Instance) (string, error) {
+func (c *chatService) HistorySyncRequest(data *HistorySyncRequestStruct, instance *instance_model.Instance) (*whatsmeow.SendResponse, error) {
 	client, err := c.ensureClientConnected(instance.Id)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	messageInfo := types.MessageInfo{
 		MessageSource: types.MessageSource{
 			Chat:     data.MessageInfo.Chat,
 			IsFromMe: data.MessageInfo.IsFromMe,
+			IsGroup:  data.MessageInfo.IsGroup,
 		},
 		ID:        data.MessageInfo.ID,
 		Timestamp: data.MessageInfo.Timestamp,
@@ -235,10 +236,10 @@ func (c *chatService) HistorySyncRequest(data *HistorySyncRequestStruct, instanc
 	res, err := client.SendMessage(context.Background(), messageInfo.Chat, histRequest, whatsmeow.SendRequestExtra{Peer: true})
 	if err != nil {
 		logger.LogError("[%s] error history sync request: %v", instance.Id, err)
-		return "", err
+		return nil, err
 	}
 
-	return res.ID, nil
+	return &res, nil
 }
 
 func NewChatService(

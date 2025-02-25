@@ -48,6 +48,8 @@ type WhatsmeowService interface {
 	ConnectOnStartup(clientName string)
 	StartInstance(instanceId string) error
 	ReconnectClient(instanceId string) error
+	CallWebhook(instance *instance_model.Instance, queueName string, jsonData []byte)
+	SendToGlobalQueues(event string, jsonData []byte, userId string)
 }
 
 type whatsmeowService struct {
@@ -69,6 +71,7 @@ type whatsmeowService struct {
 }
 
 type MyClient struct {
+	service            WhatsmeowService
 	WAClient           *whatsmeow.Client
 	eventHandlerID     uint32
 	userID             string
@@ -280,11 +283,12 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 			proxyPassword = w.config.ProxyPassword
 		}
 
-		proxy, err := utils.CreateSocks5Proxy(proxyHost, proxyPort, proxyUsername, proxyPassword)
+		// proxy, err := utils.CreateSocks5Proxy(proxyHost, proxyPort, proxyUsername, proxyPassword)
+		proxy, err := utils.CreateHTTPProxy(proxyHost, proxyPort, proxyUsername, proxyPassword)
 		if err != nil {
 			logger.LogError("[%s] Proxy error, disabling proxy", cd.Instance.Id)
 		} else {
-			client.SetSOCKSProxy(proxy)
+			client.SetProxy(proxy)
 			logger.LogInfo("[%s] Proxy enabled", cd.Instance.Id)
 		}
 	}
@@ -292,7 +296,8 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 	client.EnableAutoReconnect = true
 	client.AutoTrustIdentity = true
 
-	mycli := MyClient{
+	mycli := &MyClient{
+		service:            &w,
 		Instance:           cd.Instance,
 		WAClient:           client,
 		eventHandlerID:     1,
@@ -387,10 +392,10 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 						return
 					}
 
-					go mycli.callWebhook(queueName, values)
+					go w.CallWebhook(cd.Instance, queueName, values)
 
 					if mycli.config.AmqpGlobalEnabled || mycli.config.NatsGlobalEnabled {
-						go mycli.sendToGlobalQueues(postMap["event"].(string), values)
+						go mycli.service.SendToGlobalQueues(postMap["event"].(string), values, mycli.userID)
 					}
 				} else if evt.Event == "timeout" {
 					cd.Instance.Qrcode = ""
@@ -428,10 +433,10 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 						return
 					}
 
-					go mycli.callWebhook(queueName, values)
+					go w.CallWebhook(cd.Instance, queueName, values)
 
 					if mycli.config.AmqpGlobalEnabled || mycli.config.NatsGlobalEnabled {
-						go mycli.sendToGlobalQueues(postMap["event"].(string), values)
+						go mycli.service.SendToGlobalQueues(postMap["event"].(string), values, mycli.userID)
 					}
 				} else if evt.Event == "success" {
 					logger.LogInfo("[%s] QR pairing ok!", cd.Instance.Id)
@@ -490,10 +495,10 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 				return
 			}
 
-			go mycli.callWebhook(queueName, values)
+			go w.CallWebhook(cd.Instance, queueName, values)
 
 			if mycli.config.AmqpGlobalEnabled || mycli.config.NatsGlobalEnabled {
-				go mycli.sendToGlobalQueues(postMap["event"].(string), values)
+				go mycli.service.SendToGlobalQueues(postMap["event"].(string), values, mycli.userID)
 			}
 
 			// restart client
@@ -1044,6 +1049,8 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	case *events.HistorySync:
 		doWebhook = true
 		postMap["event"] = "HistorySync"
+
+		logger.LogInfo("[%s] History sync event received %+v", mycli.userID, evt.Data.SyncType)
 	case *events.AppState:
 		logger.LogInfo("[%s] App state event received %+v", mycli.userID, evt)
 	case *events.LoggedOut:
@@ -1194,15 +1201,15 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			queueName = strings.ToLower(fmt.Sprintf("%s.%s", userID, postMap["event"]))
 		}
 
-		go mycli.callWebhook(queueName, values)
+		go mycli.service.CallWebhook(mycli.Instance, queueName, values)
 
 		if mycli.config.AmqpGlobalEnabled || mycli.config.NatsGlobalEnabled {
-			go mycli.sendToGlobalQueues(postMap["event"].(string), values)
+			go mycli.service.SendToGlobalQueues(postMap["event"].(string), values, mycli.userID)
 		}
 	}
 }
 
-func (mycli *MyClient) callWebhook(queueName string, jsonData []byte) {
+func (w *whatsmeowService) CallWebhook(instance *instance_model.Instance, queueName string, jsonData []byte) {
 	var data map[string]interface{}
 	if err := json.Unmarshal(jsonData, &data); err != nil {
 		return
@@ -1213,74 +1220,98 @@ func (mycli *MyClient) callWebhook(queueName string, jsonData []byte) {
 		return
 	}
 
-	if contains(mycli.subscriptions, "ALL") {
-		logger.LogInfo("[%s] Event received of type %s", mycli.userID, eventType)
-		mycli.sendToQueueOrWebhook(queueName, jsonData)
+	eventArray := strings.Split(instance.Events, ",")
+
+	var subscriptions []string
+
+	if len(eventArray) < 1 {
+		subscriptions = append(subscriptions, event_types.MESSAGE)
+	} else {
+		for _, arg := range eventArray {
+			if !event_types.IsEventType(arg) {
+				logger.LogWarn("[%s] Message type discarded", instance.Id, arg)
+				continue
+			}
+			if !utils.Find(subscriptions, arg) {
+				subscriptions = append(subscriptions, arg)
+			}
+
+		}
+	}
+
+	if contains(subscriptions, "ALL") {
+		logger.LogInfo("[%s] Event received of type %s", instance.Id, eventType)
+		w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		return
 	}
 
-	logger.LogInfo("[%s] mycli.subscriptions %s eventType %s", mycli.userID, mycli.subscriptions, eventType)
+	logger.LogInfo("[%s] subscriptions %s eventType %s", instance.Id, subscriptions, eventType)
 
 	switch eventType {
 	case "Message":
-		if contains(mycli.subscriptions, "MESSAGE") {
-			logger.LogInfo("[%s] Event received of type %s", mycli.userID, eventType)
-			mycli.sendToQueueOrWebhook(queueName, jsonData)
+		if contains(subscriptions, "MESSAGE") {
+			logger.LogInfo("[%s] Event received of type %s", instance.Id, eventType)
+			w.sendToQueueOrWebhook(instance, queueName, jsonData)
+		}
+	case "SendMessage":
+		if contains(subscriptions, "SEND_MESSAGE") {
+			logger.LogInfo("[%s] Event received of type %s", instance.Id, eventType)
+			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		}
 	case "Receipt":
-		if contains(mycli.subscriptions, "READ_RECEIPT") {
-			logger.LogInfo("[%s] Event received of type %s", mycli.userID, eventType)
-			mycli.sendToQueueOrWebhook(queueName, jsonData)
+		if contains(subscriptions, "READ_RECEIPT") {
+			logger.LogInfo("[%s] Event received of type %s", instance.Id, eventType)
+			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		}
 	case "Presence":
-		if contains(mycli.subscriptions, "PRESENCE") {
-			logger.LogInfo("[%s] Event received of type %s", mycli.userID, eventType)
-			mycli.sendToQueueOrWebhook(queueName, jsonData)
+		if contains(subscriptions, "PRESENCE") {
+			logger.LogInfo("[%s] Event received of type %s", instance.Id, eventType)
+			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		}
 	case "HistorySync":
-		if contains(mycli.subscriptions, "HISTORY_SYNC") {
-			logger.LogInfo("[%s] Event received of type %s", mycli.userID, eventType)
-			mycli.sendToQueueOrWebhook(queueName, jsonData)
+		if contains(subscriptions, "HISTORY_SYNC") {
+			logger.LogInfo("[%s] Event received of type %s", instance.Id, eventType)
+			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		}
 	case "ChatPresence", "Archive":
-		if contains(mycli.subscriptions, "CHAT_PRESENCE") {
-			logger.LogInfo("[%s] Event received of type %s", mycli.userID, eventType)
-			mycli.sendToQueueOrWebhook(queueName, jsonData)
+		if contains(subscriptions, "CHAT_PRESENCE") {
+			logger.LogInfo("[%s] Event received of type %s", instance.Id, eventType)
+			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		}
 	case "CallOffer", "CallAccept", "CallTerminate", "CallOfferNotice", "CallRelayLatency":
-		if contains(mycli.subscriptions, "CALL") {
-			logger.LogInfo("[%s] Event received of type %s", mycli.userID, eventType)
-			mycli.sendToQueueOrWebhook(queueName, jsonData)
+		if contains(subscriptions, "CALL") {
+			logger.LogInfo("[%s] Event received of type %s", instance.Id, eventType)
+			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		}
 	case "Connected", "PairSuccess", "TemporaryBan", "LoggedOut", "ConnectFailure", "Disconnected":
-		if contains(mycli.subscriptions, "CONNECTION") {
-			logger.LogInfo("[%s] Event received of type %s", mycli.userID, eventType)
-			mycli.sendToQueueOrWebhook(queueName, jsonData)
+		if contains(subscriptions, "CONNECTION") {
+			logger.LogInfo("[%s] Event received of type %s", instance.Id, eventType)
+			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		}
 	case "LabelEdit", "LabelAssociationChat", "LabelAssociationMessage":
-		if contains(mycli.subscriptions, "LABEL") {
-			logger.LogInfo("[%s] Event received of type %s", mycli.userID, eventType)
-			mycli.sendToQueueOrWebhook(queueName, jsonData)
+		if contains(subscriptions, "LABEL") {
+			logger.LogInfo("[%s] Event received of type %s", instance.Id, eventType)
+			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		}
 	case "Contact", "PushName":
-		if contains(mycli.subscriptions, "CONTACT") {
-			logger.LogInfo("[%s] Event received of type %s", mycli.userID, eventType)
-			mycli.sendToQueueOrWebhook(queueName, jsonData)
+		if contains(subscriptions, "CONTACT") {
+			logger.LogInfo("[%s] Event received of type %s", instance.Id, eventType)
+			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		}
 	case "GroupInfo", "JoinedGroup":
-		if contains(mycli.subscriptions, "GROUP") {
-			logger.LogInfo("[%s] Event received of type %s", mycli.userID, eventType)
-			mycli.sendToQueueOrWebhook(queueName, jsonData)
+		if contains(subscriptions, "GROUP") {
+			logger.LogInfo("[%s] Event received of type %s", instance.Id, eventType)
+			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		}
 	case "NewsletterJoin", "NewsletterLeave":
-		if contains(mycli.subscriptions, "NEWSLETTER") {
-			logger.LogInfo("[%s] Event received of type %s", mycli.userID, eventType)
-			mycli.sendToQueueOrWebhook(queueName, jsonData)
+		if contains(subscriptions, "NEWSLETTER") {
+			logger.LogInfo("[%s] Event received of type %s", instance.Id, eventType)
+			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		}
 	case "QRCode", "QRTimeout", "QRSuccess":
-		if contains(mycli.subscriptions, "QRCODE") {
-			logger.LogInfo("[%s] Event received of type %s", mycli.userID, eventType)
-			mycli.sendToQueueOrWebhook(queueName, jsonData)
+		if contains(subscriptions, "QRCODE") {
+			logger.LogInfo("[%s] Event received of type %s", instance.Id, eventType)
+			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		}
 
 	default:
@@ -1297,41 +1328,41 @@ func contains(subscriptions []string, event string) bool {
 	return false
 }
 
-func (mycli *MyClient) sendToQueueOrWebhook(queueName string, jsonData []byte) {
-	if mycli.rabbitmqEnable == "enabled" || mycli.rabbitmqEnable == "true" {
-		err := mycli.rabbitmqProducer.Produce(queueName, jsonData, mycli.rabbitmqEnable, mycli.userID)
+func (w *whatsmeowService) sendToQueueOrWebhook(instance *instance_model.Instance, queueName string, jsonData []byte) {
+	if instance.RabbitmqEnable == "enabled" || instance.RabbitmqEnable == "true" {
+		err := w.rabbitmqProducer.Produce(queueName, jsonData, instance.RabbitmqEnable, instance.Id)
 		if err != nil {
-			logger.LogError("[%s] Failed to send message to rabbitmq: %s", mycli.userID, err)
+			logger.LogError("[%s] Failed to send message to rabbitmq: %s", instance.Id, err)
 			return
 		}
-		logger.LogInfo("[%s] Message sent to rabbitmq successfully", mycli.userID)
+		logger.LogInfo("[%s] Message sent to rabbitmq successfully", instance.Id)
 	}
 
-	if mycli.natsEnable == "enabled" || mycli.natsEnable == "true" {
-		err := mycli.natsProducer.Produce(queueName, jsonData, mycli.natsEnable, mycli.userID)
+	if instance.NatsEnable == "enabled" || instance.NatsEnable == "true" {
+		err := w.natsProducer.Produce(queueName, jsonData, instance.NatsEnable, instance.Id)
 		if err != nil {
-			logger.LogError("[%s] Failed to send message to nats: %s", mycli.userID, err)
+			logger.LogError("[%s] Failed to send message to nats: %s", instance.Id, err)
 			return
 		}
-		logger.LogInfo("[%s] Message sent to nats successfully", mycli.userID)
+		logger.LogInfo("[%s] Message sent to nats successfully", instance.Id)
 	}
 
-	if mycli.websocketEnable == "enabled" || mycli.websocketEnable == "true" {
-		err := mycli.websocketProducer.Produce(queueName, jsonData, mycli.userID, mycli.token)
+	if instance.WebSocketEnable == "enabled" || instance.WebSocketEnable == "true" {
+		err := w.websocketProducer.Produce(queueName, jsonData, instance.Id, instance.Token)
 		if err != nil {
-			logger.LogError("[%s] Failed to send message to websocket: %s", mycli.userID, err)
+			logger.LogError("[%s] Failed to send message to websocket: %s", instance.Id, err)
 			return
 		}
-		logger.LogInfo("[%s] Message sent to websocket successfully", mycli.userID)
+		logger.LogInfo("[%s] Message sent to websocket successfully", instance.Id)
 	}
 
-	if mycli.webhookUrl != "" && mycli.webhookUrl != "disabled" {
-		err := mycli.webhookProducer.Produce(queueName, jsonData, mycli.webhookUrl, mycli.userID)
+	if instance.Webhook != "" && instance.Webhook != "disabled" {
+		err := w.webhookProducer.Produce(queueName, jsonData, instance.Webhook, instance.Id)
 		if err != nil {
-			logger.LogError("[%s] Failed to send message to webhook: %s", mycli.userID, err)
+			logger.LogError("[%s] Failed to send message to webhook: %s", instance.Id, err)
 			return
 		}
-		logger.LogInfo("[%s] Message sent to webhook successfully", mycli.userID)
+		logger.LogInfo("[%s] Message sent to webhook successfully", instance.Id)
 	}
 }
 
@@ -1473,14 +1504,16 @@ func getExtensionFromMimeType(mimeType string) string {
 	}
 }
 
-func (mycli *MyClient) sendToGlobalQueues(eventType string, payload []byte) {
-	logger.LogInfo("[%s] Starting sendToGlobalQueues for event: %s", mycli.userID, eventType)
+func (w *whatsmeowService) SendToGlobalQueues(eventType string, payload []byte, userId string) {
+	logger.LogInfo("[%s] Starting sendToGlobalQueues for event: %s", userId, eventType)
 
 	// Mapeia o evento do Whatsmeow para o tipo de evento global
 	var globalEventType string
 	switch eventType {
 	case "Message":
 		globalEventType = "MESSAGE"
+	case "SendMessage":
+		globalEventType = "SEND_MESSAGE"
 	case "Receipt":
 		globalEventType = "READ_RECEIPT"
 	case "Presence":
@@ -1504,40 +1537,40 @@ func (mycli *MyClient) sendToGlobalQueues(eventType string, payload []byte) {
 	case "QRCode", "QRTimeout", "QRSuccess":
 		globalEventType = "QRCODE"
 	default:
-		logger.LogInfo("[%s] Event %s not mapped to global event type", mycli.userID, eventType)
+		logger.LogInfo("[%s] Event %s not mapped to global event type", userId, eventType)
 		return
 	}
 
 	// Verifica se o evento está na lista de eventos globais
-	if mycli.config.AmqpGlobalEnabled && utils.Find(mycli.config.AmqpGlobalEvents, globalEventType) {
+	if w.config.AmqpGlobalEnabled && utils.Find(w.config.AmqpGlobalEvents, globalEventType) {
 		// Nome da fila global usando o evento mapeado
 		queueName := strings.ToLower(eventType)
-		logger.LogInfo("[%s] Queue name for global event: %s", mycli.userID, queueName)
+		logger.LogInfo("[%s] Queue name for global event: %s", userId, queueName)
 
 		// Envia para RabbitMQ se estiver habilitado
-		if mycli.config.AmqpGlobalEnabled {
-			err := mycli.rabbitmqProducer.Produce(queueName, payload, "global", mycli.userID)
+		if w.config.AmqpGlobalEnabled {
+			err := w.rabbitmqProducer.Produce(queueName, payload, "global", userId)
 			if err != nil {
-				logger.LogError("[%s] Failed to send message to RabbitMQ global queue %s: %v", mycli.userID, queueName, err)
+				logger.LogError("[%s] Failed to send message to RabbitMQ global queue %s: %v", userId, queueName, err)
 			} else {
-				logger.LogInfo("[%s] Successfully sent message to RabbitMQ global queue %s", mycli.userID, queueName)
+				logger.LogInfo("[%s] Successfully sent message to RabbitMQ global queue %s", userId, queueName)
 			}
 		}
 	}
 
 	// Verifica se o evento está na lista de eventos globais
-	if mycli.config.NatsGlobalEnabled && utils.Find(mycli.config.NatsGlobalEvents, globalEventType) {
+	if w.config.NatsGlobalEnabled && utils.Find(w.config.NatsGlobalEvents, globalEventType) {
 		// Nome da fila global usando o evento mapeado
 		queueName := strings.ToLower(eventType)
-		logger.LogInfo("[%s] Queue name for global event: %s", mycli.userID, queueName)
+		logger.LogInfo("[%s] Queue name for global event: %s", userId, queueName)
 
 		// Envia para NATS se estiver habilitado
-		if mycli.config.NatsGlobalEnabled && utils.Find(mycli.config.NatsGlobalEvents, globalEventType) {
-			err := mycli.natsProducer.Produce(queueName, payload, "global", mycli.userID)
+		if w.config.NatsGlobalEnabled && utils.Find(w.config.NatsGlobalEvents, globalEventType) {
+			err := w.natsProducer.Produce(queueName, payload, "global", userId)
 			if err != nil {
-				logger.LogError("[%s] Failed to send message to NATS global subject %s: %v", mycli.userID, queueName, err)
+				logger.LogError("[%s] Failed to send message to NATS global subject %s: %v", userId, queueName, err)
 			} else {
-				logger.LogInfo("[%s] Successfully sent message to NATS global subject %s", mycli.userID, queueName)
+				logger.LogInfo("[%s] Successfully sent message to NATS global subject %s", userId, queueName)
 			}
 		}
 	}
