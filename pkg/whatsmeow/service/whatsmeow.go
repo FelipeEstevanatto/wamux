@@ -260,7 +260,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 		var proxyConfig ProxyConfig
 		err := json.Unmarshal([]byte(cd.Instance.Proxy), &proxyConfig)
 		if err != nil {
-			fmt.Println("Error:", err)
+			logger.LogError("[%s] error unmarshalling proxy config", cd.Instance.Id)
 			return
 		}
 
@@ -286,9 +286,8 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 		}
 
 		proxy, err := utils.CreateSocks5Proxy(proxyHost, proxyPort, proxyUsername, proxyPassword)
-		// proxy, err := utils.CreateHTTPProxy(proxyHost, proxyPort, proxyUsername, proxyPassword)
 		if err != nil {
-			logger.LogError("[%s] Proxy error, disabling proxy", cd.Instance.Id)
+			logger.LogWarn("[%s] Proxy error, continuing without proxy: %v", cd.Instance.Id, err)
 		} else {
 			client.SetSOCKSProxy(proxy)
 			logger.LogInfo("[%s] Proxy enabled", cd.Instance.Id)
@@ -332,39 +331,51 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 		logger.LogInfo("[%s] Already logged in with JID: %s", cd.Instance.Id, client.Store.ID.String())
 		err = client.Connect()
 		if err != nil {
-			// Verifica se é um erro de autenticação do proxy
 			if strings.Contains(err.Error(), "username/password authentication failed") {
 				logger.LogWarn("[%s] Proxy authentication failed, attempting to connect without proxy", cd.Instance.Id)
 
-				// Desabilita o proxy temporariamente
+				// Desabilita o proxy
 				client.SetProxy(nil)
 
 				// Tenta conectar sem proxy
 				err = client.Connect()
-
 				if err != nil {
-					// Se ainda houver erro, restaura o proxy original
-					logger.LogError("[%s] Failed to connect with and without proxy: %s", cd.Instance.Id, err)
+					logger.LogError("[%s] Failed to connect even without proxy: %v", cd.Instance.Id, err)
 					return
 				}
-
-				logger.LogWarn("[%s] Successfully connected without proxy", cd.Instance.Id)
+				logger.LogInfo("[%s] Successfully connected without proxy", cd.Instance.Id)
 			} else {
-				logger.LogError("[%s] Failed to connect: %s", cd.Instance.Id, err)
+				logger.LogError("[%s] Failed to connect: %v", cd.Instance.Id, err)
 				return
 			}
 		}
 	} else {
 		qrChan, err := client.GetQRChannel(context.Background())
 		if err != nil {
-			// This error means that we're already logged in, so ignore it.
 			if !errors.Is(err, whatsmeow.ErrQRStoreContainsID) {
-				logger.LogError("[%s] Failed to get QR channel", cd.Instance.Id)
+				logger.LogError("[%s] Failed to get QR channel: %v", cd.Instance.Id, err)
+				return
 			}
 		} else {
 			err = client.Connect()
 			if err != nil {
-				panic(err)
+				if strings.Contains(err.Error(), "username/password authentication failed") {
+					logger.LogWarn("[%s] Proxy authentication failed during QR connection, attempting without proxy", cd.Instance.Id)
+
+					// Desabilita o proxy
+					client.SetProxy(nil)
+
+					// Tenta conectar sem proxy
+					err = client.Connect()
+					if err != nil {
+						logger.LogError("[%s] Failed to connect even without proxy: %v", cd.Instance.Id, err)
+						return
+					}
+					logger.LogInfo("[%s] Successfully connected without proxy", cd.Instance.Id)
+				} else {
+					logger.LogError("[%s] Failed to connect: %v", cd.Instance.Id, err)
+					return
+				}
 			}
 
 			for evt := range qrChan {
