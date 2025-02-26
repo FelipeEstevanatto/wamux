@@ -283,12 +283,12 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 			proxyPassword = w.config.ProxyPassword
 		}
 
-		// proxy, err := utils.CreateSocks5Proxy(proxyHost, proxyPort, proxyUsername, proxyPassword)
-		proxy, err := utils.CreateHTTPProxy(proxyHost, proxyPort, proxyUsername, proxyPassword)
+		proxy, err := utils.CreateSocks5Proxy(proxyHost, proxyPort, proxyUsername, proxyPassword)
+		// proxy, err := utils.CreateHTTPProxy(proxyHost, proxyPort, proxyUsername, proxyPassword)
 		if err != nil {
 			logger.LogError("[%s] Proxy error, disabling proxy", cd.Instance.Id)
 		} else {
-			client.SetProxy(proxy)
+			client.SetSOCKSProxy(proxy)
 			logger.LogInfo("[%s] Proxy enabled", cd.Instance.Id)
 		}
 	}
