@@ -125,28 +125,30 @@ type ProxyConfig struct {
 }
 
 func (w whatsmeowService) ReconnectClient(instanceId string) error {
-	if w.clientPointer[instanceId] != nil {
-		logger.LogInfo("[%s] Reconnecting client", instanceId)
-		// Make Sure WebSocket Connection is Disconnected
-		w.clientPointer[instanceId].Disconnect()
+	logger.LogInfo("[%s] Reconnecting client", instanceId)
 
-		// Make Sure Store ID is not Empty
-		// To do Reconnection
-		if w.clientPointer[instanceId] != nil {
-			err := w.clientPointer[instanceId].Connect()
+	err := w.clientPointer[instanceId].Connect()
+	if err != nil {
+		// Verifica se é um erro de autenticação do proxy
+		if strings.Contains(err.Error(), "username/password authentication failed") {
+			logger.LogWarn("[%s] Proxy authentication failed, attempting to connect without proxy", instanceId)
+
+			// Desabilita o proxy temporariamente
+			w.clientPointer[instanceId].SetProxy(nil)
+
+			// Tenta conectar sem proxy
+			err = w.clientPointer[instanceId].Connect()
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to connect with and without proxy: %v", err)
 			}
 
-			logger.LogInfo("[%s] Client reconnected", instanceId)
-
-			return nil
+			logger.LogWarn("[%s] Successfully connected without proxy", instanceId)
+		} else {
+			return fmt.Errorf("error connecting client: %v", err)
 		}
-
-		return errors.New("WhatsApp Client Store ID is Empty, Please Re-Login and Scan QR Code Again")
 	}
 
-	return errors.New("WhatsApp Client is not Valid")
+	return nil
 }
 
 func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
@@ -330,8 +332,27 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 		logger.LogInfo("[%s] Already logged in with JID: %s", cd.Instance.Id, client.Store.ID.String())
 		err = client.Connect()
 		if err != nil {
-			logger.LogError("[%s] Failed to connect: %s", cd.Instance.Id, err)
-			return
+			// Verifica se é um erro de autenticação do proxy
+			if strings.Contains(err.Error(), "username/password authentication failed") {
+				logger.LogWarn("[%s] Proxy authentication failed, attempting to connect without proxy", cd.Instance.Id)
+
+				// Desabilita o proxy temporariamente
+				client.SetProxy(nil)
+
+				// Tenta conectar sem proxy
+				err = client.Connect()
+
+				if err != nil {
+					// Se ainda houver erro, restaura o proxy original
+					logger.LogError("[%s] Failed to connect with and without proxy: %s", cd.Instance.Id, err)
+					return
+				}
+
+				logger.LogWarn("[%s] Successfully connected without proxy", cd.Instance.Id)
+			} else {
+				logger.LogError("[%s] Failed to connect: %s", cd.Instance.Id, err)
+				return
+			}
 		}
 	} else {
 		qrChan, err := client.GetQRChannel(context.Background())
@@ -447,12 +468,12 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 		}
 	}
 
-	if reconnect {
-		err := w.ReconnectClient(cd.Instance.Id)
-		if err != nil {
-			logger.LogError("[%s] Error reconnecting client: %s", cd.Instance.Id, err)
-		}
-	}
+	// if reconnect {
+	// 	err := w.ReconnectClient(cd.Instance.Id)
+	// 	if err != nil {
+	// 		logger.LogError("[%s] Error reconnecting client: %s", cd.Instance.Id, err)
+	// 	}
+	// }
 
 	for {
 		select {
