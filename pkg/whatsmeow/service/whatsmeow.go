@@ -193,7 +193,8 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 		logger.LogInfo("[%s] Jid found. Getting device store for jid: %s", cd.Instance.Id, jid)
 		deviceStore, err = container.GetDevice(jid)
 		if err != nil {
-			panic(err)
+			logger.LogError("[%s] Erro ao obter device store: %v", cd.Instance.Id, err)
+			return
 		}
 	} else {
 		logger.LogWarn("[%s] No jid found. Creating new device", cd.Instance.Id)
@@ -331,7 +332,15 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 		logger.LogInfo("[%s] Already logged in with JID: %s", cd.Instance.Id, client.Store.ID.String())
 		err = client.Connect()
 		if err != nil {
-			if strings.Contains(err.Error(), "username/password authentication failed") {
+			if strings.Contains(err.Error(), "EOF") {
+				logger.LogError("[%s] Erro de conexão WebSocket (EOF). Tentando reconectar em 5 segundos...", cd.Instance.Id)
+				time.Sleep(5 * time.Second)
+				err = client.Connect()
+				if err != nil {
+					logger.LogError("[%s] Falha na segunda tentativa de conexão: %v", cd.Instance.Id, err)
+					return
+				}
+			} else if strings.Contains(err.Error(), "username/password authentication failed") {
 				logger.LogWarn("[%s] Proxy authentication failed, attempting to connect without proxy", cd.Instance.Id)
 
 				// Desabilita o proxy
@@ -359,7 +368,15 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 		} else {
 			err = client.Connect()
 			if err != nil {
-				if strings.Contains(err.Error(), "username/password authentication failed") {
+				if strings.Contains(err.Error(), "EOF") {
+					logger.LogError("[%s] Erro de conexão WebSocket (EOF). Tentando reconectar em 5 segundos...", cd.Instance.Id)
+					time.Sleep(5 * time.Second)
+					err = client.Connect()
+					if err != nil {
+						logger.LogError("[%s] Falha na segunda tentativa de conexão: %v", cd.Instance.Id, err)
+						return
+					}
+				} else if strings.Contains(err.Error(), "username/password authentication failed") {
 					logger.LogWarn("[%s] Proxy authentication failed during QR connection, attempting without proxy", cd.Instance.Id)
 
 					// Desabilita o proxy
