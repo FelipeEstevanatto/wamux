@@ -23,6 +23,7 @@ type InstanceHandler interface {
 	Info(ctx *gin.Context)
 	Pair(ctx *gin.Context)
 	DeleteProxy(ctx *gin.Context)
+	ForceReconnect(ctx *gin.Context)
 }
 
 type instanceHandler struct {
@@ -418,6 +419,50 @@ func (i *instanceHandler) DeleteProxy(ctx *gin.Context) {
 	}
 
 	err := i.instanceService.RemoveProxy(instanceId)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success"})
+}
+
+// Force reconnect
+// @Summary Force reconnect
+// @Description Force reconnect
+// @Tags Instance
+// @Accept json
+// @Produce json
+// @Param instanceId path string true "Instance Id"
+// @Param instance body instance_service.ForceReconnectStruct true "Instance data"
+// @Success 200 {object} gin.H "Instance force reconnected successfully"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /instance/forcereconnect/{instanceId} [post]
+func (i *instanceHandler) ForceReconnect(ctx *gin.Context) {
+	instanceId := ctx.Param("instanceId")
+
+	if instanceId == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "instanceId is required"})
+		return
+	}
+
+	var data *instance_service.ForceReconnectStruct
+	err := ctx.ShouldBindBodyWithJSON(&data)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var number string
+	if data.Number == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "number is required"})
+		return
+	}
+
+	number = data.Number
+
+	err = i.instanceService.ForceReconnect(instanceId, number)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

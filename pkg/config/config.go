@@ -1,6 +1,7 @@
 package config
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 	"strconv"
@@ -54,18 +55,6 @@ type Config struct {
 	NatsGlobalEvents     []string
 }
 
-func (c *Config) CreateAuthDB() (*gorm.DB, error) {
-	logger.LogDebug("Connecting to database on: %s", c.PostgresAuthDB)
-	db, err := gorm.Open(
-		postgres.Open(c.PostgresAuthDB),
-		&gorm.Config{},
-	)
-	if err != nil {
-		return nil, err
-	}
-	return db, nil
-}
-
 func (c *Config) CreateUsersDB() (*gorm.DB, error) {
 	logger.LogDebug("Connecting to database on: %s", c.postgresUsersDB)
 
@@ -79,6 +68,20 @@ func (c *Config) CreateUsersDB() (*gorm.DB, error) {
 		postgres.Open(dbDSN),
 		&gorm.Config{},
 	)
+	if err != nil {
+		return nil, err
+	}
+	return db, nil
+}
+
+func (c *Config) CreateAuthDB() (*sql.DB, error) {
+	dbDSN := c.postgresUsersDB
+
+	if c.postgresUsersDB == "" {
+		dbDSN = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", c.PostgresHost, c.PostgresPort, c.PostgresUser, c.PostgresPassword, c.PostgresDB)
+	}
+
+	db, err := sql.Open("postgres", dbDSN)
 	if err != nil {
 		return nil, err
 	}

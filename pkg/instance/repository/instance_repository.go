@@ -23,6 +23,8 @@ type InstanceRepository interface {
 	GetInstanceByName(name string) (*instance_model.Instance, error)
 	Update(*instance_model.Instance) error
 	UpdateConnected(userId string, status bool) error
+	UpdateQrcode(userId string, qr string) error
+	UpdateProxy(userId string, proxy string) error
 	UpdateJid(userId string, jid string) error
 	GetAllConnectedInstances() ([]*instance_model.Instance, error)
 	GetAllConnectedInstancesByClientName(clientName string) ([]*instance_model.Instance, error)
@@ -98,6 +100,14 @@ func (i *instanceRepository) Update(instance *instance_model.Instance) error {
 
 func (i *instanceRepository) UpdateConnected(userId string, status bool) error {
 	return i.db.Model(&instance_model.Instance{}).Where("id = ?", userId).Update("connected", status).Error
+}
+
+func (i *instanceRepository) UpdateQrcode(userId string, qr string) error {
+	return i.db.Model(&instance_model.Instance{}).Where("id = ?", userId).Update("qrcode", qr).Error
+}
+
+func (i *instanceRepository) UpdateProxy(userId string, proxy string) error {
+	return i.db.Model(&instance_model.Instance{}).Where("id = ?", userId).Update("proxy", proxy).Error
 }
 
 func (i *instanceRepository) UpdateJid(userId string, jid string) error {

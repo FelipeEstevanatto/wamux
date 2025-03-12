@@ -1,6 +1,9 @@
 package rabbitmq_producer
 
 import (
+	"fmt"
+	"time"
+
 	producer_interfaces "github.com/EvolutionAPI/evolution-go/pkg/events/interfaces"
 	"github.com/gomessguii/logger"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -10,20 +13,90 @@ type rabbitMQProducer struct {
 	conn              *amqp.Connection
 	amqpGlobalEnabled bool
 	amqpGlobalEvents  []string
+	connStr           string
+	maxRetries        int
 }
 
 func NewRabbitMQProducer(
 	conn *amqp.Connection,
 	amqpGlobalEnabled bool,
 	amqpGlobalEvents []string,
+	connStr string,
 ) producer_interfaces.Producer {
 	producer := &rabbitMQProducer{
 		conn:              conn,
 		amqpGlobalEnabled: amqpGlobalEnabled,
 		amqpGlobalEvents:  amqpGlobalEvents,
+		connStr:           connStr,
+		maxRetries:        3,
 	}
 
 	return producer
+}
+
+func (p *rabbitMQProducer) reconnect() error {
+	var err error
+	for i := 0; i < 3; i++ {
+		logger.LogInfo("Tentando reconectar ao RabbitMQ (tentativa %d/3)", i+1)
+		p.conn, err = amqp.Dial(p.connStr)
+		if err == nil {
+			logger.LogInfo("Reconectado com sucesso ao RabbitMQ")
+			return nil
+		}
+		time.Sleep(time.Second * 2)
+	}
+	return fmt.Errorf("falha ao reconectar após 3 tentativas: %v", err)
+}
+
+func (p *rabbitMQProducer) ensureConnection() error {
+	if p.conn == nil || p.conn.IsClosed() {
+		return p.reconnect()
+	}
+	return nil
+}
+
+func (p *rabbitMQProducer) publishWithRetry(
+	channel *amqp.Channel,
+	queueName string,
+	payload []byte,
+	userID string,
+) error {
+	var err error
+	for i := 0; i < p.maxRetries; i++ {
+		err = channel.Publish(
+			"",        // exchange
+			queueName, // routing key
+			false,     // mandatory
+			false,     // immediate
+			amqp.Publishing{
+				ContentType:  "application/json",
+				Body:         payload,
+				DeliveryMode: amqp.Persistent, // Garante persistência da mensagem
+			})
+
+		if err == nil {
+			return nil
+		}
+
+		logger.LogWarn("[%s] Falha ao publicar mensagem (tentativa %d/%d): %v",
+			userID, i+1, p.maxRetries, err)
+
+		// Se o erro for de conexão, tenta reconectar
+		if err.Error() == "Exception (504) Reason: \"channel/connection is not open\"" {
+			if err := p.ensureConnection(); err != nil {
+				continue
+			}
+
+			// Cria novo canal após reconexão
+			channel, err = p.conn.Channel()
+			if err != nil {
+				continue
+			}
+		}
+
+		time.Sleep(time.Second * time.Duration(i+1))
+	}
+	return err
 }
 
 func (p *rabbitMQProducer) Produce(
@@ -33,27 +106,28 @@ func (p *rabbitMQProducer) Produce(
 	userID string,
 ) error {
 	logger.LogInfo("[%s] RabbitMQ Producer - Starting produce for queue: %s", userID, queueName)
-	logger.LogInfo("[%s] RabbitMQ Producer - Global enabled: %v", userID, p.amqpGlobalEnabled)
 
-	if p.conn == nil {
-		logger.LogWarn("[%s] RabbitMQ connection is nil", userID)
-		return nil
+	if err := p.ensureConnection(); err != nil {
+		return fmt.Errorf("falha ao garantir conexão: %v", err)
 	}
 
 	channel, err := p.conn.Channel()
 	if err != nil {
-		logger.LogError("[%s] Failed to open channel: %v", userID, err)
-		return err
+		return fmt.Errorf("falha ao abrir canal: %v", err)
 	}
 	defer channel.Close()
 
-	args := amqp.Table{
-		"x-queue-type": "quorum",
+	// Configura confirmação de publicação
+	if err := channel.Confirm(false); err != nil {
+		return fmt.Errorf("falha ao configurar confirms do canal: %v", err)
 	}
 
-	if rabbitmqEnable == "global" {
-		logger.LogInfo("[%s] Declaring global queue: %s", userID, queueName)
+	args := amqp.Table{
+		"x-queue-type": "quorum",
+		"x-ha-policy":  "all", // Alta disponibilidade
+	}
 
+	if rabbitmqEnable == "global" || rabbitmqEnable == "enabled" {
 		_, err = channel.QueueDeclare(
 			queueName, // name
 			true,      // durable
@@ -63,57 +137,16 @@ func (p *rabbitMQProducer) Produce(
 			args,      // arguments
 		)
 		if err != nil {
-			logger.LogError("[%s] Failed to declare queue %s: %v", userID, queueName, err)
-			return err
+			return fmt.Errorf("falha ao declarar fila %s: %v", queueName, err)
 		}
 
-		logger.LogInfo("[%s] Publishing message to queue: %s", userID, queueName)
-
-		err = channel.Publish(
-			"",        // exchange
-			queueName, // routing key
-			false,     // mandatory
-			false,     // immediate
-			amqp.Publishing{
-				ContentType: "application/json",
-				Body:        payload,
-			})
+		err = p.publishWithRetry(channel, queueName, payload, userID)
 		if err != nil {
-			logger.LogError("[%s] Failed to publish message to queue %s: %v", userID, queueName, err)
-			return err
+			return fmt.Errorf("falha ao publicar mensagem após todas as tentativas: %v", err)
 		}
 
-		logger.LogInfo("[%s] Message published successfully to queue: %s", userID, queueName)
+		logger.LogInfo("[%s] Mensagem publicada com sucesso na fila: %s", userID, queueName)
 	}
 
-	if rabbitmqEnable == "enabled" {
-		_, err = channel.QueueDeclare(
-			queueName, // name
-			true,      // durable
-			false,     // delete when unused
-			false,     // exclusive
-			false,     // no-wait
-			args,      // arguments (x-queue-type: quorum)
-		)
-		if err != nil {
-			return err
-		}
-
-		err = channel.Publish(
-			"",        // exchange
-			queueName, // routing key
-			false,     // mandatory
-			false,     // immediate
-			amqp.Publishing{
-				ContentType: "application/json",
-				Body:        payload,
-			})
-
-		if err != nil {
-			return err
-		}
-
-		logger.LogInfo("[%s] Message enqueued successfully to queue %s", userID, queueName)
-	}
 	return nil
 }
