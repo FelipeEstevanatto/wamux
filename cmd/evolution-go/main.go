@@ -63,7 +63,7 @@ import (
 
 var devMode = flag.Bool("dev", false, "Enable development mode")
 
-func setupRouter(db *gorm.DB, sqliteDB *sql.DB, config *config.Config, conn *amqp.Connection, exPath string) *gin.Engine {
+func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.Config, conn *amqp.Connection, exPath string) *gin.Engine {
 	killChannel := make(map[string](chan bool))
 	clientPointer := make(map[string]*whatsmeow.Client)
 
@@ -74,12 +74,14 @@ func setupRouter(db *gorm.DB, sqliteDB *sql.DB, config *config.Config, conn *amq
 			conn,
 			config.AmqpGlobalEnabled,
 			config.AmqpGlobalEvents,
+			config.AmqpUrl,
 		)
 	} else {
 		rabbitmqProducer = rabbitmq_producer.NewRabbitMQProducer(
 			nil,
 			false,
 			nil,
+			"",
 		)
 	}
 
@@ -123,6 +125,7 @@ func setupRouter(db *gorm.DB, sqliteDB *sql.DB, config *config.Config, conn *amq
 	labelRepository := label_repository.NewLabelRepository(db)
 	whatsmeowService := whatsmeow_service.NewWhatsmeowService(
 		instanceRepository,
+		authDB,
 		message_repository.NewMessageRepository(db),
 		labelRepository,
 		config,
@@ -228,6 +231,25 @@ func initAuthDB(config *config.Config) (*sql.DB, string, error) {
 	return db, exPath, nil
 }
 
+func initPostgresAuthDB(config *config.Config) (*sql.DB, error) {
+	if config.PostgresAuthDB == "" {
+		return nil, nil
+	}
+
+	db, err := sql.Open("postgres", config.PostgresAuthDB)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao conectar ao banco AUTH PostgreSQL: %v", err)
+	}
+
+	err = db.Ping()
+	if err != nil {
+		return nil, fmt.Errorf("erro ao pingar banco AUTH PostgreSQL: %v", err)
+	}
+
+	logger.LogInfo("Conectado ao banco AUTH PostgreSQL")
+	return db, nil
+}
+
 func checkLicense(licenseToken string) error {
 	licenseAPIURL := "https://check.evolution-api.com/check"
 
@@ -285,6 +307,22 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// Inicializar PostgreSQL AUTH
+	authDB, err := initPostgresAuthDB(config)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if authDB != nil {
+		defer authDB.Close()
+	}
+
+	// Manter inicialização do SQLite
+	sqliteDB, exPath, err := initAuthDB(config)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer sqliteDB.Close()
+
 	migrate(db)
 
 	var conn *amqp.Connection
@@ -303,13 +341,7 @@ func main() {
 		}
 	}
 
-	sqliteDB, exPath, err := initAuthDB(config)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer sqliteDB.Close()
-
-	r := setupRouter(db, sqliteDB, config, conn, exPath)
+	r := setupRouter(db, authDB, sqliteDB, config, conn, exPath)
 
 	logger.LogInfo("Iniciando servidor na porta %s", os.Getenv("SERVER_PORT"))
 	r.Run(":" + os.Getenv("SERVER_PORT"))

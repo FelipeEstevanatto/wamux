@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"image/png"
 	"math/rand"
+	"strconv"
 	"strings"
 	"time"
 
@@ -50,10 +51,12 @@ type WhatsmeowService interface {
 	ReconnectClient(instanceId string) error
 	CallWebhook(instance *instance_model.Instance, queueName string, jsonData []byte)
 	SendToGlobalQueues(event string, jsonData []byte, userId string)
+	ForceUpdateJid(instanceId string, number string) error
 }
 
 type whatsmeowService struct {
 	instanceRepository instance_repository.InstanceRepository
+	authDB             *sql.DB
 	messageRepository  message_repository.MessageRepository
 	labelRepository    label_repository.LabelRepository
 	config             *config.Config
@@ -151,6 +154,69 @@ func (w whatsmeowService) ReconnectClient(instanceId string) error {
 	return nil
 }
 
+func (w whatsmeowService) ForceUpdateJid(instanceId string, number string) error {
+	instance, err := w.instanceRepository.GetInstanceByID(instanceId)
+	if err != nil {
+		logger.LogError("[%s] Error getting instance: %v", instanceId, err)
+		return err
+	}
+
+	if instance.Jid == "" && number != "" {
+		sqlDeviceSearch := fmt.Sprintf("SELECT jid FROM whatsmeow_device WHERE jid LIKE '%%%s%%'", number)
+		rows, err := w.authDB.Query(sqlDeviceSearch)
+		if err != nil {
+			logger.LogError("[%s] Error getting device: %v", instanceId, err)
+			return err
+		}
+
+		defer rows.Close()
+
+		var latestJid string
+		var latestSession int
+
+		for rows.Next() {
+			type deviceStruct struct {
+				Jid string `json:"jid"`
+			}
+			var device deviceStruct
+			err := rows.Scan(&device.Jid)
+			if err != nil {
+				logger.LogError("[%s] Error getting device: %v", instanceId, err)
+				return err
+			}
+
+			// Extrair o número da sessão do JID
+			parts := strings.Split(device.Jid, ":")
+			if len(parts) == 2 {
+				sessionPart := strings.Split(parts[1], "@")[0]
+				session, err := strconv.Atoi(sessionPart)
+				if err != nil {
+					logger.LogError("[%s] Error parsing session number: %v", instanceId, err)
+					return err
+				}
+
+				// Atualizar se for a sessão mais recente
+				if session > latestSession {
+					latestSession = session
+					latestJid = device.Jid
+				}
+			}
+		}
+
+		// Atualizar a instância com o JID mais recente
+		if latestJid != "" {
+			instance.Jid = latestJid
+			err = w.instanceRepository.UpdateJid(instanceId, latestJid)
+			if err != nil {
+				logger.LogError("[%s] Error updating instance: %v", instanceId, err)
+			}
+			logger.LogInfo("[%s] Updated instance with latest JID: %s (session: %d)", instanceId, latestJid, latestSession)
+		}
+	}
+
+	return nil
+}
+
 func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 
 	logger.LogInfo("Starting websocket connection to Whatsapp for user '%s'", cd.Instance.Id)
@@ -206,7 +272,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 		deviceStore = container.NewDevice()
 
 		cd.Instance.Connected = false
-		err := w.instanceRepository.Update(cd.Instance)
+		err := w.instanceRepository.UpdateConnected(cd.Instance.Id, cd.Instance.Connected)
 		if err != nil {
 			logger.LogError("[%s] Error updating instance: %s", cd.Instance.Id, err)
 		}
@@ -409,7 +475,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 
 					cd.Instance.Qrcode = base64WithCode
 
-					err := w.instanceRepository.Update(cd.Instance)
+					err := w.instanceRepository.UpdateQrcode(cd.Instance.Id, base64WithCode)
 					if err != nil {
 						logger.LogError("[%s] Error updating instance: %s", cd.Instance.Id, err)
 					}
@@ -449,7 +515,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 				} else if evt.Event == "timeout" {
 					cd.Instance.Qrcode = ""
 
-					err := w.instanceRepository.Update(cd.Instance)
+					err := w.instanceRepository.UpdateQrcode(cd.Instance.Id, "")
 					if err != nil {
 						logger.LogError("[%s] Error updating instance: %s", cd.Instance.Id, err)
 					}
@@ -496,12 +562,12 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 		}
 	}
 
-	// if reconnect {
-	// 	err := w.ReconnectClient(cd.Instance.Id)
-	// 	if err != nil {
-	// 		logger.LogError("[%s] Error reconnecting client: %s", cd.Instance.Id, err)
-	// 	}
-	// }
+	if reconnect {
+		err := w.ReconnectClient(cd.Instance.Id)
+		if err != nil {
+			logger.LogError("[%s] Error reconnecting client: %s", cd.Instance.Id, err)
+		}
+	}
 
 	for {
 		select {
@@ -513,7 +579,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 
 			cd.Instance.Connected = false
 
-			err := w.instanceRepository.Update(cd.Instance)
+			err := w.instanceRepository.UpdateConnected(cd.Instance.Id, cd.Instance.Connected)
 			if err != nil {
 				logger.LogError("[%s] Error updating instance: %s", cd.Instance.Id, err)
 			}
@@ -682,7 +748,12 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			}
 
 			mycli.Instance.Connected = true
-			err = mycli.instanceRepository.Update(mycli.Instance)
+			err = mycli.instanceRepository.UpdateConnected(mycli.Instance.Id, mycli.Instance.Connected)
+			if err != nil {
+				logger.LogError("[%s] Error updating instance: %s", mycli.Instance.Id, err)
+			}
+
+			err = mycli.instanceRepository.UpdateQrcode(mycli.Instance.Id, "")
 			if err != nil {
 				logger.LogError("[%s] Error updating instance: %s", mycli.Instance.Id, err)
 			}
@@ -690,7 +761,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	case *events.PairSuccess:
 		doWebhook = true
 		postMap["event"] = "PairSuccess"
-		logger.LogInfo("QR Pair Success for user '%s' with JID '%s'", mycli.userID, evt.ID.String())
+		logger.LogInfo("QR Pair Success for user '%s' with JID '%s' - '%s'", mycli.userID, evt.ID.String(), mycli.WAClient.Store.ID.String())
 
 		instance, err := mycli.instanceRepository.GetInstanceByID(mycli.userID)
 		if err != nil {
@@ -699,9 +770,9 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 		instance.Qrcode = ""
 		instance.Connected = true
-		instance.Jid = evt.ID.String()
+		instance.Jid = mycli.WAClient.Store.ID.String()
 
-		logger.LogInfo("[%s] Updating JID: %s in Instance: %s", mycli.userID, evt.ID.String(), instance.Jid)
+		logger.LogInfo("[%s] Updating JID: %s in Instance: %s", mycli.userID, mycli.WAClient.Store.ID.String(), instance.Jid)
 
 		logger.LogInfo("[%s] Attempting to update instance in DB: %+v", mycli.userID, instance)
 		err = mycli.instanceRepository.Update(instance)
@@ -1109,7 +1180,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		mycli.killChannel[mycli.userID] <- true
 
 		mycli.Instance.Connected = false
-		err := mycli.instanceRepository.Update(mycli.Instance)
+		err := mycli.instanceRepository.UpdateConnected(mycli.Instance.Id, mycli.Instance.Connected)
 		if err != nil {
 			logger.LogError("[%s] Error updating instance: %s", mycli.Instance.Id, err)
 		}
@@ -1416,7 +1487,7 @@ func (w *whatsmeowService) sendToQueueOrWebhook(instance *instance_model.Instanc
 }
 
 func (w whatsmeowService) StartInstance(instanceId string) error {
-	instance, err := w.instanceRepository.GetConnectedInstanceByID(instanceId)
+	instance, err := w.instanceRepository.GetInstanceByID(instanceId)
 	if err != nil {
 		return err
 	}
@@ -1424,7 +1495,7 @@ func (w whatsmeowService) StartInstance(instanceId string) error {
 	if instance.Proxy == "" && w.config.ProxyHost != "" && w.config.ProxyPort != "" && w.config.ProxyUsername != "" && w.config.ProxyPassword != "" {
 		instance.Proxy = fmt.Sprintf(`{"host": "%s", "port": "%s", "username": "%s", "password": "%s"}`, w.config.ProxyHost, w.config.ProxyPort, w.config.ProxyUsername, w.config.ProxyPassword)
 
-		err = w.instanceRepository.Update(instance)
+		err = w.instanceRepository.UpdateProxy(instance.Id, instance.Proxy)
 		if err != nil {
 			logger.LogError("[%s] Failed to update instance: %s", instanceId, err)
 			return err
@@ -1627,6 +1698,7 @@ func (w *whatsmeowService) SendToGlobalQueues(eventType string, payload []byte, 
 
 func NewWhatsmeowService(
 	instanceRepository instance_repository.InstanceRepository,
+	authDB *sql.DB,
 	messageRepository message_repository.MessageRepository,
 	labelRepository label_repository.LabelRepository,
 	config *config.Config,
@@ -1642,6 +1714,7 @@ func NewWhatsmeowService(
 ) WhatsmeowService {
 	return &whatsmeowService{
 		instanceRepository: instanceRepository,
+		authDB:             authDB,
 		messageRepository:  messageRepository,
 		labelRepository:    labelRepository,
 		config:             config,

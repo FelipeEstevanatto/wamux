@@ -31,6 +31,7 @@ type InstanceService interface {
 	Info(instanceId string) (*instance_model.Instance, error)
 	Delete(id string) error
 	RemoveProxy(id string) error
+	ForceReconnect(instanceId string, number string) error
 	GetInstanceByToken(token string) (*instance_model.Instance, error)
 }
 
@@ -87,6 +88,10 @@ type PairReturnStruct struct {
 	PairingCode string
 }
 
+type ForceReconnectStruct struct {
+	Number string `json:"number"`
+}
+
 func (i *instances) ensureClientConnected(instanceId string) (*whatsmeow.Client, error) {
 	client := i.clientPointer[instanceId]
 	logger.LogInfo("[%s] Checking client connection status - Client exists: %v", instanceId, client != nil)
@@ -121,6 +126,12 @@ func (i *instances) ensureClientConnected(instanceId string) (*whatsmeow.Client,
 			client.IsConnected())
 		return nil, errors.New("client disconnected")
 	}
+	// else if !client.IsLoggedIn() {
+	// 	logger.LogError("[%s] Existing client is not logged in - Logged in status: %v",
+	// 		instanceId,
+	// 		client.IsLoggedIn())
+	// 	return nil, errors.New("client not logged in")
+	// }
 
 	logger.LogInfo("[%s] Client successfully validated - Connected: %v", instanceId, client.IsConnected())
 	return client, nil
@@ -273,7 +284,6 @@ func (i instances) Logout(instance *instance_model.Instance) (*instance_model.In
 			return instance, err
 		}
 
-		instance.Jid = ""
 		instance.Connected = false
 		err = i.instanceRepository.Update(instance)
 		if err != nil {
@@ -448,6 +458,79 @@ func (i instances) RemoveProxy(id string) error {
 	err = i.instanceRepository.Update(instance)
 	if err != nil {
 		return err
+	}
+
+	go i.Reconnect(instance)
+
+	return nil
+}
+
+func (i instances) ForceReconnect(instanceId string, number string) error {
+	if i.clientPointer[instanceId].IsConnected() && i.clientPointer[instanceId].IsLoggedIn() {
+		return fmt.Errorf("client already connected")
+	}
+
+	err := i.whatsmeowService.ForceUpdateJid(instanceId, number)
+	if err != nil {
+		return err
+	}
+
+	instance, err := i.instanceRepository.GetInstanceByID(instanceId)
+	if err != nil {
+		return err
+	}
+
+	subscribedEvents := strings.Split(instance.Events, ",")
+
+	i.killChannel[instance.Id] = make(chan bool)
+
+	clientData := &whatsmeow_service.ClientData{
+		Instance:      instance,
+		Subscriptions: subscribedEvents,
+		Phone:         "",
+		IsProxy:       false,
+	}
+
+	if instance.Proxy != "" || i.config.ProxyHost != "" {
+		var proxyConfig ProxyConfig
+		err := json.Unmarshal([]byte(instance.Proxy), &proxyConfig)
+		if err != nil {
+			logger.LogError("[%s] error unmarshalling proxy config", instance.Id, err)
+			return err
+		}
+
+		if proxyConfig.Host != "" || i.config.ProxyHost != "" {
+			clientData.IsProxy = true
+		}
+	}
+
+	if i.clientPointer[instance.Id] != nil {
+		client := i.clientPointer[instance.Id]
+		client.Disconnect()
+
+		select {
+		case i.killChannel[instance.Id] <- true:
+		case <-time.After(5 * time.Second):
+		}
+
+		delete(i.clientPointer, instance.Id)
+		delete(i.killChannel, instance.Id)
+	}
+
+	go i.whatsmeowService.StartClient(clientData, false)
+
+	time.Sleep(2 * time.Second)
+
+	if i.clientPointer[instance.Id] != nil {
+		if !i.clientPointer[instance.Id].IsConnected() {
+			return fmt.Errorf("failed to connect")
+		}
+
+		if !i.clientPointer[instance.Id].IsLoggedIn() {
+			return fmt.Errorf("failed to login")
+		}
+	} else {
+		return fmt.Errorf("failed to connect")
 	}
 
 	return nil
