@@ -22,10 +22,10 @@ require (
 	github.com/swaggo/gin-swagger v1.6.0
 	github.com/swaggo/swag v1.16.3
 	github.com/vincent-petithory/dataurl v1.0.0
-	go.mau.fi/whatsmeow v0.0.0-20250307203951-daf102be9698
-	golang.org/x/exp v0.0.0-20250215185904-eff6e970281f
+	go.mau.fi/whatsmeow v0.0.0-20250318233852-06705625cf82
+	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394
 	golang.org/x/image v0.0.0-20211028202545-6944b10bf410
-	golang.org/x/net v0.35.0
+	golang.org/x/net v0.37.0
 	google.golang.org/protobuf v1.36.5
 	gorm.io/driver/postgres v1.5.9
 	gorm.io/gorm v1.25.10
@@ -79,13 +79,13 @@ require (
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
 	go.mau.fi/libsignal v0.1.2 // indirect
-	go.mau.fi/util v0.8.5 // indirect
+	go.mau.fi/util v0.8.6 // indirect
 	golang.org/x/arch v0.10.0 // indirect
-	golang.org/x/crypto v0.33.0 // indirect
-	golang.org/x/sync v0.11.0 // indirect
-	golang.org/x/sys v0.30.0 // indirect
-	golang.org/x/text v0.22.0 // indirect
-	golang.org/x/tools v0.30.0 // indirect
+	golang.org/x/crypto v0.36.0 // indirect
+	golang.org/x/sync v0.12.0 // indirect
+	golang.org/x/sys v0.31.0 // indirect
+	golang.org/x/text v0.23.0 // indirect
+	golang.org/x/tools v0.31.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	modernc.org/gc/v3 v3.0.0-20240107210532-573471604cb6 // indirect
 	modernc.org/libc v1.55.3 // indirect
