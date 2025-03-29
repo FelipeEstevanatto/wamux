@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"image/png"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -1399,6 +1400,8 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 		}
 	}
 
+	isMedia := false
+
 	if data.Quoted.MessageID != "" {
 		switch messageType {
 		case "ExtendedTextMessage":
@@ -1413,24 +1416,28 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 				Participant:   proto.String(data.Quoted.Participant),
 				QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
 			}
+			isMedia = true
 		case "VideoMessage":
 			msg.VideoMessage.ContextInfo = &waE2E.ContextInfo{
 				StanzaID:      proto.String(data.Quoted.MessageID),
 				Participant:   proto.String(data.Quoted.Participant),
 				QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
 			}
+			isMedia = true
 		case "PtvMessage":
 			msg.PtvMessage.ContextInfo = &waE2E.ContextInfo{
 				StanzaID:      proto.String(data.Quoted.MessageID),
 				Participant:   proto.String(data.Quoted.Participant),
 				QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
 			}
+			isMedia = true
 		case "AudioMessage":
 			msg.AudioMessage.ContextInfo = &waE2E.ContextInfo{
 				StanzaID:      proto.String(data.Quoted.MessageID),
 				Participant:   proto.String(data.Quoted.Participant),
 				QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
 			}
+			isMedia = true
 		case "DocumentMessage":
 			if msg.DocumentMessage != nil {
 				msg.DocumentMessage.ContextInfo = &waE2E.ContextInfo{
@@ -1445,6 +1452,7 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 					QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
 				}
 			}
+			isMedia = true
 		case "PollCreationMessage":
 			msg.PollCreationMessage.ContextInfo = &waE2E.ContextInfo{
 				StanzaID:      proto.String(data.Quoted.MessageID),
@@ -1457,6 +1465,7 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 				Participant:   proto.String(data.Quoted.Participant),
 				QuotedMessage: &waE2E.Message{Conversation: proto.String("")},
 			}
+			isMedia = true
 		case "LocationMessage":
 			msg.LocationMessage.ContextInfo = &waE2E.ContextInfo{
 				StanzaID:      proto.String(data.Quoted.MessageID),
@@ -1478,18 +1487,23 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 			msg.ExtendedTextMessage.ContextInfo = &waE2E.ContextInfo{}
 		case "ImageMessage":
 			msg.ImageMessage.ContextInfo = &waE2E.ContextInfo{}
+			isMedia = true
 		case "VideoMessage":
 			msg.VideoMessage.ContextInfo = &waE2E.ContextInfo{}
+			isMedia = true
 		case "PtvMessage":
 			msg.PtvMessage.ContextInfo = &waE2E.ContextInfo{}
+			isMedia = true
 		case "AudioMessage":
 			msg.AudioMessage.ContextInfo = &waE2E.ContextInfo{}
+			isMedia = true
 		case "DocumentMessage":
 			if msg.DocumentMessage != nil {
 				msg.DocumentMessage.ContextInfo = &waE2E.ContextInfo{}
 			} else if msg.DocumentWithCaptionMessage != nil {
 				msg.DocumentWithCaptionMessage.Message.DocumentMessage.ContextInfo = &waE2E.ContextInfo{}
 			}
+			isMedia = true
 		case "PollCreationMessage":
 			msg.PollCreationMessage.ContextInfo = &waE2E.ContextInfo{}
 		case "StickerMessage":
@@ -1596,10 +1610,73 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 	}
 
 	postMap := make(map[string]interface{})
-
 	postMap["event"] = "SendMessage"
 
-	postMap["data"] = messageSent
+	// Convertendo o MessageSendStruct para map antes de atribuir
+	messageData := make(map[string]interface{})
+	messageData["Info"] = messageSent.Info
+
+	// Convertendo a mensagem para map usando json marshal/unmarshal
+	msgBytes, err := json.Marshal(messageSent.Message)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal message: %v", err)
+	}
+
+	var msgMap map[string]interface{}
+	if err := json.Unmarshal(msgBytes, &msgMap); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal message: %v", err)
+	}
+
+	messageData["Message"] = msgMap
+	messageData["MessageContextInfo"] = messageSent.MessageContextInfo
+
+	postMap["data"] = messageData
+
+	if isMedia && s.config.WebhookFiles {
+		var data []byte
+		var err error
+
+		img := msg.GetImageMessage()
+		audio := msg.GetAudioMessage()
+		document := msg.GetDocumentMessage()
+		video := msg.GetVideoMessage()
+		sticker := msg.GetStickerMessage()
+
+		if img != nil {
+			data, err = s.clientPointer[instance.Id].Download(img)
+		} else if audio != nil {
+			data, err = s.clientPointer[instance.Id].Download(audio)
+		} else if document != nil {
+			data, err = s.clientPointer[instance.Id].Download(document)
+		} else if video != nil {
+			data, err = s.clientPointer[instance.Id].Download(video)
+		} else if sticker != nil {
+			data, err = s.clientPointer[instance.Id].Download(sticker)
+
+			webpReader := bytes.NewReader(data)
+			img, err := webp.Decode(webpReader)
+			if err == nil {
+				var pngBuffer bytes.Buffer
+				err = png.Encode(&pngBuffer, img)
+				if err == nil {
+					data = pngBuffer.Bytes()
+				}
+			}
+		}
+
+		if err == nil {
+			// Acessando o Message do map já convertido
+			messageMap := msgMap
+			if messageMap == nil {
+				messageMap = make(map[string]interface{})
+			}
+
+			encodeData := base64.StdEncoding.EncodeToString(data)
+			messageMap["base64"] = encodeData
+
+			messageData["Message"] = messageMap
+		}
+	}
 
 	postMap["instanceToken"] = instance.Token
 	postMap["instanceId"] = instance.Id
@@ -1636,5 +1713,37 @@ func NewSendService(
 		clientPointer:    clientPointer,
 		whatsmeowService: whatsmeowService,
 		config:           config,
+	}
+}
+
+func getExtensionFromMimeType(mimeType string) string {
+	switch mimeType {
+	case "image/jpeg":
+		return ".jpg"
+	case "image/png":
+		return ".png"
+	case "image/webp":
+		return ".webp"
+	case "video/mp4":
+		return ".mp4"
+	case "audio/ogg":
+		return ".ogg"
+	case "audio/mpeg":
+		return ".mp3"
+	case "application/pdf":
+		return ".pdf"
+	case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+		return ".docx"
+	case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+		return ".xlsx"
+	case "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+		return ".pptx"
+	default:
+		// Se não encontrar um tipo conhecido, extrai a extensão do mimetype
+		parts := strings.Split(mimeType, "/")
+		if len(parts) > 1 {
+			return "." + parts[1]
+		}
+		return ".bin"
 	}
 }
