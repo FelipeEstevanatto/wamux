@@ -53,6 +53,8 @@ type Config struct {
 	NatsUrl              string
 	NatsGlobalEnabled    bool
 	NatsGlobalEvents     []string
+	EventIgnoreGroup     bool
+	EventIgnoreStatus    bool
 }
 
 func (c *Config) CreateUsersDB() (*gorm.DB, error) {
@@ -144,6 +146,9 @@ func Load() *Config {
 	proxyUsername := os.Getenv(config_env.PROXY_USERNAME)
 	proxyPassword := os.Getenv(config_env.PROXY_PASSWORD)
 
+	eventIgnoreGroup := os.Getenv(config_env.EVENT_IGNORE_GROUP)
+	eventIgnoreStatus := os.Getenv(config_env.EVENT_IGNORE_STATUS)
+
 	// Convertendo para int com valores padrão caso estejam vazios
 	major := 0
 	if whatsappVersionMajor != "" {
@@ -198,6 +203,8 @@ func Load() *Config {
 		ProxyPort:            proxyPort,
 		ProxyUsername:        proxyUsername,
 		ProxyPassword:        proxyPassword,
+		EventIgnoreGroup:     eventIgnoreGroup == "true",
+		EventIgnoreStatus:    eventIgnoreStatus == "true",
 		AmqpGlobalEvents:     amqpGlobalEvents,
 		NatsUrl:              natsUrl,
 		NatsGlobalEnabled:    natsGlobalEnabled == "true",

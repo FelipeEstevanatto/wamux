@@ -862,7 +862,11 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		doWebhook = true
 		postMap["event"] = "Message"
 
-		if evt.Info.Chat.Server == types.HiddenUserServer || evt.Info.Sender.Server == types.HiddenUserServer {
+		if mycli.config.EventIgnoreGroup && strings.Contains(evt.Info.Chat.String(), "@g.us") {
+			return
+		}
+
+		if mycli.config.EventIgnoreStatus && (strings.Contains(evt.Info.Chat.String(), "@broadcast") || strings.Contains(evt.Info.ID, "@broadcast")) {
 			return
 		}
 
@@ -1084,6 +1088,11 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	case *events.Receipt:
 		doWebhook = true
 		postMap["event"] = "Receipt"
+
+		if mycli.config.EventIgnoreGroup && strings.Contains(evt.Chat.String(), "@g.us") {
+			return
+		}
+
 		logger.LogInfo("[%s] Receipt received with ID: %s from %s with type %s", mycli.userID, evt.MessageIDs[0], evt.SourceString(), evt.Type)
 
 		if evt.Type == types.ReceiptTypeRead || evt.Type == types.ReceiptTypeReadSelf {
@@ -1143,6 +1152,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	case *events.Presence:
 		doWebhook = true
 		postMap["event"] = "Presence"
+
 		if evt.Unavailable {
 			postMap["state"] = "offline"
 			if evt.LastSeen.IsZero() {
