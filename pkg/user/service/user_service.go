@@ -8,9 +8,9 @@ import (
 	"time"
 
 	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
+	logger_wrapper "github.com/EvolutionAPI/evolution-go/pkg/logger"
 	"github.com/EvolutionAPI/evolution-go/pkg/utils"
 	whatsmeow_service "github.com/EvolutionAPI/evolution-go/pkg/whatsmeow/service"
-	"github.com/gomessguii/logger"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
@@ -34,6 +34,7 @@ type UserService interface {
 type userService struct {
 	clientPointer    map[string]*whatsmeow.Client
 	whatsmeowService whatsmeow_service.WhatsmeowService
+	loggerWrapper    *logger_wrapper.LoggerManager
 }
 
 type ContactInfo struct {
@@ -97,40 +98,40 @@ type PrivacyStruct struct {
 
 func (u *userService) ensureClientConnected(instanceId string) (*whatsmeow.Client, error) {
 	client := u.clientPointer[instanceId]
-	logger.LogInfo("[%s] Checking client connection status - Client exists: %v", instanceId, client != nil)
+	u.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Checking client connection status - Client exists: %v", instanceId, client != nil)
 
 	if client == nil {
-		logger.LogInfo("[%s] No client found, attempting to start new instance", instanceId)
+		u.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] No client found, attempting to start new instance", instanceId)
 		err := u.whatsmeowService.StartInstance(instanceId)
 		if err != nil {
-			logger.LogError("[%s] Failed to start instance: %v", instanceId, err)
+			u.loggerWrapper.GetLogger(instanceId).LogError("[%s] Failed to start instance: %v", instanceId, err)
 			return nil, errors.New("no active session found")
 		}
 
-		logger.LogInfo("[%s] Instance started, waiting 2 seconds...", instanceId)
+		u.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Instance started, waiting 2 seconds...", instanceId)
 		time.Sleep(2 * time.Second)
 
 		client = u.clientPointer[instanceId]
-		logger.LogInfo("[%s] Checking new client - Exists: %v, Connected: %v",
+		u.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Checking new client - Exists: %v, Connected: %v",
 			instanceId,
 			client != nil,
 			client != nil && client.IsConnected())
 
 		if client == nil || !client.IsConnected() {
-			logger.LogError("[%s] New client validation failed - Exists: %v, Connected: %v",
+			u.loggerWrapper.GetLogger(instanceId).LogError("[%s] New client validation failed - Exists: %v, Connected: %v",
 				instanceId,
 				client != nil,
 				client != nil && client.IsConnected())
 			return nil, errors.New("no active session found")
 		}
 	} else if !client.IsConnected() {
-		logger.LogError("[%s] Existing client is disconnected - Connected status: %v",
+		u.loggerWrapper.GetLogger(instanceId).LogError("[%s] Existing client is disconnected - Connected status: %v",
 			instanceId,
 			client.IsConnected())
 		return nil, errors.New("client disconnected")
 	}
 
-	logger.LogInfo("[%s] Client successfully validated - Connected: %v", instanceId, client.IsConnected())
+	u.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Client successfully validated - Connected: %v", instanceId, client.IsConnected())
 	return client, nil
 }
 
@@ -212,7 +213,7 @@ func (u *userService) GetAvatar(data *GetAvatarStruct, instance *instance_model.
 		return nil, errors.New("no profile picture found")
 	}
 
-	logger.LogInfo("[%s] Got avatar %s", instance.Id, pic.URL)
+	u.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Got avatar %s", instance.Id, pic.URL)
 
 	return pic, nil
 }
@@ -397,9 +398,11 @@ func (u *userService) SetProfileStatus(data *SetProfileStatusStruct, instance *i
 func NewUserService(
 	clientPointer map[string]*whatsmeow.Client,
 	whatsmeowService whatsmeow_service.WhatsmeowService,
+	loggerWrapper *logger_wrapper.LoggerManager,
 ) UserService {
 	return &userService{
 		clientPointer:    clientPointer,
 		whatsmeowService: whatsmeowService,
+		loggerWrapper:    loggerWrapper,
 	}
 }

@@ -10,11 +10,12 @@ import (
 	"time"
 
 	producer_interfaces "github.com/EvolutionAPI/evolution-go/pkg/events/interfaces"
-	"github.com/gomessguii/logger"
+	logger_wrapper "github.com/EvolutionAPI/evolution-go/pkg/logger"
 )
 
 type webhookProducer struct {
-	url string
+	url           string
+	loggerWrapper *logger_wrapper.LoggerManager
 }
 
 func NewWebhookProducer(
@@ -38,30 +39,30 @@ func (p *webhookProducer) Produce(
 	}
 
 	if p.url != "" {
-		go sendWebhookWithRetry(p.url, payload, 5, 30*time.Second, userID)
+		go p.sendWebhookWithRetry(p.url, payload, 5, 30*time.Second, userID)
 	}
 	if webhookUrl != "" {
-		go sendWebhookWithRetry(webhookUrl, payload, 5, 30*time.Second, userID)
+		go p.sendWebhookWithRetry(webhookUrl, payload, 5, 30*time.Second, userID)
 	}
 
 	return nil
 }
 
-func sendWebhookWithRetry(url string, body []byte, maxRetries int, retryInterval time.Duration, userID string) {
+func (p *webhookProducer) sendWebhookWithRetry(url string, body []byte, maxRetries int, retryInterval time.Duration, userID string) {
 	for i := 0; i < maxRetries; i++ {
-		err, responseBody, statusCode := sendWebhook(url, body, userID)
+		err, responseBody, statusCode := p.sendWebhook(url, body, userID)
 		if err == nil {
-			logger.LogInfo("[%s] webhook sent successfully", userID, "url", url, "status", statusCode, "response", string(responseBody))
+			p.loggerWrapper.GetLogger(userID).LogInfo("[%s] webhook sent successfully", userID, "url", url, "status", statusCode, "response", string(responseBody))
 			return
 		}
-		logger.LogWarn("[%s] webhook failed", userID, "url", url, "attempt", i+1, "error", err)
+		p.loggerWrapper.GetLogger(userID).LogWarn("[%s] webhook failed", userID, "url", url, "attempt", i+1, "error", err)
 
 		time.Sleep(retryInterval)
 	}
-	logger.LogError("[%s] webhook failed after maximum retries", userID, "url", url)
+	p.loggerWrapper.GetLogger(userID).LogError("[%s] webhook failed after maximum retries", userID, "url", url)
 }
 
-func sendWebhook(url string, body []byte, userID string) (error, []byte, int) {
+func (p *webhookProducer) sendWebhook(url string, body []byte, userID string) (error, []byte, int) {
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
 	if err != nil {
 		return err, nil, 0

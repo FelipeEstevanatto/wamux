@@ -5,6 +5,7 @@ import (
 	"strings"
 	"sync"
 
+	logger_wrapper "github.com/EvolutionAPI/evolution-go/pkg/logger"
 	"github.com/gomessguii/logger"
 	"github.com/gorilla/websocket"
 )
@@ -19,9 +20,10 @@ var upgrader = websocket.Upgrader{
 }
 
 type websocketProducer struct {
-	clients    map[string]*websocket.Conn // conexões específicas por instância
-	broadcast  []*websocket.Conn          // conexões que recebem todos os eventos
-	clientsMux sync.RWMutex
+	clients       map[string]*websocket.Conn // conexões específicas por instância
+	broadcast     []*websocket.Conn          // conexões que recebem todos os eventos
+	clientsMux    sync.RWMutex
+	loggerWrapper *logger_wrapper.LoggerManager
 }
 
 func NewWebsocketProducer() *websocketProducer {
@@ -89,14 +91,14 @@ func (p *websocketProducer) AddClient(instanceID string, conn *websocket.Conn) {
 	p.clientsMux.Lock()
 	defer p.clientsMux.Unlock()
 	p.clients[instanceID] = conn
-	logger.LogInfo("Cliente websocket adicionado para instância: %s", instanceID)
+	p.loggerWrapper.GetLogger(instanceID).LogInfo("Cliente websocket adicionado para instância: %s", instanceID)
 }
 
 func (p *websocketProducer) RemoveClient(instanceID string) {
 	p.clientsMux.Lock()
 	defer p.clientsMux.Unlock()
 	delete(p.clients, instanceID)
-	logger.LogInfo("Cliente websocket removido para instância: %s", instanceID)
+	p.loggerWrapper.GetLogger(instanceID).LogInfo("Cliente websocket removido para instância: %s", instanceID)
 }
 
 func (p *websocketProducer) Produce(queueName string, payload []byte, instanceID string, _ string) error {
@@ -112,18 +114,18 @@ func (p *websocketProducer) Produce(queueName string, payload []byte, instanceID
 	if client, exists := p.clients[instanceID]; exists {
 		err := client.WriteJSON(message)
 		if err != nil {
-			logger.LogError("Erro ao enviar mensagem websocket para %s: %v", instanceID, err)
+			p.loggerWrapper.GetLogger(instanceID).LogError("Erro ao enviar mensagem websocket para %s: %v", instanceID, err)
 			// Não remove o cliente aqui pois estamos com o RLock
 			return err
 		}
-		logger.LogInfo("Mensagem websocket enviada com sucesso para instância %s na fila %s", instanceID, queueName)
+		p.loggerWrapper.GetLogger(instanceID).LogInfo("Mensagem websocket enviada com sucesso para instância %s na fila %s", instanceID, queueName)
 	}
 
 	// Envia para todos os clientes broadcast
 	for _, conn := range p.broadcast {
 		err := conn.WriteJSON(message)
 		if err != nil {
-			logger.LogError("Erro ao enviar mensagem broadcast websocket: %v", err)
+			p.loggerWrapper.GetLogger(instanceID).LogError("Erro ao enviar mensagem broadcast websocket: %v", err)
 			continue
 		}
 	}

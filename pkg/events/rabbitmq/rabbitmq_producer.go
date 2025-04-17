@@ -5,6 +5,7 @@ import (
 	"time"
 
 	producer_interfaces "github.com/EvolutionAPI/evolution-go/pkg/events/interfaces"
+	logger_wrapper "github.com/EvolutionAPI/evolution-go/pkg/logger"
 	"github.com/gomessguii/logger"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -15,6 +16,7 @@ type rabbitMQProducer struct {
 	amqpGlobalEvents  []string
 	connStr           string
 	maxRetries        int
+	loggerWrapper     *logger_wrapper.LoggerManager
 }
 
 func NewRabbitMQProducer(
@@ -22,6 +24,7 @@ func NewRabbitMQProducer(
 	amqpGlobalEnabled bool,
 	amqpGlobalEvents []string,
 	connStr string,
+	loggerWrapper *logger_wrapper.LoggerManager,
 ) producer_interfaces.Producer {
 	producer := &rabbitMQProducer{
 		conn:              conn,
@@ -105,7 +108,7 @@ func (p *rabbitMQProducer) Produce(
 	rabbitmqEnable string,
 	userID string,
 ) error {
-	logger.LogInfo("[%s] RabbitMQ Producer - Starting produce for queue: %s", userID, queueName)
+	p.loggerWrapper.GetLogger(userID).LogInfo("[%s] RabbitMQ Producer - Starting produce for queue: %s", userID, queueName)
 
 	if err := p.ensureConnection(); err != nil {
 		return fmt.Errorf("falha ao garantir conexão: %v", err)
@@ -145,7 +148,7 @@ func (p *rabbitMQProducer) Produce(
 			return fmt.Errorf("falha ao publicar mensagem após todas as tentativas: %v", err)
 		}
 
-		logger.LogInfo("[%s] Mensagem publicada com sucesso na fila: %s", userID, queueName)
+		p.loggerWrapper.GetLogger(userID).LogInfo("[%s] Mensagem publicada com sucesso na fila: %s", userID, queueName)
 	}
 
 	return nil

@@ -9,10 +9,10 @@ import (
 	"time"
 
 	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
+	logger_wrapper "github.com/EvolutionAPI/evolution-go/pkg/logger"
 	"github.com/EvolutionAPI/evolution-go/pkg/utils"
 	whatsmeow_service "github.com/EvolutionAPI/evolution-go/pkg/whatsmeow/service"
 	"github.com/gin-gonic/gin"
-	"github.com/gomessguii/logger"
 	"github.com/vincent-petithory/dataurl"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types"
@@ -35,6 +35,7 @@ type GroupService interface {
 type groupService struct {
 	clientPointer    map[string]*whatsmeow.Client
 	whatsmeowService whatsmeow_service.WhatsmeowService
+	loggerWrapper    *logger_wrapper.LoggerManager
 }
 
 type SimpleGroupInfo struct {
@@ -91,40 +92,40 @@ type LeaveGroupStruct struct {
 
 func (g *groupService) ensureClientConnected(instanceId string) (*whatsmeow.Client, error) {
 	client := g.clientPointer[instanceId]
-	logger.LogInfo("[%s] Checking client connection status - Client exists: %v", instanceId, client != nil)
+	g.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Checking client connection status - Client exists: %v", instanceId, client != nil)
 
 	if client == nil {
-		logger.LogInfo("[%s] No client found, attempting to start new instance", instanceId)
+		g.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] No client found, attempting to start new instance", instanceId)
 		err := g.whatsmeowService.StartInstance(instanceId)
 		if err != nil {
-			logger.LogError("[%s] Failed to start instance: %v", instanceId, err)
+			g.loggerWrapper.GetLogger(instanceId).LogError("[%s] Failed to start instance: %v", instanceId, err)
 			return nil, errors.New("no active session found")
 		}
 
-		logger.LogInfo("[%s] Instance started, waiting 2 seconds...", instanceId)
+		g.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Instance started, waiting 2 seconds...", instanceId)
 		time.Sleep(2 * time.Second)
 
 		client = g.clientPointer[instanceId]
-		logger.LogInfo("[%s] Checking new client - Exists: %v, Connected: %v",
+		g.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Checking new client - Exists: %v, Connected: %v",
 			instanceId,
 			client != nil,
 			client != nil && client.IsConnected())
 
 		if client == nil || !client.IsConnected() {
-			logger.LogError("[%s] New client validation failed - Exists: %v, Connected: %v",
+			g.loggerWrapper.GetLogger(instanceId).LogError("[%s] New client validation failed - Exists: %v, Connected: %v",
 				instanceId,
 				client != nil,
 				client != nil && client.IsConnected())
 			return nil, errors.New("no active session found")
 		}
 	} else if !client.IsConnected() {
-		logger.LogError("[%s] Existing client is disconnected - Connected status: %v",
+		g.loggerWrapper.GetLogger(instanceId).LogError("[%s] Existing client is disconnected - Connected status: %v",
 			instanceId,
 			client.IsConnected())
 		return nil, errors.New("client disconnected")
 	}
 
-	logger.LogInfo("[%s] Client successfully validated - Connected: %v", instanceId, client.IsConnected())
+	g.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Client successfully validated - Connected: %v", instanceId, client.IsConnected())
 	return client, nil
 }
 
@@ -136,7 +137,7 @@ func (g *groupService) ListGroups(instance *instance_model.Instance) ([]*types.G
 
 	resp, err := client.GetJoinedGroups()
 	if err != nil {
-		logger.LogError("[%s] error getting groups: %v", instance.Id, err)
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error getting groups: %v", instance.Id, err)
 		return nil, err
 	}
 
@@ -160,13 +161,13 @@ func (g *groupService) GetGroupInfo(data *GetGroupInfoStruct, instance *instance
 
 	recipient, ok := utils.ParseJID(data.GroupJID)
 	if !ok {
-		logger.LogError("[%s] Error validating message fields", instance.Id)
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields", instance.Id)
 		return nil, errors.New("invalid group jid")
 	}
 
 	resp, err := client.GetGroupInfo(recipient)
 	if err != nil {
-		logger.LogError("[%s] error mute chat: %v", instance.Id, err)
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error mute chat: %v", instance.Id, err)
 		return nil, err
 	}
 
@@ -181,13 +182,13 @@ func (g *groupService) GetGroupInviteLink(data *GetGroupInviteLinkStruct, instan
 
 	recipient, ok := utils.ParseJID(data.GroupJID)
 	if !ok {
-		logger.LogError("[%s] Error validating message fields", instance.Id)
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields", instance.Id)
 		return "", errors.New("invalid group jid")
 	}
 
 	resp, err := client.GetGroupInviteLink(recipient, data.Reset)
 	if err != nil {
-		logger.LogError("[%s] error mute chat: %v", instance.Id, err)
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error mute chat: %v", instance.Id, err)
 		return "", err
 	}
 
@@ -202,7 +203,7 @@ func (g *groupService) SetGroupPhoto(data *SetGroupPhotoStruct, instance *instan
 
 	recipient, ok := utils.ParseJID(data.GroupJID)
 	if !ok {
-		logger.LogError("[%s] Error validating message fields", instance.Id)
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields", instance.Id)
 		return "", errors.New("invalid group jid")
 	}
 
@@ -211,32 +212,32 @@ func (g *groupService) SetGroupPhoto(data *SetGroupPhotoStruct, instance *instan
 	if strings.HasPrefix(data.Image, "http://") || strings.HasPrefix(data.Image, "https://") {
 		resp, err := http.Get(data.Image)
 		if err != nil {
-			logger.LogError("[%s] Could not download image from URL", instance.Id)
+			g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Could not download image from URL", instance.Id)
 			return "", fmt.Errorf("failed to fetch image from URL: %v", err)
 		}
 		defer resp.Body.Close()
 
 		fileData, err = io.ReadAll(resp.Body)
 		if err != nil {
-			logger.LogError("[%s] Could not read image data from URL", instance.Id)
+			g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Could not read image data from URL", instance.Id)
 			return "", fmt.Errorf("failed to read image data: %v", err)
 		}
 
 	} else if strings.HasPrefix(data.Image, "data:image/jpeg;base64,") || strings.HasPrefix(data.Image, "data:image/png;base64,") {
 		dataURL, err := dataurl.DecodeString(data.Image)
 		if err != nil {
-			logger.LogError("[%s] Could not decode base64 encoded data from payload", instance.Id)
+			g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Could not decode base64 encoded data from payload", instance.Id)
 			return "", err
 		}
 		fileData = dataURL.Data
 	} else {
-		logger.LogError("[%s] Image data should start with \"data:image/jpeg;base64,\" or be a valid URL", instance.Id)
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Image data should start with \"data:image/jpeg;base64,\" or be a valid URL", instance.Id)
 		return "", errors.New("image data should be a valid URL or start with \"data:image/jpeg;base64,\"")
 	}
 
 	pictureID, err := client.SetGroupPhoto(recipient, fileData)
 	if err != nil {
-		logger.LogError("[%s] Error setting group photo: %v", instance.Id, err)
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error setting group photo: %v", instance.Id, err)
 		return "", err
 	}
 
@@ -251,13 +252,13 @@ func (g *groupService) SetGroupName(data *SetGroupNameStruct, instance *instance
 
 	recipient, ok := utils.ParseJID(data.GroupJID)
 	if !ok {
-		logger.LogError("[%s] Error validating message fields", instance.Id)
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields", instance.Id)
 		return errors.New("invalid group jid")
 	}
 
 	err = client.SetGroupName(recipient, data.Name)
 	if err != nil {
-		logger.LogError("[%s] error mute chat: %v", instance.Id, err)
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error mute chat: %v", instance.Id, err)
 		return err
 	}
 
@@ -272,13 +273,13 @@ func (g *groupService) SetGroupDescription(data *SetGroupDescriptionStruct, inst
 
 	recipient, ok := utils.ParseJID(data.GroupJID)
 	if !ok {
-		logger.LogError("[%s] Error validating message fields", instance.Id)
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields", instance.Id)
 		return errors.New("invalid group jid")
 	}
 
 	err = client.SetGroupDescription(recipient, data.Description)
 	if err != nil {
-		logger.LogError("[%s] error mute chat: %v", instance.Id, err)
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error mute chat: %v", instance.Id, err)
 		return err
 	}
 
@@ -296,7 +297,7 @@ func (g *groupService) CreateGroup(data *CreateGroupStruct, instance *instance_m
 		recipient, ok := utils.ParseJID(participant)
 		participants = append(participants, recipient)
 		if !ok {
-			logger.LogError("[%s] Error validating message fields", instance.Id)
+			g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields", instance.Id)
 			return nil, errors.New("invalid phone number")
 		}
 	}
@@ -306,7 +307,7 @@ func (g *groupService) CreateGroup(data *CreateGroupStruct, instance *instance_m
 		Participants: participants,
 	})
 	if err != nil {
-		logger.LogError("[%s] error create group: %v", instance.Id, err)
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error create group: %v", instance.Id, err)
 		return nil, err
 	}
 
@@ -320,7 +321,7 @@ func (g *groupService) CreateGroup(data *CreateGroupStruct, instance *instance_m
 	var added []types.JID
 	infoResp, err := client.GetGroupInfo(resp.JID)
 	if err != nil {
-		logger.LogError("[%s] error get group info: %v", instance.Id, err)
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error get group info: %v", instance.Id, err)
 		return nil, err
 	}
 	for _, add := range infoResp.Participants {
@@ -349,14 +350,14 @@ func (g *groupService) UpdateParticipant(data *AddParticipantStruct, instance *i
 		recipient, ok := utils.ParseJID(participant)
 		participants = append(participants, recipient)
 		if !ok {
-			logger.LogError("[%s] Error validating message fields", instance.Id)
+			g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields", instance.Id)
 			return errors.New("invalid phone number")
 		}
 	}
 
 	_, err = client.UpdateGroupParticipants(data.GroupJID, participants, data.Action)
 	if err != nil {
-		logger.LogError("[%s] error create group: %v", instance.Id, err)
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error create group: %v", instance.Id, err)
 		return err
 	}
 
@@ -371,7 +372,7 @@ func (g *groupService) GetMyGroups(instance *instance_model.Instance) ([]types.G
 
 	resp, err := client.GetJoinedGroups()
 	if err != nil {
-		logger.LogError("[%s] error create group: %v", instance.Id, err)
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error create group: %v", instance.Id, err)
 		return nil, err
 	}
 
@@ -379,7 +380,7 @@ func (g *groupService) GetMyGroups(instance *instance_model.Instance) ([]types.G
 	var jidClear = strings.Split(jid, ".")[0]
 	jidOfAdmin, ok := utils.ParseJID(jidClear)
 	if !ok {
-		logger.LogError("[%s] Error validating message fields", instance.Id)
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields", instance.Id)
 		return nil, errors.New("invalid phone number")
 	}
 	var adminGroups []types.GroupInfo
@@ -401,7 +402,7 @@ func (g *groupService) JoinGroupLink(data *JoinGroupStruct, instance *instance_m
 
 	_, err = client.JoinGroupWithLink(data.Code)
 	if err != nil {
-		logger.LogError("[%s] error create group: %v", instance.Id, err)
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error create group: %v", instance.Id, err)
 		return err
 	}
 
@@ -416,7 +417,7 @@ func (g *groupService) LeaveGroup(data *LeaveGroupStruct, instance *instance_mod
 
 	err = client.LeaveGroup(data.GroupJID)
 	if err != nil {
-		logger.LogError("[%s] error leave group: %v", instance.Id, err)
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error leave group: %v", instance.Id, err)
 		return err
 	}
 
@@ -426,9 +427,11 @@ func (g *groupService) LeaveGroup(data *LeaveGroupStruct, instance *instance_mod
 func NewGroupService(
 	clientPointer map[string]*whatsmeow.Client,
 	whatsmeowService whatsmeow_service.WhatsmeowService,
+	loggerWrapper *logger_wrapper.LoggerManager,
 ) GroupService {
 	return &groupService{
 		clientPointer:    clientPointer,
 		whatsmeowService: whatsmeowService,
+		loggerWrapper:    loggerWrapper,
 	}
 }

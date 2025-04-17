@@ -7,9 +7,9 @@ import (
 	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
 	label_model "github.com/EvolutionAPI/evolution-go/pkg/label/model"
 	label_repository "github.com/EvolutionAPI/evolution-go/pkg/label/repository"
+	logger_wrapper "github.com/EvolutionAPI/evolution-go/pkg/logger"
 	"github.com/EvolutionAPI/evolution-go/pkg/utils"
 	whatsmeow_service "github.com/EvolutionAPI/evolution-go/pkg/whatsmeow/service"
-	"github.com/gomessguii/logger"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/appstate"
 )
@@ -27,6 +27,7 @@ type labelService struct {
 	clientPointer    map[string]*whatsmeow.Client
 	whatsmeowService whatsmeow_service.WhatsmeowService
 	labelRepository  label_repository.LabelRepository
+	loggerWrapper    *logger_wrapper.LoggerManager
 }
 
 type ChatLabelStruct struct {
@@ -49,40 +50,40 @@ type EditLabelStruct struct {
 
 func (l *labelService) ensureClientConnected(instanceId string) (*whatsmeow.Client, error) {
 	client := l.clientPointer[instanceId]
-	logger.LogInfo("[%s] Checking client connection status - Client exists: %v", instanceId, client != nil)
+	l.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Checking client connection status - Client exists: %v", instanceId, client != nil)
 
 	if client == nil {
-		logger.LogInfo("[%s] No client found, attempting to start new instance", instanceId)
+		l.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] No client found, attempting to start new instance", instanceId)
 		err := l.whatsmeowService.StartInstance(instanceId)
 		if err != nil {
-			logger.LogError("[%s] Failed to start instance: %v", instanceId, err)
+			l.loggerWrapper.GetLogger(instanceId).LogError("[%s] Failed to start instance: %v", instanceId, err)
 			return nil, errors.New("no active session found")
 		}
 
-		logger.LogInfo("[%s] Instance started, waiting 2 seconds...", instanceId)
+		l.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Instance started, waiting 2 seconds...", instanceId)
 		time.Sleep(2 * time.Second)
 
 		client = l.clientPointer[instanceId]
-		logger.LogInfo("[%s] Checking new client - Exists: %v, Connected: %v",
+		l.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Checking new client - Exists: %v, Connected: %v",
 			instanceId,
 			client != nil,
 			client != nil && client.IsConnected())
 
 		if client == nil || !client.IsConnected() {
-			logger.LogError("[%s] New client validation failed - Exists: %v, Connected: %v",
+			l.loggerWrapper.GetLogger(instanceId).LogError("[%s] New client validation failed - Exists: %v, Connected: %v",
 				instanceId,
 				client != nil,
 				client != nil && client.IsConnected())
 			return nil, errors.New("no active session found")
 		}
 	} else if !client.IsConnected() {
-		logger.LogError("[%s] Existing client is disconnected - Connected status: %v",
+		l.loggerWrapper.GetLogger(instanceId).LogError("[%s] Existing client is disconnected - Connected status: %v",
 			instanceId,
 			client.IsConnected())
 		return nil, errors.New("client disconnected")
 	}
 
-	logger.LogInfo("[%s] Client successfully validated - Connected: %v", instanceId, client.IsConnected())
+	l.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Client successfully validated - Connected: %v", instanceId, client.IsConnected())
 	return client, nil
 }
 
@@ -94,7 +95,7 @@ func (l *labelService) ChatLabel(data *ChatLabelStruct, instance *instance_model
 
 	jid, ok := utils.ParseJID(data.JID)
 	if !ok {
-		logger.LogError("[%s] error parse community jid", instance.Id)
+		l.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error parse community jid", instance.Id)
 		return errors.New("error parse community jid")
 	}
 
@@ -104,7 +105,7 @@ func (l *labelService) ChatLabel(data *ChatLabelStruct, instance *instance_model
 		true,
 	))
 	if err != nil {
-		logger.LogError("[%s] error label chat: %v", instance.Id, err)
+		l.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error label chat: %v", instance.Id, err)
 		return err
 	}
 
@@ -119,7 +120,7 @@ func (l *labelService) MessageLabel(data *MessageLabelStruct, instance *instance
 
 	jid, ok := utils.ParseJID(data.JID)
 	if !ok {
-		logger.LogError("[%s] error parse community jid", instance.Id)
+		l.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error parse community jid", instance.Id)
 		return errors.New("error parse community jid")
 	}
 
@@ -130,7 +131,7 @@ func (l *labelService) MessageLabel(data *MessageLabelStruct, instance *instance
 		true,
 	))
 	if err != nil {
-		logger.LogError("[%s] error label message: %v", instance.Id, err)
+		l.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error label message: %v", instance.Id, err)
 		return err
 	}
 
@@ -150,7 +151,7 @@ func (l *labelService) EditLabel(data *EditLabelStruct, instance *instance_model
 		data.Deleted,
 	))
 	if err != nil {
-		logger.LogError("[%s] error label message: %v", instance.Id, err)
+		l.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error label message: %v", instance.Id, err)
 		return err
 	}
 
@@ -165,7 +166,7 @@ func (l *labelService) ChatUnlabel(data *ChatLabelStruct, instance *instance_mod
 
 	jid, ok := utils.ParseJID(data.JID)
 	if !ok {
-		logger.LogError("[%s] error parse community jid", instance.Id)
+		l.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error parse community jid", instance.Id)
 		return errors.New("error parse community jid")
 	}
 
@@ -175,7 +176,7 @@ func (l *labelService) ChatUnlabel(data *ChatLabelStruct, instance *instance_mod
 		false,
 	))
 	if err != nil {
-		logger.LogError("[%s] error label chat: %v", instance.Id, err)
+		l.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error label chat: %v", instance.Id, err)
 		return err
 	}
 
@@ -190,7 +191,7 @@ func (l *labelService) MessageUnlabel(data *MessageLabelStruct, instance *instan
 
 	jid, ok := utils.ParseJID(data.JID)
 	if !ok {
-		logger.LogError("[%s] error parse community jid", instance.Id)
+		l.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error parse community jid", instance.Id)
 		return errors.New("error parse community jid")
 	}
 
@@ -201,7 +202,7 @@ func (l *labelService) MessageUnlabel(data *MessageLabelStruct, instance *instan
 		false,
 	))
 	if err != nil {
-		logger.LogError("[%s] error label message: %v", instance.Id, err)
+		l.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error label message: %v", instance.Id, err)
 		return err
 	}
 
@@ -216,7 +217,7 @@ func (l *labelService) GetLabels(instance *instance_model.Instance) ([]label_mod
 
 	labels, err := l.labelRepository.GetAllLabelsByInstanceID(instance.Id)
 	if err != nil {
-		logger.LogError("[%s] error fetching labels from database: %v", instance.Id, err)
+		l.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error fetching labels from database: %v", instance.Id, err)
 		return nil, err
 	}
 
@@ -227,10 +228,12 @@ func NewLabelService(
 	clientPointer map[string]*whatsmeow.Client,
 	whatsmeowService whatsmeow_service.WhatsmeowService,
 	labelRepository label_repository.LabelRepository,
+	loggerWrapper *logger_wrapper.LoggerManager,
 ) LabelService {
 	return &labelService{
 		clientPointer:    clientPointer,
 		whatsmeowService: whatsmeowService,
 		labelRepository:  labelRepository,
+		loggerWrapper:    loggerWrapper,
 	}
 }

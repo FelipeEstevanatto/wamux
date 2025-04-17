@@ -5,6 +5,7 @@ import (
 	"time"
 
 	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
+	logger_wrapper "github.com/EvolutionAPI/evolution-go/pkg/logger"
 	whatsmeow_service "github.com/EvolutionAPI/evolution-go/pkg/whatsmeow/service"
 	"github.com/gomessguii/logger"
 	"go.mau.fi/whatsmeow"
@@ -18,6 +19,7 @@ type CallService interface {
 type callService struct {
 	clientPointer    map[string]*whatsmeow.Client
 	whatsmeowService whatsmeow_service.WhatsmeowService
+	loggerWrapper    *logger_wrapper.LoggerManager
 }
 
 type RejectCallStruct struct {
@@ -27,40 +29,40 @@ type RejectCallStruct struct {
 
 func (c *callService) ensureClientConnected(instanceId string) (*whatsmeow.Client, error) {
 	client := c.clientPointer[instanceId]
-	logger.LogInfo("[%s] Checking client connection status - Client exists: %v", instanceId, client != nil)
+	c.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Checking client connection status - Client exists: %v", instanceId, client != nil)
 
 	if client == nil {
-		logger.LogInfo("[%s] No client found, attempting to start new instance", instanceId)
+		c.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] No client found, attempting to start new instance", instanceId)
 		err := c.whatsmeowService.StartInstance(instanceId)
 		if err != nil {
-			logger.LogError("[%s] Failed to start instance: %v", instanceId, err)
+			c.loggerWrapper.GetLogger(instanceId).LogError("[%s] Failed to start instance: %v", instanceId, err)
 			return nil, errors.New("no active session found")
 		}
 
-		logger.LogInfo("[%s] Instance started, waiting 2 seconds...", instanceId)
+		c.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Instance started, waiting 2 seconds...", instanceId)
 		time.Sleep(2 * time.Second)
 
 		client = c.clientPointer[instanceId]
-		logger.LogInfo("[%s] Checking new client - Exists: %v, Connected: %v",
+		c.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Checking new client - Exists: %v, Connected: %v",
 			instanceId,
 			client != nil,
 			client != nil && client.IsConnected())
 
 		if client == nil || !client.IsConnected() {
-			logger.LogError("[%s] New client validation failed - Exists: %v, Connected: %v",
+			c.loggerWrapper.GetLogger(instanceId).LogError("[%s] New client validation failed - Exists: %v, Connected: %v",
 				instanceId,
 				client != nil,
 				client != nil && client.IsConnected())
 			return nil, errors.New("no active session found")
 		}
 	} else if !client.IsConnected() {
-		logger.LogError("[%s] Existing client is disconnected - Connected status: %v",
+		c.loggerWrapper.GetLogger(instanceId).LogError("[%s] Existing client is disconnected - Connected status: %v",
 			instanceId,
 			client.IsConnected())
 		return nil, errors.New("client disconnected")
 	}
 
-	logger.LogInfo("[%s] Client successfully validated - Connected: %v", instanceId, client.IsConnected())
+	c.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Client successfully validated - Connected: %v", instanceId, client.IsConnected())
 	return client, nil
 }
 
@@ -82,9 +84,11 @@ func (c *callService) RejectCall(data *RejectCallStruct, instance *instance_mode
 func NewCallService(
 	clientPointer map[string]*whatsmeow.Client,
 	whatsmeowService whatsmeow_service.WhatsmeowService,
+	loggerWrapper *logger_wrapper.LoggerManager,
 ) CallService {
 	return &callService{
 		clientPointer:    clientPointer,
 		whatsmeowService: whatsmeowService,
+		loggerWrapper:    loggerWrapper,
 	}
 }
