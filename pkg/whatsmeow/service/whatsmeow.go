@@ -1192,6 +1192,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		logger.LogInfo("[%s] Logged out for reason %s", mycli.userID, evt.Reason.String())
 		mycli.killChannel[mycli.userID] <- true
 
+		mycli.Instance.DisconnectReason = evt.Reason.String()
 		mycli.Instance.Connected = false
 		err := mycli.instanceRepository.UpdateConnected(mycli.Instance.Id, mycli.Instance.Connected)
 		if err != nil {
