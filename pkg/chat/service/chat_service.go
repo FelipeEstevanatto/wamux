@@ -6,9 +6,9 @@ import (
 	"time"
 
 	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
+	logger_wrapper "github.com/EvolutionAPI/evolution-go/pkg/logger"
 	"github.com/EvolutionAPI/evolution-go/pkg/utils"
 	whatsmeow_service "github.com/EvolutionAPI/evolution-go/pkg/whatsmeow/service"
-	"github.com/gomessguii/logger"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/appstate"
 	"go.mau.fi/whatsmeow/types"
@@ -27,6 +27,7 @@ type ChatService interface {
 type chatService struct {
 	clientPointer    map[string]*whatsmeow.Client
 	whatsmeowService whatsmeow_service.WhatsmeowService
+	loggerWrapper    *logger_wrapper.LoggerManager
 }
 
 type BodyStruct struct {
@@ -40,40 +41,40 @@ type HistorySyncRequestStruct struct {
 
 func (c *chatService) ensureClientConnected(instanceId string) (*whatsmeow.Client, error) {
 	client := c.clientPointer[instanceId]
-	logger.LogInfo("[%s] Checking client connection status - Client exists: %v", instanceId, client != nil)
+	c.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Checking client connection status - Client exists: %v", instanceId, client != nil)
 
 	if client == nil {
-		logger.LogInfo("[%s] No client found, attempting to start new instance", instanceId)
+		c.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] No client found, attempting to start new instance", instanceId)
 		err := c.whatsmeowService.StartInstance(instanceId)
 		if err != nil {
-			logger.LogError("[%s] Failed to start instance: %v", instanceId, err)
+			c.loggerWrapper.GetLogger(instanceId).LogError("[%s] Failed to start instance: %v", instanceId, err)
 			return nil, errors.New("no active session found")
 		}
 
-		logger.LogInfo("[%s] Instance started, waiting 2 seconds...", instanceId)
+		c.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Instance started, waiting 2 seconds...", instanceId)
 		time.Sleep(2 * time.Second)
 
 		client = c.clientPointer[instanceId]
-		logger.LogInfo("[%s] Checking new client - Exists: %v, Connected: %v",
+		c.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Checking new client - Exists: %v, Connected: %v",
 			instanceId,
 			client != nil,
 			client != nil && client.IsConnected())
 
 		if client == nil || !client.IsConnected() {
-			logger.LogError("[%s] New client validation failed - Exists: %v, Connected: %v",
+			c.loggerWrapper.GetLogger(instanceId).LogError("[%s] New client validation failed - Exists: %v, Connected: %v",
 				instanceId,
 				client != nil,
 				client != nil && client.IsConnected())
 			return nil, errors.New("no active session found")
 		}
 	} else if !client.IsConnected() {
-		logger.LogError("[%s] Existing client is disconnected - Connected status: %v",
+		c.loggerWrapper.GetLogger(instanceId).LogError("[%s] Existing client is disconnected - Connected status: %v",
 			instanceId,
 			client.IsConnected())
 		return nil, errors.New("client disconnected")
 	}
 
-	logger.LogInfo("[%s] Client successfully validated - Connected: %v", instanceId, client.IsConnected())
+	c.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Client successfully validated - Connected: %v", instanceId, client.IsConnected())
 	return client, nil
 }
 
@@ -87,13 +88,13 @@ func (c *chatService) ChatPin(data *BodyStruct, instance *instance_model.Instanc
 
 	recipient, ok := utils.ParseJID(data.Chat)
 	if !ok {
-		logger.LogError("[%s] Error validating message fields", instance.Id)
+		c.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields", instance.Id)
 		return "", errors.New("invalid phone number")
 	}
 
 	err = client.SendAppState(appstate.BuildPin(recipient, true))
 	if err != nil {
-		logger.LogError("[%s] error pin chat: %v", instance.Id, err)
+		c.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error pin chat: %v", instance.Id, err)
 		return "", err
 	}
 
@@ -110,13 +111,13 @@ func (c *chatService) ChatUnpin(data *BodyStruct, instance *instance_model.Insta
 
 	recipient, ok := utils.ParseJID(data.Chat)
 	if !ok {
-		logger.LogError("[%s] Error validating message fields", instance.Id)
+		c.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields", instance.Id)
 		return "", errors.New("invalid phone number")
 	}
 
 	err = client.SendAppState(appstate.BuildPin(recipient, false))
 	if err != nil {
-		logger.LogError("[%s] error unpin chat: %v", instance.Id, err)
+		c.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error unpin chat: %v", instance.Id, err)
 		return "", err
 	}
 
@@ -133,13 +134,13 @@ func (c *chatService) ChatArchive(data *BodyStruct, instance *instance_model.Ins
 
 	recipient, ok := utils.ParseJID(data.Chat)
 	if !ok {
-		logger.LogError("[%s] Error validating message fields", instance.Id)
+		c.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields", instance.Id)
 		return "", errors.New("invalid phone number")
 	}
 
 	err = client.SendAppState(appstate.BuildArchive(recipient, true, time.Time{}, nil))
 	if err != nil {
-		logger.LogError("[%s] error archive chat: %v", instance.Id, err)
+		c.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error archive chat: %v", instance.Id, err)
 		return "", err
 	}
 
@@ -156,13 +157,13 @@ func (c *chatService) ChatUnarchive(data *BodyStruct, instance *instance_model.I
 
 	recipient, ok := utils.ParseJID(data.Chat)
 	if !ok {
-		logger.LogError("[%s] Error validating message fields", instance.Id)
+		c.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields", instance.Id)
 		return "", errors.New("invalid phone number")
 	}
 
 	err = client.SendAppState(appstate.BuildArchive(recipient, false, time.Time{}, nil))
 	if err != nil {
-		logger.LogError("[%s] error unarchive chat: %v", instance.Id, err)
+		c.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error unarchive chat: %v", instance.Id, err)
 		return "", err
 	}
 
@@ -179,13 +180,13 @@ func (c *chatService) ChatMute(data *BodyStruct, instance *instance_model.Instan
 
 	recipient, ok := utils.ParseJID(data.Chat)
 	if !ok {
-		logger.LogError("[%s] Error validating message fields", instance.Id)
+		c.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields", instance.Id)
 		return "", errors.New("invalid phone number")
 	}
 
 	err = client.SendAppState(appstate.BuildMute(recipient, true, 1*time.Hour))
 	if err != nil {
-		logger.LogError("[%s] error mute chat: %v", instance.Id, err)
+		c.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error mute chat: %v", instance.Id, err)
 		return "", err
 	}
 
@@ -202,13 +203,13 @@ func (c *chatService) ChatUnmute(data *BodyStruct, instance *instance_model.Inst
 
 	recipient, ok := utils.ParseJID(data.Chat)
 	if !ok {
-		logger.LogError("[%s] Error validating message fields", instance.Id)
+		c.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields", instance.Id)
 		return "", errors.New("invalid phone number")
 	}
 
 	err = client.SendAppState(appstate.BuildMute(recipient, false, 0*time.Hour))
 	if err != nil {
-		logger.LogError("[%s] error unmute chat: %v", instance.Id, err)
+		c.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error unmute chat: %v", instance.Id, err)
 		return "", err
 	}
 
@@ -235,7 +236,7 @@ func (c *chatService) HistorySyncRequest(data *HistorySyncRequestStruct, instanc
 
 	res, err := client.SendMessage(context.Background(), messageInfo.Chat, histRequest, whatsmeow.SendRequestExtra{Peer: true})
 	if err != nil {
-		logger.LogError("[%s] error history sync request: %v", instance.Id, err)
+		c.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error history sync request: %v", instance.Id, err)
 		return nil, err
 	}
 
@@ -245,9 +246,11 @@ func (c *chatService) HistorySyncRequest(data *HistorySyncRequestStruct, instanc
 func NewChatService(
 	clientPointer map[string]*whatsmeow.Client,
 	whatsmeowService whatsmeow_service.WhatsmeowService,
+	loggerWrapper *logger_wrapper.LoggerManager,
 ) ChatService {
 	return &chatService{
 		clientPointer:    clientPointer,
 		whatsmeowService: whatsmeowService,
+		loggerWrapper:    loggerWrapper,
 	}
 }

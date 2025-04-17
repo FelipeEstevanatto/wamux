@@ -20,11 +20,11 @@ import (
 
 	config "github.com/EvolutionAPI/evolution-go/pkg/config"
 	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
+	logger_wrapper "github.com/EvolutionAPI/evolution-go/pkg/logger"
 	"github.com/EvolutionAPI/evolution-go/pkg/utils"
 	whatsmeow_service "github.com/EvolutionAPI/evolution-go/pkg/whatsmeow/service"
 	"github.com/chai2010/webp"
 	"github.com/gabriel-vasile/mimetype"
-	"github.com/gomessguii/logger"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/types"
@@ -49,6 +49,7 @@ type sendService struct {
 	clientPointer    map[string]*whatsmeow.Client
 	whatsmeowService whatsmeow_service.WhatsmeowService
 	config           *config.Config
+	loggerWrapper    *logger_wrapper.LoggerManager
 }
 
 type SendDataStruct struct {
@@ -204,40 +205,40 @@ type MessageSendStruct struct {
 
 func (s *sendService) ensureClientConnected(instanceId string) (*whatsmeow.Client, error) {
 	client := s.clientPointer[instanceId]
-	logger.LogInfo("[%s] Checking client connection status - Client exists: %v", instanceId, client != nil)
+	s.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Checking client connection status - Client exists: %v", instanceId, client != nil)
 
 	if client == nil {
-		logger.LogInfo("[%s] No client found, attempting to start new instance", instanceId)
+		s.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] No client found, attempting to start new instance", instanceId)
 		err := s.whatsmeowService.StartInstance(instanceId)
 		if err != nil {
-			logger.LogError("[%s] Failed to start instance: %v", instanceId, err)
+			s.loggerWrapper.GetLogger(instanceId).LogError("[%s] Failed to start instance: %v", instanceId, err)
 			return nil, errors.New("no active session found")
 		}
 
-		logger.LogInfo("[%s] Instance started, waiting 2 seconds...", instanceId)
+		s.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Instance started, waiting 2 seconds...", instanceId)
 		time.Sleep(2 * time.Second)
 
 		client = s.clientPointer[instanceId]
-		logger.LogInfo("[%s] Checking new client - Exists: %v, Connected: %v",
+		s.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Checking new client - Exists: %v, Connected: %v",
 			instanceId,
 			client != nil,
 			client != nil && client.IsConnected())
 
 		if client == nil || !client.IsConnected() {
-			logger.LogError("[%s] New client validation failed - Exists: %v, Connected: %v",
+			s.loggerWrapper.GetLogger(instanceId).LogError("[%s] New client validation failed - Exists: %v, Connected: %v",
 				instanceId,
 				client != nil,
 				client != nil && client.IsConnected())
 			return nil, errors.New("no active session found")
 		}
 	} else if !client.IsConnected() {
-		logger.LogError("[%s] Existing client is disconnected - Connected status: %v",
+		s.loggerWrapper.GetLogger(instanceId).LogError("[%s] Existing client is disconnected - Connected status: %v",
 			instanceId,
 			client.IsConnected())
 		return nil, errors.New("client disconnected")
 	}
 
-	logger.LogInfo("[%s] Client successfully validated - Connected: %v", instanceId, client.IsConnected())
+	s.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Client successfully validated - Connected: %v", instanceId, client.IsConnected())
 	return client, nil
 }
 
@@ -578,7 +579,7 @@ func (s *sendService) SendMediaFile(data *MediaStruct, fileData []byte, instance
 		return nil, err
 	}
 
-	logger.LogInfo("[%s] Media uploaded with size %d", instance.Id, uploaded.FileLength)
+	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Media uploaded with size %d", instance.Id, uploaded.FileLength)
 
 	var media *waE2E.Message
 	var mediaType string
@@ -675,7 +676,7 @@ func (s *sendService) SendMediaFile(data *MediaStruct, fileData []byte, instance
 }
 
 func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
-	logger.LogInfo("[%s] Iniciando envio de media url: %s", instance.Id, data.Url)
+	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Iniciando envio de media url: %s", instance.Id, data.Url)
 	startTime := time.Now()
 
 	client, err := s.ensureClientConnected(instance.Id)
@@ -683,7 +684,7 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 		return nil, err
 	}
 
-	logger.LogInfo("[%s] Iniciando download da URL: %s", instance.Id, data.Url)
+	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Iniciando download da URL: %s", instance.Id, data.Url)
 
 	resp, err := http.Get(data.Url)
 	if err != nil {
@@ -691,14 +692,14 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 	}
 	defer resp.Body.Close()
 
-	logger.LogInfo("[%s] Download concluído em %v. Lendo dados...", instance.Id, time.Since(startTime))
+	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Download concluído em %v. Lendo dados...", instance.Id, time.Since(startTime))
 
 	downloadStart := time.Now()
 	fileData, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
-	logger.LogInfo("[%s] Leitura dos dados concluída em %v. Tamanho: %d bytes", instance.Id, time.Since(downloadStart), len(fileData))
+	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Leitura dos dados concluída em %v. Tamanho: %d bytes", instance.Id, time.Since(downloadStart), len(fileData))
 
 	mime, _ := mimetype.DetectReader(bytes.NewReader(fileData))
 	mimeType := mime.String()
@@ -706,7 +707,7 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 		mimeType = "video/mp4"
 	}
 
-	logger.LogInfo("[%s] Tipo MIME detectado: %s", instance.Id, mimeType)
+	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Tipo MIME detectado: %s", instance.Id, mimeType)
 
 	var uploadType whatsmeow.MediaType
 	var duration int
@@ -730,16 +731,16 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 		}
 		uploadType = whatsmeow.MediaVideo
 	case "audio":
-		logger.LogInfo("[%s] Iniciando conversão de áudio...", instance.Id)
+		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Iniciando conversão de áudio...", instance.Id)
 		converterApiUrl := s.config.ApiAudioConverter
 		converterApiKey := s.config.ApiAudioConverterKey
 		var convertedData []byte
 		var err error
 		if converterApiUrl == "" {
-			logger.LogInfo("[%s] Usando conversão local...", instance.Id)
+			s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Usando conversão local...", instance.Id)
 			convertedData, duration, err = convertAudioToOpusWithDuration(fileData)
 		} else {
-			logger.LogInfo("[%s] Usando API de conversão...", instance.Id)
+			s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Usando API de conversão...", instance.Id)
 			convertedData, duration, err = convertAudioWithApi(converterApiUrl, converterApiKey, ConvertAudio{Base64: base64.StdEncoding.EncodeToString(fileData)})
 		}
 		if err != nil {
@@ -748,20 +749,20 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 		fileData = convertedData
 		mimeType = "audio/ogg; codecs=opus"
 		uploadType = whatsmeow.MediaAudio
-		logger.LogInfo("[%s] Conversão de áudio concluída em %v", instance.Id, time.Since(processingStart))
+		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Conversão de áudio concluída em %v", instance.Id, time.Since(processingStart))
 	case "document":
 		uploadType = whatsmeow.MediaDocument
 	default:
 		return nil, errors.New("invalid media type")
 	}
 
-	logger.LogInfo("[%s] Iniciando upload para WhatsApp...", instance.Id)
+	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Iniciando upload para WhatsApp...", instance.Id)
 	uploadStart := time.Now()
 	uploaded, err := client.Upload(context.Background(), fileData, uploadType)
 	if err != nil {
 		return nil, err
 	}
-	logger.LogInfo("[%s] Upload concluído em %v. Tamanho: %d", instance.Id, time.Since(uploadStart), uploaded.FileLength)
+	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Upload concluído em %v. Tamanho: %d", instance.Id, time.Since(uploadStart), uploaded.FileLength)
 
 	var media *waE2E.Message
 	var mediaType string
@@ -856,10 +857,10 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 	if err != nil {
 		return nil, err
 	}
-	logger.LogInfo("[%s] Mensagem enviada em %v", instance.Id, time.Since(messageStart))
+	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Mensagem enviada em %v", instance.Id, time.Since(messageStart))
 
 	totalTime := time.Since(startTime)
-	logger.LogInfo("[%s] Processo completo em %v", instance.Id, totalTime)
+	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Processo completo em %v", instance.Id, totalTime)
 
 	return message, nil
 }
@@ -1158,7 +1159,7 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 
 	recipient, err := validateMessageFields(data.Number, &data.Quoted.MessageID, &data.Quoted.MessageID)
 	if err != nil {
-		logger.LogError("[%s] Error validating message fields: %v", instance.Id, err)
+		s.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields: %v", instance.Id, err)
 		return nil, err
 	}
 
@@ -1260,8 +1261,6 @@ func sectionsToString(data *ListStruct) (string, error) {
 		return "", err
 	}
 
-	logger.LogInfo("JSON data: %s", string(jsonData))
-
 	return string(jsonData), nil
 }
 
@@ -1318,7 +1317,7 @@ func (s *sendService) SendList(data *ListStruct, instance *instance_model.Instan
 
 	recipient, err := validateMessageFields(data.Number, &data.Quoted.MessageID, &data.Quoted.MessageID)
 	if err != nil {
-		logger.LogError("[%s] Error validating message fields: %v", instance.Id, err)
+		s.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields: %v", instance.Id, err)
 		return nil, err
 	}
 
@@ -1370,7 +1369,7 @@ func (s *sendService) SendList(data *ListStruct, instance *instance_model.Instan
 func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.Message, messageType string, data *SendDataStruct) (*MessageSendStruct, error) {
 	recipient, err := validateMessageFields(data.Number, &data.Quoted.MessageID, &data.Quoted.MessageID)
 	if err != nil {
-		logger.LogError("[%s] Error validating message fields: %v", instance.Id, err)
+		s.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields: %v", instance.Id, err)
 		return nil, err
 	}
 
@@ -1690,7 +1689,7 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 
 	values, err := json.Marshal(postMap)
 	if err != nil {
-		logger.LogError("[%s] Failed to marshal JSON for queue", instance.Id)
+		s.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to marshal JSON for queue", instance.Id)
 		return nil, err
 	}
 
@@ -1700,7 +1699,7 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 		go s.whatsmeowService.SendToGlobalQueues(postMap["event"].(string), values, instance.Id)
 	}
 
-	logger.LogInfo("[%s] Message sent to %s", instance.Id, data.Number)
+	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Message sent to %s", instance.Id, data.Number)
 	return messageSent, nil
 }
 
@@ -1708,11 +1707,13 @@ func NewSendService(
 	clientPointer map[string]*whatsmeow.Client,
 	whatsmeowService whatsmeow_service.WhatsmeowService,
 	config *config.Config,
+	loggerWrapper *logger_wrapper.LoggerManager,
 ) SendService {
 	return &sendService{
 		clientPointer:    clientPointer,
 		whatsmeowService: whatsmeowService,
 		config:           config,
+		loggerWrapper:    loggerWrapper,
 	}
 }
 

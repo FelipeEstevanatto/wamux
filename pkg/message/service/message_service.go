@@ -10,11 +10,11 @@ import (
 	"time"
 
 	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
+	logger_wrapper "github.com/EvolutionAPI/evolution-go/pkg/logger"
 	message_model "github.com/EvolutionAPI/evolution-go/pkg/message/model"
 	message_repository "github.com/EvolutionAPI/evolution-go/pkg/message/repository"
 	"github.com/EvolutionAPI/evolution-go/pkg/utils"
 	whatsmeow_service "github.com/EvolutionAPI/evolution-go/pkg/whatsmeow/service"
-	"github.com/gomessguii/logger"
 	"github.com/vincent-petithory/dataurl"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waCommon"
@@ -37,6 +37,7 @@ type messageService struct {
 	clientPointer     map[string]*whatsmeow.Client
 	messageRepository message_repository.MessageRepository
 	whatsmeowService  whatsmeow_service.WhatsmeowService
+	loggerWrapper     *logger_wrapper.LoggerManager
 }
 
 type ReactStruct struct {
@@ -83,40 +84,40 @@ type MessageSendStruct struct {
 
 func (m *messageService) ensureClientConnected(instanceId string) (*whatsmeow.Client, error) {
 	client := m.clientPointer[instanceId]
-	logger.LogInfo("[%s] Checking client connection status - Client exists: %v", instanceId, client != nil)
+	m.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Checking client connection status - Client exists: %v", instanceId, client != nil)
 
 	if client == nil {
-		logger.LogInfo("[%s] No client found, attempting to start new instance", instanceId)
+		m.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] No client found, attempting to start new instance", instanceId)
 		err := m.whatsmeowService.StartInstance(instanceId)
 		if err != nil {
-			logger.LogError("[%s] Failed to start instance: %v", instanceId, err)
+			m.loggerWrapper.GetLogger(instanceId).LogError("[%s] Failed to start instance: %v", instanceId, err)
 			return nil, errors.New("no active session found")
 		}
 
-		logger.LogInfo("[%s] Instance started, waiting 2 seconds...", instanceId)
+		m.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Instance started, waiting 2 seconds...", instanceId)
 		time.Sleep(2 * time.Second)
 
 		client = m.clientPointer[instanceId]
-		logger.LogInfo("[%s] Checking new client - Exists: %v, Connected: %v",
+		m.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Checking new client - Exists: %v, Connected: %v",
 			instanceId,
 			client != nil,
 			client != nil && client.IsConnected())
 
 		if client == nil || !client.IsConnected() {
-			logger.LogError("[%s] New client validation failed - Exists: %v, Connected: %v",
+			m.loggerWrapper.GetLogger(instanceId).LogError("[%s] New client validation failed - Exists: %v, Connected: %v",
 				instanceId,
 				client != nil,
 				client != nil && client.IsConnected())
 			return nil, errors.New("no active session found")
 		}
 	} else if !client.IsConnected() {
-		logger.LogError("[%s] Existing client is disconnected - Connected status: %v",
+		m.loggerWrapper.GetLogger(instanceId).LogError("[%s] Existing client is disconnected - Connected status: %v",
 			instanceId,
 			client.IsConnected())
 		return nil, errors.New("client disconnected")
 	}
 
-	logger.LogInfo("[%s] Client successfully validated - Connected: %v", instanceId, client.IsConnected())
+	m.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Client successfully validated - Connected: %v", instanceId, client.IsConnected())
 	return client, nil
 }
 
@@ -130,12 +131,12 @@ func (m *messageService) React(data *ReactStruct, instance *instance_model.Insta
 
 	recipient, ok := utils.ParseJID(data.Number)
 	if !ok {
-		logger.LogError("[%s] Error validating message fields", instance.Id)
+		m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields", instance.Id)
 		return nil, errors.New("invalid phone number")
 	}
 
 	if data.Id == "" {
-		logger.LogError("[%s] Missing Id in Payload", instance.Id)
+		m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Missing Id in Payload", instance.Id)
 		return nil, errors.New("missing id in payload")
 	} else {
 		msgId = data.Id
@@ -205,7 +206,7 @@ func (m *messageService) ChatPresence(data *ChatPresenceStruct, instance *instan
 
 	recipient, ok := utils.ParseJID(data.Number)
 	if !ok {
-		logger.LogError("[%s] Error validating message fields", instance.Id)
+		m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields", instance.Id)
 		return "", errors.New("invalid phone number")
 	}
 
@@ -220,7 +221,7 @@ func (m *messageService) ChatPresence(data *ChatPresenceStruct, instance *instan
 		return "", err
 	}
 
-	logger.LogInfo("Message sent to %s", data.Number)
+	m.loggerWrapper.GetLogger(instance.Id).LogInfo("Message sent to %s", data.Number)
 
 	return ts.String(), nil
 }
@@ -235,13 +236,13 @@ func (m *messageService) MarkRead(data *MarkReadStruct, instance *instance_model
 
 	jid, ok := utils.ParseJID(data.Number)
 	if !ok {
-		logger.LogError("[%s] Error validating message fields", instance.Id)
+		m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields", instance.Id)
 		return "", errors.New("invalid phone number")
 	}
 
 	err = client.MarkRead(data.Id, time.Now(), jid, jid)
 	if err != nil {
-		logger.LogError("[%s] error marking message as read: %v", instance.Id, err)
+		m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error marking message as read: %v", instance.Id, err)
 		return "", errors.New("error marking message as read")
 	}
 
@@ -276,7 +277,7 @@ func (m *messageService) DownloadMedia(data *DownloadMediaStruct, instance *inst
 	if os.IsNotExist(err) {
 		errDir := os.MkdirAll(userDirectory, 0751)
 		if errDir != nil {
-			logger.LogError("[%s] Could not create user directory (%s)", instance.Id, userDirectory)
+			m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Could not create user directory (%s)", instance.Id, userDirectory)
 			return nil, "", errDir
 		}
 	}
@@ -284,7 +285,7 @@ func (m *messageService) DownloadMedia(data *DownloadMediaStruct, instance *inst
 	if img != nil {
 		mediaData, err = client.Download(img)
 		if err != nil {
-			logger.LogError("[%s] Failed to download image", instance.Id)
+			m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to download image", instance.Id)
 			msg := fmt.Sprintf("Failed to download image %v", err)
 			return nil, "", errors.New(msg)
 		}
@@ -294,7 +295,7 @@ func (m *messageService) DownloadMedia(data *DownloadMediaStruct, instance *inst
 	if audio != nil {
 		mediaData, err = client.Download(audio)
 		if err != nil {
-			logger.LogError("[%s] Failed to download audio", instance.Id)
+			m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to download audio", instance.Id)
 			msg := fmt.Sprintf("Failed to download audio %v", err)
 			return nil, "", errors.New(msg)
 		}
@@ -304,7 +305,7 @@ func (m *messageService) DownloadMedia(data *DownloadMediaStruct, instance *inst
 	if document != nil {
 		mediaData, err = m.clientPointer[instance.Id].Download(document)
 		if err != nil {
-			logger.LogError("[%s] Failed to download document", instance.Id)
+			m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to download document", instance.Id)
 			msg := fmt.Sprintf("Failed to download document %v", err)
 			return nil, "", errors.New(msg)
 		}
@@ -314,7 +315,7 @@ func (m *messageService) DownloadMedia(data *DownloadMediaStruct, instance *inst
 	if video != nil {
 		mediaData, err = m.clientPointer[instance.Id].Download(video)
 		if err != nil {
-			logger.LogError("[%s] Failed to download video", instance.Id)
+			m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to download video", instance.Id)
 			msg := fmt.Sprintf("Failed to download video %v", err)
 			return nil, "", errors.New(msg)
 		}
@@ -324,7 +325,7 @@ func (m *messageService) DownloadMedia(data *DownloadMediaStruct, instance *inst
 	if sticker != nil {
 		mediaData, err = m.clientPointer[instance.Id].Download(sticker)
 		if err != nil {
-			logger.LogError("[%s] Failed to download sticker", instance.Id)
+			m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to download sticker", instance.Id)
 			msg := fmt.Sprintf("Failed to download sticker %v", err)
 			return nil, "", errors.New(msg)
 		}
@@ -362,18 +363,18 @@ func (m *messageService) DeleteMessageEveryone(data *MessageStruct, instance *in
 
 	recipient, ok := utils.ParseJID(data.Chat)
 	if !ok {
-		logger.LogError("[%s] Error validating message fields", instance.Id)
+		m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields", instance.Id)
 		return "", "", errors.New("invalid phone number")
 	}
 
-	logger.LogInfo("Revoking message %s from %s", data.MessageID, recipient)
+	m.loggerWrapper.GetLogger(instance.Id).LogInfo("Revoking message %s from %s", data.MessageID, recipient)
 
 	resp, err := client.SendMessage(
 		context.Background(),
 		recipient,
 		client.BuildRevoke(recipient, types.EmptyJID, data.MessageID))
 	if err != nil {
-		logger.LogError("[%s] error revoking message: %v", instance.Id, err)
+		m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error revoking message: %v", instance.Id, err)
 		return "", "", err
 	}
 
@@ -392,7 +393,7 @@ func (m *messageService) EditMessage(data *EditMessageStruct, instance *instance
 
 	recipient, ok := utils.ParseJID(data.Chat)
 	if !ok {
-		logger.LogError("[%s] Error validating message fields", instance.Id)
+		m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields", instance.Id)
 		return "", "", errors.New("invalid phone number")
 	}
 
@@ -406,7 +407,7 @@ func (m *messageService) EditMessage(data *EditMessageStruct, instance *instance
 				Conversation: proto.String(data.Message),
 			}))
 	if err != nil {
-		logger.LogError("[%s] error revoking message: %v", instance.Id, err)
+		m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error revoking message: %v", instance.Id, err)
 		return "", "", err
 	}
 
@@ -419,10 +420,12 @@ func NewMessageService(
 	clientPointer map[string]*whatsmeow.Client,
 	messageRepository message_repository.MessageRepository,
 	whatsmeowService whatsmeow_service.WhatsmeowService,
+	loggerWrapper *logger_wrapper.LoggerManager,
 ) MessageService {
 	return &messageService{
 		clientPointer:     clientPointer,
 		messageRepository: messageRepository,
 		whatsmeowService:  whatsmeowService,
+		loggerWrapper:     loggerWrapper,
 	}
 }

@@ -6,8 +6,8 @@ import (
 	"time"
 
 	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
+	logger_wrapper "github.com/EvolutionAPI/evolution-go/pkg/logger"
 	whatsmeow_service "github.com/EvolutionAPI/evolution-go/pkg/whatsmeow/service"
-	"github.com/gomessguii/logger"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types"
 )
@@ -24,6 +24,7 @@ type NewsletterService interface {
 type newsletterService struct {
 	clientPointer    map[string]*whatsmeow.Client
 	whatsmeowService whatsmeow_service.WhatsmeowService
+	loggerWrapper    *logger_wrapper.LoggerManager
 }
 
 type CreateNewsletterStruct struct {
@@ -47,40 +48,40 @@ type GetNewsletterMessagesStruct struct {
 
 func (n *newsletterService) ensureClientConnected(instanceId string) (*whatsmeow.Client, error) {
 	client := n.clientPointer[instanceId]
-	logger.LogInfo("[%s] Checking client connection status - Client exists: %v", instanceId, client != nil)
+	n.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Checking client connection status - Client exists: %v", instanceId, client != nil)
 
 	if client == nil {
-		logger.LogInfo("[%s] No client found, attempting to start new instance", instanceId)
+		n.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] No client found, attempting to start new instance", instanceId)
 		err := n.whatsmeowService.StartInstance(instanceId)
 		if err != nil {
-			logger.LogError("[%s] Failed to start instance: %v", instanceId, err)
+			n.loggerWrapper.GetLogger(instanceId).LogError("[%s] Failed to start instance: %v", instanceId, err)
 			return nil, errors.New("no active session found")
 		}
 
-		logger.LogInfo("[%s] Instance started, waiting 2 seconds...", instanceId)
+		n.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Instance started, waiting 2 seconds...", instanceId)
 		time.Sleep(2 * time.Second)
 
 		client = n.clientPointer[instanceId]
-		logger.LogInfo("[%s] Checking new client - Exists: %v, Connected: %v",
+		n.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Checking new client - Exists: %v, Connected: %v",
 			instanceId,
 			client != nil,
 			client != nil && client.IsConnected())
 
 		if client == nil || !client.IsConnected() {
-			logger.LogError("[%s] New client validation failed - Exists: %v, Connected: %v",
+			n.loggerWrapper.GetLogger(instanceId).LogError("[%s] New client validation failed - Exists: %v, Connected: %v",
 				instanceId,
 				client != nil,
 				client != nil && client.IsConnected())
 			return nil, errors.New("no active session found")
 		}
 	} else if !client.IsConnected() {
-		logger.LogError("[%s] Existing client is disconnected - Connected status: %v",
+		n.loggerWrapper.GetLogger(instanceId).LogError("[%s] Existing client is disconnected - Connected status: %v",
 			instanceId,
 			client.IsConnected())
 		return nil, errors.New("client disconnected")
 	}
 
-	logger.LogInfo("[%s] Client successfully validated - Connected: %v", instanceId, client.IsConnected())
+	n.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Client successfully validated - Connected: %v", instanceId, client.IsConnected())
 	return client, nil
 }
 
@@ -95,7 +96,7 @@ func (n *newsletterService) CreateNewsletter(data *CreateNewsletterStruct, insta
 		Description: data.Description,
 	})
 	if err != nil {
-		logger.LogError("[%s] error create newsletter: %v", instance.Id, err)
+		n.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error create newsletter: %v", instance.Id, err)
 		return nil, err
 	}
 
@@ -110,7 +111,7 @@ func (n *newsletterService) ListNewsletter(instance *instance_model.Instance) ([
 
 	newsletters, err := client.GetSubscribedNewsletters()
 	if err != nil {
-		logger.LogError("[%s] error list newsletters: %v", instance.Id, err)
+		n.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error list newsletters: %v", instance.Id, err)
 		return nil, err
 	}
 
@@ -125,7 +126,7 @@ func (n *newsletterService) GetNewsletter(data *GetNewsletterStruct, instance *i
 
 	newsletter, err := client.GetNewsletterInfo(data.JID)
 	if err != nil {
-		logger.LogError("[%s] error list newsletter: %v", instance.Id, err)
+		n.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error list newsletter: %v", instance.Id, err)
 		return nil, err
 	}
 
@@ -140,7 +141,7 @@ func (n *newsletterService) GetNewsletterInvite(data *GetNewsletterInviteStruct,
 
 	newsletter, err := client.GetNewsletterInfoWithInvite(data.Key)
 	if err != nil {
-		logger.LogError("[%s] error list newsletter: %v", instance.Id, err)
+		n.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error list newsletter: %v", instance.Id, err)
 		return nil, err
 	}
 
@@ -155,7 +156,7 @@ func (n *newsletterService) SubscribeNewsletter(data *GetNewsletterStruct, insta
 
 	_, err = client.NewsletterSubscribeLiveUpdates(context.TODO(), data.JID)
 	if err != nil {
-		logger.LogError("[%s] error list newsletter: %v", instance.Id, err)
+		n.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error list newsletter: %v", instance.Id, err)
 		return err
 	}
 
@@ -173,7 +174,7 @@ func (n *newsletterService) GetNewsletterMessages(data *GetNewsletterMessagesStr
 			Count: data.Count, Before: data.BeforeID,
 		})
 	if err != nil {
-		logger.LogError("[%s] error list newsletter: %v", instance.Id, err)
+		n.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error list newsletter: %v", instance.Id, err)
 		return nil, err
 	}
 
@@ -183,9 +184,11 @@ func (n *newsletterService) GetNewsletterMessages(data *GetNewsletterMessagesStr
 func NewNewsletterService(
 	clientPointer map[string]*whatsmeow.Client,
 	whatsmeowService whatsmeow_service.WhatsmeowService,
+	loggerWrapper *logger_wrapper.LoggerManager,
 ) NewsletterService {
 	return &newsletterService{
 		clientPointer:    clientPointer,
 		whatsmeowService: whatsmeowService,
+		loggerWrapper:    loggerWrapper,
 	}
 }

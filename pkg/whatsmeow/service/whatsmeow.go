@@ -17,7 +17,6 @@ import (
 	"golang.org/x/image/webp"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/gomessguii/logger"
 	_ "github.com/lib/pq"
 	"github.com/patrickmn/go-cache"
 	"github.com/skip2/go-qrcode"
@@ -38,6 +37,7 @@ import (
 	"github.com/EvolutionAPI/evolution-go/pkg/internal/event_types"
 	label_model "github.com/EvolutionAPI/evolution-go/pkg/label/model"
 	label_repository "github.com/EvolutionAPI/evolution-go/pkg/label/repository"
+	logger_wrapper "github.com/EvolutionAPI/evolution-go/pkg/logger"
 	message_model "github.com/EvolutionAPI/evolution-go/pkg/message/model"
 	message_repository "github.com/EvolutionAPI/evolution-go/pkg/message/repository"
 	storage_interfaces "github.com/EvolutionAPI/evolution-go/pkg/storage/interfaces"
@@ -71,6 +71,7 @@ type whatsmeowService struct {
 	mediaStorage       storage_interfaces.MediaStorage
 	processedMessages  *cache.Cache
 	natsProducer       producer_interfaces.Producer
+	loggerWrapper      *logger_wrapper.LoggerManager
 }
 
 type MyClient struct {
@@ -99,6 +100,7 @@ type MyClient struct {
 	mediaStorage       storage_interfaces.MediaStorage
 	processedMessages  *cache.Cache
 	natsProducer       producer_interfaces.Producer
+	loggerWrapper      *logger_wrapper.LoggerManager
 }
 
 type ClientData struct {
@@ -128,13 +130,13 @@ type ProxyConfig struct {
 }
 
 func (w whatsmeowService) ReconnectClient(instanceId string) error {
-	logger.LogInfo("[%s] Reconnecting client", instanceId)
+	w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Reconnecting client", instanceId)
 
 	err := w.clientPointer[instanceId].Connect()
 	if err != nil {
 		// Verifica se é um erro de autenticação do proxy
 		if strings.Contains(err.Error(), "username/password authentication failed") {
-			logger.LogWarn("[%s] Proxy authentication failed, attempting to connect without proxy", instanceId)
+			w.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Proxy authentication failed, attempting to connect without proxy", instanceId)
 
 			// Desabilita o proxy temporariamente
 			w.clientPointer[instanceId].SetProxy(nil)
@@ -145,7 +147,7 @@ func (w whatsmeowService) ReconnectClient(instanceId string) error {
 				return fmt.Errorf("failed to connect with and without proxy: %v", err)
 			}
 
-			logger.LogWarn("[%s] Successfully connected without proxy", instanceId)
+			w.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Successfully connected without proxy", instanceId)
 		} else {
 			return fmt.Errorf("error connecting client: %v", err)
 		}
@@ -157,7 +159,7 @@ func (w whatsmeowService) ReconnectClient(instanceId string) error {
 func (w whatsmeowService) ForceUpdateJid(instanceId string, number string) error {
 	instance, err := w.instanceRepository.GetInstanceByID(instanceId)
 	if err != nil {
-		logger.LogError("[%s] Error getting instance: %v", instanceId, err)
+		w.loggerWrapper.GetLogger(instanceId).LogError("[%s] Error getting instance: %v", instanceId, err)
 		return err
 	}
 
@@ -165,7 +167,7 @@ func (w whatsmeowService) ForceUpdateJid(instanceId string, number string) error
 		sqlDeviceSearch := fmt.Sprintf("SELECT jid FROM whatsmeow_device WHERE jid LIKE '%%%s%%'", number)
 		rows, err := w.authDB.Query(sqlDeviceSearch)
 		if err != nil {
-			logger.LogError("[%s] Error getting device: %v", instanceId, err)
+			w.loggerWrapper.GetLogger(instanceId).LogError("[%s] Error getting device: %v", instanceId, err)
 			return err
 		}
 
@@ -181,7 +183,7 @@ func (w whatsmeowService) ForceUpdateJid(instanceId string, number string) error
 			var device deviceStruct
 			err := rows.Scan(&device.Jid)
 			if err != nil {
-				logger.LogError("[%s] Error getting device: %v", instanceId, err)
+				w.loggerWrapper.GetLogger(instanceId).LogError("[%s] Error getting device: %v", instanceId, err)
 				return err
 			}
 
@@ -191,7 +193,7 @@ func (w whatsmeowService) ForceUpdateJid(instanceId string, number string) error
 				sessionPart := strings.Split(parts[1], "@")[0]
 				session, err := strconv.Atoi(sessionPart)
 				if err != nil {
-					logger.LogError("[%s] Error parsing session number: %v", instanceId, err)
+					w.loggerWrapper.GetLogger(instanceId).LogError("[%s] Error parsing session number: %v", instanceId, err)
 					return err
 				}
 
@@ -208,9 +210,9 @@ func (w whatsmeowService) ForceUpdateJid(instanceId string, number string) error
 			instance.Jid = latestJid
 			err = w.instanceRepository.UpdateJid(instanceId, latestJid)
 			if err != nil {
-				logger.LogError("[%s] Error updating instance: %v", instanceId, err)
+				w.loggerWrapper.GetLogger(instanceId).LogError("[%s] Error updating instance: %v", instanceId, err)
 			}
-			logger.LogInfo("[%s] Updated instance with latest JID: %s (session: %d)", instanceId, latestJid, latestSession)
+			w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Updated instance with latest JID: %s (session: %d)", instanceId, latestJid, latestSession)
 		}
 	}
 
@@ -219,7 +221,7 @@ func (w whatsmeowService) ForceUpdateJid(instanceId string, number string) error
 
 func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 
-	logger.LogInfo("Starting websocket connection to Whatsapp for user '%s'", cd.Instance.Id)
+	w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("Starting websocket connection to Whatsapp for user '%s'", cd.Instance.Id)
 
 	var deviceStore *store.Device
 	var err error
@@ -250,31 +252,31 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 	}
 
 	if err != nil {
-		logger.LogError("[%s] Failed to create container: %v", cd.Instance.Id, err)
+		w.loggerWrapper.GetLogger(cd.Instance.Id).LogError("[%s] Failed to create container: %v", cd.Instance.Id, err)
 		return
 	}
 
 	if cd.Instance.Jid != "" {
 		jid, _ := utils.ParseJID(cd.Instance.Jid)
-		logger.LogInfo("[%s] Jid found. Getting device store for jid: %s", cd.Instance.Id, jid)
+		w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] Jid found. Getting device store for jid: %s", cd.Instance.Id, jid)
 		deviceStore, err = container.GetDevice(jid)
 		if err != nil {
-			logger.LogError("[%s] Erro ao obter device store: %v", cd.Instance.Id, err)
+			w.loggerWrapper.GetLogger(cd.Instance.Id).LogError("[%s] Erro ao obter device store: %v", cd.Instance.Id, err)
 			return
 		}
 	} else {
-		logger.LogWarn("[%s] No jid found. Creating new device", cd.Instance.Id)
+		w.loggerWrapper.GetLogger(cd.Instance.Id).LogWarn("[%s] No jid found. Creating new device", cd.Instance.Id)
 		deviceStore = container.NewDevice()
 	}
 
 	if deviceStore == nil {
-		logger.LogWarn("[%s] No store found. Creating new one", cd.Instance.Id)
+		w.loggerWrapper.GetLogger(cd.Instance.Id).LogWarn("[%s] No store found. Creating new one", cd.Instance.Id)
 		deviceStore = container.NewDevice()
 
 		cd.Instance.Connected = false
 		err := w.instanceRepository.UpdateConnected(cd.Instance.Id, cd.Instance.Connected, cd.Instance.DisconnectReason)
 		if err != nil {
-			logger.LogError("[%s] Error updating instance: %s", cd.Instance.Id, err)
+			w.loggerWrapper.GetLogger(cd.Instance.Id).LogError("[%s] Error updating instance: %s", cd.Instance.Id, err)
 		}
 	}
 
@@ -298,7 +300,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 	store.DeviceProps.RequireFullSync = proto.Bool(true)
 
 	if w.config.WhatsappVersionMajor != 0 && w.config.WhatsappVersionMinor != 0 && w.config.WhatsappVersionPatch != 0 {
-		logger.LogInfo("[%s] Setting whatsapp version to %d.%d.%d", cd.Instance.Id, w.config.WhatsappVersionMajor, w.config.WhatsappVersionMinor, w.config.WhatsappVersionPatch)
+		w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] Setting whatsapp version to %d.%d.%d", cd.Instance.Id, w.config.WhatsappVersionMajor, w.config.WhatsappVersionMinor, w.config.WhatsappVersionPatch)
 		version.Major = w.config.WhatsappVersionMajor
 		if err == nil {
 			store.DeviceProps.Version.Primary = proto.Uint32(uint32(version.Major))
@@ -327,7 +329,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 		var proxyConfig ProxyConfig
 		err := json.Unmarshal([]byte(cd.Instance.Proxy), &proxyConfig)
 		if err != nil {
-			logger.LogError("[%s] error unmarshalling proxy config", cd.Instance.Id)
+			w.loggerWrapper.GetLogger(cd.Instance.Id).LogError("[%s] error unmarshalling proxy config", cd.Instance.Id)
 			return
 		}
 
@@ -354,10 +356,10 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 
 		proxy, err := utils.CreateSocks5Proxy(proxyHost, proxyPort, proxyUsername, proxyPassword)
 		if err != nil {
-			logger.LogWarn("[%s] Proxy error, continuing without proxy: %v", cd.Instance.Id, err)
+			w.loggerWrapper.GetLogger(cd.Instance.Id).LogWarn("[%s] Proxy error, continuing without proxy: %v", cd.Instance.Id, err)
 		} else {
 			client.SetSOCKSProxy(proxy)
-			logger.LogInfo("[%s] Proxy enabled", cd.Instance.Id)
+			w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] Proxy enabled", cd.Instance.Id)
 		}
 	}
 
@@ -390,24 +392,25 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 		mediaStorage:       w.mediaStorage,
 		processedMessages:  w.processedMessages,
 		natsProducer:       w.natsProducer,
+		loggerWrapper:      w.loggerWrapper,
 	}
 
 	mycli.eventHandlerID = mycli.WAClient.AddEventHandler(mycli.myEventHandler)
 
 	if client.Store.ID != nil {
-		logger.LogInfo("[%s] Already logged in with JID: %s", cd.Instance.Id, client.Store.ID.String())
+		w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] Already logged in with JID: %s", cd.Instance.Id, client.Store.ID.String())
 		err = client.Connect()
 		if err != nil {
 			if strings.Contains(err.Error(), "EOF") {
-				logger.LogError("[%s] Erro de conexão WebSocket (EOF). Tentando reconectar em 5 segundos...", cd.Instance.Id)
+				w.loggerWrapper.GetLogger(cd.Instance.Id).LogError("[%s] Erro de conexão WebSocket (EOF). Tentando reconectar em 5 segundos...", cd.Instance.Id)
 				time.Sleep(5 * time.Second)
 				err = client.Connect()
 				if err != nil {
-					logger.LogError("[%s] Falha na segunda tentativa de conexão: %v", cd.Instance.Id, err)
+					w.loggerWrapper.GetLogger(cd.Instance.Id).LogError("[%s] Falha na segunda tentativa de conexão: %v", cd.Instance.Id, err)
 					return
 				}
 			} else if strings.Contains(err.Error(), "username/password authentication failed") {
-				logger.LogWarn("[%s] Proxy authentication failed, attempting to connect without proxy", cd.Instance.Id)
+				w.loggerWrapper.GetLogger(cd.Instance.Id).LogWarn("[%s] Proxy authentication failed, attempting to connect without proxy", cd.Instance.Id)
 
 				// Desabilita o proxy
 				client.SetProxy(nil)
@@ -415,12 +418,12 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 				// Tenta conectar sem proxy
 				err = client.Connect()
 				if err != nil {
-					logger.LogError("[%s] Failed to connect even without proxy: %v", cd.Instance.Id, err)
+					w.loggerWrapper.GetLogger(cd.Instance.Id).LogError("[%s] Failed to connect even without proxy: %v", cd.Instance.Id, err)
 					return
 				}
-				logger.LogInfo("[%s] Successfully connected without proxy", cd.Instance.Id)
+				w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] Successfully connected without proxy", cd.Instance.Id)
 			} else {
-				logger.LogError("[%s] Failed to connect: %v", cd.Instance.Id, err)
+				w.loggerWrapper.GetLogger(cd.Instance.Id).LogError("[%s] Failed to connect: %v", cd.Instance.Id, err)
 				return
 			}
 		}
@@ -428,22 +431,22 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 		qrChan, err := client.GetQRChannel(context.Background())
 		if err != nil {
 			if !errors.Is(err, whatsmeow.ErrQRStoreContainsID) {
-				logger.LogError("[%s] Failed to get QR channel: %v", cd.Instance.Id, err)
+				w.loggerWrapper.GetLogger(cd.Instance.Id).LogError("[%s] Failed to get QR channel: %v", cd.Instance.Id, err)
 				return
 			}
 		} else {
 			err = client.Connect()
 			if err != nil {
 				if strings.Contains(err.Error(), "EOF") {
-					logger.LogError("[%s] Erro de conexão WebSocket (EOF). Tentando reconectar em 5 segundos...", cd.Instance.Id)
+					w.loggerWrapper.GetLogger(cd.Instance.Id).LogError("[%s] Erro de conexão WebSocket (EOF). Tentando reconectar em 5 segundos...", cd.Instance.Id)
 					time.Sleep(5 * time.Second)
 					err = client.Connect()
 					if err != nil {
-						logger.LogError("[%s] Falha na segunda tentativa de conexão: %v", cd.Instance.Id, err)
+						w.loggerWrapper.GetLogger(cd.Instance.Id).LogError("[%s] Falha na segunda tentativa de conexão: %v", cd.Instance.Id, err)
 						return
 					}
 				} else if strings.Contains(err.Error(), "username/password authentication failed") {
-					logger.LogWarn("[%s] Proxy authentication failed during QR connection, attempting without proxy", cd.Instance.Id)
+					w.loggerWrapper.GetLogger(cd.Instance.Id).LogWarn("[%s] Proxy authentication failed during QR connection, attempting without proxy", cd.Instance.Id)
 
 					// Desabilita o proxy
 					client.SetProxy(nil)
@@ -451,18 +454,18 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 					// Tenta conectar sem proxy
 					err = client.Connect()
 					if err != nil {
-						logger.LogError("[%s] Failed to connect even without proxy: %v", cd.Instance.Id, err)
+						w.loggerWrapper.GetLogger(cd.Instance.Id).LogError("[%s] Failed to connect even without proxy: %v", cd.Instance.Id, err)
 						return
 					}
-					logger.LogInfo("[%s] Successfully connected without proxy", cd.Instance.Id)
+					w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] Successfully connected without proxy", cd.Instance.Id)
 				} else {
-					logger.LogError("[%s] Failed to connect: %v", cd.Instance.Id, err)
+					w.loggerWrapper.GetLogger(cd.Instance.Id).LogError("[%s] Failed to connect: %v", cd.Instance.Id, err)
 					return
 				}
 			}
 
 			for evt := range qrChan {
-				logger.LogInfo("[%s] Received QR code event %s", cd.Instance.Id, evt.Event)
+				w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] Received QR code event %s", cd.Instance.Id, evt.Event)
 				if evt.Event == "code" {
 					if w.config.LogType != "json" {
 						fmt.Println("QR code:\n", evt.Code)
@@ -477,7 +480,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 
 					err := w.instanceRepository.UpdateQrcode(cd.Instance.Id, base64WithCode)
 					if err != nil {
-						logger.LogError("[%s] Error updating instance: %s", cd.Instance.Id, err)
+						w.loggerWrapper.GetLogger(cd.Instance.Id).LogError("[%s] Error updating instance: %s", cd.Instance.Id, err)
 					}
 
 					postMap := make(map[string]interface{})
@@ -503,7 +506,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 
 					values, err := json.Marshal(postMap)
 					if err != nil {
-						logger.LogError("[%s] Failed to marshal JSON for queue", cd.Instance.Id)
+						w.loggerWrapper.GetLogger(cd.Instance.Id).LogError("[%s] Failed to marshal JSON for queue", cd.Instance.Id)
 						return
 					}
 
@@ -517,10 +520,10 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 
 					err := w.instanceRepository.UpdateQrcode(cd.Instance.Id, "")
 					if err != nil {
-						logger.LogError("[%s] Error updating instance: %s", cd.Instance.Id, err)
+						w.loggerWrapper.GetLogger(cd.Instance.Id).LogError("[%s] Error updating instance: %s", cd.Instance.Id, err)
 					}
 
-					logger.LogWarn("[%s] QR timeout killing channel", cd.Instance.Id)
+					w.loggerWrapper.GetLogger(cd.Instance.Id).LogWarn("[%s] QR timeout killing channel", cd.Instance.Id)
 					delete(w.clientPointer, cd.Instance.Id)
 					w.killChannel[cd.Instance.Id] <- true
 
@@ -544,7 +547,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 
 					values, err := json.Marshal(postMap)
 					if err != nil {
-						logger.LogError("[%s] Failed to marshal JSON for queue", cd.Instance.Id)
+						w.loggerWrapper.GetLogger(cd.Instance.Id).LogError("[%s] Failed to marshal JSON for queue", cd.Instance.Id)
 						return
 					}
 
@@ -554,9 +557,9 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 						go mycli.service.SendToGlobalQueues(postMap["event"].(string), values, mycli.userID)
 					}
 				} else if evt.Event == "success" {
-					logger.LogInfo("[%s] QR pairing ok!", cd.Instance.Id)
+					w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] QR pairing ok!", cd.Instance.Id)
 				} else {
-					logger.LogInfo("[%s] Login event: %s", cd.Instance.Id, evt.Event)
+					w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] Login event: %s", cd.Instance.Id, evt.Event)
 				}
 			}
 		}
@@ -565,14 +568,14 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 	if reconnect {
 		err := w.ReconnectClient(cd.Instance.Id)
 		if err != nil {
-			logger.LogError("[%s] Error reconnecting client: %s", cd.Instance.Id, err)
+			w.loggerWrapper.GetLogger(cd.Instance.Id).LogError("[%s] Error reconnecting client: %s", cd.Instance.Id, err)
 		}
 	}
 
 	for {
 		select {
 		case <-w.killChannel[cd.Instance.Id]:
-			logger.LogInfo("Received kill signal for user '%s'", cd.Instance.Id)
+			w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("Received kill signal for user '%s'", cd.Instance.Id)
 			client.Disconnect()
 
 			delete(w.clientPointer, cd.Instance.Id)
@@ -581,7 +584,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 
 			err := w.instanceRepository.UpdateConnected(cd.Instance.Id, cd.Instance.Connected, cd.Instance.DisconnectReason)
 			if err != nil {
-				logger.LogError("[%s] Error updating instance: %s", cd.Instance.Id, err)
+				w.loggerWrapper.GetLogger(cd.Instance.Id).LogError("[%s] Error updating instance: %s", cd.Instance.Id, err)
 			}
 
 			postMap := make(map[string]interface{})
@@ -606,7 +609,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 
 			values, err := json.Marshal(postMap)
 			if err != nil {
-				logger.LogError("[%s] Failed to marshal JSON for queue", cd.Instance.Id)
+				w.loggerWrapper.GetLogger(cd.Instance.Id).LogError("[%s] Failed to marshal JSON for queue", cd.Instance.Id)
 				return
 			}
 
@@ -617,7 +620,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 			}
 
 			// restart client
-			logger.LogInfo("[%s] Restarting client", cd.Instance.Id)
+			w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] Restarting client", cd.Instance.Id)
 			w.StartClient(cd, false)
 			return
 		default:
@@ -636,7 +639,7 @@ func schedulePresenceUpdates(mycli *MyClient) {
 			// Verificar se a instância ainda existe
 			_, err := mycli.instanceRepository.GetInstanceByID(mycli.userID)
 			if err != nil {
-				logger.LogInfo("[%s] Instance no longer exists, stopping presence updates", mycli.userID)
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Instance no longer exists, stopping presence updates", mycli.userID)
 				return // Encerra a goroutine se a instância não existir mais
 			}
 
@@ -647,7 +650,7 @@ func schedulePresenceUpdates(mycli *MyClient) {
 			ticker = time.NewTicker(randomInterval)
 
 		case <-mycli.killChannel[mycli.userID]:
-			logger.LogInfo("[%s] Received kill signal, stopping presence updates", mycli.userID)
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Received kill signal, stopping presence updates", mycli.userID)
 			return // Encerra a goroutine quando receber sinal de kill
 		}
 	}
@@ -661,18 +664,18 @@ func processPresenceUpdates(mycli *MyClient) {
 	if nowSp.Hour() >= 1 && nowSp.Hour() < 24 {
 		err := mycli.WAClient.SendPresence(types.PresenceAvailable)
 		if err != nil {
-			logger.LogError("[%s] Failed to set presence as available %v", mycli.userID, err)
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to set presence as available %v", mycli.userID, err)
 		} else {
-			logger.LogInfo("[%s] Marked self as available", mycli.userID)
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Marked self as available", mycli.userID)
 		}
 
 		time.Sleep(time.Duration(7+rand.Intn(29)) * time.Second)
 
 		err = mycli.WAClient.SendPresence(types.PresenceUnavailable)
 		if err != nil {
-			logger.LogError("[%s] Failed to set presence as unavailable %v", mycli.userID, err)
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to set presence as unavailable %v", mycli.userID, err)
 		} else {
-			logger.LogInfo("[%s] Marked self as unavailable", mycli.userID)
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Marked self as unavailable", mycli.userID)
 		}
 	}
 }
@@ -688,13 +691,13 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		if len(mycli.WAClient.Store.PushName) > 0 && evt.Name == appstate.WAPatchCriticalBlock {
 			err := mycli.WAClient.SendPresence(types.PresenceUnavailable)
 			if err != nil {
-				logger.LogWarn("[%s] Failed to send unavailable presence %v", mycli.userID, err)
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Failed to send unavailable presence %v", mycli.userID, err)
 			} else {
-				logger.LogWarn("[%s] Marked self as unavailable", mycli.userID)
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Marked self as unavailable", mycli.userID)
 			}
 		}
 	case *events.Connected, *events.PushNameSetting:
-		logger.LogInfo("[%s] events.Connected to Whatsapp for user '%s'", mycli.userID, mycli.WAClient.Store.PushName)
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] events.Connected to Whatsapp for user '%s'", mycli.userID, mycli.WAClient.Store.PushName)
 		if len(mycli.WAClient.Store.PushName) > 0 {
 			doWebhook = true
 			postMap["event"] = "Connected"
@@ -702,14 +705,14 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			if postMap["data"] != nil {
 				jsonBytes, err := json.Marshal(postMap["data"])
 				if err != nil {
-					logger.LogError("[%s] Failed to marshal postMap['data']: %v", mycli.userID, err)
+					mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to marshal postMap['data']: %v", mycli.userID, err)
 					return
 				}
 
 				var dataMap map[string]interface{}
 				err = json.Unmarshal(jsonBytes, &dataMap)
 				if err != nil {
-					logger.LogError("[%s] Failed to unmarshal postMap['data'] to map[string]interface{}: %v", mycli.userID, err)
+					mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to unmarshal postMap['data'] to map[string]interface{}: %v", mycli.userID, err)
 					return
 				}
 
@@ -730,7 +733,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			// 		Preview: false,
 			// 	})
 			// 	if err != nil {
-			// 		logger.LogError("[%s] Failed to get profile picture info: %v", mycli.userID, err)
+			// 		w.loggerWrapper.GetLogger(instanceId).LogError("[%s] Failed to get profile picture info: %v", mycli.userID, err)
 			// 	} else {
 			// 		dataMap["profilePicUrl"] = profilePicUrl.URL
 			// 	}
@@ -742,31 +745,31 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 			err := mycli.WAClient.SendPresence(types.PresenceUnavailable)
 			if err != nil {
-				logger.LogWarn("[%s] Failed to send unavailable presence %v", mycli.userID, err)
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Failed to send unavailable presence %v", mycli.userID, err)
 			} else {
-				logger.LogWarn("[%s] Marked self as unavailable", mycli.userID)
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Marked self as unavailable", mycli.userID)
 			}
 
 			mycli.Instance.Connected = true
 			mycli.Instance.DisconnectReason = ""
 			err = mycli.instanceRepository.UpdateConnected(mycli.Instance.Id, mycli.Instance.Connected, mycli.Instance.DisconnectReason)
 			if err != nil {
-				logger.LogError("[%s] Error updating instance: %s", mycli.Instance.Id, err)
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Error updating instance: %s", mycli.Instance.Id, err)
 			}
 
 			err = mycli.instanceRepository.UpdateQrcode(mycli.Instance.Id, "")
 			if err != nil {
-				logger.LogError("[%s] Error updating instance: %s", mycli.Instance.Id, err)
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Error updating instance: %s", mycli.Instance.Id, err)
 			}
 		}
 	case *events.PairSuccess:
 		doWebhook = true
 		postMap["event"] = "PairSuccess"
-		logger.LogInfo("QR Pair Success for user '%s' with JID '%s' - '%s'", mycli.userID, evt.ID.String(), mycli.WAClient.Store.ID.String())
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("QR Pair Success for user '%s' with JID '%s' - '%s'", mycli.userID, evt.ID.String(), mycli.WAClient.Store.ID.String())
 
 		instance, err := mycli.instanceRepository.GetInstanceByID(mycli.userID)
 		if err != nil {
-			logger.LogError("[%s] Error getting instance: %s", mycli.userID, err)
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Error getting instance: %s", mycli.userID, err)
 		}
 
 		instance.Qrcode = ""
@@ -774,20 +777,20 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		instance.DisconnectReason = ""
 		instance.Jid = mycli.WAClient.Store.ID.String()
 
-		logger.LogInfo("[%s] Updating JID: %s in Instance: %s", mycli.userID, mycli.WAClient.Store.ID.String(), instance.Jid)
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Updating JID: %s in Instance: %s", mycli.userID, mycli.WAClient.Store.ID.String(), instance.Jid)
 
-		logger.LogInfo("[%s] Attempting to update instance in DB: %+v", mycli.userID, instance)
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Attempting to update instance in DB: %+v", mycli.userID, instance)
 		err = mycli.instanceRepository.Update(instance)
 		if err != nil {
-			logger.LogError("[%s] Error updating instance: %s", mycli.userID, err)
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Error updating instance: %s", mycli.userID, err)
 		} else {
-			logger.LogInfo("[%s] Instance successfully updated", mycli.userID)
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Instance successfully updated", mycli.userID)
 		}
 
 		myUserInfo, found := mycli.userInfoCache.Get(mycli.token)
 
 		if !found {
-			logger.LogWarn("[%s] No user info cached on pairing?", mycli.userID)
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] No user info cached on pairing?", mycli.userID)
 		} else {
 			txtid := myUserInfo.(Values).Get("Id")
 			token := myUserInfo.(Values).Get("Token")
@@ -795,20 +798,20 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			updatedUserInfo := utils.UpdateUserInfo(myUserInfo, "Jid", evt.ID.String())
 
 			mycli.userInfoCache.Set(token, updatedUserInfo, cache.NoExpiration)
-			logger.LogInfo("[%s] User information set for user '%s'", mycli.userID, txtid)
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] User information set for user '%s'", mycli.userID, txtid)
 		}
 
 		if postMap["data"] != nil {
 			jsonBytes, err := json.Marshal(postMap["data"])
 			if err != nil {
-				logger.LogError("[%s] Failed to marshal postMap['data']: %v", mycli.userID, err)
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to marshal postMap['data']: %v", mycli.userID, err)
 				return
 			}
 
 			var dataMap map[string]interface{}
 			err = json.Unmarshal(jsonBytes, &dataMap)
 			if err != nil {
-				logger.LogError("[%s] Failed to unmarshal postMap['data'] to map[string]interface{}: %v", mycli.userID, err)
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to unmarshal postMap['data'] to map[string]interface{}: %v", mycli.userID, err)
 				return
 			}
 
@@ -828,24 +831,24 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 		postMap["data"] = dataMap
 	case *events.StreamReplaced:
-		logger.LogInfo("[%s] Received StreamReplaced event", mycli.userID)
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Received StreamReplaced event", mycli.userID)
 		return
 	case *events.TemporaryBan:
-		logger.LogInfo("[%s] User received temporary ban for %s", mycli.userID, evt.Code.String())
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] User received temporary ban for %s", mycli.userID, evt.Code.String())
 		doWebhook = true
 		postMap["event"] = "TemporaryBan"
 
 		if postMap["data"] != nil {
 			jsonBytes, err := json.Marshal(postMap["data"])
 			if err != nil {
-				logger.LogError("[%s] Failed to marshal postMap['data']: %v", mycli.userID, err)
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to marshal postMap['data']: %v", mycli.userID, err)
 				return
 			}
 
 			var dataMap map[string]interface{}
 			err = json.Unmarshal(jsonBytes, &dataMap)
 			if err != nil {
-				logger.LogError("[%s] Failed to unmarshal postMap['data'] to map[string]interface{}: %v", mycli.userID, err)
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to unmarshal postMap['data'] to map[string]interface{}: %v", mycli.userID, err)
 				return
 			}
 
@@ -865,32 +868,32 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		postMap["event"] = "Message"
 
 		if mycli.config.EventIgnoreGroup && strings.Contains(evt.Info.Chat.String(), "@g.us") {
-			logger.LogInfo("[%s] Message ignored because it's a group message", mycli.userID)
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Message ignored because it's a group message", mycli.userID)
 			return
 		}
 
 		if mycli.config.EventIgnoreStatus && (strings.Contains(evt.Info.Chat.String(), "@broadcast") || strings.Contains(evt.Info.ID, "@broadcast")) {
-			logger.LogInfo("[%s] Message ignored because it's a broadcast message", mycli.userID)
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Message ignored because it's a broadcast message", mycli.userID)
 			return
 		}
 
 		parsedMessageType := utils.GetMessageType(evt.Message)
 		if parsedMessageType == "ignore" || strings.HasPrefix(parsedMessageType, "unknown_protocol_") {
-			logger.LogInfo("[%s] Message ignored because it's a unknown protocol message", mycli.userID)
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Message ignored because it's a unknown protocol message", mycli.userID)
 			return
 		}
 
 		if postMap["data"] != nil {
 			jsonBytes, err := json.Marshal(postMap["data"])
 			if err != nil {
-				logger.LogError("[%s] Failed to marshal postMap['data']: %v", mycli.userID, err)
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to marshal postMap['data']: %v", mycli.userID, err)
 				return
 			}
 
 			var dataMap map[string]interface{}
 			err = json.Unmarshal(jsonBytes, &dataMap)
 			if err != nil {
-				logger.LogError("[%s] Failed to unmarshal postMap['data'] to map[string]interface{}: %v", mycli.userID, err)
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to unmarshal postMap['data'] to map[string]interface{}: %v", mycli.userID, err)
 				return
 			}
 
@@ -907,11 +910,11 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		if evt.Message.GetPollUpdateMessage() != nil {
 			decrypted, err := mycli.clientPointer[mycli.userID].DecryptPollVote(evt)
 			if err != nil {
-				logger.LogError("[%s] Failed to decrypt vote: %v", mycli.userID, err)
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to decrypt vote: %v", mycli.userID, err)
 			} else {
-				logger.LogInfo("[%s] Selected options in decrypted vote:", mycli.userID)
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Selected options in decrypted vote:", mycli.userID)
 				for _, option := range decrypted.SelectedOptions {
-					logger.LogInfo("- %X", option)
+					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("- %X", option)
 
 				}
 			}
@@ -922,11 +925,11 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 		if protocolMessage := evt.Message.ProtocolMessage; protocolMessage != nil {
 			if protocolMessage.GetType() == waE2E.ProtocolMessage_REVOKE {
-				logger.LogInfo("[%s] Message revoked", mycli.userID)
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Message revoked", mycli.userID)
 
 				dataMap["revoked"] = true
 			} else if protocolMessage.GetType() == waE2E.ProtocolMessage_MESSAGE_EDIT {
-				logger.LogInfo("[%s] Message edited", mycli.userID)
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Message edited", mycli.userID)
 				dataMap["edited"] = true
 			} else {
 				return
@@ -934,7 +937,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		} else {
 			messageKey := fmt.Sprintf("%s_%s", mycli.userID, evt.Info.ID)
 			if _, found := mycli.processedMessages.Get(messageKey); found {
-				logger.LogInfo("[%s] Message duplicated ignored: %s", mycli.userID, evt.Info.ID)
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Message duplicated ignored: %s", mycli.userID, evt.Info.ID)
 				return
 			}
 
@@ -1014,14 +1017,14 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 					webpReader := bytes.NewReader(data)
 					img, err := webp.Decode(webpReader)
 					if err != nil {
-						logger.LogError("[%s] Failed to decode webp image: %v", mycli.userID, err)
+						mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to decode webp image: %v", mycli.userID, err)
 						return
 					}
 
 					var pngBuffer bytes.Buffer
 					err = png.Encode(&pngBuffer, img)
 					if err != nil {
-						logger.LogError("[%s] Failed to encode png image: %v", mycli.userID, err)
+						mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to encode png image: %v", mycli.userID, err)
 						return
 					}
 
@@ -1029,7 +1032,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 				}
 
 				if err != nil {
-					logger.LogError("[%s] Failed to download media %v", mycli.userID, err)
+					mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to download media %v", mycli.userID, err)
 					return
 				}
 
@@ -1043,7 +1046,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 					mediaURL, err := mycli.mediaStorage.Store(context.Background(), data, fileName, mimeType)
 					if err != nil {
-						logger.LogError("[%s] Failed to store media: %v", mycli.userID, err)
+						mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to store media: %v", mycli.userID, err)
 						return
 					}
 					messageMap["mediaUrl"] = mediaURL
@@ -1089,7 +1092,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 		postMap["data"] = dataMap
 
-		logger.LogInfo("[%s] Message received with ID: %s from %s with type %s", mycli.userID, evt.Info.ID, evt.Info.Chat, evt.Info.Type)
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Message received with ID: %s from %s with type %s", mycli.userID, evt.Info.ID, evt.Info.Chat, evt.Info.Type)
 	case *events.Receipt:
 		doWebhook = true
 		postMap["event"] = "Receipt"
@@ -1098,17 +1101,17 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			return
 		}
 
-		logger.LogInfo("[%s] Receipt received with ID: %s from %s with type %s", mycli.userID, evt.MessageIDs[0], evt.SourceString(), evt.Type)
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Receipt received with ID: %s from %s with type %s", mycli.userID, evt.MessageIDs[0], evt.SourceString(), evt.Type)
 
 		if evt.Type == types.ReceiptTypeRead || evt.Type == types.ReceiptTypeReadSelf {
 
-			logger.LogInfo("[%s] Message was read by %s", mycli.userID, evt.SourceString())
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Message was read by %s", mycli.userID, evt.SourceString())
 			if evt.Type == types.ReceiptTypeRead {
 				postMap["state"] = "Read"
 				for _, v := range evt.MessageIDs {
 					messageKey := fmt.Sprintf("%s_%s_%s", mycli.userID, v, "Read")
 					if _, found := mycli.processedMessages.Get(messageKey); found {
-						logger.LogInfo("[%s] Message duplicated ignored: %s", mycli.userID, v)
+						mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Message duplicated ignored: %s", mycli.userID, v)
 						continue
 					}
 
@@ -1140,7 +1143,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 			messageKey := fmt.Sprintf("%s_%s_%s", mycli.userID, evt.MessageIDs[0], "Delivered")
 			if _, found := mycli.processedMessages.Get(messageKey); found {
-				logger.LogInfo("[%s] Message duplicated ignored: %s", mycli.userID, evt.MessageIDs[0])
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Message duplicated ignored: %s", mycli.userID, evt.MessageIDs[0])
 				return
 			}
 
@@ -1150,7 +1153,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 				go mycli.messageRepository.InsertMessage(message)
 			}
 
-			logger.LogInfo("[%s] Message delivered to %s", mycli.userID, evt.SourceString())
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Message delivered to %s", mycli.userID, evt.SourceString())
 		} else {
 			return
 		}
@@ -1161,13 +1164,13 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		if evt.Unavailable {
 			postMap["state"] = "offline"
 			if evt.LastSeen.IsZero() {
-				logger.LogInfo("[%s] User is now offline", mycli.userID)
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] User is now offline", mycli.userID)
 			} else {
-				logger.LogInfo("[%s] User is now offline since %s", mycli.userID, evt.LastSeen.Format("2006-01-02 15:04:05"))
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] User is now offline since %s", mycli.userID, evt.LastSeen.Format("2006-01-02 15:04:05"))
 			}
 		} else {
 			postMap["state"] = "online"
-			logger.LogInfo("[%s] User is now online", mycli.userID)
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] User is now online", mycli.userID)
 		}
 	case *events.Archive:
 		doWebhook = true
@@ -1180,38 +1183,38 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		dataMap["FromFullSync"] = evt.FromFullSync
 		postMap["data"] = dataMap
 
-		logger.LogInfo("[%s] Chat archived", mycli.userID)
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Chat archived", mycli.userID)
 	case *events.HistorySync:
 		doWebhook = true
 		postMap["event"] = "HistorySync"
 
-		logger.LogInfo("[%s] History sync event received %+v", mycli.userID, evt.Data.SyncType)
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] History sync event received %+v", mycli.userID, evt.Data.SyncType)
 	case *events.AppState:
-		logger.LogInfo("[%s] App state event received %+v", mycli.userID, evt)
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] App state event received %+v", mycli.userID, evt)
 	case *events.LoggedOut:
 		doWebhook = true
 		postMap["event"] = "LoggedOut"
-		logger.LogInfo("[%s] Logged out for reason %s", mycli.userID, evt.Reason.String())
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Logged out for reason %s", mycli.userID, evt.Reason.String())
 		mycli.killChannel[mycli.userID] <- true
 
 		mycli.Instance.DisconnectReason = evt.Reason.String()
 		mycli.Instance.Connected = false
 		err := mycli.instanceRepository.UpdateConnected(mycli.Instance.Id, mycli.Instance.Connected, mycli.Instance.DisconnectReason)
 		if err != nil {
-			logger.LogError("[%s] Error updating instance: %s", mycli.Instance.Id, err)
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Error updating instance: %s", mycli.Instance.Id, err)
 		}
 
 		if postMap["data"] != nil {
 			jsonBytes, err := json.Marshal(postMap["data"])
 			if err != nil {
-				logger.LogError("[%s] Failed to marshal postMap['data']: %v", mycli.userID, err)
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to marshal postMap['data']: %v", mycli.userID, err)
 				return
 			}
 
 			var dataMap map[string]interface{}
 			err = json.Unmarshal(jsonBytes, &dataMap)
 			if err != nil {
-				logger.LogError("[%s] Failed to unmarshal postMap['data'] to map[string]interface{}: %v", mycli.userID, err)
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to unmarshal postMap['data'] to map[string]interface{}: %v", mycli.userID, err)
 				return
 			}
 
@@ -1226,40 +1229,40 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	case *events.ChatPresence:
 		doWebhook = true
 		postMap["event"] = "ChatPresence"
-		logger.LogInfo("[%s] Chat presence received %+v", mycli.userID, evt)
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Chat presence received %+v", mycli.userID, evt)
 	case *events.CallOffer:
 		doWebhook = true
 		postMap["event"] = "CallOffer"
-		logger.LogInfo("[%s] Got call offer %+v", mycli.userID, evt)
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Got call offer %+v", mycli.userID, evt)
 	case *events.CallAccept:
 		doWebhook = true
 		postMap["event"] = "CallAccept"
-		logger.LogInfo("[%s] Got call accept %+v", mycli.userID, evt)
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Got call accept %+v", mycli.userID, evt)
 	case *events.CallTerminate:
 		doWebhook = true
 		postMap["event"] = "CallTerminate"
-		logger.LogInfo("[%s] Got call terminate %+v", mycli.userID, evt)
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Got call terminate %+v", mycli.userID, evt)
 	case *events.CallOfferNotice:
 		doWebhook = true
 		postMap["event"] = "CallOfferNotice"
-		logger.LogInfo("[%s] Got call offer notice %+v", mycli.userID, evt)
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Got call offer notice %+v", mycli.userID, evt)
 	case *events.CallRelayLatency:
 		doWebhook = true
 		postMap["event"] = "CallRelayLatency"
-		logger.LogInfo("[%s] Got call relay latency %+v", mycli.userID, evt)
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Got call relay latency %+v", mycli.userID, evt)
 	case *events.OfflineSyncCompleted:
 		doWebhook = true
 		postMap["event"] = "OfflineSyncCompleted"
 	case *events.ConnectFailure:
 		doWebhook = true
 		postMap["event"] = "ConnectFailure"
-		logger.LogInfo("[%s] Connection failed with reason %s", mycli.userID, evt.Reason.String())
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Connection failed with reason %s", mycli.userID, evt.Reason.String())
 
 		mycli.Instance.DisconnectReason = evt.Reason.String()
 		mycli.Instance.Connected = false
 		err := mycli.instanceRepository.UpdateConnected(mycli.Instance.Id, mycli.Instance.Connected, mycli.Instance.DisconnectReason)
 		if err != nil {
-			logger.LogError("[%s] Error updating instance: %s", mycli.Instance.Id, err)
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Error updating instance: %s", mycli.Instance.Id, err)
 		}
 	case *events.Disconnected:
 		doWebhook = true
@@ -1269,12 +1272,12 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		mycli.Instance.Connected = false
 		err := mycli.instanceRepository.UpdateConnected(mycli.Instance.Id, mycli.Instance.Connected, mycli.Instance.DisconnectReason)
 		if err != nil {
-			logger.LogError("[%s] Error updating instance: %s", mycli.Instance.Id, err)
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Error updating instance: %s", mycli.Instance.Id, err)
 		}
 	case *events.LabelEdit:
 		doWebhook = true
 		postMap["event"] = "LabelEdit"
-		logger.LogInfo("[%s] Got label edit %+v", mycli.userID, evt.Action)
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Got label edit %+v", mycli.userID, evt.Action)
 
 		label := label_model.Label{
 			InstanceID:   mycli.userID,
@@ -1286,18 +1289,18 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 		err := mycli.labelRepository.UpsertLabel(label)
 		if err != nil {
-			logger.LogError("[%s] Failed to upsert label: %v", mycli.userID, err)
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to upsert label: %v", mycli.userID, err)
 		}
 	case *events.LabelAssociationChat:
 		doWebhook = true
 		postMap["event"] = "LabelAssociationChat"
 
-		logger.LogInfo("[%s] Label association chat received %+v", mycli.userID, evt)
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Label association chat received %+v", mycli.userID, evt)
 	case *events.LabelAssociationMessage:
 		doWebhook = true
 		postMap["event"] = "LabelAssociationMessage"
 
-		logger.LogInfo("[%s] Label association message received %+v", mycli.userID, evt)
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Label association message received %+v", mycli.userID, evt)
 	case *events.Contact:
 		doWebhook = true
 		postMap["event"] = "Contact"
@@ -1319,19 +1322,19 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		doWebhook = true
 		postMap["event"] = "NewsletterLeave"
 	case *events.UndecryptableMessage:
-		logger.LogWarn("[%s] Undecryptable message received: %s", mycli.userID, evt.Info.ID)
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Undecryptable message received: %s", mycli.userID, evt.Info.ID)
 		if strings.HasPrefix(evt.Info.ID, "66") || strings.HasPrefix(evt.Info.ID, "67") {
-			logger.LogError("[%s] ID 66 or 67 found, reconnecting client", mycli.userID)
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] ID 66 or 67 found, reconnecting client", mycli.userID)
 			mycli.WAClient.Disconnect()
 			err := mycli.WAClient.Connect()
 			if err != nil {
-				logger.LogError("[%s] Error reconnecting client: %s", mycli.userID, err)
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Error reconnecting client: %s", mycli.userID, err)
 			}
 		} else {
-			logger.LogWarn("[%s] ID is not 66 or 67, skipping", mycli.userID)
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] ID is not 66 or 67, skipping", mycli.userID)
 		}
 	default:
-		logger.LogWarn("[%s] Unhandled event %s: %+v", mycli.userID, fmt.Sprintf("%T", evt), evt)
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Unhandled event %s: %+v", mycli.userID, fmt.Sprintf("%T", evt), evt)
 		return
 	}
 
@@ -1342,7 +1345,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 		values, err := json.Marshal(postMap)
 		if err != nil {
-			logger.LogError("[%s] Failed to marshal JSON for queue", mycli.userID)
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to marshal JSON for queue", mycli.userID)
 			return
 		}
 
@@ -1379,7 +1382,7 @@ func (w *whatsmeowService) CallWebhook(instance *instance_model.Instance, queueN
 	} else {
 		for _, arg := range eventArray {
 			if !event_types.IsEventType(arg) {
-				logger.LogWarn("[%s] Message type discarded", instance.Id, arg)
+				w.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Message type discarded", instance.Id, arg)
 				continue
 			}
 			if !utils.Find(subscriptions, arg) {
@@ -1390,77 +1393,77 @@ func (w *whatsmeowService) CallWebhook(instance *instance_model.Instance, queueN
 	}
 
 	if contains(subscriptions, "ALL") {
-		logger.LogInfo("[%s] Event received of type %s", instance.Id, eventType)
+		w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
 		w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		return
 	}
 
-	logger.LogInfo("[%s] subscriptions %s eventType %s", instance.Id, subscriptions, eventType)
+	w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] subscriptions %s eventType %s", instance.Id, subscriptions, eventType)
 
 	switch eventType {
 	case "Message":
 		if contains(subscriptions, "MESSAGE") {
-			logger.LogInfo("[%s] Event received of type %s", instance.Id, eventType)
+			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
 			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		}
 	case "SendMessage":
 		if contains(subscriptions, "SEND_MESSAGE") {
-			logger.LogInfo("[%s] Event received of type %s", instance.Id, eventType)
+			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
 			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		}
 	case "Receipt":
 		if contains(subscriptions, "READ_RECEIPT") {
-			logger.LogInfo("[%s] Event received of type %s", instance.Id, eventType)
+			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
 			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		}
 	case "Presence":
 		if contains(subscriptions, "PRESENCE") {
-			logger.LogInfo("[%s] Event received of type %s", instance.Id, eventType)
+			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
 			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		}
 	case "HistorySync":
 		if contains(subscriptions, "HISTORY_SYNC") {
-			logger.LogInfo("[%s] Event received of type %s", instance.Id, eventType)
+			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
 			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		}
 	case "ChatPresence", "Archive":
 		if contains(subscriptions, "CHAT_PRESENCE") {
-			logger.LogInfo("[%s] Event received of type %s", instance.Id, eventType)
+			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
 			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		}
 	case "CallOffer", "CallAccept", "CallTerminate", "CallOfferNotice", "CallRelayLatency":
 		if contains(subscriptions, "CALL") {
-			logger.LogInfo("[%s] Event received of type %s", instance.Id, eventType)
+			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
 			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		}
 	case "Connected", "PairSuccess", "TemporaryBan", "LoggedOut", "ConnectFailure", "Disconnected":
 		if contains(subscriptions, "CONNECTION") {
-			logger.LogInfo("[%s] Event received of type %s", instance.Id, eventType)
+			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
 			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		}
 	case "LabelEdit", "LabelAssociationChat", "LabelAssociationMessage":
 		if contains(subscriptions, "LABEL") {
-			logger.LogInfo("[%s] Event received of type %s", instance.Id, eventType)
+			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
 			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		}
 	case "Contact", "PushName":
 		if contains(subscriptions, "CONTACT") {
-			logger.LogInfo("[%s] Event received of type %s", instance.Id, eventType)
+			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
 			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		}
 	case "GroupInfo", "JoinedGroup":
 		if contains(subscriptions, "GROUP") {
-			logger.LogInfo("[%s] Event received of type %s", instance.Id, eventType)
+			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
 			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		}
 	case "NewsletterJoin", "NewsletterLeave":
 		if contains(subscriptions, "NEWSLETTER") {
-			logger.LogInfo("[%s] Event received of type %s", instance.Id, eventType)
+			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
 			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		}
 	case "QRCode", "QRTimeout", "QRSuccess":
 		if contains(subscriptions, "QRCODE") {
-			logger.LogInfo("[%s] Event received of type %s", instance.Id, eventType)
+			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
 			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		}
 
@@ -1482,37 +1485,37 @@ func (w *whatsmeowService) sendToQueueOrWebhook(instance *instance_model.Instanc
 	if instance.RabbitmqEnable == "enabled" || instance.RabbitmqEnable == "true" {
 		err := w.rabbitmqProducer.Produce(queueName, jsonData, instance.RabbitmqEnable, instance.Id)
 		if err != nil {
-			logger.LogError("[%s] Failed to send message to rabbitmq: %s", instance.Id, err)
+			w.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to send message to rabbitmq: %s", instance.Id, err)
 			return
 		}
-		logger.LogInfo("[%s] Message sent to rabbitmq successfully", instance.Id)
+		w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Message sent to rabbitmq successfully", instance.Id)
 	}
 
 	if instance.NatsEnable == "enabled" || instance.NatsEnable == "true" {
 		err := w.natsProducer.Produce(queueName, jsonData, instance.NatsEnable, instance.Id)
 		if err != nil {
-			logger.LogError("[%s] Failed to send message to nats: %s", instance.Id, err)
+			w.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to send message to nats: %s", instance.Id, err)
 			return
 		}
-		logger.LogInfo("[%s] Message sent to nats successfully", instance.Id)
+		w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Message sent to nats successfully", instance.Id)
 	}
 
 	if instance.WebSocketEnable == "enabled" || instance.WebSocketEnable == "true" {
 		err := w.websocketProducer.Produce(queueName, jsonData, instance.Id, instance.Token)
 		if err != nil {
-			logger.LogError("[%s] Failed to send message to websocket: %s", instance.Id, err)
+			w.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to send message to websocket: %s", instance.Id, err)
 			return
 		}
-		logger.LogInfo("[%s] Message sent to websocket successfully", instance.Id)
+		w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Message sent to websocket successfully", instance.Id)
 	}
 
 	if instance.Webhook != "" && instance.Webhook != "disabled" {
 		err := w.webhookProducer.Produce(queueName, jsonData, instance.Webhook, instance.Id)
 		if err != nil {
-			logger.LogError("[%s] Failed to send message to webhook: %s", instance.Id, err)
+			w.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to send message to webhook: %s", instance.Id, err)
 			return
 		}
-		logger.LogInfo("[%s] Message sent to webhook successfully", instance.Id)
+		w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Message sent to webhook successfully", instance.Id)
 	}
 }
 
@@ -1527,12 +1530,12 @@ func (w whatsmeowService) StartInstance(instanceId string) error {
 
 		err = w.instanceRepository.UpdateProxy(instance.Id, instance.Proxy)
 		if err != nil {
-			logger.LogError("[%s] Failed to update instance: %s", instanceId, err)
+			w.loggerWrapper.GetLogger(instanceId).LogError("[%s] Failed to update instance: %s", instanceId, err)
 			return err
 		}
 	}
 
-	logger.LogInfo("[%s] Starting client", instance.Id)
+	w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Starting client", instance.Id)
 
 	v := Values{map[string]string{
 		"Id":     instance.Id,
@@ -1554,7 +1557,7 @@ func (w whatsmeowService) StartInstance(instanceId string) error {
 	} else {
 		for _, arg := range eventArray {
 			if !event_types.IsEventType(arg) {
-				logger.LogWarn("[%s] Message type discarded", instanceId, arg)
+				w.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Message type discarded", instanceId, arg)
 				continue
 			}
 			if !utils.Find(subscribedEvents, arg) {
@@ -1577,7 +1580,7 @@ func (w whatsmeowService) StartInstance(instanceId string) error {
 		var proxyConfig ProxyConfig
 		err := json.Unmarshal([]byte(instance.Proxy), &proxyConfig)
 		if err != nil {
-			logger.LogError("[%s] error unmarshalling proxy config", instanceId)
+			w.loggerWrapper.GetLogger(instanceId).LogError("[%s] error unmarshalling proxy config", instanceId)
 			return err
 		}
 
@@ -1592,32 +1595,32 @@ func (w whatsmeowService) StartInstance(instanceId string) error {
 }
 
 func (w whatsmeowService) ConnectOnStartup(clientName string) {
-	logger.LogInfo("Connecting all instances on startup")
+	w.loggerWrapper.GetLogger(clientName).LogInfo("Connecting all instances on startup")
 	var instances []*instance_model.Instance
 	var err error
 
 	if clientName != "" {
 		instances, err = w.instanceRepository.GetAllConnectedInstancesByClientName(clientName)
 		if err != nil {
-			logger.LogError("[%s] Error getting all connected instances: %s", clientName, err)
+			w.loggerWrapper.GetLogger(clientName).LogError("[%s] Error getting all connected instances: %s", clientName, err)
 			return
 		}
 	} else {
 		instances, err = w.instanceRepository.GetAllConnectedInstances()
 		if err != nil {
-			logger.LogError("[%s] Error getting all connected instances: %s", clientName, err)
+			w.loggerWrapper.GetLogger(clientName).LogError("[%s] Error getting all connected instances: %s", clientName, err)
 			return
 		}
 	}
 
-	logger.LogInfo("[%s] Found %d connected instances", clientName, len(instances))
+	w.loggerWrapper.GetLogger(clientName).LogInfo("[%s] Found %d connected instances", clientName, len(instances))
 
 	for _, instance := range instances {
-		logger.LogInfo("[%s] Starting client for user '%s'", clientName, instance.Id)
+		w.loggerWrapper.GetLogger(clientName).LogInfo("[%s] Starting client for user '%s'", clientName, instance.Id)
 
 		err := w.StartInstance(instance.Id)
 		if err != nil {
-			logger.LogError("[%s] Error starting client: %s", instance.Id, err)
+			w.loggerWrapper.GetLogger(clientName).LogError("[%s] Error starting client: %s", clientName, err)
 		}
 	}
 }
@@ -1655,7 +1658,7 @@ func getExtensionFromMimeType(mimeType string) string {
 }
 
 func (w *whatsmeowService) SendToGlobalQueues(eventType string, payload []byte, userId string) {
-	logger.LogInfo("[%s] Starting sendToGlobalQueues for event: %s", userId, eventType)
+	w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Starting sendToGlobalQueues for event: %s", userId, eventType)
 
 	// Mapeia o evento do Whatsmeow para o tipo de evento global
 	var globalEventType string
@@ -1687,7 +1690,7 @@ func (w *whatsmeowService) SendToGlobalQueues(eventType string, payload []byte, 
 	case "QRCode", "QRTimeout", "QRSuccess":
 		globalEventType = "QRCODE"
 	default:
-		logger.LogInfo("[%s] Event %s not mapped to global event type", userId, eventType)
+		w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Event %s not mapped to global event type", userId, eventType)
 		return
 	}
 
@@ -1695,15 +1698,15 @@ func (w *whatsmeowService) SendToGlobalQueues(eventType string, payload []byte, 
 	if w.config.AmqpGlobalEnabled && utils.Find(w.config.AmqpGlobalEvents, globalEventType) {
 		// Nome da fila global usando o evento mapeado
 		queueName := strings.ToLower(eventType)
-		logger.LogInfo("[%s] Queue name for global event: %s", userId, queueName)
+		w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Queue name for global event: %s", userId, queueName)
 
 		// Envia para RabbitMQ se estiver habilitado
 		if w.config.AmqpGlobalEnabled {
 			err := w.rabbitmqProducer.Produce(queueName, payload, "global", userId)
 			if err != nil {
-				logger.LogError("[%s] Failed to send message to RabbitMQ global queue %s: %v", userId, queueName, err)
+				w.loggerWrapper.GetLogger(userId).LogError("[%s] Failed to send message to RabbitMQ global queue %s: %v", userId, queueName, err)
 			} else {
-				logger.LogInfo("[%s] Successfully sent message to RabbitMQ global queue %s", userId, queueName)
+				w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Successfully sent message to RabbitMQ global queue %s", userId, queueName)
 			}
 		}
 	}
@@ -1712,15 +1715,15 @@ func (w *whatsmeowService) SendToGlobalQueues(eventType string, payload []byte, 
 	if w.config.NatsGlobalEnabled && utils.Find(w.config.NatsGlobalEvents, globalEventType) {
 		// Nome da fila global usando o evento mapeado
 		queueName := strings.ToLower(eventType)
-		logger.LogInfo("[%s] Queue name for global event: %s", userId, queueName)
+		w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Queue name for global event: %s", userId, queueName)
 
 		// Envia para NATS se estiver habilitado
 		if w.config.NatsGlobalEnabled && utils.Find(w.config.NatsGlobalEvents, globalEventType) {
 			err := w.natsProducer.Produce(queueName, payload, "global", userId)
 			if err != nil {
-				logger.LogError("[%s] Failed to send message to NATS global subject %s: %v", userId, queueName, err)
+				w.loggerWrapper.GetLogger(userId).LogError("[%s] Failed to send message to NATS global subject %s: %v", userId, queueName, err)
 			} else {
-				logger.LogInfo("[%s] Successfully sent message to NATS global subject %s", userId, queueName)
+				w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Successfully sent message to NATS global subject %s", userId, queueName)
 			}
 		}
 	}
@@ -1741,6 +1744,7 @@ func NewWhatsmeowService(
 	exPath string,
 	mediaStorage storage_interfaces.MediaStorage,
 	natsProducer producer_interfaces.Producer,
+	loggerWrapper *logger_wrapper.LoggerManager,
 ) WhatsmeowService {
 	return &whatsmeowService{
 		instanceRepository: instanceRepository,
@@ -1759,5 +1763,6 @@ func NewWhatsmeowService(
 		mediaStorage:       mediaStorage,
 		processedMessages:  cache.New(30*time.Minute, 1*time.Hour),
 		natsProducer:       natsProducer,
+		loggerWrapper:      loggerWrapper,
 	}
 }

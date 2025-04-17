@@ -68,6 +68,8 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	killChannel := make(map[string](chan bool))
 	clientPointer := make(map[string]*whatsmeow.Client)
 
+	loggerWrapper := logger_wrapper.NewLoggerManager(config)
+
 	var rabbitmqProducer producer_interfaces.Producer
 	if conn != nil {
 		logger.LogInfo("RabbitMQ enabled")
@@ -76,6 +78,7 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 			config.AmqpGlobalEnabled,
 			config.AmqpGlobalEvents,
 			config.AmqpUrl,
+			loggerWrapper,
 		)
 	} else {
 		rabbitmqProducer = rabbitmq_producer.NewRabbitMQProducer(
@@ -83,6 +86,7 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 			false,
 			nil,
 			"",
+			loggerWrapper,
 		)
 	}
 
@@ -93,12 +97,14 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 			config.NatsUrl,
 			config.NatsGlobalEnabled,
 			config.NatsGlobalEvents,
+			loggerWrapper,
 		)
 	} else {
 		natsProducer = nats_producer.NewNatsProducer(
 			"",
 			false,
 			nil,
+			loggerWrapper,
 		)
 	}
 
@@ -121,11 +127,10 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		}
 	}
 
-	loggerWrapper := logger_wrapper.NewLoggerManager(config)
-
 	instanceRepository := instance_repository.NewInstanceRepository(db)
 	messageRepository := message_repository.NewMessageRepository(db)
 	labelRepository := label_repository.NewLabelRepository(db)
+
 	whatsmeowService := whatsmeow_service.NewWhatsmeowService(
 		instanceRepository,
 		authDB,
@@ -141,6 +146,7 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		exPath,
 		mediaStorage,
 		natsProducer,
+		loggerWrapper,
 	)
 	instanceService := instance_service.NewInstanceService(
 		instanceRepository,
@@ -150,15 +156,15 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		config,
 		loggerWrapper,
 	)
-	sendMessageService := send_service.NewSendService(clientPointer, whatsmeowService, config)
-	userService := user_service.NewUserService(clientPointer, whatsmeowService)
-	messageService := message_service.NewMessageService(clientPointer, messageRepository, whatsmeowService)
-	chatService := chat_service.NewChatService(clientPointer, whatsmeowService)
-	groupService := group_service.NewGroupService(clientPointer, whatsmeowService)
-	callService := call_service.NewCallService(clientPointer, whatsmeowService)
-	communityService := community_service.NewCommunityService(clientPointer, whatsmeowService)
-	labelService := label_service.NewLabelService(clientPointer, whatsmeowService, labelRepository)
-	newsletterService := newsletter_service.NewNewsletterService(clientPointer, whatsmeowService)
+	sendMessageService := send_service.NewSendService(clientPointer, whatsmeowService, config, loggerWrapper)
+	userService := user_service.NewUserService(clientPointer, whatsmeowService, loggerWrapper)
+	messageService := message_service.NewMessageService(clientPointer, messageRepository, whatsmeowService, loggerWrapper)
+	chatService := chat_service.NewChatService(clientPointer, whatsmeowService, loggerWrapper)
+	groupService := group_service.NewGroupService(clientPointer, whatsmeowService, loggerWrapper)
+	callService := call_service.NewCallService(clientPointer, whatsmeowService, loggerWrapper)
+	communityService := community_service.NewCommunityService(clientPointer, whatsmeowService, loggerWrapper)
+	labelService := label_service.NewLabelService(clientPointer, whatsmeowService, labelRepository, loggerWrapper)
+	newsletterService := newsletter_service.NewNewsletterService(clientPointer, whatsmeowService, loggerWrapper)
 
 	telemetry := telemetry.NewTelemetryService()
 
