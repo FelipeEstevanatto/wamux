@@ -863,15 +863,18 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		postMap["event"] = "Message"
 
 		if mycli.config.EventIgnoreGroup && strings.Contains(evt.Info.Chat.String(), "@g.us") {
+			logger.LogInfo("[%s] Message ignored because it's a group message", mycli.userID)
 			return
 		}
 
 		if mycli.config.EventIgnoreStatus && (strings.Contains(evt.Info.Chat.String(), "@broadcast") || strings.Contains(evt.Info.ID, "@broadcast")) {
+			logger.LogInfo("[%s] Message ignored because it's a broadcast message", mycli.userID)
 			return
 		}
 
 		parsedMessageType := utils.GetMessageType(evt.Message)
 		if parsedMessageType == "ignore" || strings.HasPrefix(parsedMessageType, "unknown_protocol_") {
+			logger.LogInfo("[%s] Message ignored because it's a unknown protocol message", mycli.userID)
 			return
 		}
 
