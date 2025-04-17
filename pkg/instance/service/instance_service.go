@@ -11,7 +11,6 @@ import (
 	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
 	instance_repository "github.com/EvolutionAPI/evolution-go/pkg/instance/repository"
 	event_types "github.com/EvolutionAPI/evolution-go/pkg/internal/event_types"
-	"github.com/EvolutionAPI/evolution-go/pkg/utils"
 	whatsmeow_service "github.com/EvolutionAPI/evolution-go/pkg/whatsmeow/service"
 	"github.com/gomessguii/logger"
 	"go.mau.fi/whatsmeow"
@@ -168,23 +167,26 @@ func (i instances) Create(data *CreateStruct) (*instance_model.Instance, error) 
 }
 
 func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instance) (*instance_model.Instance, string, string, error) {
-
 	var subscribedEvents []string
 
-	if len(data.Subscribe) < 1 {
+	logger.LogInfo("[%s] Processing subscribe events: %v", instance.Id, data.Subscribe)
+
+	if len(data.Subscribe) == 0 {
 		subscribedEvents = append(subscribedEvents, event_types.MESSAGE)
+	} else if len(data.Subscribe) > 0 && data.Subscribe[0] == "ALL" {
+		for _, event := range event_types.AllEventTypes {
+			subscribedEvents = append(subscribedEvents, event)
+		}
 	} else {
 		for _, arg := range data.Subscribe {
 			if !event_types.IsEventType(arg) {
 				logger.LogWarn("[%s] Message type discarded '%s'", instance.Id, arg)
 				continue
 			}
-			if !utils.Find(subscribedEvents, arg) {
-				subscribedEvents = append(subscribedEvents, arg)
-			}
-
+			subscribedEvents = append(subscribedEvents, arg)
 		}
 	}
+
 	eventString := strings.Join(subscribedEvents, ",")
 
 	instance.Events = eventString

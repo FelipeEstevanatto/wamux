@@ -17,6 +17,22 @@ const (
 	QRCODE        = "QRCODE"
 )
 
+var AllEventTypes = []string{
+	MESSAGE,
+	SEND_MESSAGE,
+	READ_RECEIPT,
+	PRESENCE,
+	HISTORY_SYNC,
+	CHAT_PRESENCE,
+	CALL,
+	CONNECTION,
+	LABEL,
+	CONTACT,
+	GROUP,
+	NEWSLETTER,
+	QRCODE,
+}
+
 var validEventTypes = map[string]bool{
 	ALL:           true,
 	MESSAGE:       true,
