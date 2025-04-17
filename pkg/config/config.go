@@ -55,6 +55,13 @@ type Config struct {
 	NatsGlobalEvents     []string
 	EventIgnoreGroup     bool
 	EventIgnoreStatus    bool
+
+	// Logger configurations
+	LogMaxSize    int
+	LogMaxBackups int
+	LogMaxAge     int
+	LogDirectory  string
+	LogCompress   bool
 }
 
 func (c *Config) CreateUsersDB() (*gorm.DB, error) {
@@ -175,6 +182,32 @@ func Load() *Config {
 		natsGlobalEvents = []string{}
 	}
 
+	// Logger configurations
+	logMaxSize, _ := strconv.Atoi(os.Getenv(config_env.LOG_MAX_SIZE))
+	if logMaxSize == 0 {
+		logMaxSize = 100 // Default 100MB
+	}
+
+	logMaxBackups, _ := strconv.Atoi(os.Getenv(config_env.LOG_MAX_BACKUPS))
+	if logMaxBackups == 0 {
+		logMaxBackups = 5 // Default 5 backups
+	}
+
+	logMaxAge, _ := strconv.Atoi(os.Getenv(config_env.LOG_MAX_AGE))
+	if logMaxAge == 0 {
+		logMaxAge = 30 // Default 30 days
+	}
+
+	logDirectory := os.Getenv(config_env.LOG_DIRECTORY)
+	if logDirectory == "" {
+		logDirectory = "./logs" // Default logs directory
+	}
+
+	logCompress := os.Getenv(config_env.LOG_COMPRESS) == "true"
+	if os.Getenv(config_env.LOG_COMPRESS) == "" {
+		logCompress = true // Default compression enabled
+	}
+
 	config := &Config{
 		PostgresAuthDB:       postgresAuthDB,
 		postgresUsersDB:      postgresUsersDB,
@@ -209,6 +242,11 @@ func Load() *Config {
 		NatsUrl:              natsUrl,
 		NatsGlobalEnabled:    natsGlobalEnabled == "true",
 		NatsGlobalEvents:     natsGlobalEvents,
+		LogMaxSize:           logMaxSize,
+		LogMaxBackups:        logMaxBackups,
+		LogMaxAge:            logMaxAge,
+		LogDirectory:         logDirectory,
+		LogCompress:          logCompress,
 	}
 
 	minioEnabled := os.Getenv(config_env.MINIO_ENABLED) == "true"

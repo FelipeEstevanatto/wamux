@@ -27,6 +27,7 @@ require (
 	golang.org/x/image v0.0.0-20211028202545-6944b10bf410
 	golang.org/x/net v0.37.0
 	google.golang.org/protobuf v1.36.5
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gorm.io/driver/postgres v1.5.9
 	gorm.io/gorm v1.25.10
 	modernc.org/sqlite v1.33.1

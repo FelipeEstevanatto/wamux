@@ -1,9 +1,14 @@
 package instance_service
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"slices"
+	"sort"
 	"strings"
 	"time"
 
@@ -11,8 +16,8 @@ import (
 	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
 	instance_repository "github.com/EvolutionAPI/evolution-go/pkg/instance/repository"
 	event_types "github.com/EvolutionAPI/evolution-go/pkg/internal/event_types"
+	logger_wrapper "github.com/EvolutionAPI/evolution-go/pkg/logger"
 	whatsmeow_service "github.com/EvolutionAPI/evolution-go/pkg/whatsmeow/service"
-	"github.com/gomessguii/logger"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types"
 )
@@ -32,6 +37,7 @@ type InstanceService interface {
 	RemoveProxy(id string) error
 	ForceReconnect(instanceId string, number string) error
 	GetInstanceByToken(token string) (*instance_model.Instance, error)
+	GetLogs(instanceId string, startDate, endDate time.Time, level string, limit int) ([]logger_wrapper.LogEntry, error)
 }
 
 type instances struct {
@@ -40,6 +46,7 @@ type instances struct {
 	killChannel        map[string](chan bool)
 	clientPointer      map[string]*whatsmeow.Client
 	whatsmeowService   whatsmeow_service.WhatsmeowService
+	loggerWrapper      *logger_wrapper.LoggerManager
 }
 
 type ProxyConfig struct {
@@ -92,6 +99,7 @@ type ForceReconnectStruct struct {
 }
 
 func (i *instances) ensureClientConnected(instanceId string) (*whatsmeow.Client, error) {
+	logger := i.loggerWrapper.GetLogger(instanceId)
 	client := i.clientPointer[instanceId]
 	logger.LogInfo("[%s] Checking client connection status - Client exists: %v", instanceId, client != nil)
 
@@ -125,12 +133,6 @@ func (i *instances) ensureClientConnected(instanceId string) (*whatsmeow.Client,
 			client.IsConnected())
 		return nil, errors.New("client disconnected")
 	}
-	// else if !client.IsLoggedIn() {
-	// 	logger.LogError("[%s] Existing client is not logged in - Logged in status: %v",
-	// 		instanceId,
-	// 		client.IsLoggedIn())
-	// 	return nil, errors.New("client not logged in")
-	// }
 
 	logger.LogInfo("[%s] Client successfully validated - Connected: %v", instanceId, client.IsConnected())
 	return client, nil
@@ -169,7 +171,7 @@ func (i instances) Create(data *CreateStruct) (*instance_model.Instance, error) 
 func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instance) (*instance_model.Instance, string, string, error) {
 	var subscribedEvents []string
 
-	logger.LogInfo("[%s] Processing subscribe events: %v", instance.Id, data.Subscribe)
+	i.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Processing subscribe events: %v", instance.Id, data.Subscribe)
 
 	if len(data.Subscribe) == 0 {
 		subscribedEvents = append(subscribedEvents, event_types.MESSAGE)
@@ -180,7 +182,7 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 	} else {
 		for _, arg := range data.Subscribe {
 			if !event_types.IsEventType(arg) {
-				logger.LogWarn("[%s] Message type discarded '%s'", instance.Id, arg)
+				i.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Message type discarded '%s'", instance.Id, arg)
 				continue
 			}
 			subscribedEvents = append(subscribedEvents, arg)
@@ -197,7 +199,7 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 
 	err := i.instanceRepository.Update(instance)
 	if err != nil {
-		logger.LogError("[%s] Error updating instance: %s", instance.Id, err)
+		i.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error updating instance: %s", instance.Id, err)
 		return nil, "", "", err
 	}
 
@@ -214,7 +216,7 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 		var proxyConfig ProxyConfig
 		err := json.Unmarshal([]byte(instance.Proxy), &proxyConfig)
 		if err != nil {
-			logger.LogError("[%s] error unmarshalling proxy config", instance.Id, err)
+			i.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error unmarshalling proxy config", instance.Id, err)
 			return nil, "", "", err
 		}
 
@@ -256,7 +258,7 @@ func (i instances) Disconnect(instance *instance_model.Instance) (*instance_mode
 
 	if client.IsConnected() {
 		if client.IsLoggedIn() {
-			logger.LogInfo("[%s] Disconnection successful", instance.Id)
+			i.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Disconnection successful", instance.Id)
 			i.killChannel[instance.Id] <- true
 
 			instance.Events = ""
@@ -270,7 +272,7 @@ func (i instances) Disconnect(instance *instance_model.Instance) (*instance_mode
 		}
 	}
 
-	logger.LogWarn("[%s] Ignoring disconnect as it was not connected", instance.Id)
+	i.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Ignoring disconnect as it was not connected", instance.Id)
 	return instance, nil
 }
 
@@ -300,7 +302,7 @@ func (i instances) Logout(instance *instance_model.Instance) (*instance_model.In
 		delete(i.clientPointer, instance.Id)
 		delete(i.killChannel, instance.Id)
 
-		logger.LogInfo("[%s] Logout successful", instance.Id)
+		i.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Logout successful", instance.Id)
 		return instance, nil
 	}
 
@@ -315,11 +317,11 @@ func (i instances) Logout(instance *instance_model.Instance) (*instance_model.In
 		delete(i.clientPointer, instance.Id)
 		delete(i.killChannel, instance.Id)
 
-		logger.LogInfo("[%s] Disconnection successful", instance.Id)
+		i.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Disconnection successful", instance.Id)
 		return instance, nil
 	}
 
-	logger.LogWarn("[%s] Ignoring logout as it was not connected", instance.Id)
+	i.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Ignoring logout as it was not connected", instance.Id)
 	return instance, fmt.Errorf("ignoring logout as it was not connected")
 }
 
@@ -385,7 +387,7 @@ func (i instances) GetQr(instance *instance_model.Instance) (*QrcodeStruct, erro
 func (i instances) Pair(data *PairStruct, instance *instance_model.Instance) (*PairReturnStruct, error) {
 	code, err := i.clientPointer[instance.Id].PairPhone(data.Phone, true, whatsmeow.PairClientChrome, "Chrome (Linux)")
 	if err != nil {
-		logger.LogError("[%s] something went wrong calling pair phone", instance.Id)
+		i.loggerWrapper.GetLogger(instance.Id).LogError("[%s] something went wrong calling pair phone", instance.Id)
 	}
 
 	return &PairReturnStruct{PairingCode: code}, nil
@@ -497,7 +499,7 @@ func (i instances) ForceReconnect(instanceId string, number string) error {
 		var proxyConfig ProxyConfig
 		err := json.Unmarshal([]byte(instance.Proxy), &proxyConfig)
 		if err != nil {
-			logger.LogError("[%s] error unmarshalling proxy config", instance.Id, err)
+			i.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error unmarshalling proxy config", instance.Id, err)
 			return err
 		}
 
@@ -542,12 +544,120 @@ func (i instances) GetInstanceByToken(token string) (*instance_model.Instance, e
 	return i.instanceRepository.GetInstanceByToken(token)
 }
 
+func (i instances) GetLogs(instanceId string, startDate, endDate time.Time, level string, limit int) ([]logger_wrapper.LogEntry, error) {
+	// Inicializa o slice vazio para garantir que nunca retorne null
+	logs := make([]logger_wrapper.LogEntry, 0)
+
+	// Define valores padrão
+	if limit <= 0 {
+		limit = 100 // Limite padrão de 100 registros
+	}
+
+	// Se não foi fornecida data inicial, usa 7 dias atrás
+	if startDate.IsZero() {
+		startDate = time.Now().AddDate(0, 0, -7)
+	}
+
+	// Se não foi fornecida data final, usa data atual
+	if endDate.IsZero() {
+		endDate = time.Now()
+	}
+
+	// Ajusta as datas para início e fim do dia
+	startDate = time.Date(startDate.Year(), startDate.Month(), startDate.Day(), 0, 0, 0, 0, time.UTC)
+	endDate = time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 23, 59, 59, 999999999, time.UTC)
+
+	// Garante que a data inicial não seja posterior à data final
+	if startDate.After(endDate) {
+		return logs, fmt.Errorf("data inicial não pode ser posterior à data final")
+	}
+
+	// Níveis de log válidos
+	validLevels := map[string]bool{
+		"INFO":  true,
+		"ERROR": true,
+		"WARN":  true,
+		"DEBUG": true,
+	}
+
+	var levelArray []string
+	if level == "" {
+		// Se nenhum nível foi especificado, usa todos
+		levelArray = []string{"INFO", "ERROR", "WARN", "DEBUG"}
+	} else {
+		// Divide e normaliza os níveis fornecidos
+		for _, l := range strings.Split(level, ",") {
+			l = strings.TrimSpace(strings.ToUpper(l))
+			if !validLevels[l] {
+				return logs, fmt.Errorf("nível de log inválido: %s", l)
+			}
+			levelArray = append(levelArray, l)
+		}
+	}
+
+	// Lê os logs do arquivo
+	logPath := filepath.Join(i.config.LogDirectory, instanceId, "instance.log")
+	file, err := os.Open(logPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return logs, nil // Retorna array vazio se arquivo não existir
+		}
+		return logs, fmt.Errorf("erro ao abrir arquivo de log: %v", err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+
+	// Aumenta o buffer do scanner para lidar com linhas grandes
+	const maxCapacity = 1024 * 1024 // 1MB
+	buf := make([]byte, maxCapacity)
+	scanner.Buffer(buf, maxCapacity)
+
+	for scanner.Scan() {
+		var entry logger_wrapper.LogEntry
+		if err := json.Unmarshal(scanner.Bytes(), &entry); err != nil {
+			continue // Ignora linhas inválidas
+		}
+
+		// Ajusta o timestamp da entrada para UTC para comparação correta
+		entry.Timestamp = entry.Timestamp.UTC()
+
+		// Aplica os filtros
+		if entry.Timestamp.Before(startDate) || entry.Timestamp.After(endDate) {
+			continue
+		}
+
+		if !slices.Contains(levelArray, entry.Level) {
+			continue
+		}
+
+		logs = append(logs, entry)
+
+		// Verifica o limite
+		if len(logs) >= limit {
+			break
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return logs, fmt.Errorf("erro ao ler arquivo de log: %v", err)
+	}
+
+	// Ordena os logs por timestamp em ordem decrescente
+	sort.Slice(logs, func(i, j int) bool {
+		return logs[i].Timestamp.After(logs[j].Timestamp)
+	})
+
+	return logs, nil
+}
+
 func NewInstanceService(
 	instanceRepository instance_repository.InstanceRepository,
 	killChannel map[string](chan bool),
 	clientPointer map[string]*whatsmeow.Client,
 	whatsmeowService whatsmeow_service.WhatsmeowService,
 	config *config.Config,
+	loggerWrapper *logger_wrapper.LoggerManager,
 ) InstanceService {
 	return &instances{
 		instanceRepository: instanceRepository,
@@ -555,5 +665,6 @@ func NewInstanceService(
 		clientPointer:      clientPointer,
 		whatsmeowService:   whatsmeowService,
 		config:             config,
+		loggerWrapper:      loggerWrapper,
 	}
 }
