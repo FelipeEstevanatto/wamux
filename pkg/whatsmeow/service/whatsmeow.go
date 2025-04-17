@@ -272,7 +272,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 		deviceStore = container.NewDevice()
 
 		cd.Instance.Connected = false
-		err := w.instanceRepository.UpdateConnected(cd.Instance.Id, cd.Instance.Connected)
+		err := w.instanceRepository.UpdateConnected(cd.Instance.Id, cd.Instance.Connected, cd.Instance.DisconnectReason)
 		if err != nil {
 			logger.LogError("[%s] Error updating instance: %s", cd.Instance.Id, err)
 		}
@@ -579,7 +579,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 
 			cd.Instance.Connected = false
 
-			err := w.instanceRepository.UpdateConnected(cd.Instance.Id, cd.Instance.Connected)
+			err := w.instanceRepository.UpdateConnected(cd.Instance.Id, cd.Instance.Connected, cd.Instance.DisconnectReason)
 			if err != nil {
 				logger.LogError("[%s] Error updating instance: %s", cd.Instance.Id, err)
 			}
@@ -748,7 +748,8 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			}
 
 			mycli.Instance.Connected = true
-			err = mycli.instanceRepository.UpdateConnected(mycli.Instance.Id, mycli.Instance.Connected)
+			mycli.Instance.DisconnectReason = ""
+			err = mycli.instanceRepository.UpdateConnected(mycli.Instance.Id, mycli.Instance.Connected, mycli.Instance.DisconnectReason)
 			if err != nil {
 				logger.LogError("[%s] Error updating instance: %s", mycli.Instance.Id, err)
 			}
@@ -770,6 +771,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 		instance.Qrcode = ""
 		instance.Connected = true
+		instance.DisconnectReason = ""
 		instance.Jid = mycli.WAClient.Store.ID.String()
 
 		logger.LogInfo("[%s] Updating JID: %s in Instance: %s", mycli.userID, mycli.WAClient.Store.ID.String(), instance.Jid)
@@ -1194,7 +1196,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 		mycli.Instance.DisconnectReason = evt.Reason.String()
 		mycli.Instance.Connected = false
-		err := mycli.instanceRepository.UpdateConnected(mycli.Instance.Id, mycli.Instance.Connected)
+		err := mycli.instanceRepository.UpdateConnected(mycli.Instance.Id, mycli.Instance.Connected, mycli.Instance.DisconnectReason)
 		if err != nil {
 			logger.LogError("[%s] Error updating instance: %s", mycli.Instance.Id, err)
 		}
@@ -1252,9 +1254,23 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		doWebhook = true
 		postMap["event"] = "ConnectFailure"
 		logger.LogInfo("[%s] Connection failed with reason %s", mycli.userID, evt.Reason.String())
+
+		mycli.Instance.DisconnectReason = evt.Reason.String()
+		mycli.Instance.Connected = false
+		err := mycli.instanceRepository.UpdateConnected(mycli.Instance.Id, mycli.Instance.Connected, mycli.Instance.DisconnectReason)
+		if err != nil {
+			logger.LogError("[%s] Error updating instance: %s", mycli.Instance.Id, err)
+		}
 	case *events.Disconnected:
 		doWebhook = true
 		postMap["event"] = "Disconnected"
+
+		mycli.Instance.DisconnectReason = "Disconnected emitted because the websocket is closed by the server."
+		mycli.Instance.Connected = false
+		err := mycli.instanceRepository.UpdateConnected(mycli.Instance.Id, mycli.Instance.Connected, mycli.Instance.DisconnectReason)
+		if err != nil {
+			logger.LogError("[%s] Error updating instance: %s", mycli.Instance.Id, err)
+		}
 	case *events.LabelEdit:
 		doWebhook = true
 		postMap["event"] = "LabelEdit"
