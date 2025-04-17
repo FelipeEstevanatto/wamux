@@ -41,6 +41,7 @@ import (
 	label_model "github.com/EvolutionAPI/evolution-go/pkg/label/model"
 	label_repository "github.com/EvolutionAPI/evolution-go/pkg/label/repository"
 	label_service "github.com/EvolutionAPI/evolution-go/pkg/label/service"
+	logger_wrapper "github.com/EvolutionAPI/evolution-go/pkg/logger"
 	message_handler "github.com/EvolutionAPI/evolution-go/pkg/message/handler"
 	message_model "github.com/EvolutionAPI/evolution-go/pkg/message/model"
 	message_repository "github.com/EvolutionAPI/evolution-go/pkg/message/repository"
@@ -120,6 +121,8 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		}
 	}
 
+	loggerWrapper := logger_wrapper.NewLoggerManager(config)
+
 	instanceRepository := instance_repository.NewInstanceRepository(db)
 	messageRepository := message_repository.NewMessageRepository(db)
 	labelRepository := label_repository.NewLabelRepository(db)
@@ -145,6 +148,7 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		clientPointer,
 		whatsmeowService,
 		config,
+		loggerWrapper,
 	)
 	sendMessageService := send_service.NewSendService(clientPointer, whatsmeowService, config)
 	userService := user_service.NewUserService(clientPointer, whatsmeowService)

@@ -2,6 +2,7 @@ package instance_handler
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -24,6 +25,7 @@ type InstanceHandler interface {
 	Pair(ctx *gin.Context)
 	DeleteProxy(ctx *gin.Context)
 	ForceReconnect(ctx *gin.Context)
+	GetLogs(ctx *gin.Context)
 }
 
 type instanceHandler struct {
@@ -469,6 +471,49 @@ func (i *instanceHandler) ForceReconnect(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "success"})
+}
+
+type GetLogsQuery struct {
+	StartDate string `form:"start_date"`
+	EndDate   string `form:"end_date"`
+	Level     string `form:"level"`
+	Limit     int    `form:"limit"`
+}
+
+func (h *instanceHandler) GetLogs(c *gin.Context) {
+	instanceId := c.Param("instanceId")
+
+	var query GetLogsQuery
+	if err := c.ShouldBindQuery(&query); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Converte as datas
+	startDate, err := time.Parse("2006-01-02", query.StartDate)
+	if err != nil {
+		startDate = time.Now().AddDate(0, 0, -7) // Default: 7 dias atrás
+	}
+
+	endDate, err := time.Parse("2006-01-02", query.EndDate)
+	if err != nil {
+		endDate = time.Now()
+	}
+
+	// Ajusta o endDate para o final do dia
+	endDate = time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 23, 59, 59, 999999999, time.UTC)
+
+	if query.Limit == 0 {
+		query.Limit = 100 // Default: 100 registros
+	}
+
+	logs, err := h.instanceService.GetLogs(instanceId, startDate, endDate, query.Level, query.Limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, logs)
 }
 
 func NewInstanceHandler(instanceService instance_service.InstanceService, config *config.Config) InstanceHandler {
