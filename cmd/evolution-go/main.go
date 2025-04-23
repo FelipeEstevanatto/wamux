@@ -108,7 +108,7 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		)
 	}
 
-	webhookProducer := webhook_producer.NewWebhookProducer(config.WebhookUrl)
+	webhookProducer := webhook_producer.NewWebhookProducer(config.WebhookUrl, loggerWrapper)
 	websocketProducer := websocket_producer.NewWebsocketProducer()
 
 	var mediaStorage storage_interfaces.MediaStorage
