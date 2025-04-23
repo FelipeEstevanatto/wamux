@@ -20,9 +20,11 @@ type webhookProducer struct {
 
 func NewWebhookProducer(
 	url string,
+	loggerWrapper *logger_wrapper.LoggerManager,
 ) producer_interfaces.Producer {
 	return &webhookProducer{
-		url: url,
+		url:           url,
+		loggerWrapper: loggerWrapper,
 	}
 }
 
