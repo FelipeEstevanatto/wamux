@@ -32,6 +32,7 @@ func NewRabbitMQProducer(
 		amqpGlobalEvents:  amqpGlobalEvents,
 		connStr:           connStr,
 		maxRetries:        3,
+		loggerWrapper:     loggerWrapper,
 	}
 
 	return producer
