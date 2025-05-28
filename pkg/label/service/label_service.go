@@ -1,6 +1,7 @@
 package label_service
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -99,7 +100,7 @@ func (l *labelService) ChatLabel(data *ChatLabelStruct, instance *instance_model
 		return errors.New("error parse community jid")
 	}
 
-	err = client.SendAppState(appstate.BuildLabelChat(
+	err = client.SendAppState(context.Background(), appstate.BuildLabelChat(
 		jid,
 		data.LabelID,
 		true,
@@ -124,7 +125,7 @@ func (l *labelService) MessageLabel(data *MessageLabelStruct, instance *instance
 		return errors.New("error parse community jid")
 	}
 
-	err = client.SendAppState(appstate.BuildLabelMessage(
+	err = client.SendAppState(context.Background(), appstate.BuildLabelMessage(
 		jid,
 		data.LabelID,
 		data.MessageID,
@@ -144,7 +145,7 @@ func (l *labelService) EditLabel(data *EditLabelStruct, instance *instance_model
 		return err
 	}
 
-	err = client.SendAppState(appstate.BuildLabelEdit(
+	err = client.SendAppState(context.Background(), appstate.BuildLabelEdit(
 		data.LabelID,
 		data.Name,
 		int32(data.Color),
@@ -170,7 +171,7 @@ func (l *labelService) ChatUnlabel(data *ChatLabelStruct, instance *instance_mod
 		return errors.New("error parse community jid")
 	}
 
-	err = client.SendAppState(appstate.BuildLabelChat(
+	err = client.SendAppState(context.Background(), appstate.BuildLabelChat(
 		jid,
 		data.LabelID,
 		false,
@@ -195,7 +196,7 @@ func (l *labelService) MessageUnlabel(data *MessageLabelStruct, instance *instan
 		return errors.New("error parse community jid")
 	}
 
-	err = client.SendAppState(appstate.BuildLabelMessage(
+	err = client.SendAppState(context.Background(), appstate.BuildLabelMessage(
 		jid,
 		data.LabelID,
 		data.MessageID,

@@ -92,7 +92,7 @@ func (c *chatService) ChatPin(data *BodyStruct, instance *instance_model.Instanc
 		return "", errors.New("invalid phone number")
 	}
 
-	err = client.SendAppState(appstate.BuildPin(recipient, true))
+	err = client.SendAppState(context.Background(), appstate.BuildPin(recipient, true))
 	if err != nil {
 		c.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error pin chat: %v", instance.Id, err)
 		return "", err
@@ -115,7 +115,7 @@ func (c *chatService) ChatUnpin(data *BodyStruct, instance *instance_model.Insta
 		return "", errors.New("invalid phone number")
 	}
 
-	err = client.SendAppState(appstate.BuildPin(recipient, false))
+	err = client.SendAppState(context.Background(), appstate.BuildPin(recipient, false))
 	if err != nil {
 		c.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error unpin chat: %v", instance.Id, err)
 		return "", err
@@ -138,7 +138,7 @@ func (c *chatService) ChatArchive(data *BodyStruct, instance *instance_model.Ins
 		return "", errors.New("invalid phone number")
 	}
 
-	err = client.SendAppState(appstate.BuildArchive(recipient, true, time.Time{}, nil))
+	err = client.SendAppState(context.Background(), appstate.BuildArchive(recipient, true, time.Time{}, nil))
 	if err != nil {
 		c.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error archive chat: %v", instance.Id, err)
 		return "", err
@@ -161,7 +161,7 @@ func (c *chatService) ChatUnarchive(data *BodyStruct, instance *instance_model.I
 		return "", errors.New("invalid phone number")
 	}
 
-	err = client.SendAppState(appstate.BuildArchive(recipient, false, time.Time{}, nil))
+	err = client.SendAppState(context.Background(), appstate.BuildArchive(recipient, false, time.Time{}, nil))
 	if err != nil {
 		c.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error unarchive chat: %v", instance.Id, err)
 		return "", err
@@ -184,7 +184,7 @@ func (c *chatService) ChatMute(data *BodyStruct, instance *instance_model.Instan
 		return "", errors.New("invalid phone number")
 	}
 
-	err = client.SendAppState(appstate.BuildMute(recipient, true, 1*time.Hour))
+	err = client.SendAppState(context.Background(), appstate.BuildMute(recipient, true, 1*time.Hour))
 	if err != nil {
 		c.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error mute chat: %v", instance.Id, err)
 		return "", err
@@ -207,7 +207,7 @@ func (c *chatService) ChatUnmute(data *BodyStruct, instance *instance_model.Inst
 		return "", errors.New("invalid phone number")
 	}
 
-	err = client.SendAppState(appstate.BuildMute(recipient, false, 0*time.Hour))
+	err = client.SendAppState(context.Background(), appstate.BuildMute(recipient, false, 0*time.Hour))
 	if err != nil {
 		c.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error unmute chat: %v", instance.Id, err)
 		return "", err

@@ -1,6 +1,7 @@
 package user_service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -224,7 +225,7 @@ func (u *userService) GetContacts(instance *instance_model.Instance) ([]ContactI
 		return nil, err
 	}
 
-	contacts, err := client.Store.Contacts.GetAllContacts()
+	contacts, err := client.Store.Contacts.GetAllContacts(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +253,7 @@ func (u *userService) GetPrivacy(instance *instance_model.Instance) (types.Priva
 		return types.PrivacySettings{}, err
 	}
 
-	privacy := client.GetPrivacySettings()
+	privacy := client.GetPrivacySettings(context.Background())
 
 	return privacy, nil
 }
@@ -277,13 +278,13 @@ func (u *userService) SetPrivacy(data *PrivacyStruct, instance *instance_model.I
 	}
 
 	for _, setting := range privacySettings {
-		_, err := client.SetPrivacySetting(setting.name, setting.value)
+		_, err := client.SetPrivacySetting(context.Background(), setting.name, setting.value)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	privacy := client.GetPrivacySettings()
+	privacy := client.GetPrivacySettings(context.Background())
 
 	return &privacy, nil
 }

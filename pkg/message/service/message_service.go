@@ -283,7 +283,7 @@ func (m *messageService) DownloadMedia(data *DownloadMediaStruct, instance *inst
 	}
 
 	if img != nil {
-		mediaData, err = client.Download(img)
+		mediaData, err = client.Download(context.Background(), img)
 		if err != nil {
 			m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to download image", instance.Id)
 			msg := fmt.Sprintf("Failed to download image %v", err)
@@ -293,7 +293,7 @@ func (m *messageService) DownloadMedia(data *DownloadMediaStruct, instance *inst
 	}
 
 	if audio != nil {
-		mediaData, err = client.Download(audio)
+		mediaData, err = client.Download(context.Background(), audio)
 		if err != nil {
 			m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to download audio", instance.Id)
 			msg := fmt.Sprintf("Failed to download audio %v", err)
@@ -303,7 +303,7 @@ func (m *messageService) DownloadMedia(data *DownloadMediaStruct, instance *inst
 	}
 
 	if document != nil {
-		mediaData, err = m.clientPointer[instance.Id].Download(document)
+		mediaData, err = client.Download(context.Background(), document)
 		if err != nil {
 			m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to download document", instance.Id)
 			msg := fmt.Sprintf("Failed to download document %v", err)
@@ -313,7 +313,7 @@ func (m *messageService) DownloadMedia(data *DownloadMediaStruct, instance *inst
 	}
 
 	if video != nil {
-		mediaData, err = m.clientPointer[instance.Id].Download(video)
+		mediaData, err = client.Download(context.Background(), video)
 		if err != nil {
 			m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to download video", instance.Id)
 			msg := fmt.Sprintf("Failed to download video %v", err)
@@ -323,7 +323,7 @@ func (m *messageService) DownloadMedia(data *DownloadMediaStruct, instance *inst
 	}
 
 	if sticker != nil {
-		mediaData, err = m.clientPointer[instance.Id].Download(sticker)
+		mediaData, err = client.Download(context.Background(), sticker)
 		if err != nil {
 			m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to download sticker", instance.Id)
 			msg := fmt.Sprintf("Failed to download sticker %v", err)

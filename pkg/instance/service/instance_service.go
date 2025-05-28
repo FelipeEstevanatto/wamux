@@ -2,6 +2,7 @@ package instance_service
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -283,7 +284,7 @@ func (i instances) Logout(instance *instance_model.Instance) (*instance_model.In
 	}
 
 	if client.IsLoggedIn() && client.IsConnected() {
-		err := client.Logout()
+		err := client.Logout(context.Background())
 		if err != nil {
 			return instance, err
 		}
@@ -385,7 +386,7 @@ func (i instances) GetQr(instance *instance_model.Instance) (*QrcodeStruct, erro
 }
 
 func (i instances) Pair(data *PairStruct, instance *instance_model.Instance) (*PairReturnStruct, error) {
-	code, err := i.clientPointer[instance.Id].PairPhone(data.Phone, true, whatsmeow.PairClientChrome, "Chrome (Linux)")
+	code, err := i.clientPointer[instance.Id].PairPhone(context.Background(), data.Phone, true, whatsmeow.PairClientChrome, "Chrome (Linux)")
 	if err != nil {
 		i.loggerWrapper.GetLogger(instance.Id).LogError("[%s] something went wrong calling pair phone", instance.Id)
 	}
@@ -438,7 +439,7 @@ func (i instances) Delete(id string) error {
 
 	if i.clientPointer[instance.Id] != nil && i.clientPointer[instance.Id].IsConnected() {
 		if i.clientPointer[instance.Id].IsLoggedIn() {
-			i.clientPointer[instance.Id].Logout()
+			i.clientPointer[instance.Id].Logout(context.Background())
 		}
 		i.clientPointer[instance.Id].Disconnect()
 	}
