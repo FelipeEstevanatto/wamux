@@ -1,8 +1,6 @@
 module github.com/EvolutionAPI/evolution-go
 
-go 1.23.0
-
-toolchain go1.23.6
+go 1.24.0
 
 require (
 	github.com/chai2010/webp v1.1.1
@@ -22,7 +20,7 @@ require (
 	github.com/swaggo/gin-swagger v1.6.0
 	github.com/swaggo/swag v1.16.3
 	github.com/vincent-petithory/dataurl v1.0.0
-	go.mau.fi/whatsmeow v0.0.0-20250527134344-0b502af800ee
+	go.mau.fi/whatsmeow v0.0.0-20250612124742-cc05d16b464b
 	golang.org/x/exp v0.0.0-20250506013437-ce4c2cf36ca6
 	golang.org/x/image v0.0.0-20211028202545-6944b10bf410
 	golang.org/x/net v0.40.0

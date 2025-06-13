@@ -10,9 +10,12 @@ import (
 	"fmt"
 	"image/png"
 	"math/rand"
+	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
+	"io"
 
 	"golang.org/x/image/webp"
 	"google.golang.org/protobuf/proto"
@@ -52,6 +55,12 @@ type WhatsmeowService interface {
 	CallWebhook(instance *instance_model.Instance, queueName string, jsonData []byte)
 	SendToGlobalQueues(event string, jsonData []byte, userId string)
 	ForceUpdateJid(instanceId string, number string) error
+}
+
+type clientVersion struct {
+	Major int
+	Minor int
+	Patch int
 }
 
 type whatsmeowService struct {
@@ -280,12 +289,6 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 		}
 	}
 
-	type clientVersion struct {
-		Major int
-		Minor int
-		Patch int
-	}
-
 	var version clientVersion
 
 	platformID, ok := waCompanionReg.DeviceProps_PlatformType_value[strings.ToUpper("chrome")]
@@ -311,6 +314,18 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 		}
 		version.Patch = w.config.WhatsappVersionPatch
 		if err == nil {
+			store.DeviceProps.Version.Tertiary = proto.Uint32(uint32(version.Patch))
+		}
+	} else {
+		// Try to fetch version from WhatsApp Web
+		webVersion, err := fetchWhatsAppWebVersion()
+		if err != nil {
+			w.loggerWrapper.GetLogger(cd.Instance.Id).LogError("[%s] Failed to fetch WhatsApp Web version: %v", cd.Instance.Id, err)
+		} else {
+			w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] Setting whatsapp version from web to %d.%d.%d", cd.Instance.Id, webVersion.Major, webVersion.Minor, webVersion.Patch)
+			version = *webVersion
+			store.DeviceProps.Version.Primary = proto.Uint32(uint32(version.Major))
+			store.DeviceProps.Version.Secondary = proto.Uint32(uint32(version.Minor))
 			store.DeviceProps.Version.Tertiary = proto.Uint32(uint32(version.Patch))
 		}
 	}
@@ -1727,6 +1742,38 @@ func (w *whatsmeowService) SendToGlobalQueues(eventType string, payload []byte, 
 			}
 		}
 	}
+}
+
+func fetchWhatsAppWebVersion() (*clientVersion, error) {
+	resp, err := http.Get("https://web.whatsapp.com/sw.js")
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch WhatsApp Web version: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %v", err)
+	}
+
+	// Regex to find client_revision
+	re := regexp.MustCompile(`"client_revision":\s*(\d+)`)
+	matches := re.FindStringSubmatch(string(body))
+
+	if len(matches) < 2 {
+		return nil, fmt.Errorf("could not find client revision in the fetched content")
+	}
+
+	clientRevision, err := strconv.Atoi(matches[1])
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse client revision: %v", err)
+	}
+
+	return &clientVersion{
+		Major: 2,
+		Minor: 3000,
+		Patch: clientRevision,
+	}, nil
 }
 
 func NewWhatsmeowService(
