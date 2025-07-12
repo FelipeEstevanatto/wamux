@@ -26,11 +26,12 @@ type websocketProducer struct {
 	loggerWrapper *logger_wrapper.LoggerManager
 }
 
-func NewWebsocketProducer() *websocketProducer {
+func NewWebsocketProducer(loggerWrapper *logger_wrapper.LoggerManager) *websocketProducer {
 	return &websocketProducer{
-		clients:    make(map[string]*websocket.Conn),
-		broadcast:  make([]*websocket.Conn, 0),
-		clientsMux: sync.RWMutex{},
+		clients:       make(map[string]*websocket.Conn),
+		broadcast:     make([]*websocket.Conn, 0),
+		clientsMux:    sync.RWMutex{},
+		loggerWrapper: loggerWrapper,
 	}
 }
 
@@ -130,5 +131,10 @@ func (p *websocketProducer) Produce(queueName string, payload []byte, instanceID
 		}
 	}
 
+	return nil
+}
+
+// CreateGlobalQueues não faz nada para websocket producer
+func (p *websocketProducer) CreateGlobalQueues() error {
 	return nil
 }
