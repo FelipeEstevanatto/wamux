@@ -109,7 +109,17 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	}
 
 	webhookProducer := webhook_producer.NewWebhookProducer(config.WebhookUrl, loggerWrapper)
-	websocketProducer := websocket_producer.NewWebsocketProducer()
+	websocketProducer := websocket_producer.NewWebsocketProducer(loggerWrapper)
+
+	// Cria filas globais se o RabbitMQ global estiver habilitado
+	if config.AmqpGlobalEnabled && conn != nil {
+		logger.LogInfo("Creating global RabbitMQ queues...")
+		if err := rabbitmqProducer.CreateGlobalQueues(); err != nil {
+			logger.LogError("Failed to create global RabbitMQ queues: %v", err)
+		} else {
+			logger.LogInfo("Global RabbitMQ queues created successfully")
+		}
+	}
 
 	var mediaStorage storage_interfaces.MediaStorage
 	var err error

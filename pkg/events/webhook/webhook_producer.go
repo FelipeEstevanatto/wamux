@@ -90,3 +90,8 @@ func (p *webhookProducer) sendWebhook(url string, body []byte, userID string) (e
 
 	return nil, responseBody, resp.StatusCode
 }
+
+// CreateGlobalQueues não faz nada para webhook producer
+func (p *webhookProducer) CreateGlobalQueues() error {
+	return nil
+}

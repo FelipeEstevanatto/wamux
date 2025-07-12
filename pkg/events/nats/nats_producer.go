@@ -27,6 +27,7 @@ func NewNatsProducer(
 			conn:              nil,
 			natsGlobalEnabled: false,
 			natsGlobalEvents:  nil,
+			loggerWrapper:     loggerWrapper,
 		}
 	}
 
@@ -34,6 +35,7 @@ func NewNatsProducer(
 		conn:              conn,
 		natsGlobalEnabled: natsGlobalEnabled,
 		natsGlobalEvents:  natsGlobalEvents,
+		loggerWrapper:     loggerWrapper,
 	}
 }
 
@@ -70,5 +72,10 @@ func (p *natsProducer) Produce(
 		p.loggerWrapper.GetLogger(userID).LogInfo("[%s] Message published successfully to instance subject: %s", userID, queueName)
 	}
 
+	return nil
+}
+
+// CreateGlobalQueues não faz nada para NATS producer pois os subjects são criados dinamicamente
+func (p *natsProducer) CreateGlobalQueues() error {
 	return nil
 }

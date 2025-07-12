@@ -154,3 +154,69 @@ func (p *rabbitMQProducer) Produce(
 
 	return nil
 }
+
+// CreateGlobalQueues cria todas as filas globais no startup da aplicação
+func (p *rabbitMQProducer) CreateGlobalQueues() error {
+	if !p.amqpGlobalEnabled {
+		return nil
+	}
+
+	p.loggerWrapper.GetLogger("system").LogInfo("Creating global queues for enabled events")
+
+	if err := p.ensureConnection(); err != nil {
+		return fmt.Errorf("failed to ensure connection: %v", err)
+	}
+
+	channel, err := p.conn.Channel()
+	if err != nil {
+		return fmt.Errorf("failed to open channel: %v", err)
+	}
+	defer channel.Close()
+
+	args := amqp.Table{
+		"x-queue-type": "quorum",
+		"x-ha-policy":  "all", // Alta disponibilidade
+	}
+
+	// Mapeia eventos globais para os eventos originais que precisam de filas
+	eventMap := map[string][]string{
+		"MESSAGE":       {"message"},
+		"SEND_MESSAGE":  {"sendmessage"},
+		"READ_RECEIPT":  {"receipt"},
+		"PRESENCE":      {"presence"},
+		"HISTORY_SYNC":  {"historysync"},
+		"CHAT_PRESENCE": {"chatpresence", "archive"},
+		"CALL":          {"calloffer", "callaccept", "callterminate", "calloffernotice", "callrelaylatency"},
+		"CONNECTION":    {"connected", "pairsuccess", "temporaryban", "loggedout", "connectfailure", "disconnected"},
+		"LABEL":         {"labeledit", "labelassociationchat", "labelassociationmessage"},
+		"CONTACT":       {"contact", "pushname"},
+		"GROUP":         {"groupinfo", "joinedgroup"},
+		"NEWSLETTER":    {"newsletterjoin", "newsletterleave"},
+		"QRCODE":        {"qrcode", "qrtimeout", "qrsuccess"},
+	}
+
+	createdQueues := 0
+	for _, globalEvent := range p.amqpGlobalEvents {
+		if queueNames, exists := eventMap[globalEvent]; exists {
+			for _, queueName := range queueNames {
+				_, err = channel.QueueDeclare(
+					queueName, // name
+					true,      // durable
+					false,     // delete when unused
+					false,     // exclusive
+					false,     // no-wait
+					args,      // arguments
+				)
+				if err != nil {
+					p.loggerWrapper.GetLogger("system").LogError("Failed to create global queue %s: %v", queueName, err)
+					return fmt.Errorf("failed to create global queue %s: %v", queueName, err)
+				}
+				p.loggerWrapper.GetLogger("system").LogInfo("Global queue created: %s", queueName)
+				createdQueues++
+			}
+		}
+	}
+
+	p.loggerWrapper.GetLogger("system").LogInfo("Successfully created %d global queues", createdQueues)
+	return nil
+}
