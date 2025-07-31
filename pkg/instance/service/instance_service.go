@@ -60,10 +60,11 @@ type ProxyConfig struct {
 }
 
 type CreateStruct struct {
-	InstanceId string       `json:"instanceId"`
-	Name       string       `json:"name"`
-	Token      string       `json:"token"`
-	Proxy      *ProxyConfig `json:"proxy"`
+	InstanceId       string                           `json:"instanceId"`
+	Name             string                           `json:"name"`
+	Token            string                           `json:"token"`
+	Proxy            *ProxyConfig                     `json:"proxy"`
+	AdvancedSettings *instance_model.AdvancedSettings `json:"advancedSettings"`
 }
 
 type ConnectStruct struct {
@@ -161,6 +162,16 @@ func (i instances) Create(data *CreateStruct) (*instance_model.Instance, error) 
 		Proxy:      string(proxyJson),
 		Connected:  false,
 		ClientName: i.config.ClientName,
+	}
+
+	// Set advanced settings if provided
+	if data.AdvancedSettings != nil {
+		instance.AlwaysOnline = data.AdvancedSettings.AlwaysOnline
+		instance.RejectCall = data.AdvancedSettings.RejectCall
+		instance.MsgRejectCall = data.AdvancedSettings.MsgRejectCall
+		instance.ReadMessages = data.AdvancedSettings.ReadMessages
+		instance.IgnoreGroups = data.AdvancedSettings.IgnoreGroups
+		instance.IgnoreStatus = data.AdvancedSettings.IgnoreStatus
 	}
 
 	createdInstance, err := i.instanceRepository.Create(instance)
