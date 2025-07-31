@@ -26,6 +26,8 @@ type InstanceHandler interface {
 	DeleteProxy(ctx *gin.Context)
 	ForceReconnect(ctx *gin.Context)
 	GetLogs(ctx *gin.Context)
+	GetAdvancedSettings(ctx *gin.Context)
+	UpdateAdvancedSettings(ctx *gin.Context)
 }
 
 type instanceHandler struct {
@@ -514,6 +516,73 @@ func (h *instanceHandler) GetLogs(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, logs)
+}
+
+// GetAdvancedSettings retrieves advanced settings for an instance
+// @Summary Get advanced settings
+// @Description Get advanced settings for a specific instance
+// @Tags Instance
+// @Produce json
+// @Param instanceId path string true "Instance ID"
+// @Success 200 {object} instance_model.AdvancedSettings "Advanced settings retrieved successfully"
+// @Failure 400 {object} gin.H "Invalid instance ID"
+// @Failure 404 {object} gin.H "Instance not found"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /instance/{instanceId}/advanced-settings [get]
+func (h *instanceHandler) GetAdvancedSettings(c *gin.Context) {
+	instanceId := c.Param("instanceId")
+
+	if instanceId == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "instanceId is required"})
+		return
+	}
+
+	settings, err := h.instanceService.GetAdvancedSettings(instanceId)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, settings)
+}
+
+// UpdateAdvancedSettings updates advanced settings for an instance
+// @Summary Update advanced settings
+// @Description Update advanced settings for a specific instance
+// @Tags Instance
+// @Accept json
+// @Produce json
+// @Param instanceId path string true "Instance ID"
+// @Param settings body instance_model.AdvancedSettings true "Advanced settings data"
+// @Success 200 {object} gin.H "Advanced settings updated successfully"
+// @Failure 400 {object} gin.H "Invalid request data"
+// @Failure 404 {object} gin.H "Instance not found"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /instance/{instanceId}/advanced-settings [put]
+func (h *instanceHandler) UpdateAdvancedSettings(c *gin.Context) {
+	instanceId := c.Param("instanceId")
+
+	if instanceId == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "instanceId is required"})
+		return
+	}
+
+	var settings instance_model.AdvancedSettings
+	if err := c.ShouldBindJSON(&settings); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	err := h.instanceService.UpdateAdvancedSettings(instanceId, &settings)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":  "Advanced settings updated successfully",
+		"settings": settings,
+	})
 }
 
 func NewInstanceHandler(instanceService instance_service.InstanceService, config *config.Config) InstanceHandler {
