@@ -37,11 +37,11 @@ type instanceHandler struct {
 
 // Create a new instance
 // @Summary Create a new instance
-// @Description Creates a new instance with the provided data
+// @Description Creates a new instance with the provided data including optional advanced settings
 // @Tags Instance
 // @Accept json
 // @Produce json
-// @Param instance body instance_service.CreateStruct true "Instance data"
+// @Param instance body instance_service.CreateStruct true "Instance data with optional advanced settings"
 // @Success 200 {object} gin.H "Instance created successfully"
 // @Failure 400 {object} gin.H "Error on validation"
 // @Failure 500 {object} gin.H "Internal server error"
