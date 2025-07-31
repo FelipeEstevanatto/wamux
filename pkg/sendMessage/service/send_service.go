@@ -1114,7 +1114,7 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 	}
 
 	messageId := client.GenerateMessageID()
-	templateId := string(time.Now().UnixNano() / 1000000)
+	templateId := strconv.FormatInt(time.Now().UnixNano()/1000000, 10)
 	messageParamsJSON := `{"from":"api","templateId":` + templateId + `}`
 
 	var msg *waE2E.Message
@@ -1274,7 +1274,7 @@ func (s *sendService) SendList(data *ListStruct, instance *instance_model.Instan
 
 	messageId := client.GenerateMessageID()
 
-	templateId := string(time.Now().UnixNano() / 1000000)
+	templateId := strconv.FormatInt(time.Now().UnixNano()/1000000, 10)
 
 	messageParamsJSON := `{"from":"api","templateId":` + templateId + `}`
 

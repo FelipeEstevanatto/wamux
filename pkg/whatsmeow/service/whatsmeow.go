@@ -9,13 +9,13 @@ import (
 	"errors"
 	"fmt"
 	"image/png"
+	"io"
 	"math/rand"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
-	"io"
 
 	"golang.org/x/image/webp"
 	"google.golang.org/protobuf/proto"
@@ -1397,7 +1397,7 @@ func (w *whatsmeowService) CallWebhook(instance *instance_model.Instance, queueN
 	} else {
 		for _, arg := range eventArray {
 			if !event_types.IsEventType(arg) {
-				w.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Message type discarded", instance.Id, arg)
+				w.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Message type discarded: %s", instance.Id, arg)
 				continue
 			}
 			if !utils.Find(subscriptions, arg) {
@@ -1572,7 +1572,7 @@ func (w whatsmeowService) StartInstance(instanceId string) error {
 	} else {
 		for _, arg := range eventArray {
 			if !event_types.IsEventType(arg) {
-				w.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Message type discarded", instanceId, arg)
+				w.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Message type discarded: %s", instanceId, arg)
 				continue
 			}
 			if !utils.Find(subscribedEvents, arg) {
