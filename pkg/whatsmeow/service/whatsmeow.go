@@ -1025,6 +1025,17 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		doWebhook = true
 		postMap["event"] = "Message"
 
+		// se readMessages for true ele marca como lida
+		if mycli.Instance.ReadMessages {
+			messageIDs := []string{evt.Info.ID}
+			err := mycli.WAClient.MarkRead(messageIDs, time.Now(), evt.Info.Sender, evt.Info.Sender)
+			if err != nil {
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to auto-mark message as read: %v", mycli.userID, err)
+			} else {
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Auto-marked message as read from %s", mycli.userID, evt.Info.Chat.String())
+			}
+		}
+
 		// se ignoreStatus for true e o chat for broadcast ou o id for broadcast retorna
 		if mycli.Instance.IgnoreStatus && (strings.Contains(evt.Info.Chat.String(), "@broadcast") || strings.Contains(evt.Info.ID, "@broadcast")) {
 			return
