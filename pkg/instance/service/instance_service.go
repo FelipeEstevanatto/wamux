@@ -39,6 +39,8 @@ type InstanceService interface {
 	ForceReconnect(instanceId string, number string) error
 	GetInstanceByToken(token string) (*instance_model.Instance, error)
 	GetLogs(instanceId string, startDate, endDate time.Time, level string, limit int) ([]logger_wrapper.LogEntry, error)
+	GetAdvancedSettings(instanceId string) (*instance_model.AdvancedSettings, error)
+	UpdateAdvancedSettings(instanceId string, settings *instance_model.AdvancedSettings) error
 }
 
 type instances struct {
@@ -204,6 +206,13 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 		return nil, "", "", err
 	}
 
+	// Sincroniza as configurações na instância em execução (se já estiver conectada)
+	err = i.whatsmeowService.UpdateInstanceSettings(instance.Id)
+	if err != nil {
+		i.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Instance not in runtime yet, will be updated when connected", instance.Id)
+		// Não é um erro, a instância pode não estar em execução ainda
+	}
+
 	i.killChannel[instance.Id] = make(chan bool)
 
 	clientData := &whatsmeow_service.ClientData{
@@ -217,7 +226,7 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 		var proxyConfig ProxyConfig
 		err := json.Unmarshal([]byte(instance.Proxy), &proxyConfig)
 		if err != nil {
-			i.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error unmarshalling proxy config", instance.Id, err)
+			i.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error unmarshalling proxy config: %v", instance.Id, err)
 			return nil, "", "", err
 		}
 
@@ -226,7 +235,7 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 		}
 	}
 
-	go i.whatsmeowService.StartClient(clientData, false)
+	go i.whatsmeowService.StartClient(clientData)
 
 	// logger.LogInfo("Waiting 1 seconds")
 	// time.Sleep(1000 * time.Millisecond)
@@ -500,7 +509,7 @@ func (i instances) ForceReconnect(instanceId string, number string) error {
 		var proxyConfig ProxyConfig
 		err := json.Unmarshal([]byte(instance.Proxy), &proxyConfig)
 		if err != nil {
-			i.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error unmarshalling proxy config", instance.Id, err)
+			i.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error unmarshalling proxy config: %v", instance.Id, err)
 			return err
 		}
 
@@ -522,7 +531,7 @@ func (i instances) ForceReconnect(instanceId string, number string) error {
 		delete(i.killChannel, instance.Id)
 	}
 
-	go i.whatsmeowService.StartClient(clientData, false)
+	go i.whatsmeowService.StartClient(clientData)
 
 	time.Sleep(2 * time.Second)
 
@@ -650,6 +659,38 @@ func (i instances) GetLogs(instanceId string, startDate, endDate time.Time, leve
 	})
 
 	return logs, nil
+}
+
+func (i instances) GetAdvancedSettings(instanceId string) (*instance_model.AdvancedSettings, error) {
+	i.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Getting advanced settings", instanceId)
+
+	settings, err := i.instanceRepository.GetAdvancedSettings(instanceId)
+	if err != nil {
+		i.loggerWrapper.GetLogger(instanceId).LogError("[%s] Error getting advanced settings: %v", instanceId, err)
+		return nil, err
+	}
+
+	return settings, nil
+}
+
+func (i instances) UpdateAdvancedSettings(instanceId string, settings *instance_model.AdvancedSettings) error {
+	i.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Updating advanced settings", instanceId)
+
+	err := i.instanceRepository.UpdateAdvancedSettings(instanceId, settings)
+	if err != nil {
+		i.loggerWrapper.GetLogger(instanceId).LogError("[%s] Error updating advanced settings: %v", instanceId, err)
+		return err
+	}
+
+	// Sincroniza as configurações na instância em execução
+	err = i.whatsmeowService.UpdateInstanceAdvancedSettings(instanceId)
+	if err != nil {
+		i.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Error syncing advanced settings to runtime: %v", instanceId, err)
+		// Não falha a operação, apenas loga o warning
+	}
+
+	i.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Advanced settings updated successfully", instanceId)
+	return nil
 }
 
 func NewInstanceService(

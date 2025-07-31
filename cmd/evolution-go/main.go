@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gomessguii/logger"
@@ -77,6 +78,7 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 			conn,
 			config.AmqpGlobalEnabled,
 			config.AmqpGlobalEvents,
+			config.AmqpSpecificEvents,
 			config.AmqpUrl,
 			loggerWrapper,
 		)
@@ -84,6 +86,7 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		rabbitmqProducer = rabbitmq_producer.NewRabbitMQProducer(
 			nil,
 			false,
+			nil,
 			nil,
 			"",
 			loggerWrapper,
@@ -261,12 +264,18 @@ func initPostgresAuthDB(config *config.Config) (*sql.DB, error) {
 		return nil, fmt.Errorf("erro ao conectar ao banco AUTH PostgreSQL: %v", err)
 	}
 
+	// Configurar pool de conexões para evitar conexões ociosas não fechadas
+	db.SetMaxOpenConns(25)                 // Máximo de 25 conexões abertas simultaneamente
+	db.SetMaxIdleConns(5)                  // Máximo de 5 conexões ociosas no pool
+	db.SetConnMaxLifetime(5 * time.Minute) // Reconectar após 5 minutos para evitar timeouts
+	db.SetConnMaxIdleTime(1 * time.Minute) // Fechar conexões ociosas após 1 minuto
+
 	err = db.Ping()
 	if err != nil {
 		return nil, fmt.Errorf("erro ao pingar banco AUTH PostgreSQL: %v", err)
 	}
 
-	logger.LogInfo("Conectado ao banco AUTH PostgreSQL")
+	logger.LogInfo("Conectado ao banco AUTH PostgreSQL com pool configurado")
 	return db, nil
 }
 

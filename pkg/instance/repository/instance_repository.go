@@ -30,6 +30,8 @@ type InstanceRepository interface {
 	GetAllConnectedInstancesByClientName(clientName string) ([]*instance_model.Instance, error)
 	GetAll(clientName string) ([]*instance_model.Instance, error)
 	Delete(instanceId string) error
+	GetAdvancedSettings(instanceId string) (*instance_model.AdvancedSettings, error)
+	UpdateAdvancedSettings(instanceId string, settings *instance_model.AdvancedSettings) error
 }
 
 type instanceRepository struct {
@@ -163,6 +165,55 @@ func (i *instanceRepository) Delete(instanceId string) error {
 
 		return nil
 	})
+}
+
+func (i *instanceRepository) GetAdvancedSettings(instanceId string) (*instance_model.AdvancedSettings, error) {
+	// Valida o formato do UUID
+	if _, err := uuid.Parse(instanceId); err != nil {
+		return nil, fmt.Errorf("invalid UUID format: %v", err)
+	}
+
+	var instance instance_model.Instance
+	err := i.db.Select("always_online, reject_call, msg_reject_call, read_messages, ignore_groups, ignore_status").
+		Where("id = ?", instanceId).First(&instance).Error
+	if err != nil {
+		return nil, err
+	}
+
+	settings := &instance_model.AdvancedSettings{
+		AlwaysOnline:  instance.AlwaysOnline,
+		RejectCall:    instance.RejectCall,
+		MsgRejectCall: instance.MsgRejectCall,
+		ReadMessages:  instance.ReadMessages,
+		IgnoreGroups:  instance.IgnoreGroups,
+		IgnoreStatus:  instance.IgnoreStatus,
+	}
+
+	return settings, nil
+}
+
+func (i *instanceRepository) UpdateAdvancedSettings(instanceId string, settings *instance_model.AdvancedSettings) error {
+	// Valida o formato do UUID
+	if _, err := uuid.Parse(instanceId); err != nil {
+		return fmt.Errorf("invalid UUID format: %v", err)
+	}
+
+	updates := map[string]interface{}{
+		"always_online":   settings.AlwaysOnline,
+		"reject_call":     settings.RejectCall,
+		"msg_reject_call": settings.MsgRejectCall,
+		"read_messages":   settings.ReadMessages,
+		"ignore_groups":   settings.IgnoreGroups,
+		"ignore_status":   settings.IgnoreStatus,
+	}
+
+	err := i.db.Model(&instance_model.Instance{}).Where("id = ?", instanceId).Updates(updates).Error
+	if err != nil {
+		logger.LogError("Error updating advanced settings in DB: %v", err)
+		return err
+	}
+
+	return nil
 }
 
 func NewInstanceRepository(db *gorm.DB) InstanceRepository {
