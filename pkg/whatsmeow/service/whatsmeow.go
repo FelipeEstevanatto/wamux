@@ -48,13 +48,15 @@ import (
 )
 
 type WhatsmeowService interface {
-	StartClient(clientData *ClientData, reconnect bool)
+	StartClient(clientData *ClientData)
 	ConnectOnStartup(clientName string)
 	StartInstance(instanceId string) error
 	ReconnectClient(instanceId string) error
 	CallWebhook(instance *instance_model.Instance, queueName string, jsonData []byte)
 	SendToGlobalQueues(event string, jsonData []byte, userId string)
 	ForceUpdateJid(instanceId string, number string) error
+	UpdateInstanceSettings(instanceId string) error
+	UpdateInstanceAdvancedSettings(instanceId string) error
 }
 
 type clientVersion struct {
@@ -72,6 +74,7 @@ type whatsmeowService struct {
 	killChannel        map[string](chan bool)
 	userInfoCache      *cache.Cache
 	clientPointer      map[string]*whatsmeow.Client
+	myClientPointer    map[string]*MyClient
 	rabbitmqProducer   producer_interfaces.Producer
 	webhookProducer    producer_interfaces.Producer
 	websocketProducer  producer_interfaces.Producer
@@ -110,6 +113,7 @@ type MyClient struct {
 	processedMessages  *cache.Cache
 	natsProducer       producer_interfaces.Producer
 	loggerWrapper      *logger_wrapper.LoggerManager
+	qrcodeCount        int
 }
 
 type ClientData struct {
@@ -139,30 +143,64 @@ type ProxyConfig struct {
 }
 
 func (w whatsmeowService) ReconnectClient(instanceId string) error {
-	w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Reconnecting client", instanceId)
+	w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Starting reconnection process - simulating restart", instanceId)
 
-	err := w.clientPointer[instanceId].Connect()
-	if err != nil {
-		// Verifica se é um erro de autenticação do proxy
-		if strings.Contains(err.Error(), "username/password authentication failed") {
-			w.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Proxy authentication failed, attempting to connect without proxy", instanceId)
+	// Passo 1: Limpar conexão existente se houver
+	if client, exists := w.clientPointer[instanceId]; exists {
+		w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Disconnecting existing client", instanceId)
 
-			// Desabilita o proxy temporariamente
-			w.clientPointer[instanceId].SetProxy(nil)
+		// Desconectar o cliente WebSocket
+		if client.IsConnected() {
+			client.Disconnect()
+			w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] WebSocket disconnected", instanceId)
+		}
 
-			// Tenta conectar sem proxy
-			err = w.clientPointer[instanceId].Connect()
-			if err != nil {
-				return fmt.Errorf("failed to connect with and without proxy: %v", err)
+		// Remover event handler se existir
+		if mycli, ok := w.myClientPointer[instanceId]; ok {
+			if mycli.eventHandlerID != 0 {
+				client.RemoveEventHandler(mycli.eventHandlerID)
+				w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Event handler removed", instanceId)
 			}
-
-			w.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Successfully connected without proxy", instanceId)
-		} else {
-			return fmt.Errorf("error connecting client: %v", err)
 		}
 	}
 
-	return nil
+	// Passo 2: Limpar todos os recursos da instância
+	w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Cleaning up resources", instanceId)
+
+	// Enviar sinal de kill se o canal existir
+	if killChan, exists := w.killChannel[instanceId]; exists {
+		select {
+		case killChan <- true:
+			w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Kill signal sent", instanceId)
+		default:
+			// Canal pode estar bloqueado, continua
+		}
+	}
+
+	// Remover das estruturas
+	delete(w.clientPointer, instanceId)
+	delete(w.myClientPointer, instanceId)
+	delete(w.killChannel, instanceId)
+
+	// Passo 3: Atualizar status no banco
+	instance, err := w.instanceRepository.GetInstanceByID(instanceId)
+	if err != nil {
+		return fmt.Errorf("failed to get instance: %v", err)
+	}
+
+	instance.Connected = false
+	instance.DisconnectReason = "Reconnecting"
+	err = w.instanceRepository.UpdateConnected(instanceId, false, "Reconnecting")
+	if err != nil {
+		w.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Failed to update disconnect status: %v", instanceId, err)
+	}
+
+	// Passo 4: Aguardar um pouco para garantir limpeza completa
+	time.Sleep(2 * time.Second)
+
+	// Passo 5: Iniciar nova instância como se fosse a primeira vez
+	w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Starting fresh instance", instanceId)
+	return w.StartInstance(instanceId)
 }
 
 func (w whatsmeowService) ForceUpdateJid(instanceId string, number string) error {
@@ -228,7 +266,7 @@ func (w whatsmeowService) ForceUpdateJid(instanceId string, number string) error
 	return nil
 }
 
-func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
+func (w whatsmeowService) StartClient(cd *ClientData) {
 
 	w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("Starting websocket connection to Whatsapp for user '%s'", cd.Instance.Id)
 
@@ -378,7 +416,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 		}
 	}
 
-	client.EnableAutoReconnect = true
+	client.EnableAutoReconnect = false
 	client.AutoTrustIdentity = true
 
 	mycli := &MyClient{
@@ -408,9 +446,13 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 		processedMessages:  w.processedMessages,
 		natsProducer:       w.natsProducer,
 		loggerWrapper:      w.loggerWrapper,
+		qrcodeCount:        0,
 	}
 
 	mycli.eventHandlerID = mycli.WAClient.AddEventHandler(mycli.myEventHandler)
+
+	// Armazena o MyClient no map para permitir atualizações posteriores
+	w.myClientPointer[cd.Instance.Id] = mycli
 
 	if client.Store.ID != nil {
 		w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] Already logged in with JID: %s", cd.Instance.Id, client.Store.ID.String())
@@ -482,6 +524,86 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 			for evt := range qrChan {
 				w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] Received QR code event %s", cd.Instance.Id, evt.Event)
 				if evt.Event == "code" {
+					// Incrementar contador de QR codes
+					mycli.qrcodeCount++
+
+					// Log com status do limite
+					if w.config.QrcodeMaxCount > 0 {
+						w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] QR code generated #%d (max: %d)", cd.Instance.Id, mycli.qrcodeCount, w.config.QrcodeMaxCount)
+					} else {
+						w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] QR code generated #%d (limit disabled)", cd.Instance.Id, mycli.qrcodeCount)
+					}
+
+					// Verificar se atingiu o limite máximo (0 = desabilitado)
+					if w.config.QrcodeMaxCount > 0 && mycli.qrcodeCount >= w.config.QrcodeMaxCount {
+						w.loggerWrapper.GetLogger(cd.Instance.Id).LogWarn("[%s] Maximum QR code count reached (%d), forcing logout and QRTimeout", cd.Instance.Id, w.config.QrcodeMaxCount)
+
+						// 1. Forçar logout da instância
+						if mycli.WAClient.IsConnected() {
+							w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] Forcing client logout due to QR limit", cd.Instance.Id)
+							err := mycli.WAClient.Logout(context.Background())
+							if err != nil {
+								w.loggerWrapper.GetLogger(cd.Instance.Id).LogWarn("[%s] Error during forced logout: %v", cd.Instance.Id, err)
+							}
+						}
+
+						// 2. Limpar QR code no banco
+						cd.Instance.Qrcode = ""
+						err := w.instanceRepository.UpdateQrcode(cd.Instance.Id, "")
+						if err != nil {
+							w.loggerWrapper.GetLogger(cd.Instance.Id).LogError("[%s] Error clearing QR code: %v", cd.Instance.Id, err)
+						}
+
+						// 3. Atualizar status da instância como desconectada
+						cd.Instance.Connected = false
+						cd.Instance.DisconnectReason = fmt.Sprintf("QR code limit reached (%d)", w.config.QrcodeMaxCount)
+						err = w.instanceRepository.UpdateConnected(cd.Instance.Id, false, cd.Instance.DisconnectReason)
+						if err != nil {
+							w.loggerWrapper.GetLogger(cd.Instance.Id).LogError("[%s] Error updating instance status: %v", cd.Instance.Id, err)
+						}
+
+						// 4. Limpar recursos
+						w.loggerWrapper.GetLogger(cd.Instance.Id).LogWarn("[%s] Cleaning up resources due to QR limit", cd.Instance.Id)
+						delete(w.clientPointer, cd.Instance.Id)
+						delete(w.myClientPointer, cd.Instance.Id)
+
+						// 5. Enviar sinal de kill
+						if killChan, exists := w.killChannel[cd.Instance.Id]; exists {
+							select {
+							case killChan <- true:
+								w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] Kill signal sent due to QR limit", cd.Instance.Id)
+							default:
+								// Canal pode estar bloqueado
+							}
+							delete(w.killChannel, cd.Instance.Id)
+						}
+
+						// 6. Enviar evento QRTimeout
+						postMap := make(map[string]interface{})
+						postMap["event"] = "QRTimeout"
+						postMap["data"] = map[string]interface{}{
+							"reason":      fmt.Sprintf("Maximum QR code count (%d) reached", w.config.QrcodeMaxCount),
+							"qrcount":     mycli.qrcodeCount,
+							"maxCount":    w.config.QrcodeMaxCount,
+							"forceLogout": true,
+						}
+						postMap["instanceToken"] = mycli.token
+						postMap["instanceId"] = mycli.userID
+						postMap["instanceName"] = cd.Instance.Name
+
+						queueName := strings.ToLower(fmt.Sprintf("%s.%s", cd.Instance.Id, postMap["event"]))
+						values, err := json.Marshal(postMap)
+						if err == nil {
+							go w.CallWebhook(cd.Instance, queueName, values)
+							if mycli.config.AmqpGlobalEnabled || mycli.config.NatsGlobalEnabled {
+								go mycli.service.SendToGlobalQueues(postMap["event"].(string), values, mycli.userID)
+							}
+						}
+
+						w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] QRTimeout event sent due to QR limit enforcement", cd.Instance.Id)
+						return
+					}
+
 					if w.config.LogType != "json" {
 						fmt.Println("QR code:\n", evt.Code)
 					}
@@ -506,6 +628,8 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 
 					dataMap["qrcode"] = base64qrcode
 					dataMap["code"] = evt.Code
+					dataMap["count"] = mycli.qrcodeCount
+					dataMap["maxCount"] = w.config.QrcodeMaxCount
 
 					postMap["data"] = dataMap
 
@@ -540,6 +664,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 
 					w.loggerWrapper.GetLogger(cd.Instance.Id).LogWarn("[%s] QR timeout killing channel", cd.Instance.Id)
 					delete(w.clientPointer, cd.Instance.Id)
+					delete(w.myClientPointer, cd.Instance.Id)
 					w.killChannel[cd.Instance.Id] <- true
 
 					postMap := make(map[string]interface{})
@@ -580,12 +705,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 		}
 	}
 
-	if reconnect {
-		err := w.ReconnectClient(cd.Instance.Id)
-		if err != nil {
-			w.loggerWrapper.GetLogger(cd.Instance.Id).LogError("[%s] Error reconnecting client: %s", cd.Instance.Id, err)
-		}
-	}
+	// Removed auto-reconnect logic to prevent infinite loops
 
 	for {
 		select {
@@ -594,6 +714,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 			client.Disconnect()
 
 			delete(w.clientPointer, cd.Instance.Id)
+			delete(w.myClientPointer, cd.Instance.Id)
 
 			cd.Instance.Connected = false
 
@@ -636,7 +757,7 @@ func (w whatsmeowService) StartClient(cd *ClientData, reconnect bool) {
 
 			// restart client
 			w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] Restarting client", cd.Instance.Id)
-			w.StartClient(cd, false)
+			w.StartClient(cd)
 			return
 		default:
 			time.Sleep(1000 * time.Millisecond)
@@ -676,6 +797,18 @@ func processPresenceUpdates(mycli *MyClient) {
 	location, _ := time.LoadLocation("America/Sao_Paulo")
 	nowSp := now.In(location)
 
+	// Se AlwaysOnline estiver ativado, sempre mantém disponível
+	if mycli.Instance.AlwaysOnline {
+		err := mycli.WAClient.SendPresence(types.PresenceAvailable)
+		if err != nil {
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to set presence as available (AlwaysOnline) %v", mycli.userID, err)
+		} else {
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Keeping presence as available (AlwaysOnline enabled)", mycli.userID)
+		}
+		return
+	}
+
+	// Comportamento normal de presença
 	if nowSp.Hour() >= 1 && nowSp.Hour() < 24 {
 		err := mycli.WAClient.SendPresence(types.PresenceAvailable)
 		if err != nil {
@@ -758,16 +891,26 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 			go schedulePresenceUpdates(mycli)
 
-			err := mycli.WAClient.SendPresence(types.PresenceUnavailable)
-			if err != nil {
-				mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Failed to send unavailable presence %v", mycli.userID, err)
+			// Define presença inicial baseada no AlwaysOnline
+			if mycli.Instance.AlwaysOnline {
+				err := mycli.WAClient.SendPresence(types.PresenceAvailable)
+				if err != nil {
+					mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Failed to send available presence (AlwaysOnline) %v", mycli.userID, err)
+				} else {
+					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Marked self as available (AlwaysOnline enabled)", mycli.userID)
+				}
 			} else {
-				mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Marked self as unavailable", mycli.userID)
+				err := mycli.WAClient.SendPresence(types.PresenceUnavailable)
+				if err != nil {
+					mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Failed to send unavailable presence %v", mycli.userID, err)
+				} else {
+					mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Marked self as unavailable", mycli.userID)
+				}
 			}
 
 			mycli.Instance.Connected = true
 			mycli.Instance.DisconnectReason = ""
-			err = mycli.instanceRepository.UpdateConnected(mycli.Instance.Id, mycli.Instance.Connected, mycli.Instance.DisconnectReason)
+			err := mycli.instanceRepository.UpdateConnected(mycli.Instance.Id, mycli.Instance.Connected, mycli.Instance.DisconnectReason)
 			if err != nil {
 				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Error updating instance: %s", mycli.Instance.Id, err)
 			}
@@ -882,14 +1025,43 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		doWebhook = true
 		postMap["event"] = "Message"
 
-		if mycli.config.EventIgnoreGroup && strings.Contains(evt.Info.Chat.String(), "@g.us") {
-			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Message ignored because it's a group message", mycli.userID)
+		// se ignoreStatus for true e o chat for broadcast ou o id for broadcast retorna
+		if mycli.Instance.IgnoreStatus && (strings.Contains(evt.Info.Chat.String(), "@broadcast") || strings.Contains(evt.Info.ID, "@broadcast")) {
 			return
 		}
 
-		if mycli.config.EventIgnoreStatus && (strings.Contains(evt.Info.Chat.String(), "@broadcast") || strings.Contains(evt.Info.ID, "@broadcast")) {
-			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Message ignored because it's a broadcast message", mycli.userID)
+		// se ignoreGroup for true e o chat for grupo retorna
+		if mycli.Instance.IgnoreGroups && strings.Contains(evt.Info.Chat.String(), "@g.us") {
 			return
+		}
+
+		// Verifica advanced settings para ignorar grupos
+		if (mycli.config.EventIgnoreGroup || mycli.Instance.IgnoreGroups) && strings.Contains(evt.Info.Chat.String(), "@g.us") {
+			return
+		}
+
+		// Verifica advanced settings para ignorar status/broadcast
+		if (mycli.config.EventIgnoreStatus || mycli.Instance.IgnoreStatus) && (strings.Contains(evt.Info.Chat.String(), "@broadcast") || strings.Contains(evt.Info.ID, "@broadcast")) {
+			return
+		}
+
+		// Limpa o Sender ID removendo a parte ":numero" para exibir apenas o remoteJid correto
+		cleanSender := cleanSenderID(evt.Info.Sender.String())
+		if cleanedJID, err := types.ParseJID(cleanSender); err == nil {
+			evt.Info.Sender = cleanedJID
+		}
+
+		// Auto-marca mensagens como lidas se configurado
+		if mycli.Instance.ReadMessages && !evt.Info.IsFromMe {
+			go func() {
+				time.Sleep(1 * time.Second) // Pequeno delay para parecer mais natural
+				err := mycli.WAClient.MarkRead([]types.MessageID{evt.Info.ID}, evt.Info.Timestamp, evt.Info.Chat, evt.Info.Sender)
+				if err != nil {
+					mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to auto-mark message as read: %v", mycli.userID, err)
+				} else {
+					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Auto-marked message as read from %s", mycli.userID, evt.Info.Chat.String())
+				}
+			}()
 		}
 
 		parsedMessageType := utils.GetMessageType(evt.Message)
@@ -1112,6 +1284,11 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		doWebhook = true
 		postMap["event"] = "Receipt"
 
+		// se ignoreGroup for true e o chat for grupo retorna
+		if mycli.Instance.IgnoreGroups && strings.Contains(evt.Chat.String(), "@g.us") {
+			return
+		}
+
 		if mycli.config.EventIgnoreGroup && strings.Contains(evt.Chat.String(), "@g.us") {
 			return
 		}
@@ -1248,6 +1425,32 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	case *events.CallOffer:
 		doWebhook = true
 		postMap["event"] = "CallOffer"
+
+		// Verifica se deve rejeitar chamadas automaticamente
+		if mycli.Instance.RejectCall {
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Auto-rejecting call from %s", mycli.userID, evt.CallCreator.String())
+
+			// Rejeita a chamada
+			mycli.WAClient.RejectCall(evt.CallCreator, evt.CallID)
+
+			// Envia mensagem de rejeição se configurada
+			if mycli.Instance.MsgRejectCall != "" {
+				msg := &waE2E.Message{
+					ExtendedTextMessage: &waE2E.ExtendedTextMessage{
+						Text: &mycli.Instance.MsgRejectCall,
+					},
+				}
+
+				_, err := mycli.WAClient.SendMessage(context.Background(), evt.CallCreator, msg)
+				if err != nil {
+					mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to send reject call message: %v", mycli.userID, err)
+				} else {
+					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Sent reject call message to %s", mycli.userID, evt.CallCreator.String())
+				}
+			}
+			return
+		}
+
 		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Got call offer %+v", mycli.userID, evt)
 	case *events.CallAccept:
 		doWebhook = true
@@ -1604,7 +1807,7 @@ func (w whatsmeowService) StartInstance(instanceId string) error {
 		}
 	}
 
-	go w.StartClient(clientData, true)
+	go w.StartClient(clientData)
 
 	return nil
 }
@@ -1675,65 +1878,120 @@ func getExtensionFromMimeType(mimeType string) string {
 func (w *whatsmeowService) SendToGlobalQueues(eventType string, payload []byte, userId string) {
 	w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Starting sendToGlobalQueues for event: %s", userId, eventType)
 
-	// Mapeia o evento do Whatsmeow para o tipo de evento global
-	var globalEventType string
-	switch eventType {
-	case "Message":
-		globalEventType = "MESSAGE"
-	case "SendMessage":
-		globalEventType = "SEND_MESSAGE"
-	case "Receipt":
-		globalEventType = "READ_RECEIPT"
-	case "Presence":
-		globalEventType = "PRESENCE"
-	case "HistorySync":
-		globalEventType = "HISTORY_SYNC"
-	case "ChatPresence", "Archive":
-		globalEventType = "CHAT_PRESENCE"
-	case "CallOffer", "CallAccept", "CallTerminate", "CallOfferNotice", "CallRelayLatency":
-		globalEventType = "CALL"
-	case "Connected", "PairSuccess", "TemporaryBan", "LoggedOut", "ConnectFailure", "Disconnected":
-		globalEventType = "CONNECTION"
-	case "LabelEdit", "LabelAssociationChat", "LabelAssociationMessage":
-		globalEventType = "LABEL"
-	case "Contact", "PushName":
-		globalEventType = "CONTACT"
-	case "GroupInfo", "JoinedGroup":
-		globalEventType = "GROUP"
-	case "NewsletterJoin", "NewsletterLeave":
-		globalEventType = "NEWSLETTER"
-	case "QRCode", "QRTimeout", "QRSuccess":
-		globalEventType = "QRCODE"
-	default:
-		w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Event %s not mapped to global event type", userId, eventType)
-		return
-	}
+	// AMQP: AMQP_SPECIFIC_EVENTS tem prioridade sobre AMQP_GLOBAL_EVENTS
+	if w.config.AmqpGlobalEnabled {
+		var shouldSendToAmqp bool
+		var amqpQueueName string
 
-	// Verifica se o evento está na lista de eventos globais
-	if w.config.AmqpGlobalEnabled && utils.Find(w.config.AmqpGlobalEvents, globalEventType) {
-		// Nome da fila global usando o evento mapeado
-		queueName := strings.ToLower(eventType)
-		w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Queue name for global event: %s", userId, queueName)
-
-		// Envia para RabbitMQ se estiver habilitado
-		if w.config.AmqpGlobalEnabled {
-			err := w.rabbitmqProducer.Produce(queueName, payload, "global", userId)
-			if err != nil {
-				w.loggerWrapper.GetLogger(userId).LogError("[%s] Failed to send message to RabbitMQ global queue %s: %v", userId, queueName, err)
-			} else {
-				w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Successfully sent message to RabbitMQ global queue %s", userId, queueName)
+		// Se AMQP_SPECIFIC_EVENTS estiver configurada, ela tem prioridade
+		if len(w.config.AmqpSpecificEvents) > 0 {
+			w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Using AMQP_SPECIFIC_EVENTS (priority over AMQP_GLOBAL_EVENTS)", userId)
+			// Verifica se o evento específico está na lista
+			if utils.Find(w.config.AmqpSpecificEvents, eventType) {
+				shouldSendToAmqp = true
+				amqpQueueName = strings.ToLower(eventType)
+				w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Event %s found in AMQP_SPECIFIC_EVENTS", userId, eventType)
 			}
+		} else {
+			// Fallback para AMQP_GLOBAL_EVENTS (modo antigo com grupos de eventos)
+			w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Using AMQP_GLOBAL_EVENTS (fallback mode)", userId)
+
+			// Mapeia o evento do Whatsmeow para o tipo de evento global
+			var globalEventType string
+			switch eventType {
+			case "Message":
+				globalEventType = "MESSAGE"
+			case "SendMessage":
+				globalEventType = "SEND_MESSAGE"
+			case "Receipt":
+				globalEventType = "READ_RECEIPT"
+			case "Presence":
+				globalEventType = "PRESENCE"
+			case "HistorySync":
+				globalEventType = "HISTORY_SYNC"
+			case "ChatPresence", "Archive":
+				globalEventType = "CHAT_PRESENCE"
+			case "CallOffer", "CallAccept", "CallTerminate", "CallOfferNotice", "CallRelayLatency":
+				globalEventType = "CALL"
+			case "Connected", "PairSuccess", "TemporaryBan", "LoggedOut", "ConnectFailure", "Disconnected":
+				globalEventType = "CONNECTION"
+			case "LabelEdit", "LabelAssociationChat", "LabelAssociationMessage":
+				globalEventType = "LABEL"
+			case "Contact", "PushName":
+				globalEventType = "CONTACT"
+			case "GroupInfo", "JoinedGroup":
+				globalEventType = "GROUP"
+			case "NewsletterJoin", "NewsletterLeave":
+				globalEventType = "NEWSLETTER"
+			case "QRCode", "QRTimeout", "QRSuccess":
+				globalEventType = "QRCODE"
+			default:
+				w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Event %s not mapped to global event type", userId, eventType)
+				return
+			}
+
+			// Verifica se o grupo de eventos está na lista
+			if utils.Find(w.config.AmqpGlobalEvents, globalEventType) {
+				shouldSendToAmqp = true
+				amqpQueueName = strings.ToLower(eventType)
+				w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Event group %s found in AMQP_GLOBAL_EVENTS", userId, globalEventType)
+			}
+		}
+
+		// Envia para RabbitMQ se necessário
+		if shouldSendToAmqp {
+			w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Sending to AMQP queue: %s", userId, amqpQueueName)
+			err := w.rabbitmqProducer.Produce(amqpQueueName, payload, "global", userId)
+			if err != nil {
+				w.loggerWrapper.GetLogger(userId).LogError("[%s] Failed to send message to RabbitMQ global queue %s: %v", userId, amqpQueueName, err)
+			} else {
+				w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Successfully sent message to RabbitMQ global queue %s", userId, amqpQueueName)
+			}
+		} else {
+			w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Event %s not configured for AMQP", userId, eventType)
 		}
 	}
 
-	// Verifica se o evento está na lista de eventos globais
-	if w.config.NatsGlobalEnabled && utils.Find(w.config.NatsGlobalEvents, globalEventType) {
-		// Nome da fila global usando o evento mapeado
-		queueName := strings.ToLower(eventType)
-		w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Queue name for global event: %s", userId, queueName)
+	// NATS: Mantém o comportamento original por enquanto (só NATS_GLOBAL_EVENTS)
+	if w.config.NatsGlobalEnabled {
+		// Mapeia o evento para grupo (necessário para NATS por enquanto)
+		var globalEventType string
+		switch eventType {
+		case "Message":
+			globalEventType = "MESSAGE"
+		case "SendMessage":
+			globalEventType = "SEND_MESSAGE"
+		case "Receipt":
+			globalEventType = "READ_RECEIPT"
+		case "Presence":
+			globalEventType = "PRESENCE"
+		case "HistorySync":
+			globalEventType = "HISTORY_SYNC"
+		case "ChatPresence", "Archive":
+			globalEventType = "CHAT_PRESENCE"
+		case "CallOffer", "CallAccept", "CallTerminate", "CallOfferNotice", "CallRelayLatency":
+			globalEventType = "CALL"
+		case "Connected", "PairSuccess", "TemporaryBan", "LoggedOut", "ConnectFailure", "Disconnected":
+			globalEventType = "CONNECTION"
+		case "LabelEdit", "LabelAssociationChat", "LabelAssociationMessage":
+			globalEventType = "LABEL"
+		case "Contact", "PushName":
+			globalEventType = "CONTACT"
+		case "GroupInfo", "JoinedGroup":
+			globalEventType = "GROUP"
+		case "NewsletterJoin", "NewsletterLeave":
+			globalEventType = "NEWSLETTER"
+		case "QRCode", "QRTimeout", "QRSuccess":
+			globalEventType = "QRCODE"
+		default:
+			globalEventType = ""
+		}
 
-		// Envia para NATS se estiver habilitado
-		if w.config.NatsGlobalEnabled && utils.Find(w.config.NatsGlobalEvents, globalEventType) {
+		// Verifica se o evento está na lista de eventos globais NATS
+		if globalEventType != "" && utils.Find(w.config.NatsGlobalEvents, globalEventType) {
+			queueName := strings.ToLower(eventType)
+			w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Sending to NATS subject: %s", userId, queueName)
+
 			err := w.natsProducer.Produce(queueName, payload, "global", userId)
 			if err != nil {
 				w.loggerWrapper.GetLogger(userId).LogError("[%s] Failed to send message to NATS global subject %s: %v", userId, queueName, err)
@@ -1756,24 +2014,117 @@ func fetchWhatsAppWebVersion() (*clientVersion, error) {
 		return nil, fmt.Errorf("failed to read response body: %v", err)
 	}
 
-	// Regex to find client_revision
-	re := regexp.MustCompile(`"client_revision":\s*(\d+)`)
-	matches := re.FindStringSubmatch(string(body))
+	content := string(body)
 
-	if len(matches) < 2 {
-		return nil, fmt.Errorf("could not find client revision in the fetched content")
+	// Múltiplas estratégias para encontrar client_revision
+	patterns := []string{
+		`"client_revision":\s*(\d+)`,              // Formato direto
+		`\\"client_revision\\":\s*(\d+)`,          // Formato escaped
+		`client_revision\\?\\"?:[\s]*(\d+)`,       // Formato mais flexível
+		`["']client_revision["'][\s]*:[\s]*(\d+)`, // Com aspas variadas
 	}
 
-	clientRevision, err := strconv.Atoi(matches[1])
+	for _, pattern := range patterns {
+		re := regexp.MustCompile(pattern)
+		matches := re.FindStringSubmatch(content)
+
+		if len(matches) >= 2 {
+			clientRevision, err := strconv.Atoi(matches[1])
+			if err != nil {
+				continue // Tenta próximo padrão
+			}
+
+			// Log qual padrão funcionou
+			if clientRevision > 0 {
+				return &clientVersion{
+					Major: 2,
+					Minor: 3000,
+					Patch: clientRevision,
+				}, nil
+			}
+		}
+	}
+
+	// Se chegou aqui, nenhum padrão funcionou - log do conteúdo para debug
+	// Mostra apenas uma parte para não logar muito
+	previewLength := 500
+	if len(content) > previewLength {
+		content = content[:previewLength] + "..."
+	}
+
+	return nil, fmt.Errorf("could not find client revision in the fetched content. Content preview: %s", content)
+}
+
+func (w whatsmeowService) UpdateInstanceSettings(instanceId string) error {
+	w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Updating instance settings in runtime", instanceId)
+
+	// Busca a instância atualizada do banco
+	instance, err := w.instanceRepository.GetInstanceByID(instanceId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse client revision: %v", err)
+		w.loggerWrapper.GetLogger(instanceId).LogError("[%s] Error getting instance from DB: %v", instanceId, err)
+		return err
 	}
 
-	return &clientVersion{
-		Major: 2,
-		Minor: 3000,
-		Patch: clientRevision,
-	}, nil
+	// Verifica se o MyClient existe
+	myClient, exists := w.myClientPointer[instanceId]
+	if !exists {
+		w.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] MyClient not found in runtime, instance may not be connected", instanceId)
+		return fmt.Errorf("instance %s not found in runtime", instanceId)
+	}
+
+	// Atualiza as configurações no MyClient em execução
+	myClient.Instance = instance
+	myClient.webhookUrl = instance.Webhook
+	myClient.rabbitmqEnable = instance.RabbitmqEnable
+	myClient.natsEnable = instance.NatsEnable
+	myClient.websocketEnable = instance.WebSocketEnable
+
+	// Atualiza as subscriptions se os eventos mudaram
+	eventArray := strings.Split(instance.Events, ",")
+	var subscribedEvents []string
+
+	if len(eventArray) < 1 {
+		subscribedEvents = append(subscribedEvents, event_types.MESSAGE)
+	} else {
+		for _, arg := range eventArray {
+			if !event_types.IsEventType(arg) {
+				w.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Message type discarded: %s", instanceId, arg)
+				continue
+			}
+			if !utils.Find(subscribedEvents, arg) {
+				subscribedEvents = append(subscribedEvents, arg)
+			}
+		}
+	}
+
+	myClient.subscriptions = subscribedEvents
+
+	w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Instance settings updated in runtime successfully", instanceId)
+	return nil
+}
+
+func (w whatsmeowService) UpdateInstanceAdvancedSettings(instanceId string) error {
+	w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Updating advanced settings in runtime", instanceId)
+
+	// Busca a instância atualizada do banco
+	instance, err := w.instanceRepository.GetInstanceByID(instanceId)
+	if err != nil {
+		w.loggerWrapper.GetLogger(instanceId).LogError("[%s] Error getting instance from DB: %v", instanceId, err)
+		return err
+	}
+
+	// Verifica se o MyClient existe
+	myClient, exists := w.myClientPointer[instanceId]
+	if !exists {
+		w.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] MyClient not found in runtime, instance may not be connected", instanceId)
+		return fmt.Errorf("instance %s not found in runtime", instanceId)
+	}
+
+	// Atualiza a instância no MyClient com as advanced settings atualizadas
+	myClient.Instance = instance
+
+	w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Advanced settings updated in runtime successfully", instanceId)
+	return nil
 }
 
 func NewWhatsmeowService(
@@ -1802,6 +2153,7 @@ func NewWhatsmeowService(
 		killChannel:        killChannel,
 		userInfoCache:      cache.New(5*time.Minute, 10*time.Minute),
 		clientPointer:      clientPointer,
+		myClientPointer:    make(map[string]*MyClient),
 		rabbitmqProducer:   rabbitmqProducer,
 		webhookProducer:    webhookProducer,
 		websocketProducer:  websocketProducer,
@@ -1812,4 +2164,17 @@ func NewWhatsmeowService(
 		natsProducer:       natsProducer,
 		loggerWrapper:      loggerWrapper,
 	}
+}
+
+// cleanSenderID remove a parte ":numero" do sender ID para exibir apenas o remoteJid correto
+// Exemplo: "557499879409:3@s.whatsapp.net" -> "557499879409@s.whatsapp.net"
+func cleanSenderID(senderID string) string {
+	// Procura pelo padrão ":numero" antes do @
+	if colonIndex := strings.Index(senderID, ":"); colonIndex != -1 {
+		if atIndex := strings.Index(senderID, "@"); atIndex != -1 && colonIndex < atIndex {
+			// Remove a parte ":numero" mantendo apenas o número principal e o domínio
+			return senderID[:colonIndex] + senderID[atIndex:]
+		}
+	}
+	return senderID
 }

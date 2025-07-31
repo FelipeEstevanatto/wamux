@@ -22,6 +22,24 @@ type Instance struct {
 	OsName           string `json:"os_name"`
 	Proxy            string `json:"proxy"`
 	ClientName       string `json:"client_name"`
+
+	// Advanced Settings
+	AlwaysOnline  bool   `json:"alwaysOnline" gorm:"default:false"`
+	RejectCall    bool   `json:"rejectCall" gorm:"default:false"`
+	MsgRejectCall string `json:"msgRejectCall" gorm:"default:''"`
+	ReadMessages  bool   `json:"readMessages" gorm:"default:false"`
+	IgnoreGroups  bool   `json:"ignoreGroups" gorm:"default:false"`
+	IgnoreStatus  bool   `json:"ignoreStatus" gorm:"default:false"`
+}
+
+// AdvancedSettings representa as configurações avançadas de uma instância
+type AdvancedSettings struct {
+	AlwaysOnline  bool   `json:"alwaysOnline"`
+	RejectCall    bool   `json:"rejectCall"`
+	MsgRejectCall string `json:"msgRejectCall"`
+	ReadMessages  bool   `json:"readMessages"`
+	IgnoreGroups  bool   `json:"ignoreGroups"`
+	IgnoreStatus  bool   `json:"ignoreStatus"`
 }
 
 func (m *Instance) BeforeCreate(tx *gorm.DB) (err error) {

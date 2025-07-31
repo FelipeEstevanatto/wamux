@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gomessguii/logger"
 	"gorm.io/driver/postgres"
@@ -50,11 +51,13 @@ type Config struct {
 	ProxyUsername        string
 	ProxyPassword        string
 	AmqpGlobalEvents     []string
+	AmqpSpecificEvents   []string
 	NatsUrl              string
 	NatsGlobalEnabled    bool
 	NatsGlobalEvents     []string
 	EventIgnoreGroup     bool
 	EventIgnoreStatus    bool
+	QrcodeMaxCount       int
 
 	// Logger configurations
 	LogMaxSize    int
@@ -80,6 +83,19 @@ func (c *Config) CreateUsersDB() (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Configurar pool de conexões no GORM
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, fmt.Errorf("erro ao obter sql.DB do GORM: %v", err)
+	}
+
+	// Configurar pool de conexões para evitar conexões ociosas não fechadas
+	sqlDB.SetMaxOpenConns(25)                 // Máximo de 25 conexões abertas simultaneamente
+	sqlDB.SetMaxIdleConns(5)                  // Máximo de 5 conexões ociosas no pool
+	sqlDB.SetConnMaxLifetime(5 * time.Minute) // Reconectar após 5 minutos para evitar timeouts
+	sqlDB.SetConnMaxIdleTime(1 * time.Minute) // Fechar conexões ociosas após 1 minuto
+
 	return db, nil
 }
 
@@ -94,6 +110,19 @@ func (c *Config) CreateAuthDB() (*sql.DB, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Configurar pool de conexões para evitar conexões ociosas não fechadas
+	db.SetMaxOpenConns(25)                 // Máximo de 25 conexões abertas simultaneamente
+	db.SetMaxIdleConns(5)                  // Máximo de 5 conexões ociosas no pool
+	db.SetConnMaxLifetime(5 * time.Minute) // Reconectar após 5 minutos para evitar timeouts
+	db.SetConnMaxIdleTime(1 * time.Minute) // Fechar conexões ociosas após 1 minuto
+
+	// Testar a conexão
+	err = db.Ping()
+	if err != nil {
+		return nil, fmt.Errorf("erro ao testar conexão PostgreSQL AUTH: %v", err)
+	}
+
 	return db, nil
 }
 
@@ -155,6 +184,7 @@ func Load() *Config {
 
 	eventIgnoreGroup := os.Getenv(config_env.EVENT_IGNORE_GROUP)
 	eventIgnoreStatus := os.Getenv(config_env.EVENT_IGNORE_STATUS)
+	qrcodeMaxCount := os.Getenv(config_env.QRCODE_MAX_COUNT)
 
 	// Convertendo para int com valores padrão caso estejam vazios
 	major := 0
@@ -170,9 +200,19 @@ func Load() *Config {
 		patch, _ = strconv.Atoi(whatsappVersionPatch)
 	}
 
+	qrMaxCount := 5 // Valor padrão
+	if qrcodeMaxCount != "" {
+		qrMaxCount, _ = strconv.Atoi(qrcodeMaxCount)
+	}
+
 	amqpGlobalEvents := strings.Split(os.Getenv(config_env.AMQP_GLOBAL_EVENTS), ",")
 	if len(amqpGlobalEvents) == 1 && amqpGlobalEvents[0] == "" {
 		amqpGlobalEvents = []string{}
+	}
+
+	amqpSpecificEvents := strings.Split(os.Getenv(config_env.AMQP_SPECIFIC_EVENTS), ",")
+	if len(amqpSpecificEvents) == 1 && amqpSpecificEvents[0] == "" {
+		amqpSpecificEvents = []string{}
 	}
 
 	natsUrl := os.Getenv(config_env.NATS_URL)
@@ -238,7 +278,9 @@ func Load() *Config {
 		ProxyPassword:        proxyPassword,
 		EventIgnoreGroup:     eventIgnoreGroup == "true",
 		EventIgnoreStatus:    eventIgnoreStatus == "true",
+		QrcodeMaxCount:       qrMaxCount,
 		AmqpGlobalEvents:     amqpGlobalEvents,
+		AmqpSpecificEvents:   amqpSpecificEvents,
 		NatsUrl:              natsUrl,
 		NatsGlobalEnabled:    natsGlobalEnabled == "true",
 		NatsGlobalEvents:     natsGlobalEvents,
