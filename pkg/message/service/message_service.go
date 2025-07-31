@@ -41,9 +41,11 @@ type messageService struct {
 }
 
 type ReactStruct struct {
-	Number   string `json:"number"`
-	Reaction string `json:"reaction"`
-	Id       string `json:"id"`
+	Number      string `json:"number"`
+	Reaction    string `json:"reaction"`
+	Id          string `json:"id"`
+	FromMe      bool   `json:"fromMe"`
+	Participant string `json:"participant,omitempty"`
 }
 
 type ChatPresenceStruct struct {
@@ -142,25 +144,32 @@ func (m *messageService) React(data *ReactStruct, instance *instance_model.Insta
 		msgId = data.Id
 	}
 
-	fromMe := false
-	if strings.HasPrefix(msgId, "me:") {
-		fromMe = true
-		msgId = msgId[len("me:"):]
-	}
+	fromMe := data.FromMe
 	reaction := data.Reaction
 	if reaction == "remove" {
 		reaction = ""
 	}
 
+	// Create MessageKey
+	messageKey := &waCommon.MessageKey{
+		RemoteJID: proto.String(recipient.String()),
+		FromMe:    proto.Bool(fromMe),
+		ID:        proto.String(msgId),
+	}
+
+	// Add participant if provided (for group messages)
+	if data.Participant != "" {
+		participantJID, ok := utils.ParseJID(data.Participant)
+		if ok {
+			messageKey.Participant = proto.String(participantJID.String())
+		}
+	}
+
 	msg := &waE2E.Message{
 		ReactionMessage: &waE2E.ReactionMessage{
-			Key: &waCommon.MessageKey{
-				RemoteJID: proto.String(recipient.String()),
-				FromMe:    proto.Bool(fromMe),
-				ID:        proto.String(msgId),
-			},
-			Text:              proto.String(reaction),
-			GroupingKey:       proto.String(reaction),
+			Key:  messageKey,
+			Text: proto.String(reaction),
+			// GroupingKey:       proto.String(reaction),
 			SenderTimestampMS: proto.Int64(time.Now().UnixMilli()),
 		},
 	}

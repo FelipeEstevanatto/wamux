@@ -24,11 +24,11 @@ type messageHandler struct {
 
 // React a message
 // @Summary React a message
-// @Description React a message
+// @Description React to a message with support for fromMe field and participant field for group messages
 // @Tags Message
 // @Accept json
 // @Produce json
-// @Param message body message_service.ReactStruct true "React a message"
+// @Param message body message_service.ReactStruct true "React to a message with fromMe and participant fields"
 // @Success 200 {object} gin.H "success"
 // @Failure 400 {object} gin.H "Error on validation"
 // @Failure 500 {object} gin.H "Internal server error"
