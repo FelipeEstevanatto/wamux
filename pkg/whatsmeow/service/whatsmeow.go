@@ -28,7 +28,6 @@ import (
 	"go.mau.fi/whatsmeow/proto/waCompanionReg"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/store"
-	"go.mau.fi/whatsmeow/store/sqlstore"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 	waLog "go.mau.fi/whatsmeow/util/log"
@@ -45,6 +44,7 @@ import (
 	message_repository "github.com/EvolutionAPI/evolution-go/pkg/message/repository"
 	storage_interfaces "github.com/EvolutionAPI/evolution-go/pkg/storage/interfaces"
 	"github.com/EvolutionAPI/evolution-go/pkg/utils"
+	"github.com/EvolutionAPI/evolution-go/pkg/whatsmeow/sqlstore"
 )
 
 type WhatsmeowService interface {
@@ -797,18 +797,6 @@ func processPresenceUpdates(mycli *MyClient) {
 	location, _ := time.LoadLocation("America/Sao_Paulo")
 	nowSp := now.In(location)
 
-	// Se AlwaysOnline estiver ativado, sempre mantém disponível
-	if mycli.Instance.AlwaysOnline {
-		err := mycli.WAClient.SendPresence(types.PresenceAvailable)
-		if err != nil {
-			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to set presence as available (AlwaysOnline) %v", mycli.userID, err)
-		} else {
-			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Keeping presence as available (AlwaysOnline enabled)", mycli.userID)
-		}
-		return
-	}
-
-	// Comportamento normal de presença
 	if nowSp.Hour() >= 1 && nowSp.Hour() < 24 {
 		err := mycli.WAClient.SendPresence(types.PresenceAvailable)
 		if err != nil {
@@ -891,26 +879,16 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 			go schedulePresenceUpdates(mycli)
 
-			// Define presença inicial baseada no AlwaysOnline
-			if mycli.Instance.AlwaysOnline {
-				err := mycli.WAClient.SendPresence(types.PresenceAvailable)
-				if err != nil {
-					mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Failed to send available presence (AlwaysOnline) %v", mycli.userID, err)
-				} else {
-					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Marked self as available (AlwaysOnline enabled)", mycli.userID)
-				}
+			err := mycli.WAClient.SendPresence(types.PresenceUnavailable)
+			if err != nil {
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Failed to send unavailable presence %v", mycli.userID, err)
 			} else {
-				err := mycli.WAClient.SendPresence(types.PresenceUnavailable)
-				if err != nil {
-					mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Failed to send unavailable presence %v", mycli.userID, err)
-				} else {
-					mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Marked self as unavailable", mycli.userID)
-				}
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Marked self as unavailable", mycli.userID)
 			}
 
 			mycli.Instance.Connected = true
 			mycli.Instance.DisconnectReason = ""
-			err := mycli.instanceRepository.UpdateConnected(mycli.Instance.Id, mycli.Instance.Connected, mycli.Instance.DisconnectReason)
+			err = mycli.instanceRepository.UpdateConnected(mycli.Instance.Id, mycli.Instance.Connected, mycli.Instance.DisconnectReason)
 			if err != nil {
 				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Error updating instance: %s", mycli.Instance.Id, err)
 			}
@@ -1060,6 +1038,11 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		cleanSender := cleanSenderID(evt.Info.Sender.String())
 		if cleanedJID, err := types.ParseJID(cleanSender); err == nil {
 			evt.Info.Sender = cleanedJID
+		}
+
+		cleanSenderAlt := cleanSenderID(evt.Info.SenderAlt.String())
+		if cleanedLID, err := types.ParseJID(cleanSenderAlt); err == nil {
+			evt.Info.SenderAlt = cleanedLID
 		}
 
 		// Auto-marca mensagens como lidas se configurado
