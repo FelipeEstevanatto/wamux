@@ -55,6 +55,7 @@ type User struct {
 	Query        string
 	IsInWhatsapp bool
 	JID          string
+	LID          *string
 	VerifiedName string
 }
 
@@ -178,11 +179,29 @@ func (u *userService) CheckUser(data *CheckUserStruct, instance *instance_model.
 
 	uc := new(CheckUserCollection)
 	for _, item := range resp {
+		var lidStr *string
+		if item.LID != nil {
+			lid := fmt.Sprintf("%v", *item.LID)
+			lidStr = &lid
+		}
+
 		if item.VerifiedName != nil {
-			var msg = User{Query: item.Query, IsInWhatsapp: item.IsIn, JID: fmt.Sprintf("%v", item.JID), VerifiedName: item.VerifiedName.Details.GetVerifiedName()}
+			var msg = User{
+				Query:        item.Query,
+				IsInWhatsapp: item.IsIn,
+				JID:          fmt.Sprintf("%v", item.JID),
+				LID:          lidStr,
+				VerifiedName: item.VerifiedName.Details.GetVerifiedName(),
+			}
 			uc.Users = append(uc.Users, msg)
 		} else {
-			var msg = User{Query: item.Query, IsInWhatsapp: item.IsIn, JID: fmt.Sprintf("%v", item.JID), VerifiedName: ""}
+			var msg = User{
+				Query:        item.Query,
+				IsInWhatsapp: item.IsIn,
+				JID:          fmt.Sprintf("%v", item.JID),
+				LID:          lidStr,
+				VerifiedName: "",
+			}
 			uc.Users = append(uc.Users, msg)
 		}
 	}
