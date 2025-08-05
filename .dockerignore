@@ -1,0 +1,27 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+docs/
+
+# Logs
+logs/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+server
+
+# Keep these important files/folders:
+# - whatsmeow/ (nossa versão local modificada)
+# - go.mod, go.sum (dependências)
+# - pkg/, cmd/ (código fonte)
+# - .env (configurações)
