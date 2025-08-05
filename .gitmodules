@@ -1,4 +1,0 @@
-[submodule "whatsmeow"]
-	path = whatsmeow
-	url = https://github.com/EvolutionAPI/whatsmeow.git
-	branch = main

@@ -22,7 +22,7 @@ require (
 	github.com/swaggo/swag v1.16.3
 	github.com/vincent-petithory/dataurl v1.0.0
 	go.mau.fi/util v0.8.8
-	go.mau.fi/whatsmeow v0.0.0-20250804131721-a126cda83acc
+	go.mau.fi/whatsmeow v0.0.0-20250805094724-a2272061b926
 	golang.org/x/exp v0.0.0-20250711185948-6ae5c78190dc
 	golang.org/x/image v0.0.0-20211028202545-6944b10bf410
 	golang.org/x/net v0.42.0
@@ -94,5 +94,3 @@ require (
 	modernc.org/strutil v1.2.0 // indirect
 	modernc.org/token v1.1.0 // indirect
 )
-
-replace go.mau.fi/whatsmeow => ./whatsmeow
