@@ -47,8 +47,16 @@ type ContactInfo struct {
 	BusinessName string `json:"BusinessName"`
 }
 
+type UserInfo struct {
+	VerifiedName *types.VerifiedName
+	Status       string
+	PictureID    string
+	Devices      []types.JID
+	LID          *string // The local ID (if available)
+}
+
 type UserCollection struct {
-	Users map[types.JID]types.UserInfo
+	Users map[types.JID]UserInfo
 }
 
 type User struct {
@@ -157,9 +165,26 @@ func (u *userService) GetUser(data *CheckUserStruct, instance *instance_model.In
 	}
 
 	uc := new(UserCollection)
-	uc.Users = make(map[types.JID]types.UserInfo)
+	uc.Users = make(map[types.JID]UserInfo)
 
-	for jid, info := range resp {
+	for jid, whatsmeowInfo := range resp {
+		// Consultar LID Store para obter LID associado ao JID
+		var lidStr *string
+		if client.Store.LIDs != nil {
+			if lid, err := client.Store.LIDs.GetLIDForPN(context.TODO(), jid); err == nil && !lid.IsEmpty() {
+				lidString := fmt.Sprintf("%v", lid)
+				lidStr = &lidString
+			}
+		}
+
+		// Converter para nossa estrutura UserInfo que inclui LID
+		info := UserInfo{
+			VerifiedName: whatsmeowInfo.VerifiedName,
+			Status:       whatsmeowInfo.Status,
+			PictureID:    whatsmeowInfo.PictureID,
+			Devices:      whatsmeowInfo.Devices,
+			LID:          lidStr,
+		}
 		uc.Users[jid] = info
 	}
 
@@ -179,10 +204,13 @@ func (u *userService) CheckUser(data *CheckUserStruct, instance *instance_model.
 
 	uc := new(CheckUserCollection)
 	for _, item := range resp {
+		// Consultar LID Store para obter LID associado ao JID
 		var lidStr *string
-		if item.LID != nil {
-			lid := fmt.Sprintf("%v", *item.LID)
-			lidStr = &lid
+		if client.Store.LIDs != nil {
+			if lid, err := client.Store.LIDs.GetLIDForPN(context.TODO(), item.JID); err == nil && !lid.IsEmpty() {
+				lidString := fmt.Sprintf("%v", lid)
+				lidStr = &lidString
+			}
 		}
 
 		if item.VerifiedName != nil {
