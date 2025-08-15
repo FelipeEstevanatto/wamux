@@ -2,6 +2,7 @@ package rabbitmq_producer
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -42,16 +43,75 @@ func NewRabbitMQProducer(
 	return producer
 }
 
+// maskConnectionString masks sensitive information in the connection string for logging
+func (p *rabbitMQProducer) maskConnectionString(connStr string) string {
+	if connStr == "" {
+		return "empty"
+	}
+
+	parsedURL, err := url.Parse(connStr)
+	if err != nil {
+		return "invalid-url"
+	}
+
+	// Mask password if present
+	if parsedURL.User != nil {
+		if _, hasPassword := parsedURL.User.Password(); hasPassword {
+			parsedURL.User = url.UserPassword(parsedURL.User.Username(), "***")
+		}
+	}
+
+	return parsedURL.String()
+}
+
+// handleConnectionClose monitors connection close events and logs them
+func (p *rabbitMQProducer) handleConnectionClose() {
+	if p.conn == nil {
+		return
+	}
+
+	closeChan := make(chan *amqp.Error)
+	p.conn.NotifyClose(closeChan)
+
+	closeErr := <-closeChan
+	if closeErr != nil {
+		logger.LogWarn("RabbitMQ connection closed unexpectedly: %v", closeErr)
+		logger.LogInfo("Connection will be re-established on next message send")
+	} else {
+		logger.LogInfo("RabbitMQ connection closed gracefully")
+	}
+}
+
 func (p *rabbitMQProducer) reconnect() error {
+	if p.connStr == "" {
+		return fmt.Errorf("connection string is empty - RabbitMQ URL not configured")
+	}
+
+	logger.LogInfo("Starting RabbitMQ reconnection process with URL: %s", p.maskConnectionString(p.connStr))
+
 	var err error
 	for i := 0; i < 3; i++ {
 		logger.LogInfo("Tentando reconectar ao RabbitMQ (tentativa %d/3)", i+1)
-		p.conn, err = amqp.Dial(p.connStr)
+
+		// Create connection with heartbeat to prevent timeouts
+		config := amqp.Config{
+			Heartbeat: 30 * time.Second, // Send heartbeat every 30 seconds
+			Locale:    "en_US",
+		}
+
+		p.conn, err = amqp.DialConfig(p.connStr, config)
 		if err == nil {
-			logger.LogInfo("Reconectado com sucesso ao RabbitMQ")
+			logger.LogInfo("Reconectado com sucesso ao RabbitMQ com heartbeat de 30s")
+
+			// Set up connection close notification
+			go p.handleConnectionClose()
 			return nil
 		}
-		time.Sleep(time.Second * 2)
+
+		logger.LogError("Falha na tentativa %d/3 de reconexão: %v", i+1, err)
+		if i < 2 { // Don't sleep on the last attempt
+			time.Sleep(time.Second * 2)
+		}
 	}
 	return fmt.Errorf("falha ao reconectar após 3 tentativas: %v", err)
 }
@@ -115,7 +175,12 @@ func (p *rabbitMQProducer) Produce(
 ) error {
 	p.loggerWrapper.GetLogger(userID).LogInfo("[%s] RabbitMQ Producer - Starting produce for queue: %s", userID, queueName)
 
+	if p.connStr == "" {
+		return fmt.Errorf("RabbitMQ connection string is empty - check AMQP_URL configuration")
+	}
+
 	if err := p.ensureConnection(); err != nil {
+		p.loggerWrapper.GetLogger(userID).LogError("[%s] Failed to ensure RabbitMQ connection: %v", userID, err)
 		return fmt.Errorf("falha ao garantir conexão: %v", err)
 	}
 
