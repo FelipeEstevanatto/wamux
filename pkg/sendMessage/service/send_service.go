@@ -481,7 +481,40 @@ func convertAudioWithApi(apiUrl string, apiKey string, convertData ConvertAudio)
 }
 
 func convertAudioToOpusWithDuration(inputData []byte) ([]byte, int, error) {
-	cmd := exec.Command("ffmpeg", "-i", "pipe:0", "-ac", "1", "-ar", "16000", "-c:a", "libopus", "-f", "ogg", "pipe:1")
+	cmd := exec.Command("ffmpeg", "-i", "pipe:0",
+		"-f",
+		"ogg",
+		"-vn",
+		"-c:a",
+		"libopus",
+		"-avoid_negative_ts",
+		"make_zero",
+		"-b:a",
+		"128k",
+		"-ar",
+		"48000",
+		"-ac",
+		"1",
+		"-write_xing",
+		"0",
+		"-compression_level",
+		"10",
+		"-application",
+		"voip",
+		"-fflags",
+		"+bitexact",
+		"-flags",
+		"+bitexact",
+		"-id3v2_version",
+		"0",
+		"-map_metadata",
+		"-1",
+		"-map_chapters",
+		"-1",
+		"-write_bext",
+		"0",
+		"pipe:1",
+	)
 
 	var outBuffer bytes.Buffer
 	var errBuffer bytes.Buffer
@@ -505,10 +538,8 @@ func convertAudioToOpusWithDuration(inputData []byte) ([]byte, int, error) {
 		return nil, 0, errors.New("duração não encontrada")
 	}
 
-	// Use the last occurrence of time information (most recent/final)
-	timeIndex := len(splitTime) - 1
 	re := regexp.MustCompile(`(\d+):(\d+):(\d+\.\d+)`)
-	matches := re.FindStringSubmatch(string(splitTime[timeIndex]))
+	matches := re.FindStringSubmatch(string(splitTime[2]))
 	if len(matches) != 4 {
 		return nil, 0, errors.New("formato de duração não encontrado")
 	}
@@ -1114,7 +1145,7 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 	}
 
 	messageId := client.GenerateMessageID()
-	templateId := strconv.FormatInt(time.Now().UnixNano()/1000000, 10)
+	templateId := string(time.Now().UnixNano() / 1000000)
 	messageParamsJSON := `{"from":"api","templateId":` + templateId + `}`
 
 	var msg *waE2E.Message
@@ -1274,7 +1305,7 @@ func (s *sendService) SendList(data *ListStruct, instance *instance_model.Instan
 
 	messageId := client.GenerateMessageID()
 
-	templateId := strconv.FormatInt(time.Now().UnixNano()/1000000, 10)
+	templateId := string(time.Now().UnixNano() / 1000000)
 
 	messageParamsJSON := `{"from":"api","templateId":` + templateId + `}`
 

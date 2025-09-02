@@ -83,12 +83,13 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 			loggerWrapper,
 		)
 	} else {
+		// Even if initial connection failed, pass the URL so reconnection can work
 		rabbitmqProducer = rabbitmq_producer.NewRabbitMQProducer(
 			nil,
-			false,
-			nil,
-			nil,
-			"",
+			config.AmqpGlobalEnabled,
+			config.AmqpGlobalEvents,
+			config.AmqpSpecificEvents,
+			config.AmqpUrl, // Keep the URL for reconnection attempts
 			loggerWrapper,
 		)
 	}
@@ -357,10 +358,20 @@ func main() {
 	var conn *amqp.Connection
 
 	if config.AmqpUrl != "" {
-		conn, err = amqp.Dial(config.AmqpUrl)
+		logger.LogInfo("Attempting to connect to RabbitMQ...")
+
+		// Create connection with heartbeat to prevent timeouts
+		amqpConfig := amqp.Config{
+			Heartbeat: 30 * time.Second, // Send heartbeat every 30 seconds
+			Locale:    "en_US",
+		}
+
+		conn, err = amqp.DialConfig(config.AmqpUrl, amqpConfig)
 		if err != nil {
 			logger.LogError("Failed to connect to RabbitMQ, err: %v", err)
+			logger.LogInfo("RabbitMQ producer will be created with reconnection capability")
 		} else {
+			logger.LogInfo("Successfully connected to RabbitMQ with heartbeat enabled")
 			defer func(conn *amqp.Connection) {
 				err := conn.Close()
 				if err != nil {
@@ -368,6 +379,8 @@ func main() {
 				}
 			}(conn)
 		}
+	} else {
+		logger.LogInfo("RabbitMQ URL not configured, skipping RabbitMQ connection")
 	}
 
 	r := setupRouter(db, authDB, sqliteDB, config, conn, exPath)

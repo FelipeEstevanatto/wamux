@@ -3,6 +3,7 @@ package config
 import (
 	"database/sql"
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -166,6 +167,12 @@ func Load() *Config {
 	osName := os.Getenv(config_env.OS_NAME)
 
 	amqpUrl := os.Getenv(config_env.AMQP_URL)
+	
+	// Validate AMQP URL format
+	if err := validateAMQPURL(amqpUrl); err != nil {
+		logger.LogFatal("[CONFIG] AMQP URL validation failed: %v", err)
+	}
+	
 	amqpGlobalEnabled := os.Getenv(config_env.AMQP_GLOBAL_ENABLED)
 
 	webhookUrl := os.Getenv(config_env.WEBHOOK_URL)
@@ -332,4 +339,30 @@ func panicIfEmpty(key, value string) {
 		}
 		logger.LogFatal("[CONFIG] variable %s must be set", key)
 	}
+}
+
+// validateAMQPURL validates if the AMQP URL has the correct scheme and format
+func validateAMQPURL(amqpURL string) error {
+	if amqpURL == "" {
+		return nil // Empty URL is allowed (RabbitMQ disabled)
+	}
+
+	// Parse the URL
+	parsedURL, err := url.Parse(amqpURL)
+	if err != nil {
+		return fmt.Errorf("invalid AMQP URL format: %v", err)
+	}
+
+	// Check if scheme is valid
+	if parsedURL.Scheme != "amqp" && parsedURL.Scheme != "amqps" {
+		return fmt.Errorf("AMQP scheme must be either 'amqp://' or 'amqps://', got: '%s://'", parsedURL.Scheme)
+	}
+
+	// Check if host is present
+	if parsedURL.Host == "" {
+		return fmt.Errorf("AMQP URL must include a host")
+	}
+
+	logger.LogInfo("[CONFIG] AMQP URL validation successful: %s://%s", parsedURL.Scheme, parsedURL.Host)
+	return nil
 }
