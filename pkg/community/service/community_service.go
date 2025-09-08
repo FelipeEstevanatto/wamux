@@ -1,6 +1,7 @@
 package community_service
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -79,7 +80,7 @@ func (c *communityService) CreateCommunity(data *CreateCommunityStruct, instance
 		return nil, err
 	}
 
-	resp, err := client.CreateGroup(whatsmeow.ReqCreateGroup{
+	resp, err := client.CreateGroup(context.Background(), whatsmeow.ReqCreateGroup{
 		Name: data.CommunityName,
 		GroupParent: types.GroupParent{
 			IsParent: true,

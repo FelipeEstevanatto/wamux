@@ -1,6 +1,7 @@
 package group_service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -302,7 +303,7 @@ func (g *groupService) CreateGroup(data *CreateGroupStruct, instance *instance_m
 		}
 	}
 
-	resp, err := client.CreateGroup(whatsmeow.ReqCreateGroup{
+	resp, err := client.CreateGroup(context.Background(), whatsmeow.ReqCreateGroup{
 		Name:         data.GroupName,
 		Participants: participants,
 	})
