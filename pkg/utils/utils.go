@@ -46,72 +46,57 @@ func Find(slice []string, val string) bool {
 	return false
 }
 
-func ParseJID(arg string) (whatsmeow_types.JID, bool) {
-	if arg == "" {
-		return whatsmeow_types.NewJID("", whatsmeow_types.DefaultUserServer), false
+// CreateJID creates a properly formatted WhatsApp JID from a number string
+// This function matches the TypeScript createJid functionality with enhanced validation
+func CreateJID(number string) (string, error) {
+	if number == "" {
+		return "", fmt.Errorf("number cannot be empty")
 	}
 
-	// Limpa o número primeiro
-	number := arg
-	number = strings.ReplaceAll(number, " ", "")
-	number = strings.ReplaceAll(number, "(", "")
-	number = strings.ReplaceAll(number, ")", "")
+	// Remove timestamp suffix if present
+	// number = strings.Split(number, ":")[0]
 
-	// Remove o + inicial se existir
-	if number[0] == '+' {
-		number = number[1:]
-	}
-
-	// Verifica se é um grupo pelo formato original
-	containsHyphen := strings.Contains(number, "-")
-	endsWithTag := strings.HasSuffix(number, "g.us")
-
-	if containsHyphen && endsWithTag {
-		recipient, _ := whatsmeow_types.ParseJID(number)
-		return recipient, true
-	}
-
-	// Verifica formatos completos de JID
-	// if strings.Contains(number, "@g.us") || strings.Contains(number, "@s.whatsapp.net") ||
-	// 	strings.Contains(number, "@lid") || strings.Contains(number, "@broadcast") {
+	// Check if already a valid JID format
 	if strings.Contains(number, "@g.us") ||
+		strings.Contains(number, "@s.whatsapp.net") ||
 		strings.Contains(number, "@lid") ||
 		strings.Contains(number, "@broadcast") {
-		recipient, err := whatsmeow_types.ParseJID(number)
-		if err != nil {
-			logger.LogWarn("Invalid jid: %s", number)
-			return recipient, false
-		}
-		return recipient, true
+		return number, nil
 	}
 
-	if strings.Contains(number, "@s.whatsapp.net") && !strings.Contains(number, ":") {
-		number = strings.Split(number, "@")[0]
-	} else if strings.Contains(number, "@s.whatsapp.net") && strings.Contains(number, ":") {
-		recipient, err := whatsmeow_types.ParseJID(number)
-		if err != nil {
-			logger.LogWarn("Invalid jid: %s", number)
-			return recipient, false
-		}
-		return recipient, true
-	}
-
-	// Limpa o número para processamento
+	// Clean the number
+	number = strings.ReplaceAll(number, " ", "")
+	number = strings.ReplaceAll(number, "+", "")
+	number = strings.ReplaceAll(number, "(", "")
+	number = strings.ReplaceAll(number, ")", "")
 	number = strings.Split(number, ":")[0]
 	number = strings.Split(number, "@")[0]
 
-	// Verifica se é um grupo pelo tamanho
+	// Check if it's a group by hyphen and length
 	if strings.Contains(number, "-") && len(number) >= 24 {
+		// Remove non-digit and non-hyphen characters
 		groupID := strings.Map(func(r rune) rune {
 			if (r >= '0' && r <= '9') || r == '-' {
 				return r
 			}
 			return -1
 		}, number)
-		return whatsmeow_types.NewJID(groupID, "g.us"), true
+		return groupID + "@g.us", nil
 	}
 
-	// Remove todos os caracteres não numéricos
+	// Check if it's a group by length (18+ digits)
+	if len(number) >= 18 {
+		// Remove non-digit and non-hyphen characters
+		groupID := strings.Map(func(r rune) rune {
+			if (r >= '0' && r <= '9') || r == '-' {
+				return r
+			}
+			return -1
+		}, number)
+		return groupID + "@g.us", nil
+	}
+
+	// Remove all non-numeric characters for phone numbers
 	number = strings.Map(func(r rune) rune {
 		if r >= '0' && r <= '9' {
 			return r
@@ -119,52 +104,100 @@ func ParseJID(arg string) (whatsmeow_types.JID, bool) {
 		return -1
 	}, number)
 
-	// Verifica se é um número válido
 	if number == "" {
-		logger.LogWarn("Bad jid format, return empty")
-		recipient, _ := whatsmeow_types.ParseJID("")
+		return "", fmt.Errorf("invalid number format")
+	}
+
+	// Format MX (52) or AR (54) numbers
+	number = formatMXOrARNumber(number)
+
+	// Format BR (55) numbers
+	number = formatBRNumber(number)
+
+	return number + "@s.whatsapp.net", nil
+}
+
+// formatMXOrARNumber formats Mexican (52) or Argentine (54) numbers
+func formatMXOrARNumber(jid string) string {
+	if len(jid) < 2 {
+		return jid
+	}
+
+	countryCode := jid[:2]
+
+	// Check if it's MX (52) or AR (54)
+	if countryCode == "52" || countryCode == "54" {
+		if len(jid) == 13 {
+			// Remove the extra digit (usually the 1 after country code)
+			return countryCode + jid[3:]
+		}
+	}
+
+	return jid
+}
+
+// formatBRNumber formats Brazilian (55) numbers according to the mobile number rules
+func formatBRNumber(jid string) string {
+	if len(jid) != 13 || !strings.HasPrefix(jid, "55") {
+		return jid
+	}
+
+	// Extract DDD (area code)
+	ddd := jid[2:4]
+
+	// Convert DDD to integer for validation
+	dddNum, err := strconv.Atoi(ddd)
+	if err != nil {
+		return jid
+	}
+
+	// Extract the first digit after DDD
+	if len(jid) < 6 {
+		return jid
+	}
+
+	firstDigit := jid[4:5]
+	firstDigitNum, err := strconv.Atoi(firstDigit)
+	if err != nil {
+		return jid
+	}
+
+	// Check if it's a mobile number (9 prefix) and DDD >= 31
+	if firstDigitNum < 7 || dddNum < 31 {
+		// Keep the number as is (landline or special case)
+		return jid
+	}
+
+	// Remove the 9 prefix for mobile numbers with DDD >= 31
+	return jid[:4] + jid[5:]
+}
+
+// ParseJID parses a number string into a WhatsApp JID with validation
+func ParseJID(arg string) (whatsmeow_types.JID, bool) {
+	if arg == "" {
+		return whatsmeow_types.NewJID("", whatsmeow_types.DefaultUserServer), false
+	}
+
+	// Use CreateJID for consistent formatting
+	jidString, err := CreateJID(arg)
+	if err != nil {
+		logger.LogWarn("Failed to create JID: %s", err.Error())
+		return whatsmeow_types.NewJID("", whatsmeow_types.DefaultUserServer), false
+	}
+
+	// Parse the formatted JID
+	recipient, err := whatsmeow_types.ParseJID(jidString)
+	if err != nil {
+		logger.LogWarn("Invalid JID: %s", err.Error())
 		return recipient, false
 	}
 
-	if len(number) == 13 && strings.HasPrefix(number, "55") {
-		// Extrai o DDD
-		ddd := number[2:4]
-
-		// Converte o DDD para inteiro
-		dddNum, err := strconv.Atoi(ddd)
-		if err != nil {
-			// Retorna número inválido em caso de erro na conversão
-			return whatsmeow_types.NewJID(number, whatsmeow_types.DefaultUserServer), false
-		}
-
-		// Verifica se o DDD é menor que 31
-		if dddNum < 31 {
-			// Retorna o número como válido
-			return whatsmeow_types.NewJID(number, whatsmeow_types.DefaultUserServer), true
-		}
-
-		// Extrai partes do número (DDI e restante)
-		ddi := number[0:2]
-		numberEnd := number[5:]
-
-		// Remove o '9' adicional após o DDD
-		number = ddi + ddd + numberEnd
+	if recipient.User == "" && !strings.Contains(jidString, "@broadcast") {
+		logger.LogError("Invalid JID. No user specified: %s", jidString)
+		return recipient, false
 	}
 
-	// Retorna o JID formatado
-	if !strings.ContainsRune(number, '@') {
-		return whatsmeow_types.NewJID(number, whatsmeow_types.DefaultUserServer), true
-	} else {
-		recipient, err := whatsmeow_types.ParseJID(number)
-		if err != nil {
-			logger.LogWarn("Invalid jid: %s", number)
-			return recipient, false
-		} else if recipient.User == "" {
-			logger.LogError("Invalid jid. No user specified: %s", number)
-			return recipient, false
-		}
-		return recipient, true
-	}
+	return recipient, true
 }
 
 func CreateHTTPProxy(httpHost, httpPort, user, password string) (func(*http.Request) (*url.URL, error), error) {
