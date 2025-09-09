@@ -21,18 +21,19 @@ import (
 )
 
 type Routes struct {
-	authMiddleware    auth_middleware.Middleware
-	instanceHandler   instance_handler.InstanceHandler
-	userHandler       user_handler.UserHandler
-	sendHandler       send_handler.SendHandler
-	messageHandler    message_handler.MessageHandler
-	chatHandler       chat_handler.ChatHandler
-	groupHandler      group_handler.GroupHandler
-	callHandler       call_handler.CallHandler
-	communityHandler  community_handler.CommunityHandler
-	labelHandler      label_handler.LabelHandler
-	newsletterHandler newsletter_handler.NewsletterHandler
-	serverHandler     server_handler.ServerHandler
+	authMiddleware          auth_middleware.Middleware
+	jidValidationMiddleware *auth_middleware.JIDValidationMiddleware
+	instanceHandler         instance_handler.InstanceHandler
+	userHandler             user_handler.UserHandler
+	sendHandler             send_handler.SendHandler
+	messageHandler          message_handler.MessageHandler
+	chatHandler             chat_handler.ChatHandler
+	groupHandler            group_handler.GroupHandler
+	callHandler             call_handler.CallHandler
+	communityHandler        community_handler.CommunityHandler
+	labelHandler            label_handler.LabelHandler
+	newsletterHandler       newsletter_handler.NewsletterHandler
+	serverHandler           server_handler.ServerHandler
 }
 
 func (r *Routes) AssignRoutes(eng *gin.Engine) {
@@ -77,7 +78,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.POST("/connect", r.instanceHandler.Connect)
 			routes.GET("/status", r.instanceHandler.Status)
 			routes.GET("/qr", r.instanceHandler.Qr)
-			routes.POST("/pair", r.instanceHandler.Pair)
+			routes.POST("/pair", r.jidValidationMiddleware.ValidateNumberField(), r.instanceHandler.Pair)
 			routes.POST("/disconnect", r.instanceHandler.Disconnect)
 			routes.POST("/reconnect", r.instanceHandler.Reconnect)
 			routes.DELETE("/logout", r.instanceHandler.Logout)
@@ -90,15 +91,15 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 	{
 		routes.Use(r.authMiddleware.Auth)
 		{
-			routes.POST("/text", r.sendHandler.SendText)
-			routes.POST("/link", r.sendHandler.SendLink)
-			routes.POST("/media", r.sendHandler.SendMedia)
-			routes.POST("/poll", r.sendHandler.SendPoll)
-			routes.POST("/sticker", r.sendHandler.SendSticker)
-			routes.POST("/location", r.sendHandler.SendLocation)
-			routes.POST("/contact", r.sendHandler.SendContact) // TODO: send multiple contacts
-			routes.POST("/button", r.sendHandler.SendButton)
-			routes.POST("/list", r.sendHandler.SendList)
+			routes.POST("/text", r.jidValidationMiddleware.ValidateNumberField(), r.sendHandler.SendText)
+			routes.POST("/link", r.jidValidationMiddleware.ValidateNumberField(), r.sendHandler.SendLink)
+			routes.POST("/media", r.jidValidationMiddleware.ValidateNumberField(), r.sendHandler.SendMedia)
+			routes.POST("/poll", r.jidValidationMiddleware.ValidateNumberField(), r.sendHandler.SendPoll)
+			routes.POST("/sticker", r.jidValidationMiddleware.ValidateNumberField(), r.sendHandler.SendSticker)
+			routes.POST("/location", r.jidValidationMiddleware.ValidateNumberField(), r.sendHandler.SendLocation)
+			routes.POST("/contact", r.jidValidationMiddleware.ValidateContactFields(), r.sendHandler.SendContact) // TODO: send multiple contacts
+			routes.POST("/button", r.jidValidationMiddleware.ValidateNumberField(), r.sendHandler.SendButton)
+			routes.POST("/list", r.jidValidationMiddleware.ValidateNumberField(), r.sendHandler.SendList)
 			// TODO: send status
 		}
 	}
@@ -106,14 +107,14 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 	{
 		routes.Use(r.authMiddleware.Auth)
 		{
-			routes.POST("/info", r.userHandler.GetUser)
-			routes.POST("/check", r.userHandler.CheckUser)
-			routes.POST("/avatar", r.userHandler.GetAvatar)
+			routes.POST("/info", r.jidValidationMiddleware.ValidateNumberField(), r.userHandler.GetUser)
+			routes.POST("/check", r.jidValidationMiddleware.ValidateNumberField(), r.userHandler.CheckUser)
+			routes.POST("/avatar", r.jidValidationMiddleware.ValidateNumberField(), r.userHandler.GetAvatar)
 			routes.GET("/contacts", r.userHandler.GetContacts)
 			routes.GET("/privacy", r.userHandler.GetPrivacy)
 			routes.POST("/privacy", r.userHandler.SetPrivacy)
-			routes.POST("/block", r.userHandler.BlockContact)
-			routes.POST("/unblock", r.userHandler.UnblockContact)
+			routes.POST("/block", r.jidValidationMiddleware.ValidateNumberField(), r.userHandler.BlockContact)
+			routes.POST("/unblock", r.jidValidationMiddleware.ValidateNumberField(), r.userHandler.UnblockContact)
 			routes.GET("/blocklist", r.userHandler.GetBlockList)
 			routes.POST("/profilePicture", r.userHandler.SetProfilePicture)
 			routes.POST("/profileName", r.userHandler.SetProfileName)
@@ -124,25 +125,25 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 	{
 		routes.Use(r.authMiddleware.Auth)
 		{
-			routes.POST("/react", r.messageHandler.React)
-			routes.POST("/presence", r.messageHandler.ChatPresence)
-			routes.POST("/markread", r.messageHandler.MarkRead)
+			routes.POST("/react", r.jidValidationMiddleware.ValidateJIDFields("number"), r.messageHandler.React)
+			routes.POST("/presence", r.jidValidationMiddleware.ValidateNumberField(), r.messageHandler.ChatPresence)
+			routes.POST("/markread", r.jidValidationMiddleware.ValidateNumberField(), r.messageHandler.MarkRead)
 			routes.POST("/downloadmedia", r.messageHandler.DownloadMedia)
 			routes.POST("/status", r.messageHandler.GetMessageStatus)
-			routes.POST("/delete", r.messageHandler.DeleteMessageEveryone)
-			routes.POST("/edit", r.messageHandler.EditMessage) // TODO: edit MediaMessage too
+			routes.POST("/delete", r.jidValidationMiddleware.ValidateNumberField(), r.messageHandler.DeleteMessageEveryone)
+			routes.POST("/edit", r.jidValidationMiddleware.ValidateNumberField(), r.messageHandler.EditMessage) // TODO: edit MediaMessage too
 		}
 	}
 	routes = eng.Group("/chat")
 	{
 		routes.Use(r.authMiddleware.Auth)
 		{
-			routes.POST("/pin", r.chatHandler.ChatPin)             // TODO: not working
-			routes.POST("/unpin", r.chatHandler.ChatUnpin)         // TODO: not working
-			routes.POST("/archive", r.chatHandler.ChatArchive)     // TODO: not working
-			routes.POST("/unarchive", r.chatHandler.ChatUnarchive) // TODO: not working
-			routes.POST("/mute", r.chatHandler.ChatMute)           // TODO: not working
-			routes.POST("/unmute", r.chatHandler.ChatUnmute)       // TODO: not working
+			routes.POST("/pin", r.jidValidationMiddleware.ValidateNumberField(), r.chatHandler.ChatPin)             // TODO: not working
+			routes.POST("/unpin", r.jidValidationMiddleware.ValidateNumberField(), r.chatHandler.ChatUnpin)         // TODO: not working
+			routes.POST("/archive", r.jidValidationMiddleware.ValidateNumberField(), r.chatHandler.ChatArchive)     // TODO: not working
+			routes.POST("/unarchive", r.jidValidationMiddleware.ValidateNumberField(), r.chatHandler.ChatUnarchive) // TODO: not working
+			routes.POST("/mute", r.jidValidationMiddleware.ValidateNumberField(), r.chatHandler.ChatMute)           // TODO: not working
+			routes.POST("/unmute", r.jidValidationMiddleware.ValidateNumberField(), r.chatHandler.ChatUnmute)       // TODO: not working
 			routes.POST("/history-sync", r.chatHandler.HistorySyncRequest)
 		}
 	}
@@ -151,23 +152,23 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 		routes.Use(r.authMiddleware.Auth)
 		{
 			routes.GET("/list", r.groupHandler.ListGroups)
-			routes.POST("/info", r.groupHandler.GetGroupInfo)
-			routes.POST("/invitelink", r.groupHandler.GetGroupInviteLink)
-			routes.POST("/photo", r.groupHandler.SetGroupPhoto)
-			routes.POST("/name", r.groupHandler.SetGroupName)
-			routes.POST("/description", r.groupHandler.SetGroupDescription)
-			routes.POST("/create", r.groupHandler.CreateGroup)
-			routes.POST("/participant", r.groupHandler.UpdateParticipant)
+			routes.POST("/info", r.jidValidationMiddleware.ValidateNumberField(), r.groupHandler.GetGroupInfo)
+			routes.POST("/invitelink", r.jidValidationMiddleware.ValidateNumberField(), r.groupHandler.GetGroupInviteLink)
+			routes.POST("/photo", r.jidValidationMiddleware.ValidateNumberField(), r.groupHandler.SetGroupPhoto)
+			routes.POST("/name", r.jidValidationMiddleware.ValidateNumberField(), r.groupHandler.SetGroupName)
+			routes.POST("/description", r.jidValidationMiddleware.ValidateNumberField(), r.groupHandler.SetGroupDescription)
+			routes.POST("/create", r.jidValidationMiddleware.ValidateMultipleNumbers("participants"), r.groupHandler.CreateGroup)
+			routes.POST("/participant", r.jidValidationMiddleware.ValidateJIDFields("number", "participants"), r.groupHandler.UpdateParticipant)
 			routes.GET("/myall", r.groupHandler.GetMyGroups) // TODO: not working
 			routes.POST("/join", r.groupHandler.JoinGroupLink)
-			routes.POST("/leave", r.groupHandler.LeaveGroup)
+			routes.POST("/leave", r.jidValidationMiddleware.ValidateNumberField(), r.groupHandler.LeaveGroup)
 		}
 	}
 	routes = eng.Group("/call")
 	{
 		routes.Use(r.authMiddleware.Auth)
 		{
-			routes.POST("/reject", r.callHandler.RejectCall)
+			routes.POST("/reject", r.jidValidationMiddleware.ValidateNumberField(), r.callHandler.RejectCall)
 		}
 	}
 	routes = eng.Group("/community")
@@ -175,15 +176,15 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 		routes.Use(r.authMiddleware.Auth)
 		{
 			routes.POST("/create", r.communityHandler.CreateCommunity)
-			routes.POST("/add", r.communityHandler.CommunityAdd)
-			routes.POST("/remove", r.communityHandler.CommunityRemove)
+			routes.POST("/add", r.jidValidationMiddleware.ValidateJIDFields("number", "communityId"), r.communityHandler.CommunityAdd)
+			routes.POST("/remove", r.jidValidationMiddleware.ValidateJIDFields("number", "communityId"), r.communityHandler.CommunityRemove)
 		}
 	}
 	routes = eng.Group("/label")
 	{
 		routes.Use(r.authMiddleware.Auth)
 		{
-			routes.POST("/chat", r.labelHandler.ChatLabel)
+			routes.POST("/chat", r.jidValidationMiddleware.ValidateNumberField(), r.labelHandler.ChatLabel)
 			routes.POST("/message", r.labelHandler.MessageLabel)
 			routes.POST("/edit", r.labelHandler.EditLabel)
 			routes.GET("/list", r.labelHandler.GetLabels)
@@ -193,7 +194,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 	{
 		routes.Use(r.authMiddleware.Auth)
 		{
-			routes.POST("/chat", r.labelHandler.ChatUnlabel)
+			routes.POST("/chat", r.jidValidationMiddleware.ValidateNumberField(), r.labelHandler.ChatUnlabel)
 			routes.POST("/message", r.labelHandler.MessageUnlabel)
 		}
 	}
@@ -203,10 +204,10 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 		{
 			routes.POST("/create", r.newsletterHandler.CreateNewsletter)
 			routes.GET("/list", r.newsletterHandler.ListNewsletter)
-			routes.POST("/info", r.newsletterHandler.GetNewsletter)
-			routes.POST("/link", r.newsletterHandler.GetNewsletterInvite)
-			routes.POST("/subscribe", r.newsletterHandler.SubscribeNewsletter)
-			routes.POST("/messages", r.newsletterHandler.GetNewsletterMessages)
+			routes.POST("/info", r.jidValidationMiddleware.ValidateJIDFields("newsletterId"), r.newsletterHandler.GetNewsletter)
+			routes.POST("/link", r.jidValidationMiddleware.ValidateJIDFields("newsletterId"), r.newsletterHandler.GetNewsletterInvite)
+			routes.POST("/subscribe", r.jidValidationMiddleware.ValidateJIDFields("newsletterId"), r.newsletterHandler.SubscribeNewsletter)
+			routes.POST("/messages", r.jidValidationMiddleware.ValidateJIDFields("newsletterId"), r.newsletterHandler.GetNewsletterMessages)
 		}
 	}
 
@@ -227,17 +228,18 @@ func NewRouter(
 	serverHandler server_handler.ServerHandler,
 ) *Routes {
 	return &Routes{
-		authMiddleware:    authMiddleware,
-		instanceHandler:   instanceHandler,
-		userHandler:       userHandler,
-		sendHandler:       sendHandler,
-		messageHandler:    messageHandler,
-		chatHandler:       chatHandler,
-		groupHandler:      groupHandler,
-		callHandler:       callHandler,
-		communityHandler:  communityHandler,
-		labelHandler:      labelHandler,
-		newsletterHandler: newsletterHandler,
-		serverHandler:     serverHandler,
+		authMiddleware:          authMiddleware,
+		jidValidationMiddleware: auth_middleware.NewJIDValidationMiddleware(),
+		instanceHandler:         instanceHandler,
+		userHandler:             userHandler,
+		sendHandler:             sendHandler,
+		messageHandler:          messageHandler,
+		chatHandler:             chatHandler,
+		groupHandler:            groupHandler,
+		callHandler:             callHandler,
+		communityHandler:        communityHandler,
+		labelHandler:            labelHandler,
+		newsletterHandler:       newsletterHandler,
+		serverHandler:           serverHandler,
 	}
 }

@@ -59,6 +59,7 @@ type Config struct {
 	EventIgnoreGroup     bool
 	EventIgnoreStatus    bool
 	QrcodeMaxCount       int
+	CheckUserExists      bool
 
 	// Logger configurations
 	LogMaxSize    int
@@ -167,12 +168,12 @@ func Load() *Config {
 	osName := os.Getenv(config_env.OS_NAME)
 
 	amqpUrl := os.Getenv(config_env.AMQP_URL)
-	
+
 	// Validate AMQP URL format
 	if err := validateAMQPURL(amqpUrl); err != nil {
 		logger.LogFatal("[CONFIG] AMQP URL validation failed: %v", err)
 	}
-	
+
 	amqpGlobalEnabled := os.Getenv(config_env.AMQP_GLOBAL_ENABLED)
 
 	webhookUrl := os.Getenv(config_env.WEBHOOK_URL)
@@ -192,6 +193,11 @@ func Load() *Config {
 	eventIgnoreGroup := os.Getenv(config_env.EVENT_IGNORE_GROUP)
 	eventIgnoreStatus := os.Getenv(config_env.EVENT_IGNORE_STATUS)
 	qrcodeMaxCount := os.Getenv(config_env.QRCODE_MAX_COUNT)
+	checkUserExists := os.Getenv(config_env.CHECK_USER_EXISTS)
+
+	if checkUserExists == "" {
+		checkUserExists = "true"
+	}
 
 	// Convertendo para int com valores padrão caso estejam vazios
 	major := 0
@@ -286,6 +292,7 @@ func Load() *Config {
 		EventIgnoreGroup:     eventIgnoreGroup == "true",
 		EventIgnoreStatus:    eventIgnoreStatus == "true",
 		QrcodeMaxCount:       qrMaxCount,
+		CheckUserExists:      checkUserExists != "false", // Default true, set to false to disable
 		AmqpGlobalEvents:     amqpGlobalEvents,
 		AmqpSpecificEvents:   amqpSpecificEvents,
 		NatsUrl:              natsUrl,
