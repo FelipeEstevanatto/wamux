@@ -1164,7 +1164,27 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			video := evt.Message.GetVideoMessage()
 			sticker := evt.Message.GetStickerMessage()
 
-			if img != nil || audio != nil || document != nil || video != nil || sticker != nil {
+			// Check for associated child messages (like media in replies)
+			var associatedImg *waE2E.ImageMessage
+			var associatedAudio *waE2E.AudioMessage
+			var associatedDocument *waE2E.DocumentMessage
+			var associatedVideo *waE2E.VideoMessage
+			var associatedSticker *waE2E.StickerMessage
+
+			if evt.Message.GetAssociatedChildMessage() != nil {
+				childMsg := evt.Message.GetAssociatedChildMessage().GetMessage()
+				if childMsg != nil {
+					associatedImg = childMsg.GetImageMessage()
+					associatedAudio = childMsg.GetAudioMessage()
+					associatedDocument = childMsg.GetDocumentMessage()
+					associatedVideo = childMsg.GetVideoMessage()
+					associatedSticker = childMsg.GetStickerMessage()
+				}
+			}
+
+			if img != nil || audio != nil || document != nil || video != nil || sticker != nil ||
+				associatedImg != nil || associatedAudio != nil || associatedDocument != nil ||
+				associatedVideo != nil || associatedSticker != nil {
 				isMedia = true
 			}
 
@@ -1174,6 +1194,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 				var extension string
 				var mimeType string
 
+				// Handle regular media messages
 				if img != nil {
 					data, err = mycli.WAClient.Download(context.Background(), img)
 					extension = ".jpg"
@@ -1194,6 +1215,48 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 					data, err = mycli.WAClient.Download(context.Background(), sticker)
 					extension = ".png"
 					mimeType = "image/png"
+
+					webpReader := bytes.NewReader(data)
+					img, err := webp.Decode(webpReader)
+					if err != nil {
+						mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to decode webp image: %v", mycli.userID, err)
+						return
+					}
+
+					var pngBuffer bytes.Buffer
+					err = png.Encode(&pngBuffer, img)
+					if err != nil {
+						mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to encode png image: %v", mycli.userID, err)
+						return
+					}
+
+					data = pngBuffer.Bytes()
+					// Handle associated child media messages
+				} else if associatedImg != nil {
+					data, err = mycli.WAClient.Download(context.Background(), associatedImg)
+					extension = ".jpg"
+					mimeType = "image/jpeg"
+					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Processing associated child image message", mycli.userID)
+				} else if associatedAudio != nil {
+					data, err = mycli.WAClient.Download(context.Background(), associatedAudio)
+					extension = ".ogg"
+					mimeType = "audio/ogg"
+					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Processing associated child audio message", mycli.userID)
+				} else if associatedDocument != nil {
+					data, err = mycli.WAClient.Download(context.Background(), associatedDocument)
+					extension = getExtensionFromMimeType(associatedDocument.GetMimetype())
+					mimeType = associatedDocument.GetMimetype()
+					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Processing associated child document message", mycli.userID)
+				} else if associatedVideo != nil {
+					data, err = mycli.WAClient.Download(context.Background(), associatedVideo)
+					extension = ".mp4"
+					mimeType = "video/mp4"
+					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Processing associated child video message", mycli.userID)
+				} else if associatedSticker != nil {
+					data, err = mycli.WAClient.Download(context.Background(), associatedSticker)
+					extension = ".png"
+					mimeType = "image/png"
+					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Processing associated child sticker message", mycli.userID)
 
 					webpReader := bytes.NewReader(data)
 					img, err := webp.Decode(webpReader)
