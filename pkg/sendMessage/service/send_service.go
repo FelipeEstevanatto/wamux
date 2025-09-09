@@ -264,6 +264,56 @@ func validateMessageFields(phone string, messageID *string, participant *string)
 	return recipient, nil
 }
 
+// validateAndCheckUserExists validates message fields and checks if the user exists on WhatsApp
+func (s *sendService) validateAndCheckUserExists(phone string, messageID *string, participant *string, instance *instance_model.Instance) (types.JID, error) {
+	// First validate the basic message fields
+	recipient, err := validateMessageFields(phone, messageID, participant)
+	if err != nil {
+		return recipient, err
+	}
+
+	// Skip WhatsApp check if disabled in config
+	if !s.config.CheckUserExists {
+		s.loggerWrapper.GetLogger(instance.Id).LogDebug("[%s] User existence check disabled by configuration", instance.Id)
+		return recipient, nil
+	}
+
+	// Skip WhatsApp check for group messages, broadcast, and LID
+	if strings.Contains(phone, "@g.us") || strings.Contains(phone, "@broadcast") || strings.Contains(phone, "@lid") {
+		return recipient, nil
+	}
+
+	// Get the client to check if user exists on WhatsApp
+	client, err := s.ensureClientConnected(instance.Id)
+	if err != nil {
+		return recipient, fmt.Errorf("failed to connect client: %v", err)
+	}
+
+	// Extract the phone number without the @s.whatsapp.net suffix for the check
+	phoneNumber := strings.Split(phone, "@")[0]
+
+	// Check if the number exists on WhatsApp
+	resp, err := client.IsOnWhatsApp([]string{phoneNumber})
+	if err != nil {
+		s.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Failed to check if number %s exists on WhatsApp: %v", instance.Id, phoneNumber, err)
+		// Continue with sending even if check fails (network issues, etc.)
+		return recipient, nil
+	}
+
+	// Verify if the number was found
+	if len(resp) == 0 {
+		return recipient, fmt.Errorf("number %s not found on WhatsApp", phoneNumber)
+	}
+
+	// Check if the first result indicates the number is on WhatsApp
+	if !resp[0].IsIn {
+		return recipient, fmt.Errorf("number %s is not registered on WhatsApp", phoneNumber)
+	}
+
+	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Number %s verified as valid WhatsApp user", instance.Id, phoneNumber)
+	return recipient, nil
+}
+
 func findURL(text string) string {
 	urlRegex := `http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+`
 	re := regexp.MustCompile(urlRegex)
@@ -1145,7 +1195,7 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 	}
 
 	messageId := client.GenerateMessageID()
-	templateId := string(time.Now().UnixNano() / 1000000)
+	templateId := strconv.FormatInt(time.Now().UnixNano()/1000000, 10)
 	messageParamsJSON := `{"from":"api","templateId":` + templateId + `}`
 
 	var msg *waE2E.Message
@@ -1190,9 +1240,9 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 		}}
 	}
 
-	recipient, err := validateMessageFields(data.Number, &data.Quoted.MessageID, &data.Quoted.MessageID)
+	recipient, err := s.validateAndCheckUserExists(data.Number, &data.Quoted.MessageID, &data.Quoted.MessageID, instance)
 	if err != nil {
-		s.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields: %v", instance.Id, err)
+		s.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields or user check: %v", instance.Id, err)
 		return nil, err
 	}
 
@@ -1305,7 +1355,7 @@ func (s *sendService) SendList(data *ListStruct, instance *instance_model.Instan
 
 	messageId := client.GenerateMessageID()
 
-	templateId := string(time.Now().UnixNano() / 1000000)
+	templateId := strconv.FormatInt(time.Now().UnixNano()/1000000, 10)
 
 	messageParamsJSON := `{"from":"api","templateId":` + templateId + `}`
 
@@ -1348,9 +1398,9 @@ func (s *sendService) SendList(data *ListStruct, instance *instance_model.Instan
 		},
 	}}
 
-	recipient, err := validateMessageFields(data.Number, &data.Quoted.MessageID, &data.Quoted.MessageID)
+	recipient, err := s.validateAndCheckUserExists(data.Number, &data.Quoted.MessageID, &data.Quoted.MessageID, instance)
 	if err != nil {
-		s.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields: %v", instance.Id, err)
+		s.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields or user check: %v", instance.Id, err)
 		return nil, err
 	}
 
@@ -1400,9 +1450,9 @@ func (s *sendService) SendList(data *ListStruct, instance *instance_model.Instan
 }
 
 func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.Message, messageType string, data *SendDataStruct) (*MessageSendStruct, error) {
-	recipient, err := validateMessageFields(data.Number, &data.Quoted.MessageID, &data.Quoted.MessageID)
+	recipient, err := s.validateAndCheckUserExists(data.Number, &data.Quoted.MessageID, &data.Quoted.MessageID, instance)
 	if err != nil {
-		s.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields: %v", instance.Id, err)
+		s.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields or user check: %v", instance.Id, err)
 		return nil, err
 	}
 
@@ -1747,37 +1797,5 @@ func NewSendService(
 		whatsmeowService: whatsmeowService,
 		config:           config,
 		loggerWrapper:    loggerWrapper,
-	}
-}
-
-func getExtensionFromMimeType(mimeType string) string {
-	switch mimeType {
-	case "image/jpeg":
-		return ".jpg"
-	case "image/png":
-		return ".png"
-	case "image/webp":
-		return ".webp"
-	case "video/mp4":
-		return ".mp4"
-	case "audio/ogg":
-		return ".ogg"
-	case "audio/mpeg":
-		return ".mp3"
-	case "application/pdf":
-		return ".pdf"
-	case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-		return ".docx"
-	case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
-		return ".xlsx"
-	case "application/vnd.openxmlformats-officedocument.presentationml.presentation":
-		return ".pptx"
-	default:
-		// Se não encontrar um tipo conhecido, extrai a extensão do mimetype
-		parts := strings.Split(mimeType, "/")
-		if len(parts) > 1 {
-			return "." + parts[1]
-		}
-		return ".bin"
 	}
 }
