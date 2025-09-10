@@ -15,13 +15,13 @@ func TestCreateJID(t *testing.T) {
 		{
 			name:     "Simple US number",
 			input:    "15551234567",
-			expected: "15551234567@s.whatsapp.net",
+			expected: "+15551234567@s.whatsapp.net",
 			hasError: false,
 		},
 		{
 			name:     "Number with spaces and parentheses",
 			input:    "+1 (555) 123-4567",
-			expected: "15551234567@s.whatsapp.net",
+			expected: "+15551234567@s.whatsapp.net",
 			hasError: false,
 		},
 
@@ -29,25 +29,25 @@ func TestCreateJID(t *testing.T) {
 		{
 			name:     "BR mobile number with 9 prefix - should remove 9",
 			input:    "5531987654321",
-			expected: "553187654321@s.whatsapp.net",
+			expected: "+553187654321@s.whatsapp.net",
 			hasError: false,
 		},
 		{
 			name:     "BR landline number - should keep as is",
 			input:    "5531123456789",
-			expected: "5531123456789@s.whatsapp.net",
+			expected: "+5531123456789@s.whatsapp.net",
 			hasError: false,
 		},
 		{
 			name:     "BR number with DDD < 31 - should keep as is",
 			input:    "5521987654321",
-			expected: "5521987654321@s.whatsapp.net",
+			expected: "+5521987654321@s.whatsapp.net",
 			hasError: false,
 		},
 		{
 			name:     "BR number with first digit < 7 - should keep as is",
 			input:    "5531687654321",
-			expected: "5531687654321@s.whatsapp.net",
+			expected: "+5531687654321@s.whatsapp.net",
 			hasError: false,
 		},
 
@@ -55,13 +55,13 @@ func TestCreateJID(t *testing.T) {
 		{
 			name:     "Portugal number - should not apply BR formatting",
 			input:    "351932933862",
-			expected: "351932933862@s.whatsapp.net",
+			expected: "+351932933862@s.whatsapp.net",
 			hasError: false,
 		},
 		{
 			name:     "Portugal number with + - should not apply BR formatting",
 			input:    "+351932933862",
-			expected: "351932933862@s.whatsapp.net",
+			expected: "+351932933862@s.whatsapp.net",
 			hasError: false,
 		},
 
@@ -69,13 +69,13 @@ func TestCreateJID(t *testing.T) {
 		{
 			name:     "MX number with extra digit - should remove",
 			input:    "5215551234567",
-			expected: "52551234567@s.whatsapp.net",
+			expected: "+52551234567@s.whatsapp.net",
 			hasError: false,
 		},
 		{
 			name:     "MX number without extra digit",
 			input:    "525551234567",
-			expected: "525551234567@s.whatsapp.net",
+			expected: "+525551234567@s.whatsapp.net",
 			hasError: false,
 		},
 
@@ -83,7 +83,7 @@ func TestCreateJID(t *testing.T) {
 		{
 			name:     "AR number with extra digit - should remove",
 			input:    "5411123456789",
-			expected: "541123456789@s.whatsapp.net",
+			expected: "+541123456789@s.whatsapp.net",
 			hasError: false,
 		},
 
@@ -283,13 +283,13 @@ func TestParseJID(t *testing.T) {
 			name:      "Valid phone number",
 			input:     "15551234567",
 			expectOk:  true,
-			expectJID: "15551234567@s.whatsapp.net",
+			expectJID: "+15551234567@s.whatsapp.net",
 		},
 		{
 			name:      "Valid BR number",
 			input:     "5531987654321",
 			expectOk:  true,
-			expectJID: "553187654321@s.whatsapp.net",
+			expectJID: "+553187654321@s.whatsapp.net",
 		},
 		{
 			name:      "Valid group ID",
