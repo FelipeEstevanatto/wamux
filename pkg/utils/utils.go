@@ -126,11 +126,14 @@ func formatMXOrARNumber(jid string) string {
 	countryCode := jid[:2]
 
 	// Check if it's MX (52) or AR (54)
-	if countryCode == "52" || countryCode == "54" {
-		if len(jid) == 13 {
-			// Remove the extra digit (usually the 1 after country code)
-			return countryCode + jid[3:]
-		}
+	if countryCode == "52" && len(jid) == 13 {
+		// Mexico: remove 2 digits (positions 2-3)
+		// 5215551234567 -> 52 + 551234567 = 52551234567
+		return countryCode + jid[4:]
+	} else if countryCode == "54" && len(jid) == 13 {
+		// Argentina: remove 1 digit (position 2)
+		// 5411123456789 -> 54 + 11123456789 = 5411123456789
+		return countryCode + jid[3:]
 	}
 
 	return jid
@@ -138,16 +141,22 @@ func formatMXOrARNumber(jid string) string {
 
 // formatBRNumber formats Brazilian (55) numbers according to the mobile number rules
 func formatBRNumber(jid string) string {
+	// Only process if it's exactly 13 digits and starts with "55"
 	if len(jid) != 13 || !strings.HasPrefix(jid, "55") {
 		return jid
 	}
 
-	// Extract DDD (area code)
+	// Extract DDD (area code) - should be between 11-99 for Brazil
 	ddd := jid[2:4]
 
 	// Convert DDD to integer for validation
 	dddNum, err := strconv.Atoi(ddd)
 	if err != nil {
+		return jid
+	}
+
+	// Brazilian DDD codes are between 11-99, if it's outside this range, it's not Brazil
+	if dddNum < 11 || dddNum > 99 {
 		return jid
 	}
 
@@ -163,13 +172,13 @@ func formatBRNumber(jid string) string {
 	}
 
 	// Check if it's a mobile number (9 prefix) and DDD >= 31
-	if firstDigitNum < 7 || dddNum < 31 {
-		// Keep the number as is (landline or special case)
-		return jid
+	if firstDigitNum >= 7 && dddNum >= 31 {
+		// Remove the 9 prefix for mobile numbers with DDD >= 31
+		return jid[:4] + jid[5:]
 	}
 
-	// Remove the 9 prefix for mobile numbers with DDD >= 31
-	return jid[:4] + jid[5:]
+	// Keep the number as is (landline or special case)
+	return jid
 }
 
 // ParseJID parses a number string into a WhatsApp JID with validation
