@@ -75,6 +75,7 @@ type CheckUserCollection struct {
 
 type CheckUserStruct struct {
 	Number []string `json:"number"`
+	FormatJid bool   `json:"formatJid"`
 }
 
 type GetAvatarStruct struct {
@@ -199,11 +200,21 @@ func (u *userService) CheckUser(data *CheckUserStruct, instance *instance_model.
 		return nil, err
 	}
 
-	// Extract phone numbers from JIDs (remove @s.whatsapp.net suffix)
+	// Process phone numbers based on FormatJid flag
+	// FormatJid default is true - when true, use numbers as received
+	// when false, extract only the phone number part (remove @domain)
 	var phoneNumbers []string
-	for _, number := range data.Number {
-		phoneNumber := strings.Split(number, "@")[0]
-		phoneNumbers = append(phoneNumbers, phoneNumber)
+	if data.FormatJid {
+		// Use numbers exactly as received
+		for _, number := range data.Number {
+			phoneNumbers = append(phoneNumbers, number)
+		}
+	} else {
+		// Extract phone numbers from JIDs (remove @s.whatsapp.net suffix)
+		for _, number := range data.Number {
+			phoneNumber := strings.Split(number, "@")[0]
+			phoneNumbers = append(phoneNumbers, phoneNumber)
+		}
 	}
 
 	resp, err := client.IsOnWhatsApp(phoneNumbers)

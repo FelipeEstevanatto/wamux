@@ -108,7 +108,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 		routes.Use(r.authMiddleware.Auth)
 		{
 			routes.POST("/info", r.jidValidationMiddleware.ValidateNumberField(), r.userHandler.GetUser)
-			routes.POST("/check", r.jidValidationMiddleware.ValidateNumberField(), r.userHandler.CheckUser)
+			routes.POST("/check", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.userHandler.CheckUser)
 			routes.POST("/avatar", r.jidValidationMiddleware.ValidateNumberField(), r.userHandler.GetAvatar)
 			routes.GET("/contacts", r.userHandler.GetContacts)
 			routes.GET("/privacy", r.userHandler.GetPrivacy)

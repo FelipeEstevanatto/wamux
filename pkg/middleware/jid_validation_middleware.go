@@ -316,6 +316,138 @@ func (m *JIDValidationMiddleware) ValidateMultipleNumbers(fieldName string) gin.
 	}
 }
 
+// ValidateNumberFieldWithFormatJid validates number field but respects FormatJid parameter
+// When FormatJid is true (default), numbers are normalized to full JID format
+// When FormatJid is false, numbers are kept as received (raw format)
+func (m *JIDValidationMiddleware) ValidateNumberFieldWithFormatJid() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Only process JSON requests
+		contentType := c.ContentType()
+		if !strings.Contains(contentType, "application/json") {
+			c.Next()
+			return
+		}
+
+		// Read the request body
+		body, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to read request body"})
+			c.Abort()
+			return
+		}
+
+		// Restore the request body for downstream handlers
+		c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
+
+		// Parse JSON
+		var requestData map[string]interface{}
+		if err := json.Unmarshal(body, &requestData); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON format"})
+			c.Abort()
+			return
+		}
+
+		// Check FormatJid parameter (default is true)
+		formatJid := true
+		if formatJidValue, exists := requestData["formatJid"]; exists {
+			if formatJidBool, ok := formatJidValue.(bool); ok {
+				formatJid = formatJidBool
+			}
+		}
+
+		// Validate and optionally normalize number field based on FormatJid
+		modified := false
+		if value, exists := requestData["number"]; exists {
+			// Handle array of strings
+			if arrayValue, ok := value.([]interface{}); ok {
+				if len(arrayValue) == 0 {
+					c.JSON(http.StatusBadRequest, gin.H{
+						"error": "number array cannot be empty",
+					})
+					c.Abort()
+					return
+				}
+
+				for i, item := range arrayValue {
+					if strValue, ok := item.(string); ok && strValue != "" {
+						// Only validate and normalize if FormatJid is true
+						if formatJid {
+							normalizedJID, err := utils.CreateJID(strValue)
+							if err != nil {
+								c.JSON(http.StatusBadRequest, gin.H{
+									"error": fmt.Sprintf("Invalid number[%d] format: %s", i, err.Error()),
+								})
+								c.Abort()
+								return
+							}
+
+							if normalizedJID != strValue {
+								arrayValue[i] = normalizedJID
+								modified = true
+								logger.LogDebug("Normalized number[%d] from %s to %s", i, strValue, normalizedJID)
+							}
+						}
+						// When formatJid is false, we accept numbers as received without validation
+					} else if strValue == "" {
+						c.JSON(http.StatusBadRequest, gin.H{
+							"error": fmt.Sprintf("number[%d] cannot be empty", i),
+						})
+						c.Abort()
+						return
+					}
+				}
+			} else if strValue, ok := value.(string); ok {
+				// Handle single string
+				if strValue == "" {
+					c.JSON(http.StatusBadRequest, gin.H{
+						"error": "number is required and cannot be empty",
+					})
+					c.Abort()
+					return
+				}
+
+				// Only validate and normalize if FormatJid is true
+				if formatJid {
+					normalizedJID, err := utils.CreateJID(strValue)
+					if err != nil {
+						c.JSON(http.StatusBadRequest, gin.H{
+							"error": fmt.Sprintf("Invalid number format: %s", err.Error()),
+						})
+						c.Abort()
+						return
+					}
+
+					if normalizedJID != strValue {
+						requestData["number"] = normalizedJID
+						modified = true
+						logger.LogDebug("Normalized number from %s to %s", strValue, normalizedJID)
+					}
+				}
+				// When formatJid is false, we accept numbers as received without validation
+			} else {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error": "number must be a string or array of strings",
+				})
+				c.Abort()
+				return
+			}
+		}
+
+		// If we modified the request, update the body
+		if modified {
+			newBody, err := json.Marshal(requestData)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process request"})
+				c.Abort()
+				return
+			}
+			c.Request.Body = io.NopCloser(bytes.NewBuffer(newBody))
+		}
+
+		c.Next()
+	}
+}
+
 // ValidateContactFields validates contact-specific fields that may contain phone numbers
 func (m *JIDValidationMiddleware) ValidateContactFields() gin.HandlerFunc {
 	return func(c *gin.Context) {
