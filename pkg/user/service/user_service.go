@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 
-	"strings"
 	"time"
 
 	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
@@ -212,8 +211,7 @@ func (u *userService) CheckUser(data *CheckUserStruct, instance *instance_model.
 	} else {
 		// Extract phone numbers from JIDs (remove @s.whatsapp.net suffix)
 		for _, number := range data.Number {
-			phoneNumber := strings.Split(number, "@")[0]
-			phoneNumbers = append(phoneNumbers, phoneNumber)
+			phoneNumbers = append(phoneNumbers, number)
 		}
 	}
 
