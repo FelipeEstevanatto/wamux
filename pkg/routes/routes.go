@@ -91,15 +91,15 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 	{
 		routes.Use(r.authMiddleware.Auth)
 		{
-			routes.POST("/text", r.jidValidationMiddleware.ValidateNumberField(), r.sendHandler.SendText)
-			routes.POST("/link", r.jidValidationMiddleware.ValidateNumberField(), r.sendHandler.SendLink)
-			routes.POST("/media", r.jidValidationMiddleware.ValidateNumberField(), r.sendHandler.SendMedia)
-			routes.POST("/poll", r.jidValidationMiddleware.ValidateNumberField(), r.sendHandler.SendPoll)
-			routes.POST("/sticker", r.jidValidationMiddleware.ValidateNumberField(), r.sendHandler.SendSticker)
-			routes.POST("/location", r.jidValidationMiddleware.ValidateNumberField(), r.sendHandler.SendLocation)
+			routes.POST("/text", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendText)
+			routes.POST("/link", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendLink)
+			routes.POST("/media", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendMedia)
+			routes.POST("/poll", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendPoll)
+			routes.POST("/sticker", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendSticker)
+			routes.POST("/location", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendLocation)
 			routes.POST("/contact", r.jidValidationMiddleware.ValidateContactFields(), r.sendHandler.SendContact) // TODO: send multiple contacts
-			routes.POST("/button", r.jidValidationMiddleware.ValidateNumberField(), r.sendHandler.SendButton)
-			routes.POST("/list", r.jidValidationMiddleware.ValidateNumberField(), r.sendHandler.SendList)
+			routes.POST("/button", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendButton)
+			routes.POST("/list", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendList)
 			// TODO: send status
 		}
 	}

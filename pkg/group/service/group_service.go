@@ -136,7 +136,7 @@ func (g *groupService) ListGroups(instance *instance_model.Instance) ([]*types.G
 		return nil, err
 	}
 
-	resp, err := client.GetJoinedGroups()
+	resp, err := client.GetJoinedGroups(context.Background())
 	if err != nil {
 		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error getting groups: %v", instance.Id, err)
 		return nil, err
@@ -371,7 +371,7 @@ func (g *groupService) GetMyGroups(instance *instance_model.Instance) ([]types.G
 		return nil, err
 	}
 
-	resp, err := client.GetJoinedGroups()
+	resp, err := client.GetJoinedGroups(context.Background())
 	if err != nil {
 		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error create group: %v", instance.Id, err)
 		return nil, err

@@ -28,6 +28,7 @@ import (
 	"go.mau.fi/whatsmeow/proto/waCompanionReg"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/store"
+	"go.mau.fi/whatsmeow/store/sqlstore"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 	waLog "go.mau.fi/whatsmeow/util/log"
@@ -44,7 +45,6 @@ import (
 	message_repository "github.com/EvolutionAPI/evolution-go/pkg/message/repository"
 	storage_interfaces "github.com/EvolutionAPI/evolution-go/pkg/storage/interfaces"
 	"github.com/EvolutionAPI/evolution-go/pkg/utils"
-	"github.com/EvolutionAPI/evolution-go/pkg/whatsmeow/sqlstore"
 )
 
 type WhatsmeowService interface {

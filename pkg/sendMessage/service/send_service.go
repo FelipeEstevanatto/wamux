@@ -58,6 +58,7 @@ type SendDataStruct struct {
 	Delay        int32
 	MentionAll   bool
 	MentionedJID string
+	FormatJid    bool
 	Quoted       QuotedStruct
 }
 
@@ -73,6 +74,7 @@ type TextStruct struct {
 	Delay        int32        `json:"delay"`
 	MentionedJID string       `json:"mentionedJid"`
 	MentionAll   bool         `json:"mentionAll"`
+	FormatJid    bool         `json:"formatJid"`
 	Quoted       QuotedStruct `json:"quoted"`
 }
 
@@ -87,6 +89,7 @@ type LinkStruct struct {
 	Delay        int32        `json:"delay"`
 	MentionedJID string       `json:"mentionedJid"`
 	MentionAll   bool         `json:"mentionAll"`
+	FormatJid    bool         `json:"formatJid"`
 	Quoted       QuotedStruct `json:"quoted"`
 }
 
@@ -100,6 +103,7 @@ type MediaStruct struct {
 	Delay        int32        `json:"delay"`
 	MentionedJID string       `json:"mentionedJid"`
 	MentionAll   bool         `json:"mentionAll"`
+	FormatJid    bool         `json:"formatJid"`
 	Quoted       QuotedStruct `json:"quoted"`
 }
 
@@ -112,6 +116,7 @@ type PollStruct struct {
 	Delay        int32        `json:"delay"`
 	MentionedJID string       `json:"mentionedJid"`
 	MentionAll   bool         `json:"mentionAll"`
+	FormatJid    bool         `json:"formatJid"`
 	Quoted       QuotedStruct `json:"quoted"`
 }
 
@@ -122,6 +127,7 @@ type StickerStruct struct {
 	Delay        int32        `json:"delay"`
 	MentionedJID string       `json:"mentionedJid"`
 	MentionAll   bool         `json:"mentionAll"`
+	FormatJid    bool         `json:"formatJid"`
 	Quoted       QuotedStruct `json:"quoted"`
 }
 
@@ -135,6 +141,7 @@ type LocationStruct struct {
 	Delay        int32        `json:"delay"`
 	MentionedJID string       `json:"mentionedJid"`
 	MentionAll   bool         `json:"mentionAll"`
+	FormatJid    bool         `json:"formatJid"`
 	Quoted       QuotedStruct `json:"quoted"`
 }
 
@@ -145,6 +152,7 @@ type ContactStruct struct {
 	Delay        int32             `json:"delay"`
 	MentionedJID string            `json:"mentionedJid"`
 	MentionAll   bool              `json:"mentionAll"`
+	FormatJid    bool              `json:"formatJid"`
 	Quoted       QuotedStruct      `json:"quoted"`
 }
 
@@ -170,6 +178,7 @@ type ButtonStruct struct {
 	Delay        int32        `json:"delay"`
 	MentionedJID string       `json:"mentionedJid"`
 	MentionAll   bool         `json:"mentionAll"`
+	FormatJid    bool         `json:"formatJid"`
 	Quoted       QuotedStruct `json:"quoted"`
 }
 
@@ -194,6 +203,7 @@ type ListStruct struct {
 	Delay        int32        `json:"delay"`
 	MentionedJID string       `json:"mentionedJid"`
 	MentionAll   bool         `json:"mentionAll"`
+	FormatJid    bool         `json:"formatJid"`
 	Quoted       QuotedStruct `json:"quoted"`
 }
 
@@ -265,7 +275,7 @@ func validateMessageFields(phone string, messageID *string, participant *string)
 }
 
 // validateAndCheckUserExists validates message fields and checks if the user exists on WhatsApp
-func (s *sendService) validateAndCheckUserExists(phone string, messageID *string, participant *string, instance *instance_model.Instance) (types.JID, error) {
+func (s *sendService) validateAndCheckUserExists(phone string, formatJid bool, messageID *string, participant *string, instance *instance_model.Instance) (types.JID, error) {
 	// First validate the basic message fields
 	recipient, err := validateMessageFields(phone, messageID, participant)
 	if err != nil {
@@ -289,28 +299,25 @@ func (s *sendService) validateAndCheckUserExists(phone string, messageID *string
 		return recipient, fmt.Errorf("failed to connect client: %v", err)
 	}
 
-	// Extract the phone number without the @s.whatsapp.net suffix for the check
-	phoneNumber := strings.Split(phone, "@")[0]
-
 	// Check if the number exists on WhatsApp
-	resp, err := client.IsOnWhatsApp([]string{phoneNumber})
+	resp, err := client.IsOnWhatsApp([]string{phone})
 	if err != nil {
-		s.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Failed to check if number %s exists on WhatsApp: %v", instance.Id, phoneNumber, err)
+		s.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Failed to check if number %s exists on WhatsApp: %v", instance.Id, phone, err)
 		// Continue with sending even if check fails (network issues, etc.)
 		return recipient, nil
 	}
 
 	// Verify if the number was found
 	if len(resp) == 0 {
-		return recipient, fmt.Errorf("number %s not found on WhatsApp", phoneNumber)
+		return recipient, fmt.Errorf("number %s not found on WhatsApp", phone)
 	}
 
 	// Check if the first result indicates the number is on WhatsApp
 	if !resp[0].IsIn {
-		return recipient, fmt.Errorf("number %s is not registered on WhatsApp", phoneNumber)
+		return recipient, fmt.Errorf("number %s is not registered on WhatsApp", phone)
 	}
 
-	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Number %s verified as valid WhatsApp user", instance.Id, phoneNumber)
+	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Number %s verified as valid WhatsApp user", instance.Id, phone)
 	return recipient, nil
 }
 
@@ -343,6 +350,7 @@ func (s *sendService) SendText(data *TextStruct, instance *instance_model.Instan
 		Delay:        data.Delay,
 		MentionAll:   data.MentionAll,
 		MentionedJID: data.MentionedJID,
+		FormatJid:    data.FormatJid,
 	})
 	if err != nil {
 		return nil, err
@@ -448,6 +456,7 @@ func (s *sendService) SendLink(data *LinkStruct, instance *instance_model.Instan
 		Delay:        data.Delay,
 		MentionAll:   data.MentionAll,
 		MentionedJID: data.MentionedJID,
+		FormatJid:    data.FormatJid,
 	})
 	if err != nil {
 		return nil, err
@@ -750,6 +759,7 @@ func (s *sendService) SendMediaFile(data *MediaStruct, fileData []byte, instance
 		Delay:        data.Delay,
 		MentionAll:   data.MentionAll,
 		MentionedJID: data.MentionedJID,
+		FormatJid:    data.FormatJid,
 	})
 	if err != nil {
 		return nil, err
@@ -936,6 +946,7 @@ func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.I
 		Delay:        data.Delay,
 		MentionAll:   data.MentionAll,
 		MentionedJID: data.MentionedJID,
+		FormatJid:    data.FormatJid,
 	})
 	if err != nil {
 		return nil, err
@@ -963,6 +974,7 @@ func (s *sendService) SendPoll(data *PollStruct, instance *instance_model.Instan
 		Delay:        data.Delay,
 		MentionAll:   data.MentionAll,
 		MentionedJID: data.MentionedJID,
+		FormatJid:    data.FormatJid,
 	})
 	if err != nil {
 		return nil, err
@@ -1037,6 +1049,7 @@ func (s *sendService) SendSticker(data *StickerStruct, instance *instance_model.
 		Delay:        data.Delay,
 		MentionAll:   data.MentionAll,
 		MentionedJID: data.MentionedJID,
+		FormatJid:    data.FormatJid,
 	})
 	if err != nil {
 		return nil, err
@@ -1065,6 +1078,7 @@ func (s *sendService) SendLocation(data *LocationStruct, instance *instance_mode
 		Delay:        data.Delay,
 		MentionAll:   data.MentionAll,
 		MentionedJID: data.MentionedJID,
+		FormatJid:    data.FormatJid,
 	})
 	if err != nil {
 		return nil, err
@@ -1099,6 +1113,7 @@ func (s *sendService) SendContact(data *ContactStruct, instance *instance_model.
 		Delay:        data.Delay,
 		MentionAll:   data.MentionAll,
 		MentionedJID: data.MentionedJID,
+		FormatJid:    data.FormatJid,
 	})
 	if err != nil {
 		return nil, err
@@ -1240,7 +1255,7 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 		}}
 	}
 
-	recipient, err := s.validateAndCheckUserExists(data.Number, &data.Quoted.MessageID, &data.Quoted.MessageID, instance)
+	recipient, err := s.validateAndCheckUserExists(data.Number, data.FormatJid, &data.Quoted.MessageID, &data.Quoted.MessageID, instance)
 	if err != nil {
 		s.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields or user check: %v", instance.Id, err)
 		return nil, err
@@ -1398,7 +1413,7 @@ func (s *sendService) SendList(data *ListStruct, instance *instance_model.Instan
 		},
 	}}
 
-	recipient, err := s.validateAndCheckUserExists(data.Number, &data.Quoted.MessageID, &data.Quoted.MessageID, instance)
+	recipient, err := s.validateAndCheckUserExists(data.Number, data.FormatJid, &data.Quoted.MessageID, &data.Quoted.MessageID, instance)
 	if err != nil {
 		s.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields or user check: %v", instance.Id, err)
 		return nil, err
@@ -1450,7 +1465,7 @@ func (s *sendService) SendList(data *ListStruct, instance *instance_model.Instan
 }
 
 func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.Message, messageType string, data *SendDataStruct) (*MessageSendStruct, error) {
-	recipient, err := s.validateAndCheckUserExists(data.Number, &data.Quoted.MessageID, &data.Quoted.MessageID, instance)
+	recipient, err := s.validateAndCheckUserExists(data.Number, data.FormatJid, &data.Quoted.MessageID, &data.Quoted.MessageID, instance)
 	if err != nil {
 		s.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields or user check: %v", instance.Id, err)
 		return nil, err
@@ -1662,6 +1677,8 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 			}
 		}
 	}
+
+	recipient.User = strings.ReplaceAll(recipient.User, "+", "")
 
 	response, err := s.clientPointer[instance.Id].SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{ID: message})
 	if err != nil {
