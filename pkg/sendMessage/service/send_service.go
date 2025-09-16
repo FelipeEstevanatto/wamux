@@ -597,8 +597,11 @@ func convertAudioToOpusWithDuration(inputData []byte) ([]byte, int, error) {
 		return nil, 0, errors.New("duração não encontrada")
 	}
 
+	// Use the last occurrence of time= in case there are multiple
+	timeString := splitTime[len(splitTime)-1]
+
 	re := regexp.MustCompile(`(\d+):(\d+):(\d+\.\d+)`)
-	matches := re.FindStringSubmatch(string(splitTime[2]))
+	matches := re.FindStringSubmatch(timeString)
 	if len(matches) != 4 {
 		return nil, 0, errors.New("formato de duração não encontrado")
 	}
