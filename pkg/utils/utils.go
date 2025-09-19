@@ -70,7 +70,6 @@ func CreateJID(number string) (string, error) {
 	number = strings.ReplaceAll(number, "(", "")
 	number = strings.ReplaceAll(number, ")", "")
 	number = strings.Split(number, ":")[0]
-	number = strings.Split(number, "@")[0]
 
 	// Check if it's a group by hyphen and length
 	if strings.Contains(number, "-") && len(number) >= 24 {

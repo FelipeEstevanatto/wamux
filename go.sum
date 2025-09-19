@@ -182,10 +182,8 @@ github.com/vincent-petithory/dataurl v1.0.0/go.mod h1:FHafX5vmDzyP+1CQATJn7WFKc9
 github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=
 go.mau.fi/libsignal v0.2.0 h1:oRXj3OHhEJq51BFEM8/50UZblmWiTYH93hsNTPcbk90=
 go.mau.fi/libsignal v0.2.0/go.mod h1:tvjoDsMejgT38CXTXwqaYu8itBiY8O2Mb6biWvZBb9k=
-go.mau.fi/util v0.9.0 h1:ya3s3pX+Y8R2fgp0DbE7a0o3FwncoelDX5iyaeVE8ls=
-go.mau.fi/util v0.9.0/go.mod h1:pdL3lg2aaeeHIreGXNnPwhJPXkXdc3ZxsI6le8hOWEA=
-go.mau.fi/whatsmeow v0.0.0-20250905121447-8d6da61ecbfa h1:+77BnZUz3DVMHPUil1YFc2spz7dtuqHaEt2nzWVgX0s=
-go.mau.fi/whatsmeow v0.0.0-20250905121447-8d6da61ecbfa/go.mod h1:Xn2RtGFtEJPCAr56wsWpauBIQAC0S0+v81iyKmrd708=
+go.mau.fi/util v0.9.1-0.20250912114103-419604f95907 h1:VBApThdwZPIaNKt2sdfTk2Pal2Qqcaokjpq9e/LkVmg=
+go.mau.fi/util v0.9.1-0.20250912114103-419604f95907/go.mod h1:pdL3lg2aaeeHIreGXNnPwhJPXkXdc3ZxsI6le8hOWEA=
 go.uber.org/goleak v1.3.0 h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=
 go.uber.org/goleak v1.3.0/go.mod h1:CoHD4mav9JJNrW/WLlf7HGZPjdw8EucARQHekz1X6bE=
 golang.org/x/arch v0.10.0 h1:S3huipmSclq3PJMNe76NGwkBR504WFkQ5dhzWzP8ZW8=
