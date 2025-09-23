@@ -2176,7 +2176,18 @@ func (w whatsmeowService) UpdateInstanceSettings(instanceId string) error {
 
 	myClient.subscriptions = subscribedEvents
 
-	w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Instance settings updated in runtime successfully", instanceId)
+	// Atualiza o cache do userInfo com as novas configurações
+	v := Values{map[string]string{
+		"Id":     instance.Id,
+		"Jid":    instance.Jid,
+		"Token":  instance.Token,
+		"Events": instance.Events,
+		"osName": instance.OsName,
+		"Proxy":  instance.Proxy,
+	}}
+	w.userInfoCache.Set(instance.Token, v, cache.NoExpiration)
+
+	w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Instance settings and cache updated in runtime successfully", instanceId)
 	return nil
 }
 
