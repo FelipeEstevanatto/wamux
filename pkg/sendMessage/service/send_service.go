@@ -58,7 +58,7 @@ type SendDataStruct struct {
 	Delay        int32
 	MentionAll   bool
 	MentionedJID string
-	FormatJid    bool
+	FormatJid    *bool
 	Quoted       QuotedStruct
 }
 
@@ -74,7 +74,7 @@ type TextStruct struct {
 	Delay        int32        `json:"delay"`
 	MentionedJID string       `json:"mentionedJid"`
 	MentionAll   bool         `json:"mentionAll"`
-	FormatJid    bool         `json:"formatJid"`
+	FormatJid    *bool        `json:"formatJid,omitempty"`
 	Quoted       QuotedStruct `json:"quoted"`
 }
 
@@ -89,7 +89,7 @@ type LinkStruct struct {
 	Delay        int32        `json:"delay"`
 	MentionedJID string       `json:"mentionedJid"`
 	MentionAll   bool         `json:"mentionAll"`
-	FormatJid    bool         `json:"formatJid"`
+	FormatJid    *bool        `json:"formatJid,omitempty"`
 	Quoted       QuotedStruct `json:"quoted"`
 }
 
@@ -103,7 +103,7 @@ type MediaStruct struct {
 	Delay        int32        `json:"delay"`
 	MentionedJID string       `json:"mentionedJid"`
 	MentionAll   bool         `json:"mentionAll"`
-	FormatJid    bool         `json:"formatJid"`
+	FormatJid    *bool        `json:"formatJid,omitempty"`
 	Quoted       QuotedStruct `json:"quoted"`
 }
 
@@ -116,7 +116,7 @@ type PollStruct struct {
 	Delay        int32        `json:"delay"`
 	MentionedJID string       `json:"mentionedJid"`
 	MentionAll   bool         `json:"mentionAll"`
-	FormatJid    bool         `json:"formatJid"`
+	FormatJid    *bool        `json:"formatJid,omitempty"`
 	Quoted       QuotedStruct `json:"quoted"`
 }
 
@@ -127,7 +127,7 @@ type StickerStruct struct {
 	Delay        int32        `json:"delay"`
 	MentionedJID string       `json:"mentionedJid"`
 	MentionAll   bool         `json:"mentionAll"`
-	FormatJid    bool         `json:"formatJid"`
+	FormatJid    *bool        `json:"formatJid,omitempty"`
 	Quoted       QuotedStruct `json:"quoted"`
 }
 
@@ -141,7 +141,7 @@ type LocationStruct struct {
 	Delay        int32        `json:"delay"`
 	MentionedJID string       `json:"mentionedJid"`
 	MentionAll   bool         `json:"mentionAll"`
-	FormatJid    bool         `json:"formatJid"`
+	FormatJid    *bool        `json:"formatJid,omitempty"`
 	Quoted       QuotedStruct `json:"quoted"`
 }
 
@@ -152,7 +152,7 @@ type ContactStruct struct {
 	Delay        int32             `json:"delay"`
 	MentionedJID string            `json:"mentionedJid"`
 	MentionAll   bool              `json:"mentionAll"`
-	FormatJid    bool              `json:"formatJid"`
+	FormatJid    *bool             `json:"formatJid,omitempty"`
 	Quoted       QuotedStruct      `json:"quoted"`
 }
 
@@ -178,7 +178,7 @@ type ButtonStruct struct {
 	Delay        int32        `json:"delay"`
 	MentionedJID string       `json:"mentionedJid"`
 	MentionAll   bool         `json:"mentionAll"`
-	FormatJid    bool         `json:"formatJid"`
+	FormatJid    *bool        `json:"formatJid,omitempty"`
 	Quoted       QuotedStruct `json:"quoted"`
 }
 
@@ -203,7 +203,7 @@ type ListStruct struct {
 	Delay        int32        `json:"delay"`
 	MentionedJID string       `json:"mentionedJid"`
 	MentionAll   bool         `json:"mentionAll"`
-	FormatJid    bool         `json:"formatJid"`
+	FormatJid    *bool        `json:"formatJid,omitempty"`
 	Quoted       QuotedStruct `json:"quoted"`
 }
 
@@ -252,11 +252,40 @@ func (s *sendService) ensureClientConnected(instanceId string) (*whatsmeow.Clien
 	return client, nil
 }
 
-func validateMessageFields(phone string, messageID *string, participant *string) (types.JID, error) {
+func validateMessageFields(phone string, formatJid *bool, messageID *string, participant *string) (types.JID, error) {
+	// Apply formatting if formatJid is true (default)
+	shouldFormat := true // Default value
+	if formatJid != nil {
+		shouldFormat = *formatJid
+	}
 
-	recipient, ok := utils.ParseJID(phone)
+	var finalPhone string
+	if shouldFormat {
+		// Extract raw number if it's already a JID, then apply CreateJID formatting
+		rawNumber := phone
+		if strings.Contains(phone, "@s.whatsapp.net") {
+			rawNumber = strings.Split(phone, "@")[0]
+		}
+
+		normalizedJID, err := utils.CreateJID(rawNumber)
+		if err != nil {
+			// If CreateJID fails, try with ParseJID as fallback
+			recipient, ok := utils.ParseJID(phone)
+			if !ok {
+				return types.NewJID("", types.DefaultUserServer), fmt.Errorf("could not parse phone: %s", phone)
+			}
+			finalPhone = recipient.String()
+		} else {
+			finalPhone = normalizedJID
+		}
+	} else {
+		// Use phone as received without formatting
+		finalPhone = phone
+	}
+
+	recipient, ok := utils.ParseJID(finalPhone)
 	if !ok {
-		return types.NewJID("", types.DefaultUserServer), errors.New("could not parse phone")
+		return types.NewJID("", types.DefaultUserServer), errors.New("could not parse formatted phone")
 	}
 
 	if messageID != nil {
@@ -275,9 +304,9 @@ func validateMessageFields(phone string, messageID *string, participant *string)
 }
 
 // validateAndCheckUserExists validates message fields and checks if the user exists on WhatsApp
-func (s *sendService) validateAndCheckUserExists(phone string, formatJid bool, messageID *string, participant *string, instance *instance_model.Instance) (types.JID, error) {
+func (s *sendService) validateAndCheckUserExists(phone string, formatJid *bool, messageID *string, participant *string, instance *instance_model.Instance) (types.JID, error) {
 	// First validate the basic message fields
-	recipient, err := validateMessageFields(phone, messageID, participant)
+	recipient, err := validateMessageFields(phone, formatJid, messageID, participant)
 	if err != nil {
 		return recipient, err
 	}
@@ -299,25 +328,37 @@ func (s *sendService) validateAndCheckUserExists(phone string, formatJid bool, m
 		return recipient, fmt.Errorf("failed to connect client: %v", err)
 	}
 
-	// Check if the number exists on WhatsApp
-	resp, err := client.IsOnWhatsApp([]string{phone})
+	// Use centralized function to prepare number for WhatsApp check
+	shouldFormat := true // Default value
+	if formatJid != nil {
+		shouldFormat = *formatJid
+	}
+
+	phoneForCheck, err := utils.PrepareNumberForWhatsAppCheck(phone, shouldFormat)
 	if err != nil {
-		s.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Failed to check if number %s exists on WhatsApp: %v", instance.Id, phone, err)
+		s.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Failed to prepare number for WhatsApp check: %v", instance.Id, err)
+		return recipient, err
+	}
+
+	// Check if the number exists on WhatsApp
+	resp, err := client.IsOnWhatsApp([]string{phoneForCheck})
+	if err != nil {
+		s.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Failed to check if number %s exists on WhatsApp: %v", instance.Id, phoneForCheck, err)
 		// Continue with sending even if check fails (network issues, etc.)
 		return recipient, nil
 	}
 
 	// Verify if the number was found
 	if len(resp) == 0 {
-		return recipient, fmt.Errorf("number %s not found on WhatsApp", phone)
+		return recipient, fmt.Errorf("number %s not found on WhatsApp", phoneForCheck)
 	}
 
 	// Check if the first result indicates the number is on WhatsApp
 	if !resp[0].IsIn {
-		return recipient, fmt.Errorf("number %s is not registered on WhatsApp", phone)
+		return recipient, fmt.Errorf("number %s is not registered on WhatsApp", phoneForCheck)
 	}
 
-	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Number %s verified as valid WhatsApp user", instance.Id, phone)
+	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Number %s verified as valid WhatsApp user", instance.Id, phoneForCheck)
 	return recipient, nil
 }
 

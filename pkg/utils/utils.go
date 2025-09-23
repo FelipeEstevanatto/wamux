@@ -510,3 +510,65 @@ func GetStringValue(s *string) string {
 	}
 	return *s
 }
+
+// PrepareNumbersForWhatsAppCheck prepares phone numbers for IsOnWhatsApp call
+// based on formatJid flag. This centralizes the logic used by both CheckUser and SendText.
+func PrepareNumbersForWhatsAppCheck(numbers []string, formatJid *bool) ([]string, error) {
+	// Default formatJid to true if not specified
+	shouldFormat := true
+	if formatJid != nil {
+		shouldFormat = *formatJid
+	}
+
+	var phoneNumbers []string
+
+	if shouldFormat {
+		// Normalize numbers using CreateJID for consistent formatting
+		for _, number := range numbers {
+			// First, extract the raw number if it's already a JID
+			rawNumber := number
+			if strings.Contains(number, "@s.whatsapp.net") {
+				rawNumber = strings.Split(number, "@")[0]
+			}
+
+			// Use CreateJID to normalize the raw number format
+			normalizedJID, err := CreateJID(rawNumber)
+			if err != nil {
+				// Continue with original number if normalization fails
+				phoneNumbers = append(phoneNumbers, number)
+				continue
+			}
+
+			// Extract the phone number part from the JID for IsOnWhatsApp call
+			// e.g., "+5511999999999@s.whatsapp.net" -> "+5511999999999" (keep + for IsOnWhatsApp)
+			if strings.Contains(normalizedJID, "@s.whatsapp.net") {
+				phoneNumber := strings.Split(normalizedJID, "@")[0]
+				phoneNumbers = append(phoneNumbers, phoneNumber)
+			} else if strings.Contains(normalizedJID, "@g.us") || strings.Contains(normalizedJID, "@broadcast") || strings.Contains(normalizedJID, "@lid") {
+				// For groups, broadcasts, and LIDs, use the full JID
+				phoneNumbers = append(phoneNumbers, normalizedJID)
+			} else {
+				phoneNumbers = append(phoneNumbers, normalizedJID)
+			}
+		}
+	} else {
+		// Use numbers exactly as received (raw format)
+		phoneNumbers = append(phoneNumbers, numbers...)
+	}
+
+	return phoneNumbers, nil
+}
+
+// PrepareNumberForWhatsAppCheck prepares a single phone number for IsOnWhatsApp call
+// This is used by SendText which works with single numbers
+func PrepareNumberForWhatsAppCheck(phone string, formatJid bool) (string, error) {
+	formatJidPtr := &formatJid
+	numbers, err := PrepareNumbersForWhatsAppCheck([]string{phone}, formatJidPtr)
+	if err != nil {
+		return "", err
+	}
+	if len(numbers) == 0 {
+		return "", fmt.Errorf("no valid number processed")
+	}
+	return numbers[0], nil
+}
