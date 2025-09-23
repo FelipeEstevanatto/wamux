@@ -798,20 +798,20 @@ func processPresenceUpdates(mycli *MyClient) {
 	nowSp := now.In(location)
 
 	if nowSp.Hour() >= 1 && nowSp.Hour() < 24 {
-		err := mycli.WAClient.SendPresence(types.PresenceAvailable)
-		if err != nil {
-			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to set presence as available %v", mycli.userID, err)
-		} else {
-			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Marked self as available", mycli.userID)
-		}
-
-		time.Sleep(time.Duration(7+rand.Intn(29)) * time.Second)
-
-		err = mycli.WAClient.SendPresence(types.PresenceUnavailable)
+		err := mycli.WAClient.SendPresence(types.PresenceUnavailable)
 		if err != nil {
 			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to set presence as unavailable %v", mycli.userID, err)
 		} else {
 			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Marked self as unavailable", mycli.userID)
+		}
+
+		time.Sleep(time.Duration(1+rand.Intn(5)) * time.Second)
+
+		err = mycli.WAClient.SendPresence(types.PresenceAvailable)
+		if err != nil {
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to set presence as available %v", mycli.userID, err)
+		} else {
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Marked self as available", mycli.userID)
 		}
 	}
 }
@@ -879,11 +879,11 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 			go schedulePresenceUpdates(mycli)
 
-			err := mycli.WAClient.SendPresence(types.PresenceUnavailable)
+			err := mycli.WAClient.SendPresence(types.PresenceAvailable)
 			if err != nil {
-				mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Failed to send unavailable presence %v", mycli.userID, err)
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Failed to send available presence %v", mycli.userID, err)
 			} else {
-				mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Marked self as unavailable", mycli.userID)
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Marked self as available", mycli.userID)
 			}
 
 			mycli.Instance.Connected = true
