@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-
 	"time"
 
 	instance_model "github.com/EvolutionAPI/evolution-go/pkg/instance/model"
@@ -73,8 +72,8 @@ type CheckUserCollection struct {
 }
 
 type CheckUserStruct struct {
-	Number []string `json:"number"`
-	FormatJid bool   `json:"formatJid"`
+	Number    []string `json:"number"`
+	FormatJid *bool    `json:"formatJid,omitempty"`
 }
 
 type GetAvatarStruct struct {
@@ -199,20 +198,11 @@ func (u *userService) CheckUser(data *CheckUserStruct, instance *instance_model.
 		return nil, err
 	}
 
-	// Process phone numbers based on FormatJid flag
-	// FormatJid default is true - when true, use numbers as received
-	// when false, extract only the phone number part (remove @domain)
-	var phoneNumbers []string
-	if data.FormatJid {
-		// Use numbers exactly as received
-		for _, number := range data.Number {
-			phoneNumbers = append(phoneNumbers, number)
-		}
-	} else {
-		// Extract phone numbers from JIDs (remove @s.whatsapp.net suffix)
-		for _, number := range data.Number {
-			phoneNumbers = append(phoneNumbers, number)
-		}
+	// Use centralized function to prepare numbers for WhatsApp check
+	phoneNumbers, err := utils.PrepareNumbersForWhatsAppCheck(data.Number, data.FormatJid)
+	if err != nil {
+		u.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Failed to prepare numbers for WhatsApp check: %v", instance.Id, err)
+		return nil, err
 	}
 
 	resp, err := client.IsOnWhatsApp(phoneNumbers)

@@ -217,36 +217,49 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 		return nil, "", "", err
 	}
 
+	// Verifica se a instância já está rodando
+	isInstanceRunning := i.clientPointer[instance.Id] != nil
+
 	// Sincroniza as configurações na instância em execução (se já estiver conectada)
 	err = i.whatsmeowService.UpdateInstanceSettings(instance.Id)
 	if err != nil {
 		i.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Instance not in runtime yet, will be updated when connected", instance.Id)
-		// Não é um erro, a instância pode não estar em execução ainda
+		isInstanceRunning = false
+	} else {
+		i.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Instance settings updated successfully in runtime", instance.Id)
+		isInstanceRunning = true
 	}
 
-	i.killChannel[instance.Id] = make(chan bool)
+	// Se a instância não estiver rodando, inicia uma nova
+	if !isInstanceRunning {
+		i.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Starting new client instance", instance.Id)
 
-	clientData := &whatsmeow_service.ClientData{
-		Instance:      instance,
-		Subscriptions: subscribedEvents,
-		Phone:         data.Phone,
-		IsProxy:       false,
-	}
+		i.killChannel[instance.Id] = make(chan bool)
 
-	if instance.Proxy != "" || i.config.ProxyHost != "" {
-		var proxyConfig ProxyConfig
-		err := json.Unmarshal([]byte(instance.Proxy), &proxyConfig)
-		if err != nil {
-			i.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error unmarshalling proxy config: %v", instance.Id, err)
-			return nil, "", "", err
+		clientData := &whatsmeow_service.ClientData{
+			Instance:      instance,
+			Subscriptions: subscribedEvents,
+			Phone:         data.Phone,
+			IsProxy:       false,
 		}
 
-		if proxyConfig.Host != "" || i.config.ProxyHost != "" {
-			clientData.IsProxy = true
-		}
-	}
+		if instance.Proxy != "" || i.config.ProxyHost != "" {
+			var proxyConfig ProxyConfig
+			err := json.Unmarshal([]byte(instance.Proxy), &proxyConfig)
+			if err != nil {
+				i.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error unmarshalling proxy config: %v", instance.Id, err)
+				return nil, "", "", err
+			}
 
-	go i.whatsmeowService.StartClient(clientData)
+			if proxyConfig.Host != "" || i.config.ProxyHost != "" {
+				clientData.IsProxy = true
+			}
+		}
+
+		go i.whatsmeowService.StartClient(clientData)
+	} else {
+		i.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Instance already running, settings updated without restarting client", instance.Id)
+	}
 
 	// logger.LogInfo("Waiting 1 seconds")
 	// time.Sleep(1000 * time.Millisecond)
