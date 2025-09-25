@@ -1003,6 +1003,20 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		doWebhook = true
 		postMap["event"] = "Message"
 
+		// Log message arrival with detailed info
+		messageSize := "unknown"
+		if evt.Message.GetDocumentMessage() != nil && evt.Message.GetDocumentMessage().FileLength != nil {
+			messageSize = fmt.Sprintf("%d bytes", *evt.Message.GetDocumentMessage().FileLength)
+		} else if evt.Message.GetVideoMessage() != nil && evt.Message.GetVideoMessage().FileLength != nil {
+			messageSize = fmt.Sprintf("%d bytes", *evt.Message.GetVideoMessage().FileLength)
+		} else if evt.Message.GetImageMessage() != nil && evt.Message.GetImageMessage().FileLength != nil {
+			messageSize = fmt.Sprintf("%d bytes", *evt.Message.GetImageMessage().FileLength)
+		} else if evt.Message.GetAudioMessage() != nil && evt.Message.GetAudioMessage().FileLength != nil {
+			messageSize = fmt.Sprintf("%d bytes", *evt.Message.GetAudioMessage().FileLength)
+		}
+
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] ===== MESSAGE RECEIVED ===== ID: %s, From: %s, Type: %s, Size: %s", mycli.userID, evt.Info.ID, evt.Info.Chat.String(), evt.Info.Type, messageSize)
+
 		// se readMessages for true ele marca como lida
 		if mycli.Instance.ReadMessages {
 			messageIDs := []string{evt.Info.ID}
@@ -1189,48 +1203,79 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			}
 
 			if isMedia {
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Processing media message - ID: %s", mycli.userID, evt.Info.ID)
+
 				var data []byte
 				var err error
 				var extension string
 				var mimeType string
+				var mediaSize int64
+
+				// Create context with timeout for large files
+				downloadCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+				defer cancel()
+
+				downloadStart := time.Now()
 
 				// Handle regular media messages
 				if img != nil {
-					data, err = mycli.WAClient.Download(context.Background(), img)
+					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Downloading image - ID: %s", mycli.userID, evt.Info.ID)
+					data, err = mycli.WAClient.Download(downloadCtx, img)
 					extension = ".jpg"
 					mimeType = "image/jpeg"
+					if img.FileLength != nil {
+						mediaSize = int64(*img.FileLength)
+					}
 				} else if audio != nil {
-					data, err = mycli.WAClient.Download(context.Background(), audio)
+					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Downloading audio - ID: %s", mycli.userID, evt.Info.ID)
+					data, err = mycli.WAClient.Download(downloadCtx, audio)
 					extension = ".ogg"
 					mimeType = "audio/ogg"
+					if audio.FileLength != nil {
+						mediaSize = int64(*audio.FileLength)
+					}
 				} else if document != nil {
-					data, err = mycli.WAClient.Download(context.Background(), document)
+					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Downloading document - ID: %s, FileName: %s, Size: %d bytes", mycli.userID, evt.Info.ID, document.GetFileName(), document.GetFileLength())
+					data, err = mycli.WAClient.Download(downloadCtx, document)
 					extension = getExtensionFromMimeType(document.GetMimetype())
 					mimeType = document.GetMimetype()
+					if document.FileLength != nil {
+						mediaSize = int64(*document.FileLength)
+					}
 				} else if video != nil {
-					data, err = mycli.WAClient.Download(context.Background(), video)
+					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Downloading video - ID: %s, Size: %d bytes", mycli.userID, evt.Info.ID, video.GetFileLength())
+					data, err = mycli.WAClient.Download(downloadCtx, video)
 					extension = ".mp4"
 					mimeType = "video/mp4"
+					if video.FileLength != nil {
+						mediaSize = int64(*video.FileLength)
+					}
 				} else if sticker != nil {
-					data, err = mycli.WAClient.Download(context.Background(), sticker)
+					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Downloading sticker - ID: %s", mycli.userID, evt.Info.ID)
+					data, err = mycli.WAClient.Download(downloadCtx, sticker)
 					extension = ".png"
 					mimeType = "image/png"
-
-					webpReader := bytes.NewReader(data)
-					img, err := webp.Decode(webpReader)
-					if err != nil {
-						mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to decode webp image: %v", mycli.userID, err)
-						return
+					if sticker.FileLength != nil {
+						mediaSize = int64(*sticker.FileLength)
 					}
 
-					var pngBuffer bytes.Buffer
-					err = png.Encode(&pngBuffer, img)
-					if err != nil {
-						mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to encode png image: %v", mycli.userID, err)
-						return
-					}
+					if err == nil {
+						webpReader := bytes.NewReader(data)
+						img, err := webp.Decode(webpReader)
+						if err != nil {
+							mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to decode webp image: %v", mycli.userID, err)
+							return
+						}
 
-					data = pngBuffer.Bytes()
+						var pngBuffer bytes.Buffer
+						err = png.Encode(&pngBuffer, img)
+						if err != nil {
+							mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to encode png image: %v", mycli.userID, err)
+							return
+						}
+
+						data = pngBuffer.Bytes()
+					}
 					// Handle associated child media messages
 				} else if associatedImg != nil {
 					data, err = mycli.WAClient.Download(context.Background(), associatedImg)
@@ -1275,9 +1320,31 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 					data = pngBuffer.Bytes()
 				}
 
+				downloadDuration := time.Since(downloadStart)
+
 				if err != nil {
-					mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to download media %v", mycli.userID, err)
-					return
+					mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to download media - ID: %s, Size: %d bytes, Duration: %v, Error: %v", mycli.userID, evt.Info.ID, mediaSize, downloadDuration, err)
+
+					// Check if it's a timeout error
+					if downloadCtx.Err() == context.DeadlineExceeded {
+						mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Download timeout exceeded (5 minutes) for large file - ID: %s, Size: %d bytes", mycli.userID, evt.Info.ID, mediaSize)
+					}
+
+					// Don't return here - continue processing the message without media
+					mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Continuing message processing without media download - ID: %s", mycli.userID, evt.Info.ID)
+				} else {
+					actualSize := len(data)
+					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Media download successful - ID: %s, Expected: %d bytes, Actual: %d bytes, Duration: %v", mycli.userID, evt.Info.ID, mediaSize, actualSize, downloadDuration)
+
+					// Check for size mismatch
+					if mediaSize > 0 && int64(actualSize) != mediaSize {
+						mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Size mismatch detected - ID: %s, Expected: %d, Got: %d", mycli.userID, evt.Info.ID, mediaSize, actualSize)
+					}
+
+					// Log large file processing
+					if actualSize > 13*1024*1024 { // 13MB
+						mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Processing large file (>13MB) - ID: %s, Size: %d bytes", mycli.userID, evt.Info.ID, actualSize)
+					}
 				}
 
 				messageMap, ok := dataMap["Message"].(map[string]interface{})
@@ -1285,19 +1352,39 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 					messageMap = make(map[string]interface{})
 				}
 
-				if mycli.config.MinioEnabled {
-					fileName := evt.Info.ID + extension
+				// Only process storage if download was successful
+				if err == nil && len(data) > 0 {
+					if mycli.config.MinioEnabled {
+						fileName := evt.Info.ID + extension
+						storageStart := time.Now()
 
-					mediaURL, err := mycli.mediaStorage.Store(context.Background(), data, fileName, mimeType)
-					if err != nil {
-						mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to store media: %v", mycli.userID, err)
-						return
+						mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Uploading to S3/Minio - ID: %s, FileName: %s, Size: %d bytes", mycli.userID, evt.Info.ID, fileName, len(data))
+
+						mediaURL, err := mycli.mediaStorage.Store(context.Background(), data, fileName, mimeType)
+						storageDuration := time.Since(storageStart)
+
+						if err != nil {
+							mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to store media in S3/Minio - ID: %s, Size: %d bytes, Duration: %v, Error: %v", mycli.userID, evt.Info.ID, len(data), storageDuration, err)
+
+							// Continue processing without storage URL
+							mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Continuing message processing without S3 URL - ID: %s", mycli.userID, evt.Info.ID)
+						} else {
+							mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] S3/Minio upload successful - ID: %s, Size: %d bytes, Duration: %v, URL: %s", mycli.userID, evt.Info.ID, len(data), storageDuration, mediaURL)
+							messageMap["mediaUrl"] = mediaURL
+							messageMap["mimetype"] = mimeType
+						}
+					} else {
+						mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Encoding to base64 - ID: %s, Size: %d bytes", mycli.userID, evt.Info.ID, len(data))
+						encodeStart := time.Now()
+
+						encodeData := base64.StdEncoding.EncodeToString(data)
+						encodeDuration := time.Since(encodeStart)
+
+						mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Base64 encoding completed - ID: %s, Original: %d bytes, Encoded: %d chars, Duration: %v", mycli.userID, evt.Info.ID, len(data), len(encodeData), encodeDuration)
+						messageMap["base64"] = encodeData
 					}
-					messageMap["mediaUrl"] = mediaURL
-					messageMap["mimetype"] = mimeType
 				} else {
-					encodeData := base64.StdEncoding.EncodeToString(data)
-					messageMap["base64"] = encodeData
+					mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Skipping media storage due to download failure - ID: %s", mycli.userID, evt.Info.ID)
 				}
 
 				dataMap["Message"] = messageMap
@@ -1336,7 +1423,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 		postMap["data"] = dataMap
 
-		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Message received with ID: %s from %s with type %s", mycli.userID, evt.Info.ID, evt.Info.Chat, evt.Info.Type)
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] ===== MESSAGE PROCESSING COMPLETED ===== ID: %s, From: %s, Type: %s, Webhook: %v", mycli.userID, evt.Info.ID, evt.Info.Chat.String(), evt.Info.Type, doWebhook)
 	case *events.Receipt:
 		doWebhook = true
 		postMap["event"] = "Receipt"
@@ -1649,11 +1736,23 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			queueName = strings.ToLower(fmt.Sprintf("%s.%s", userID, postMap["event"]))
 		}
 
+		// Log webhook dispatch
+		eventType := "unknown"
+		if event, ok := postMap["event"].(string); ok {
+			eventType = event
+		}
+
+		dataSize := len(values)
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] ===== DISPATCHING WEBHOOK ===== Event: %s, Queue: %s, DataSize: %d bytes", mycli.userID, eventType, queueName, dataSize)
+
 		go mycli.service.CallWebhook(mycli.Instance, queueName, values)
 
 		if mycli.config.AmqpGlobalEnabled || mycli.config.NatsGlobalEnabled {
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Sending to global queues - Event: %s, AMQP: %v, NATS: %v", mycli.userID, eventType, mycli.config.AmqpGlobalEnabled, mycli.config.NatsGlobalEnabled)
 			go mycli.service.SendToGlobalQueues(postMap["event"].(string), values, mycli.userID)
 		}
+	} else {
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] ===== WEBHOOK SKIPPED ===== doWebhook=false", mycli.userID)
 	}
 }
 
