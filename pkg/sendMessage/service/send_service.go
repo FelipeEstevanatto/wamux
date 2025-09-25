@@ -252,6 +252,46 @@ func (s *sendService) ensureClientConnected(instanceId string) (*whatsmeow.Clien
 	return client, nil
 }
 
+// ensureClientConnectedWithRetry attempts to ensure client connection with automatic reconnection and retry
+func (s *sendService) ensureClientConnectedWithRetry(instanceId string, maxRetries int) (*whatsmeow.Client, error) {
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		s.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Connection attempt %d/%d", instanceId, attempt, maxRetries)
+
+		client, err := s.ensureClientConnected(instanceId)
+		if err == nil {
+			return client, nil
+		}
+
+		// Check if it's a disconnection error that we can retry
+		if err.Error() == "client disconnected" || err.Error() == "no active session found" {
+			s.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Client disconnected on attempt %d/%d, attempting reconnection...", instanceId, attempt, maxRetries)
+
+			// Attempt to reconnect the client
+			reconnectErr := s.whatsmeowService.ReconnectClient(instanceId)
+			if reconnectErr != nil {
+				s.loggerWrapper.GetLogger(instanceId).LogError("[%s] Failed to reconnect client on attempt %d: %v", instanceId, attempt, reconnectErr)
+			} else {
+				s.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Reconnection initiated on attempt %d, waiting 3 seconds...", instanceId, attempt)
+				time.Sleep(3 * time.Second)
+			}
+
+			// If this is not the last attempt, continue to retry
+			if attempt < maxRetries {
+				waitTime := time.Duration(attempt*2) * time.Second // Progressive backoff
+				s.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Waiting %v before retry attempt %d", instanceId, waitTime, attempt+1)
+				time.Sleep(waitTime)
+				continue
+			}
+		}
+
+		// If it's the last attempt or a non-retryable error, return the error
+		s.loggerWrapper.GetLogger(instanceId).LogError("[%s] Failed to ensure client connection after %d attempts: %v", instanceId, attempt, err)
+		return nil, err
+	}
+
+	return nil, fmt.Errorf("failed to connect client after %d attempts", maxRetries)
+}
+
 func validateMessageFields(phone string, formatJid *bool, messageID *string, participant *string) (types.JID, error) {
 	// Apply formatting if formatJid is true (default)
 	shouldFormat := true // Default value
@@ -373,31 +413,56 @@ func findURL(text string) string {
 }
 
 func (s *sendService) SendText(data *TextStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
-	_, err := s.ensureClientConnected(instance.Id)
-	if err != nil {
-		return nil, err
+	return s.sendTextWithRetry(data, instance, 3) // 3 tentativas máximas
+}
+
+func (s *sendService) sendTextWithRetry(data *TextStruct, instance *instance_model.Instance, maxRetries int) (*MessageSendStruct, error) {
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] SendText attempt %d/%d", instance.Id, attempt, maxRetries)
+
+		_, err := s.ensureClientConnectedWithRetry(instance.Id, 2)
+		if err != nil {
+			if attempt == maxRetries {
+				return nil, err
+			}
+			continue
+		}
+
+		msg := &waE2E.Message{
+			ExtendedTextMessage: &waE2E.ExtendedTextMessage{
+				Text: &data.Text,
+			},
+		}
+
+		message, err := s.SendMessage(instance, msg, "ExtendedTextMessage", &SendDataStruct{
+			Id:           data.Id,
+			Number:       data.Number,
+			Quoted:       data.Quoted,
+			Delay:        data.Delay,
+			MentionAll:   data.MentionAll,
+			MentionedJID: data.MentionedJID,
+			FormatJid:    data.FormatJid,
+		})
+
+		if err != nil {
+			// Check if it's a client disconnection error
+			if strings.Contains(err.Error(), "client disconnected") || strings.Contains(err.Error(), "no active session") {
+				s.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] SendText failed due to disconnection on attempt %d/%d: %v", instance.Id, attempt, maxRetries, err)
+				if attempt < maxRetries {
+					waitTime := time.Duration(attempt) * time.Second
+					s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Waiting %v before retry", instance.Id, waitTime)
+					time.Sleep(waitTime)
+					continue
+				}
+			}
+			return nil, err
+		}
+
+		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] SendText successful on attempt %d", instance.Id, attempt)
+		return message, nil
 	}
 
-	msg := &waE2E.Message{
-		ExtendedTextMessage: &waE2E.ExtendedTextMessage{
-			Text: &data.Text,
-		},
-	}
-
-	message, err := s.SendMessage(instance, msg, "ExtendedTextMessage", &SendDataStruct{
-		Id:           data.Id,
-		Number:       data.Number,
-		Quoted:       data.Quoted,
-		Delay:        data.Delay,
-		MentionAll:   data.MentionAll,
-		MentionedJID: data.MentionedJID,
-		FormatJid:    data.FormatJid,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return message, nil
+	return nil, fmt.Errorf("failed to send text after %d attempts", maxRetries)
 }
 
 func fetchLinkMetadata(url string) (string, string, string, error) {
@@ -452,58 +517,89 @@ func fetchLinkMetadata(url string) (string, string, string, error) {
 }
 
 func (s *sendService) SendLink(data *LinkStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
-	_, err := s.ensureClientConnected(instance.Id)
-	if err != nil {
-		return nil, err
-	}
+	return s.sendLinkWithRetry(data, instance, 3)
+}
 
-	matchedText := findURL(data.Text)
+func (s *sendService) sendLinkWithRetry(data *LinkStruct, instance *instance_model.Instance, maxRetries int) (*MessageSendStruct, error) {
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] SendLink attempt %d/%d", instance.Id, attempt, maxRetries)
 
-	if matchedText != "" {
-		title, description, imgUrl, err := fetchLinkMetadata(matchedText)
+		_, err := s.ensureClientConnectedWithRetry(instance.Id, 2)
 		if err != nil {
+			if attempt == maxRetries {
+				return nil, err
+			}
+			continue
+		}
+
+		matchedText := findURL(data.Text)
+
+		if matchedText != "" {
+			title, description, imgUrl, err := fetchLinkMetadata(matchedText)
+			if err != nil {
+				if attempt == maxRetries {
+					return nil, err
+				}
+				continue
+			}
+
+			data.Title = title
+			data.Description = description
+			data.ImgUrl = imgUrl
+		}
+
+		var fileData []byte
+		if data.ImgUrl != "" {
+			resp, err := http.Get(data.ImgUrl)
+			if err != nil {
+				if attempt == maxRetries {
+					return nil, err
+				}
+				continue
+			}
+			defer resp.Body.Close()
+			fileData, _ = io.ReadAll(resp.Body)
+		}
+
+		msg := &waE2E.Message{
+			ExtendedTextMessage: &waE2E.ExtendedTextMessage{
+				Text:          &data.Text,
+				Title:         &data.Title,
+				MatchedText:   &matchedText,
+				JPEGThumbnail: fileData,
+				Description:   &data.Description,
+			},
+		}
+
+		message, err := s.SendMessage(instance, msg, "ExtendedTextMessage", &SendDataStruct{
+			Id:           data.Id,
+			Number:       data.Number,
+			Quoted:       data.Quoted,
+			Delay:        data.Delay,
+			MentionAll:   data.MentionAll,
+			MentionedJID: data.MentionedJID,
+			FormatJid:    data.FormatJid,
+		})
+
+		if err != nil {
+			// Check if it's a client disconnection error
+			if strings.Contains(err.Error(), "client disconnected") || strings.Contains(err.Error(), "no active session") {
+				s.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] SendLink failed due to disconnection on attempt %d/%d: %v", instance.Id, attempt, maxRetries, err)
+				if attempt < maxRetries {
+					waitTime := time.Duration(attempt) * time.Second
+					s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Waiting %v before retry", instance.Id, waitTime)
+					time.Sleep(waitTime)
+					continue
+				}
+			}
 			return nil, err
 		}
 
-		data.Title = title
-		data.Description = description
-		data.ImgUrl = imgUrl
+		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] SendLink successful on attempt %d", instance.Id, attempt)
+		return message, nil
 	}
 
-	var fileData []byte
-	if data.ImgUrl != "" {
-		resp, err := http.Get(data.ImgUrl)
-		if err != nil {
-			return nil, err
-		}
-		defer resp.Body.Close()
-		fileData, _ = io.ReadAll(resp.Body)
-	}
-
-	msg := &waE2E.Message{
-		ExtendedTextMessage: &waE2E.ExtendedTextMessage{
-			Text:          &data.Text,
-			Title:         &data.Title,
-			MatchedText:   &matchedText,
-			JPEGThumbnail: fileData,
-			Description:   &data.Description,
-		},
-	}
-
-	message, err := s.SendMessage(instance, msg, "ExtendedTextMessage", &SendDataStruct{
-		Id:           data.Id,
-		Number:       data.Number,
-		Quoted:       data.Quoted,
-		Delay:        data.Delay,
-		MentionAll:   data.MentionAll,
-		MentionedJID: data.MentionedJID,
-		FormatJid:    data.FormatJid,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return message, nil
+	return nil, fmt.Errorf("failed to send link after %d attempts", maxRetries)
 }
 
 type ConvertAudio struct {
@@ -656,375 +752,448 @@ func convertAudioToOpusWithDuration(inputData []byte) ([]byte, int, error) {
 }
 
 func (s *sendService) SendMediaFile(data *MediaStruct, fileData []byte, instance *instance_model.Instance) (*MessageSendStruct, error) {
-	client, err := s.ensureClientConnected(instance.Id)
-	if err != nil {
-		return nil, err
-	}
-
-	mime, _ := mimetype.DetectReader(bytes.NewReader(fileData))
-	mimeType := mime.String()
-
-	var uploadType whatsmeow.MediaType
-	var duration int
-
-	switch data.Type {
-	case "image":
-		if mimeType != "image/jpeg" && mimeType != "image/png" && mimeType != "image/webp" {
-			errMsg := fmt.Sprintf("Invalid file format: '%s'. Only 'image/jpeg', 'image/png' and 'image/webp' are accepted", mimeType)
-			return nil, errors.New(errMsg)
-		}
-		if mimeType == "image/webp" {
-			mimeType = "image/jpeg"
-		}
-		uploadType = whatsmeow.MediaImage
-	case "video":
-		if mimeType != "video/mp4" {
-			errMsg := fmt.Sprintf("Invalid file format: '%s'. Only 'video/mp4' is accepted", mimeType)
-			return nil, errors.New(errMsg)
-		}
-		uploadType = whatsmeow.MediaVideo
-	case "audio":
-		converterApiUrl := s.config.ApiAudioConverter
-		converterApiKey := s.config.ApiAudioConverterKey
-		var convertedData []byte
-		var err error
-		if converterApiUrl == "" {
-
-			convertedData, duration, err = convertAudioToOpusWithDuration(fileData)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			convertedData, duration, err = convertAudioWithApi(converterApiUrl, converterApiKey, ConvertAudio{Base64: base64.StdEncoding.EncodeToString(fileData)})
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		fileData = convertedData
-		mimeType = "audio/ogg; codecs=opus"
-		uploadType = whatsmeow.MediaAudio
-	case "document":
-		uploadType = whatsmeow.MediaDocument
-	default:
-		return nil, errors.New("invalid media type")
-	}
-
-	uploaded, err := client.Upload(context.Background(), fileData, uploadType)
-	if err != nil {
-		return nil, err
-	}
-
-	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Media uploaded with size %d", instance.Id, uploaded.FileLength)
-
-	var media *waE2E.Message
-	var mediaType string
-
-	switch data.Type {
-	case "image":
-		media = &waE2E.Message{ImageMessage: &waE2E.ImageMessage{
-			Caption:       proto.String(data.Caption),
-			URL:           proto.String(uploaded.URL),
-			DirectPath:    proto.String(uploaded.DirectPath),
-			MediaKey:      uploaded.MediaKey,
-			Mimetype:      proto.String(mimeType),
-			FileEncSHA256: uploaded.FileEncSHA256,
-			FileSHA256:    uploaded.FileSHA256,
-			FileLength:    proto.Uint64(uint64(len(fileData))),
-		}}
-		mediaType = "ImageMessage"
-	case "video":
-		media = &waE2E.Message{VideoMessage: &waE2E.VideoMessage{
-			Caption:       proto.String(data.Caption),
-			URL:           proto.String(uploaded.URL),
-			DirectPath:    proto.String(uploaded.DirectPath),
-			MediaKey:      uploaded.MediaKey,
-			Mimetype:      proto.String(mimeType),
-			FileEncSHA256: uploaded.FileEncSHA256,
-			FileSHA256:    uploaded.FileSHA256,
-			FileLength:    proto.Uint64(uint64(len(fileData))),
-		}}
-		mediaType = "VideoMessage"
-	case "ptv":
-		media = &waE2E.Message{PtvMessage: &waE2E.VideoMessage{
-			URL:           proto.String(uploaded.URL),
-			DirectPath:    proto.String(uploaded.DirectPath),
-			MediaKey:      uploaded.MediaKey,
-			Mimetype:      proto.String(mimeType),
-			FileEncSHA256: uploaded.FileEncSHA256,
-			FileSHA256:    uploaded.FileSHA256,
-			FileLength:    proto.Uint64(uint64(len(fileData))),
-		}}
-		mediaType = "PtvMessage"
-	case "audio":
-		media = &waE2E.Message{AudioMessage: &waE2E.AudioMessage{
-			URL:           proto.String(uploaded.URL),
-			PTT:           proto.Bool(true),
-			DirectPath:    proto.String(uploaded.DirectPath),
-			MediaKey:      uploaded.MediaKey,
-			Mimetype:      proto.String(mimeType),
-			FileEncSHA256: uploaded.FileEncSHA256,
-			FileSHA256:    uploaded.FileSHA256,
-			FileLength:    proto.Uint64(uploaded.FileLength),
-			Seconds:       proto.Uint32(uint32(duration)),
-		}}
-		mediaType = "AudioMessage"
-	case "document":
-		media = &waE2E.Message{DocumentMessage: &waE2E.DocumentMessage{
-			FileName:      &data.Filename,
-			Caption:       proto.String(data.Caption),
-			URL:           proto.String(uploaded.URL),
-			DirectPath:    proto.String(uploaded.DirectPath),
-			MediaKey:      uploaded.MediaKey,
-			Mimetype:      proto.String(mimeType),
-			FileEncSHA256: uploaded.FileEncSHA256,
-			FileSHA256:    uploaded.FileSHA256,
-			FileLength:    proto.Uint64(uint64(len(fileData))),
-		}}
-
-		if media.GetDocumentMessage().GetCaption() != "" {
-			media.DocumentWithCaptionMessage = &waE2E.FutureProofMessage{
-				Message: &waE2E.Message{
-					DocumentMessage: media.DocumentMessage,
-				},
-			}
-			media.DocumentMessage = nil
-		}
-
-		mediaType = "DocumentMessage"
-	default:
-		return nil, errors.New("invalid media type")
-	}
-
-	message, err := s.SendMessage(instance, media, mediaType, &SendDataStruct{
-		Id:           data.Id,
-		Number:       data.Number,
-		Quoted:       data.Quoted,
-		Delay:        data.Delay,
-		MentionAll:   data.MentionAll,
-		MentionedJID: data.MentionedJID,
-		FormatJid:    data.FormatJid,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return message, nil
+	return s.sendMediaFileWithRetry(data, fileData, instance, 3)
 }
 
-func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
-	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Iniciando envio de media url: %s", instance.Id, data.Url)
-	startTime := time.Now()
+func (s *sendService) sendMediaFileWithRetry(data *MediaStruct, fileData []byte, instance *instance_model.Instance, maxRetries int) (*MessageSendStruct, error) {
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] SendMediaFile attempt %d/%d", instance.Id, attempt, maxRetries)
 
-	client, err := s.ensureClientConnected(instance.Id)
-	if err != nil {
-		return nil, err
-	}
-
-	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Iniciando download da URL: %s", instance.Id, data.Url)
-
-	resp, err := http.Get(data.Url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Download concluído em %v. Lendo dados...", instance.Id, time.Since(startTime))
-
-	downloadStart := time.Now()
-	fileData, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Leitura dos dados concluída em %v. Tamanho: %d bytes", instance.Id, time.Since(downloadStart), len(fileData))
-
-	mime, _ := mimetype.DetectReader(bytes.NewReader(fileData))
-	mimeType := mime.String()
-	if strings.HasSuffix(strings.ToLower(data.Url), ".mp4") {
-		mimeType = "video/mp4"
-	}
-
-	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Tipo MIME detectado: %s", instance.Id, mimeType)
-
-	var uploadType whatsmeow.MediaType
-	var duration int
-
-	processingStart := time.Now()
-	switch data.Type {
-	case "image":
-		if mimeType != "image/jpeg" && mimeType != "image/png" && mimeType != "image/webp" {
-			errMsg := fmt.Sprintf("Invalid file format: '%s'. Only 'image/jpeg', 'image/png' and 'image/webp' are accepted", mimeType)
-			return nil, errors.New(errMsg)
+		client, err := s.ensureClientConnectedWithRetry(instance.Id, 2)
+		if err != nil {
+			if attempt == maxRetries {
+				return nil, err
+			}
+			continue
 		}
-		if mimeType == "image/webp" {
-			mimeType = "image/jpeg"
-		}
-		uploadType = whatsmeow.MediaImage
 
-	case "video", "ptv":
-		if mimeType != "video/mp4" {
-			errMsg := fmt.Sprintf("Invalid file format: '%s'. Only 'video/mp4' are accepted", mimeType)
-			return nil, errors.New(errMsg)
+		mime, _ := mimetype.DetectReader(bytes.NewReader(fileData))
+		mimeType := mime.String()
+
+		var uploadType whatsmeow.MediaType
+		var duration int
+
+		switch data.Type {
+		case "image":
+			if mimeType != "image/jpeg" && mimeType != "image/png" && mimeType != "image/webp" {
+				errMsg := fmt.Sprintf("Invalid file format: '%s'. Only 'image/jpeg', 'image/png' and 'image/webp' are accepted", mimeType)
+				return nil, errors.New(errMsg)
+			}
+			if mimeType == "image/webp" {
+				mimeType = "image/jpeg"
+			}
+			uploadType = whatsmeow.MediaImage
+		case "video":
+			if mimeType != "video/mp4" {
+				errMsg := fmt.Sprintf("Invalid file format: '%s'. Only 'video/mp4' is accepted", mimeType)
+				return nil, errors.New(errMsg)
+			}
+			uploadType = whatsmeow.MediaVideo
+		case "audio":
+			converterApiUrl := s.config.ApiAudioConverter
+			converterApiKey := s.config.ApiAudioConverterKey
+			var convertedData []byte
+			var err error
+			if converterApiUrl == "" {
+
+				convertedData, duration, err = convertAudioToOpusWithDuration(fileData)
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				convertedData, duration, err = convertAudioWithApi(converterApiUrl, converterApiKey, ConvertAudio{Base64: base64.StdEncoding.EncodeToString(fileData)})
+				if err != nil {
+					return nil, err
+				}
+			}
+
+			fileData = convertedData
+			mimeType = "audio/ogg; codecs=opus"
+			uploadType = whatsmeow.MediaAudio
+		case "document":
+			uploadType = whatsmeow.MediaDocument
+		default:
+			return nil, errors.New("invalid media type")
 		}
-		uploadType = whatsmeow.MediaVideo
-	case "audio":
-		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Iniciando conversão de áudio...", instance.Id)
-		converterApiUrl := s.config.ApiAudioConverter
-		converterApiKey := s.config.ApiAudioConverterKey
-		var convertedData []byte
-		var err error
-		if converterApiUrl == "" {
-			s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Usando conversão local...", instance.Id)
-			convertedData, duration, err = convertAudioToOpusWithDuration(fileData)
-		} else {
-			s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Usando API de conversão...", instance.Id)
-			convertedData, duration, err = convertAudioWithApi(converterApiUrl, converterApiKey, ConvertAudio{Base64: base64.StdEncoding.EncodeToString(fileData)})
-		}
+
+		uploaded, err := client.Upload(context.Background(), fileData, uploadType)
 		if err != nil {
 			return nil, err
 		}
-		fileData = convertedData
-		mimeType = "audio/ogg; codecs=opus"
-		uploadType = whatsmeow.MediaAudio
-		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Conversão de áudio concluída em %v", instance.Id, time.Since(processingStart))
-	case "document":
-		uploadType = whatsmeow.MediaDocument
-	default:
-		return nil, errors.New("invalid media type")
-	}
 
-	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Iniciando upload para WhatsApp...", instance.Id)
-	uploadStart := time.Now()
-	uploaded, err := client.Upload(context.Background(), fileData, uploadType)
-	if err != nil {
-		return nil, err
-	}
-	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Upload concluído em %v. Tamanho: %d", instance.Id, time.Since(uploadStart), uploaded.FileLength)
+		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Media uploaded with size %d", instance.Id, uploaded.FileLength)
 
-	var media *waE2E.Message
-	var mediaType string
+		var media *waE2E.Message
+		var mediaType string
 
-	switch data.Type {
-	case "image":
-		media = &waE2E.Message{ImageMessage: &waE2E.ImageMessage{
-			Caption:       proto.String(data.Caption),
-			URL:           proto.String(uploaded.URL),
-			DirectPath:    proto.String(uploaded.DirectPath),
-			MediaKey:      uploaded.MediaKey,
-			Mimetype:      proto.String(mimeType),
-			FileEncSHA256: uploaded.FileEncSHA256,
-			FileSHA256:    uploaded.FileSHA256,
-			FileLength:    proto.Uint64(uint64(len(fileData))),
-		}}
-		mediaType = "ImageMessage"
-	case "video":
-		media = &waE2E.Message{VideoMessage: &waE2E.VideoMessage{
-			Caption:       proto.String(data.Caption),
-			URL:           proto.String(uploaded.URL),
-			DirectPath:    proto.String(uploaded.DirectPath),
-			MediaKey:      uploaded.MediaKey,
-			Mimetype:      proto.String(mimeType),
-			FileEncSHA256: uploaded.FileEncSHA256,
-			FileSHA256:    uploaded.FileSHA256,
-			FileLength:    proto.Uint64(uint64(len(fileData))),
-		}}
-		mediaType = "VideoMessage"
-	case "ptv":
-		media = &waE2E.Message{PtvMessage: &waE2E.VideoMessage{
-			URL:           proto.String(uploaded.URL),
-			DirectPath:    proto.String(uploaded.DirectPath),
-			MediaKey:      uploaded.MediaKey,
-			Mimetype:      proto.String(mimeType),
-			FileEncSHA256: uploaded.FileEncSHA256,
-			FileSHA256:    uploaded.FileSHA256,
-			FileLength:    proto.Uint64(uint64(len(fileData))),
-		}}
-		mediaType = "PtvMessage"
-	case "audio":
-		media = &waE2E.Message{AudioMessage: &waE2E.AudioMessage{
-			URL:              proto.String(uploaded.URL),
-			PTT:              proto.Bool(true),
-			DirectPath:       proto.String(uploaded.DirectPath),
-			MediaKey:         uploaded.MediaKey,
-			Mimetype:         proto.String(mimeType),
-			FileEncSHA256:    uploaded.FileEncSHA256,
-			FileSHA256:       uploaded.FileSHA256,
-			FileLength:       proto.Uint64(uploaded.FileLength),
-			StreamingSidecar: []byte(*proto.String("QpmXDsU7YLagdg==")),
-			Waveform:         []byte(*proto.String("OjAnExISDgsKCAkJBwgkHAQEBBEFAwMNAxAcKCgkFzM0QUE4Jh4eKAoKChcLCwkeFgkJCQo3JiQmIiIRPz8/Ow==")),
-			Seconds:          proto.Uint32(uint32(duration)),
-		}}
-		mediaType = "AudioMessage"
-	case "document":
-		media = &waE2E.Message{DocumentMessage: &waE2E.DocumentMessage{
-			URL:           proto.String(uploaded.URL),
-			FileName:      &data.Filename,
-			Caption:       proto.String(data.Caption),
-			DirectPath:    proto.String(uploaded.DirectPath),
-			MediaKey:      uploaded.MediaKey,
-			Mimetype:      proto.String(mimeType),
-			FileEncSHA256: uploaded.FileEncSHA256,
-			FileSHA256:    uploaded.FileSHA256,
-			FileLength:    proto.Uint64(uint64(len(fileData))),
-		}}
+		switch data.Type {
+		case "image":
+			media = &waE2E.Message{ImageMessage: &waE2E.ImageMessage{
+				Caption:       proto.String(data.Caption),
+				URL:           proto.String(uploaded.URL),
+				DirectPath:    proto.String(uploaded.DirectPath),
+				MediaKey:      uploaded.MediaKey,
+				Mimetype:      proto.String(mimeType),
+				FileEncSHA256: uploaded.FileEncSHA256,
+				FileSHA256:    uploaded.FileSHA256,
+				FileLength:    proto.Uint64(uint64(len(fileData))),
+			}}
+			mediaType = "ImageMessage"
+		case "video":
+			media = &waE2E.Message{VideoMessage: &waE2E.VideoMessage{
+				Caption:       proto.String(data.Caption),
+				URL:           proto.String(uploaded.URL),
+				DirectPath:    proto.String(uploaded.DirectPath),
+				MediaKey:      uploaded.MediaKey,
+				Mimetype:      proto.String(mimeType),
+				FileEncSHA256: uploaded.FileEncSHA256,
+				FileSHA256:    uploaded.FileSHA256,
+				FileLength:    proto.Uint64(uint64(len(fileData))),
+			}}
+			mediaType = "VideoMessage"
+		case "ptv":
+			media = &waE2E.Message{PtvMessage: &waE2E.VideoMessage{
+				URL:           proto.String(uploaded.URL),
+				DirectPath:    proto.String(uploaded.DirectPath),
+				MediaKey:      uploaded.MediaKey,
+				Mimetype:      proto.String(mimeType),
+				FileEncSHA256: uploaded.FileEncSHA256,
+				FileSHA256:    uploaded.FileSHA256,
+				FileLength:    proto.Uint64(uint64(len(fileData))),
+			}}
+			mediaType = "PtvMessage"
+		case "audio":
+			media = &waE2E.Message{AudioMessage: &waE2E.AudioMessage{
+				URL:           proto.String(uploaded.URL),
+				PTT:           proto.Bool(true),
+				DirectPath:    proto.String(uploaded.DirectPath),
+				MediaKey:      uploaded.MediaKey,
+				Mimetype:      proto.String(mimeType),
+				FileEncSHA256: uploaded.FileEncSHA256,
+				FileSHA256:    uploaded.FileSHA256,
+				FileLength:    proto.Uint64(uploaded.FileLength),
+				Seconds:       proto.Uint32(uint32(duration)),
+			}}
+			mediaType = "AudioMessage"
+		case "document":
+			media = &waE2E.Message{DocumentMessage: &waE2E.DocumentMessage{
+				FileName:      &data.Filename,
+				Caption:       proto.String(data.Caption),
+				URL:           proto.String(uploaded.URL),
+				DirectPath:    proto.String(uploaded.DirectPath),
+				MediaKey:      uploaded.MediaKey,
+				Mimetype:      proto.String(mimeType),
+				FileEncSHA256: uploaded.FileEncSHA256,
+				FileSHA256:    uploaded.FileSHA256,
+				FileLength:    proto.Uint64(uint64(len(fileData))),
+			}}
 
-		if media.GetDocumentMessage().GetCaption() != "" {
-			media.DocumentWithCaptionMessage = &waE2E.FutureProofMessage{
-				Message: &waE2E.Message{
-					DocumentMessage: media.DocumentMessage,
-				},
+			if media.GetDocumentMessage().GetCaption() != "" {
+				media.DocumentWithCaptionMessage = &waE2E.FutureProofMessage{
+					Message: &waE2E.Message{
+						DocumentMessage: media.DocumentMessage,
+					},
+				}
+				media.DocumentMessage = nil
 			}
-			media.DocumentMessage = nil
+
+			mediaType = "DocumentMessage"
+		default:
+			return nil, errors.New("invalid media type")
 		}
 
-		mediaType = "DocumentMessage"
-	default:
-		return nil, errors.New("invalid media type")
+		message, err := s.SendMessage(instance, media, mediaType, &SendDataStruct{
+			Id:           data.Id,
+			Number:       data.Number,
+			Quoted:       data.Quoted,
+			Delay:        data.Delay,
+			MentionAll:   data.MentionAll,
+			MentionedJID: data.MentionedJID,
+			FormatJid:    data.FormatJid,
+		})
+
+		if err != nil {
+			// Check if it's a client disconnection error
+			if strings.Contains(err.Error(), "client disconnected") || strings.Contains(err.Error(), "no active session") {
+				s.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] SendMediaFile failed due to disconnection on attempt %d/%d: %v", instance.Id, attempt, maxRetries, err)
+				if attempt < maxRetries {
+					waitTime := time.Duration(attempt) * time.Second
+					s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Waiting %v before retry", instance.Id, waitTime)
+					time.Sleep(waitTime)
+					continue
+				}
+			}
+			return nil, err
+		}
+
+		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] SendMediaFile successful on attempt %d", instance.Id, attempt)
+		return message, nil
 	}
 
-	messageStart := time.Now()
-	message, err := s.SendMessage(instance, media, mediaType, &SendDataStruct{
-		Id:           data.Id,
-		Number:       data.Number,
-		Quoted:       data.Quoted,
-		Delay:        data.Delay,
-		MentionAll:   data.MentionAll,
-		MentionedJID: data.MentionedJID,
-		FormatJid:    data.FormatJid,
-	})
-	if err != nil {
-		return nil, err
+	return nil, fmt.Errorf("failed to send media file after %d attempts", maxRetries)
+}
+
+func (s *sendService) SendMediaUrl(data *MediaStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
+	return s.sendMediaUrlWithRetry(data, instance, 3)
+}
+
+func (s *sendService) sendMediaUrlWithRetry(data *MediaStruct, instance *instance_model.Instance, maxRetries int) (*MessageSendStruct, error) {
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] SendMediaUrl attempt %d/%d for URL: %s", instance.Id, attempt, maxRetries, data.Url)
+		startTime := time.Now()
+
+		client, err := s.ensureClientConnectedWithRetry(instance.Id, 2)
+		if err != nil {
+			if attempt == maxRetries {
+				return nil, err
+			}
+			continue
+		}
+
+		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Iniciando download da URL: %s", instance.Id, data.Url)
+
+		resp, err := http.Get(data.Url)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+
+		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Download concluído em %v. Lendo dados...", instance.Id, time.Since(startTime))
+
+		downloadStart := time.Now()
+		fileData, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Leitura dos dados concluída em %v. Tamanho: %d bytes", instance.Id, time.Since(downloadStart), len(fileData))
+
+		mime, _ := mimetype.DetectReader(bytes.NewReader(fileData))
+		mimeType := mime.String()
+		if strings.HasSuffix(strings.ToLower(data.Url), ".mp4") {
+			mimeType = "video/mp4"
+		}
+
+		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Tipo MIME detectado: %s", instance.Id, mimeType)
+
+		var uploadType whatsmeow.MediaType
+		var duration int
+
+		processingStart := time.Now()
+		switch data.Type {
+		case "image":
+			if mimeType != "image/jpeg" && mimeType != "image/png" && mimeType != "image/webp" {
+				errMsg := fmt.Sprintf("Invalid file format: '%s'. Only 'image/jpeg', 'image/png' and 'image/webp' are accepted", mimeType)
+				return nil, errors.New(errMsg)
+			}
+			if mimeType == "image/webp" {
+				mimeType = "image/jpeg"
+			}
+			uploadType = whatsmeow.MediaImage
+
+		case "video", "ptv":
+			if mimeType != "video/mp4" {
+				errMsg := fmt.Sprintf("Invalid file format: '%s'. Only 'video/mp4' are accepted", mimeType)
+				return nil, errors.New(errMsg)
+			}
+			uploadType = whatsmeow.MediaVideo
+		case "audio":
+			s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Iniciando conversão de áudio...", instance.Id)
+			converterApiUrl := s.config.ApiAudioConverter
+			converterApiKey := s.config.ApiAudioConverterKey
+			var convertedData []byte
+			var err error
+			if converterApiUrl == "" {
+				s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Usando conversão local...", instance.Id)
+				convertedData, duration, err = convertAudioToOpusWithDuration(fileData)
+			} else {
+				s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Usando API de conversão...", instance.Id)
+				convertedData, duration, err = convertAudioWithApi(converterApiUrl, converterApiKey, ConvertAudio{Base64: base64.StdEncoding.EncodeToString(fileData)})
+			}
+			if err != nil {
+				return nil, err
+			}
+			fileData = convertedData
+			mimeType = "audio/ogg; codecs=opus"
+			uploadType = whatsmeow.MediaAudio
+			s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Conversão de áudio concluída em %v", instance.Id, time.Since(processingStart))
+		case "document":
+			uploadType = whatsmeow.MediaDocument
+		default:
+			return nil, errors.New("invalid media type")
+		}
+
+		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Iniciando upload para WhatsApp...", instance.Id)
+		uploadStart := time.Now()
+		uploaded, err := client.Upload(context.Background(), fileData, uploadType)
+		if err != nil {
+			return nil, err
+		}
+		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Upload concluído em %v. Tamanho: %d", instance.Id, time.Since(uploadStart), uploaded.FileLength)
+
+		var media *waE2E.Message
+		var mediaType string
+
+		switch data.Type {
+		case "image":
+			media = &waE2E.Message{ImageMessage: &waE2E.ImageMessage{
+				Caption:       proto.String(data.Caption),
+				URL:           proto.String(uploaded.URL),
+				DirectPath:    proto.String(uploaded.DirectPath),
+				MediaKey:      uploaded.MediaKey,
+				Mimetype:      proto.String(mimeType),
+				FileEncSHA256: uploaded.FileEncSHA256,
+				FileSHA256:    uploaded.FileSHA256,
+				FileLength:    proto.Uint64(uint64(len(fileData))),
+			}}
+			mediaType = "ImageMessage"
+		case "video":
+			media = &waE2E.Message{VideoMessage: &waE2E.VideoMessage{
+				Caption:       proto.String(data.Caption),
+				URL:           proto.String(uploaded.URL),
+				DirectPath:    proto.String(uploaded.DirectPath),
+				MediaKey:      uploaded.MediaKey,
+				Mimetype:      proto.String(mimeType),
+				FileEncSHA256: uploaded.FileEncSHA256,
+				FileSHA256:    uploaded.FileSHA256,
+				FileLength:    proto.Uint64(uint64(len(fileData))),
+			}}
+			mediaType = "VideoMessage"
+		case "ptv":
+			media = &waE2E.Message{PtvMessage: &waE2E.VideoMessage{
+				URL:           proto.String(uploaded.URL),
+				DirectPath:    proto.String(uploaded.DirectPath),
+				MediaKey:      uploaded.MediaKey,
+				Mimetype:      proto.String(mimeType),
+				FileEncSHA256: uploaded.FileEncSHA256,
+				FileSHA256:    uploaded.FileSHA256,
+				FileLength:    proto.Uint64(uint64(len(fileData))),
+			}}
+			mediaType = "PtvMessage"
+		case "audio":
+			media = &waE2E.Message{AudioMessage: &waE2E.AudioMessage{
+				URL:              proto.String(uploaded.URL),
+				PTT:              proto.Bool(true),
+				DirectPath:       proto.String(uploaded.DirectPath),
+				MediaKey:         uploaded.MediaKey,
+				Mimetype:         proto.String(mimeType),
+				FileEncSHA256:    uploaded.FileEncSHA256,
+				FileSHA256:       uploaded.FileSHA256,
+				FileLength:       proto.Uint64(uploaded.FileLength),
+				StreamingSidecar: []byte(*proto.String("QpmXDsU7YLagdg==")),
+				Waveform:         []byte(*proto.String("OjAnExISDgsKCAkJBwgkHAQEBBEFAwMNAxAcKCgkFzM0QUE4Jh4eKAoKChcLCwkeFgkJCQo3JiQmIiIRPz8/Ow==")),
+				Seconds:          proto.Uint32(uint32(duration)),
+			}}
+			mediaType = "AudioMessage"
+		case "document":
+			media = &waE2E.Message{DocumentMessage: &waE2E.DocumentMessage{
+				URL:           proto.String(uploaded.URL),
+				FileName:      &data.Filename,
+				Caption:       proto.String(data.Caption),
+				DirectPath:    proto.String(uploaded.DirectPath),
+				MediaKey:      uploaded.MediaKey,
+				Mimetype:      proto.String(mimeType),
+				FileEncSHA256: uploaded.FileEncSHA256,
+				FileSHA256:    uploaded.FileSHA256,
+				FileLength:    proto.Uint64(uint64(len(fileData))),
+			}}
+
+			if media.GetDocumentMessage().GetCaption() != "" {
+				media.DocumentWithCaptionMessage = &waE2E.FutureProofMessage{
+					Message: &waE2E.Message{
+						DocumentMessage: media.DocumentMessage,
+					},
+				}
+				media.DocumentMessage = nil
+			}
+
+			mediaType = "DocumentMessage"
+		default:
+			return nil, errors.New("invalid media type")
+		}
+
+		messageStart := time.Now()
+		message, err := s.SendMessage(instance, media, mediaType, &SendDataStruct{
+			Id:           data.Id,
+			Number:       data.Number,
+			Quoted:       data.Quoted,
+			Delay:        data.Delay,
+			MentionAll:   data.MentionAll,
+			MentionedJID: data.MentionedJID,
+			FormatJid:    data.FormatJid,
+		})
+
+		if err != nil {
+			// Check if it's a client disconnection error
+			if strings.Contains(err.Error(), "client disconnected") || strings.Contains(err.Error(), "no active session") {
+				s.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] SendMediaUrl failed due to disconnection on attempt %d/%d: %v", instance.Id, attempt, maxRetries, err)
+				if attempt < maxRetries {
+					waitTime := time.Duration(attempt) * time.Second
+					s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Waiting %v before retry", instance.Id, waitTime)
+					time.Sleep(waitTime)
+					continue
+				}
+			}
+			return nil, err
+		}
+
+		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Mensagem enviada em %v", instance.Id, time.Since(messageStart))
+
+		totalTime := time.Since(startTime)
+		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] SendMediaUrl successful on attempt %d, processo completo em %v", instance.Id, attempt, totalTime)
+
+		return message, nil
 	}
-	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Mensagem enviada em %v", instance.Id, time.Since(messageStart))
 
-	totalTime := time.Since(startTime)
-	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Processo completo em %v", instance.Id, totalTime)
-
-	return message, nil
+	return nil, fmt.Errorf("failed to send media url after %d attempts", maxRetries)
 }
 
 func (s *sendService) SendPoll(data *PollStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
-	client, err := s.ensureClientConnected(instance.Id)
-	if err != nil {
-		return nil, err
+	return s.sendPollWithRetry(data, instance, 3)
+}
+
+func (s *sendService) sendPollWithRetry(data *PollStruct, instance *instance_model.Instance, maxRetries int) (*MessageSendStruct, error) {
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] SendPoll attempt %d/%d", instance.Id, attempt, maxRetries)
+
+		client, err := s.ensureClientConnectedWithRetry(instance.Id, 2)
+		if err != nil {
+			if attempt == maxRetries {
+				return nil, err
+			}
+			continue
+		}
+
+		msg := client.BuildPollCreation(data.Question, data.Options, data.MaxAnswer)
+
+		message, err := s.SendMessage(instance, msg, "PollCreationMessage", &SendDataStruct{
+			Id:           data.Id,
+			Number:       data.Number,
+			Quoted:       data.Quoted,
+			Delay:        data.Delay,
+			MentionAll:   data.MentionAll,
+			MentionedJID: data.MentionedJID,
+			FormatJid:    data.FormatJid,
+		})
+
+		if err != nil {
+			// Check if it's a client disconnection error
+			if strings.Contains(err.Error(), "client disconnected") || strings.Contains(err.Error(), "no active session") {
+				s.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] SendPoll failed due to disconnection on attempt %d/%d: %v", instance.Id, attempt, maxRetries, err)
+				if attempt < maxRetries {
+					waitTime := time.Duration(attempt) * time.Second
+					s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Waiting %v before retry", instance.Id, waitTime)
+					time.Sleep(waitTime)
+					continue
+				}
+			}
+			return nil, err
+		}
+
+		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] SendPoll successful on attempt %d", instance.Id, attempt)
+		return message, nil
 	}
 
-	msg := client.BuildPollCreation(data.Question, data.Options, data.MaxAnswer)
-
-	message, err := s.SendMessage(instance, msg, "PollCreationMessage", &SendDataStruct{
-		Id:           data.Id,
-		Number:       data.Number,
-		Quoted:       data.Quoted,
-		Delay:        data.Delay,
-		MentionAll:   data.MentionAll,
-		MentionedJID: data.MentionedJID,
-		FormatJid:    data.FormatJid,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return message, nil
+	return nil, fmt.Errorf("failed to send poll after %d attempts", maxRetries)
 }
 
 func convertToWebP(imageData string) ([]byte, error) {
