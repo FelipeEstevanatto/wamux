@@ -51,10 +51,12 @@ func NewMinioMediaStorage(
 		return nil, fmt.Errorf("failed to create MinIO client: %w", err)
 	}
 
-	// Set bucket policy to allow public access
+	// Try to set bucket policy to allow public access (optional for some providers)
 	err = setBucketPolicy(client, bucketName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to set bucket policy: %w", err)
+		// Some providers (like Backblaze B2) don't support SetBucketPolicy
+		// Log warning but continue - files can still be accessed via presigned URLs
+		fmt.Printf("Warning: Failed to set bucket policy (provider may not support it): %v\n", err)
 	}
 
 	baseURL := fmt.Sprintf("https://%s/%s", endpoint, bucketName)
