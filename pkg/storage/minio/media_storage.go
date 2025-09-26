@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	storage_interfaces "github.com/EvolutionAPI/evolution-go/pkg/storage/interfaces"
@@ -32,6 +33,25 @@ func setBucketPolicy(client *minio.Client, bucketName string) error {
 	}`
 
 	return client.SetBucketPolicy(context.Background(), bucketName, policy)
+}
+
+// generateFilePath creates a simple media folder structure
+// Format: evolution-go-medias/{filename}
+func generateFilePath(fileName string) string {
+	return fmt.Sprintf("evolution-go-medias/%s", fileName)
+}
+
+// resolveFilePath determines if the input is a full path or just a filename
+// If it's just a filename, it assumes it's in the evolution-go-medias folder
+// If it's a full path, it returns it as-is
+func (m *MinioMediaStorage) resolveFilePath(ctx context.Context, fileNameOrPath string) (string, error) {
+	// If the input already contains path separators, assume it's a full path
+	if strings.Contains(fileNameOrPath, "/") {
+		return fileNameOrPath, nil
+	}
+
+	// If it's just a filename, assume it's in the evolution-go-medias folder
+	return fmt.Sprintf("evolution-go-medias/%s", fileNameOrPath), nil
 }
 
 func NewMinioMediaStorage(
@@ -72,18 +92,20 @@ func NewMinioMediaStorage(
 }
 
 func (m *MinioMediaStorage) Store(ctx context.Context, data []byte, fileName string, contentType string) (string, error) {
+	// Generate organized file path
+	filePath := generateFilePath(fileName)
 	reader := bytes.NewReader(data)
 
-	_, err := m.client.PutObject(ctx, m.bucketName, fileName, reader, int64(len(data)), minio.PutObjectOptions{
+	_, err := m.client.PutObject(ctx, m.bucketName, filePath, reader, int64(len(data)), minio.PutObjectOptions{
 		ContentType: contentType,
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to store object: %w", err)
 	}
 
-	// Gerando URL assinada com validade de 100 anos
+	// Gerando URL assinada com validade de 7 dias
 	reqParams := make(url.Values)
-	presignedURL, err := m.client.PresignedGetObject(ctx, m.bucketName, fileName, time.Hour*24*7, reqParams)
+	presignedURL, err := m.client.PresignedGetObject(ctx, m.bucketName, filePath, time.Hour*24*7, reqParams)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate presigned URL: %w", err)
 	}
@@ -94,7 +116,13 @@ func (m *MinioMediaStorage) Store(ctx context.Context, data []byte, fileName str
 }
 
 func (m *MinioMediaStorage) Delete(ctx context.Context, fileName string) error {
-	err := m.client.RemoveObject(ctx, m.bucketName, fileName, minio.RemoveObjectOptions{})
+	// Resolve the full path for the file
+	filePath, err := m.resolveFilePath(ctx, fileName)
+	if err != nil {
+		return fmt.Errorf("failed to resolve file path: %w", err)
+	}
+
+	err = m.client.RemoveObject(ctx, m.bucketName, filePath, minio.RemoveObjectOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to delete object: %w", err)
 	}
@@ -102,15 +130,21 @@ func (m *MinioMediaStorage) Delete(ctx context.Context, fileName string) error {
 }
 
 func (m *MinioMediaStorage) GetURL(ctx context.Context, fileName string) (string, error) {
+	// Resolve the full path for the file
+	filePath, err := m.resolveFilePath(ctx, fileName)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve file path: %w", err)
+	}
+
 	// Check if object exists
-	_, err := m.client.StatObject(ctx, m.bucketName, fileName, minio.StatObjectOptions{})
+	_, err = m.client.StatObject(ctx, m.bucketName, filePath, minio.StatObjectOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to get object stats: %w", err)
 	}
 
-	// Gerando URL assinada com validade de 100 anos
+	// Gerando URL assinada com validade de 7 dias
 	reqParams := make(url.Values)
-	presignedURL, err := m.client.PresignedGetObject(ctx, m.bucketName, fileName, time.Hour*24*7, reqParams)
+	presignedURL, err := m.client.PresignedGetObject(ctx, m.bucketName, filePath, time.Hour*24*7, reqParams)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate presigned URL: %w", err)
 	}
