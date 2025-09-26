@@ -477,6 +477,19 @@ func (i instances) Delete(id string) error {
 		i.clientPointer[instance.Id].Disconnect()
 	}
 
+	// Limpar todos os recursos da instância antes de deletar
+	delete(i.clientPointer, instance.Id)
+	if i.killChannel[instance.Id] != nil {
+		close(i.killChannel[instance.Id])
+		delete(i.killChannel, instance.Id)
+	}
+
+	// Limpar cache via whatsmeow service
+	err = i.whatsmeowService.ClearInstanceCache(instance.Id, instance.Token)
+	if err != nil {
+		i.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Failed to clear instance cache: %v", instance.Id, err)
+	}
+
 	err = i.instanceRepository.Delete(id)
 	if err != nil {
 		return err
