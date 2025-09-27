@@ -52,6 +52,7 @@ type WhatsmeowService interface {
 	ConnectOnStartup(clientName string)
 	StartInstance(instanceId string) error
 	ReconnectClient(instanceId string) error
+	ClearInstanceCache(instanceId string, token string) error
 	CallWebhook(instance *instance_model.Instance, queueName string, jsonData []byte)
 	SendToGlobalQueues(event string, jsonData []byte, userId string)
 	ForceUpdateJid(instanceId string, number string) error
@@ -181,6 +182,12 @@ func (w whatsmeowService) ReconnectClient(instanceId string) error {
 	delete(w.clientPointer, instanceId)
 	delete(w.myClientPointer, instanceId)
 	delete(w.killChannel, instanceId)
+
+	// Limpar cache de userInfo para esta instância
+	if instance, err := w.instanceRepository.GetInstanceByID(instanceId); err == nil {
+		w.userInfoCache.Delete(instance.Token)
+		w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] UserInfo cache cleared for token: %s", instanceId, instance.Token)
+	}
 
 	// Passo 3: Atualizar status no banco
 	instance, err := w.instanceRepository.GetInstanceByID(instanceId)
@@ -715,6 +722,10 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 
 			delete(w.clientPointer, cd.Instance.Id)
 			delete(w.myClientPointer, cd.Instance.Id)
+
+			// Limpar cache de userInfo para esta instância
+			w.userInfoCache.Delete(cd.Instance.Token)
+			w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] UserInfo cache cleared for token: %s", cd.Instance.Id, cd.Instance.Token)
 
 			cd.Instance.Connected = false
 
@@ -1531,6 +1542,11 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		doWebhook = true
 		postMap["event"] = "LoggedOut"
 		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Logged out for reason %s", mycli.userID, evt.Reason.String())
+
+		// Limpar cache de userInfo para esta instância
+		mycli.userInfoCache.Delete(mycli.Instance.Token)
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] UserInfo cache cleared for token: %s", mycli.userID, mycli.Instance.Token)
+
 		mycli.killChannel[mycli.userID] <- true
 
 		mycli.Instance.DisconnectReason = evt.Reason.String()
@@ -1620,6 +1636,10 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		postMap["event"] = "ConnectFailure"
 		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Connection failed with reason %s", mycli.userID, evt.Reason.String())
 
+		// Limpar cache de userInfo para esta instância
+		mycli.userInfoCache.Delete(mycli.Instance.Token)
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] UserInfo cache cleared for token: %s", mycli.userID, mycli.Instance.Token)
+
 		mycli.Instance.DisconnectReason = evt.Reason.String()
 		mycli.Instance.Connected = false
 		err := mycli.instanceRepository.UpdateConnected(mycli.Instance.Id, mycli.Instance.Connected, mycli.Instance.DisconnectReason)
@@ -1629,6 +1649,10 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	case *events.Disconnected:
 		doWebhook = true
 		postMap["event"] = "Disconnected"
+
+		// Limpar cache de userInfo para esta instância (mas não para reconexão automática)
+		mycli.userInfoCache.Delete(mycli.Instance.Token)
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] UserInfo cache cleared for token: %s", mycli.userID, mycli.Instance.Token)
 
 		mycli.Instance.DisconnectReason = "Disconnected emitted because the websocket is closed by the server."
 		mycli.Instance.Connected = false
@@ -2311,6 +2335,41 @@ func (w whatsmeowService) UpdateInstanceAdvancedSettings(instanceId string) erro
 	myClient.Instance = instance
 
 	w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Advanced settings updated in runtime successfully", instanceId)
+	return nil
+}
+
+func (w whatsmeowService) ClearInstanceCache(instanceId string, token string) error {
+	w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Clearing instance cache - Token: %s", instanceId, token)
+
+	// Limpar userInfoCache
+	w.userInfoCache.Delete(token)
+
+	// Limpar myClientPointer se existir
+	if _, exists := w.myClientPointer[instanceId]; exists {
+		delete(w.myClientPointer, instanceId)
+		w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] MyClient pointer cleared", instanceId)
+	}
+
+	// Limpar clientPointer se existir
+	if _, exists := w.clientPointer[instanceId]; exists {
+		delete(w.clientPointer, instanceId)
+		w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Client pointer cleared", instanceId)
+	}
+
+	// Limpar killChannel se existir
+	if killChan, exists := w.killChannel[instanceId]; exists {
+		select {
+		case killChan <- true:
+			// Canal recebeu o sinal
+		default:
+			// Canal pode estar bloqueado, apenas fecha
+		}
+		close(killChan)
+		delete(w.killChannel, instanceId)
+		w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Kill channel cleared", instanceId)
+	}
+
+	w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Instance cache completely cleared", instanceId)
 	return nil
 }
 
