@@ -35,6 +35,8 @@ type InstanceService interface {
 	GetAll() ([]*instance_model.Instance, error)
 	Info(instanceId string) (*instance_model.Instance, error)
 	Delete(id string) error
+	SetProxy(id string, proxyConfig *ProxyConfig) error
+	SetProxyFromStruct(id string, data *SetProxyStruct) error
 	RemoveProxy(id string) error
 	ForceReconnect(instanceId string, number string) error
 	GetInstanceByToken(token string) (*instance_model.Instance, error)
@@ -96,6 +98,13 @@ type PairStruct struct {
 
 type PairReturnStruct struct {
 	PairingCode string
+}
+
+type SetProxyStruct struct {
+	Host     string `json:"host" validate:"required"`
+	Port     string `json:"port" validate:"required"`
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 type ForceReconnectStruct struct {
@@ -498,6 +507,64 @@ func (i instances) Delete(id string) error {
 	return nil
 }
 
+func (i instances) SetProxy(id string, proxyConfig *ProxyConfig) error {
+	instance, err := i.instanceRepository.GetInstanceByID(id)
+	if err != nil {
+		return err
+	}
+
+	// Validate proxy configuration
+	if proxyConfig == nil {
+		return fmt.Errorf("proxy configuration cannot be nil")
+	}
+
+	if proxyConfig.Host == "" {
+		return fmt.Errorf("proxy host is required")
+	}
+
+	if proxyConfig.Port == "" {
+		return fmt.Errorf("proxy port is required")
+	}
+
+	// Convert proxy config to JSON
+	proxyJSON, err := json.Marshal(proxyConfig)
+	if err != nil {
+		i.loggerWrapper.GetLogger(id).LogError("[%s] Failed to marshal proxy config: %v", id, err)
+		return fmt.Errorf("failed to marshal proxy configuration: %v", err)
+	}
+
+	instance.Proxy = string(proxyJSON)
+
+	// Update instance in database
+	err = i.instanceRepository.Update(instance)
+	if err != nil {
+		i.loggerWrapper.GetLogger(id).LogError("[%s] Failed to update instance with proxy: %v", id, err)
+		return err
+	}
+
+	i.loggerWrapper.GetLogger(id).LogInfo("[%s] Proxy configuration updated: %s:%s", id, proxyConfig.Host, proxyConfig.Port)
+
+	// Reconnect to apply proxy changes
+	go i.Reconnect(instance)
+
+	return nil
+}
+
+func (i instances) SetProxyFromStruct(id string, data *SetProxyStruct) error {
+	if data == nil {
+		return fmt.Errorf("proxy data cannot be nil")
+	}
+
+	proxyConfig := &ProxyConfig{
+		Host:     data.Host,
+		Port:     data.Port,
+		Username: data.Username,
+		Password: data.Password,
+	}
+
+	return i.SetProxy(id, proxyConfig)
+}
+
 func (i instances) RemoveProxy(id string) error {
 	instance, err := i.instanceRepository.GetInstanceByID(id)
 	if err != nil {
@@ -510,6 +577,8 @@ func (i instances) RemoveProxy(id string) error {
 	if err != nil {
 		return err
 	}
+
+	i.loggerWrapper.GetLogger(id).LogInfo("[%s] Proxy configuration removed", id)
 
 	go i.Reconnect(instance)
 
