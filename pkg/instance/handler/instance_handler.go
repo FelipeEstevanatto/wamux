@@ -23,6 +23,7 @@ type InstanceHandler interface {
 	All(ctx *gin.Context)
 	Info(ctx *gin.Context)
 	Pair(ctx *gin.Context)
+	SetProxy(ctx *gin.Context)
 	DeleteProxy(ctx *gin.Context)
 	ForceReconnect(ctx *gin.Context)
 	GetLogs(ctx *gin.Context)
@@ -401,6 +402,59 @@ func (i *instanceHandler) Delete(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "success"})
+}
+
+// Set proxy
+// @Summary Set proxy configuration
+// @Description Set proxy configuration for an instance
+// @Tags Instance
+// @Accept json
+// @Produce json
+// @Param instanceId path string true "Instance id"
+// @Param proxy body instance_service.SetProxyStruct true "Proxy configuration"
+// @Success 200 {object} gin.H "Proxy set successfully"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /instance/proxy/{instanceId} [post]
+func (i *instanceHandler) SetProxy(ctx *gin.Context) {
+	instanceId := ctx.Param("instanceId")
+
+	if instanceId == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "instanceId is required"})
+		return
+	}
+
+	var data *instance_service.SetProxyStruct
+	err := ctx.ShouldBindBodyWithJSON(&data)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Validate required fields
+	if data.Host == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "host is required"})
+		return
+	}
+
+	if data.Port == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "port is required"})
+		return
+	}
+
+	err = i.instanceService.SetProxyFromStruct(instanceId, data)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	responseData := gin.H{
+		"host":    data.Host,
+		"port":    data.Port,
+		"hasAuth": data.Username != "" && data.Password != "",
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
 }
 
 // Delete proxy
