@@ -63,6 +63,7 @@ type User struct {
 	Query        string
 	IsInWhatsapp bool
 	JID          string
+	RemoteJID    string
 	LID          *string
 	VerifiedName string
 }
@@ -198,19 +199,48 @@ func (u *userService) CheckUser(data *CheckUserStruct, instance *instance_model.
 		return nil, err
 	}
 
+	// Set formatJid to false by default for CheckUser
+	formatJid := false
+	if data.FormatJid != nil {
+		formatJid = *data.FormatJid
+	}
+
+	// First attempt with the requested formatJid setting
+	uc, shouldRetry := u.performCheckUser(client, data.Number, formatJid, instance.Id)
+	if !shouldRetry {
+		return uc, nil
+	}
+
+	// If formatJid was true and we got false results, retry with formatJid=false
+	if formatJid {
+		u.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Some users not found with formatJid=true, retrying with formatJid=false", instance.Id)
+		ucRetry, _ := u.performCheckUser(client, data.Number, false, instance.Id)
+		
+		// Merge results: use retry results for users that weren't found in first attempt
+		return u.mergeCheckUserResults(uc, ucRetry), nil
+	}
+
+	return uc, nil
+}
+
+// performCheckUser executes the actual user check with specified formatJid
+func (u *userService) performCheckUser(client *whatsmeow.Client, numbers []string, formatJid bool, instanceId string) (*CheckUserCollection, bool) {
 	// Use centralized function to prepare numbers for WhatsApp check
-	phoneNumbers, err := utils.PrepareNumbersForWhatsAppCheck(data.Number, data.FormatJid)
+	phoneNumbers, err := utils.PrepareNumbersForWhatsAppCheck(numbers, &formatJid)
 	if err != nil {
-		u.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Failed to prepare numbers for WhatsApp check: %v", instance.Id, err)
-		return nil, err
+		u.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Failed to prepare numbers for WhatsApp check: %v", instanceId, err)
+		return nil, false
 	}
 
 	resp, err := client.IsOnWhatsApp(phoneNumbers)
 	if err != nil {
-		return nil, err
+		u.loggerWrapper.GetLogger(instanceId).LogError("[%s] Failed to check users on WhatsApp: %v", instanceId, err)
+		return nil, false
 	}
 
 	uc := new(CheckUserCollection)
+	shouldRetry := false
+
 	for _, item := range resp {
 		// Consultar LID Store para obter LID associado ao JID
 		var lidStr *string
@@ -221,11 +251,22 @@ func (u *userService) CheckUser(data *CheckUserStruct, instance *instance_model.
 			}
 		}
 
+		// Determine the RemoteJID to use for messaging
+		remoteJID := item.Query // Default to original query
+		if item.IsIn {
+			// When user exists on WhatsApp, use the JID returned by WhatsApp
+			remoteJID = fmt.Sprintf("%v", item.JID)
+		} else if formatJid {
+			// If user not found and we used formatJid=true, we should retry with formatJid=false
+			shouldRetry = true
+		}
+
 		if item.VerifiedName != nil {
 			var msg = User{
 				Query:        item.Query,
 				IsInWhatsapp: item.IsIn,
 				JID:          fmt.Sprintf("%v", item.JID),
+				RemoteJID:    remoteJID,
 				LID:          lidStr,
 				VerifiedName: item.VerifiedName.Details.GetVerifiedName(),
 			}
@@ -235,6 +276,7 @@ func (u *userService) CheckUser(data *CheckUserStruct, instance *instance_model.
 				Query:        item.Query,
 				IsInWhatsapp: item.IsIn,
 				JID:          fmt.Sprintf("%v", item.JID),
+				RemoteJID:    remoteJID,
 				LID:          lidStr,
 				VerifiedName: "",
 			}
@@ -242,7 +284,35 @@ func (u *userService) CheckUser(data *CheckUserStruct, instance *instance_model.
 		}
 	}
 
-	return uc, nil
+	return uc, shouldRetry
+}
+
+// mergeCheckUserResults merges results from two CheckUser attempts
+// Priority: if a user is found in retry (formatJid=false), use that result
+func (u *userService) mergeCheckUserResults(original, retry *CheckUserCollection) *CheckUserCollection {
+	if retry == nil {
+		return original
+	}
+
+	// Create a map of retry results by original query for quick lookup
+	retryMap := make(map[string]User)
+	for _, user := range retry.Users {
+		retryMap[user.Query] = user
+	}
+
+	// Merge results
+	merged := &CheckUserCollection{}
+	for _, originalUser := range original.Users {
+		if retryUser, exists := retryMap[originalUser.Query]; exists && retryUser.IsInWhatsapp && !originalUser.IsInWhatsapp {
+			// Use retry result if it found the user and original didn't
+			merged.Users = append(merged.Users, retryUser)
+		} else {
+			// Use original result
+			merged.Users = append(merged.Users, originalUser)
+		}
+	}
+
+	return merged
 }
 
 func (u *userService) GetAvatar(data *GetAvatarStruct, instance *instance_model.Instance) (*types.ProfilePictureInfo, error) {

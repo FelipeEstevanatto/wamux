@@ -344,62 +344,85 @@ func validateMessageFields(phone string, formatJid *bool, messageID *string, par
 }
 
 // validateAndCheckUserExists validates message fields and checks if the user exists on WhatsApp
+// Now uses the new approach: CheckUser with formatJid=false by default, and uses remoteJID for messaging
 func (s *sendService) validateAndCheckUserExists(phone string, formatJid *bool, messageID *string, participant *string, instance *instance_model.Instance) (types.JID, error) {
-	// First validate the basic message fields
-	recipient, err := validateMessageFields(phone, formatJid, messageID, participant)
-	if err != nil {
-		return recipient, err
-	}
-
 	// Skip WhatsApp check if disabled in config
 	if !s.config.CheckUserExists {
 		s.loggerWrapper.GetLogger(instance.Id).LogDebug("[%s] User existence check disabled by configuration", instance.Id)
-		return recipient, nil
+		// Use original validation logic when check is disabled
+		return validateMessageFields(phone, formatJid, messageID, participant)
 	}
 
 	// Skip WhatsApp check for group messages, broadcast, and LID
 	if strings.Contains(phone, "@g.us") || strings.Contains(phone, "@broadcast") || strings.Contains(phone, "@lid") {
-		return recipient, nil
+		return validateMessageFields(phone, formatJid, messageID, participant)
 	}
 
 	// Get the client to check if user exists on WhatsApp
 	client, err := s.ensureClientConnected(instance.Id)
 	if err != nil {
-		return recipient, fmt.Errorf("failed to connect client: %v", err)
+		return types.NewJID("", types.DefaultUserServer), fmt.Errorf("failed to connect client: %v", err)
 	}
 
-	// Use centralized function to prepare number for WhatsApp check
-	shouldFormat := true // Default value
-	if formatJid != nil {
-		shouldFormat = *formatJid
-	}
-
-	phoneForCheck, err := utils.PrepareNumberForWhatsAppCheck(phone, shouldFormat)
+	// Use CheckUser approach: formatJid=false by default
+	formatJidForCheck := false
+	
+	// First attempt with formatJid=false
+	remoteJID, found, err := s.checkSingleUserExists(client, phone, formatJidForCheck, instance.Id)
 	if err != nil {
-		s.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Failed to prepare number for WhatsApp check: %v", instance.Id, err)
-		return recipient, err
+		s.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Failed to check user existence: %v", instance.Id, err)
+		// Continue with sending even if check fails (network issues, etc.)
+		return validateMessageFields(phone, formatJid, messageID, participant)
+	}
+	
+	// If not found with formatJid=false, try with formatJid=true as fallback
+	if !found {
+		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] User not found with formatJid=false, trying with formatJid=true", instance.Id)
+		remoteJIDRetry, foundRetry, errRetry := s.checkSingleUserExists(client, phone, true, instance.Id)
+		if errRetry == nil && foundRetry {
+			remoteJID = remoteJIDRetry
+			found = foundRetry
+		}
+	}
+	
+	if !found {
+		return types.NewJID("", types.DefaultUserServer), fmt.Errorf("number %s is not registered on WhatsApp", phone)
+	}
+
+	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Number %s verified as valid WhatsApp user, using remoteJID: %s", instance.Id, phone, remoteJID)
+
+	// Validate the remoteJID with formatJid=false for message sending
+	formatJidFalse := false
+	return validateMessageFields(remoteJID, &formatJidFalse, messageID, participant)
+}
+
+// checkSingleUserExists checks if a single user exists on WhatsApp with the specified formatJid setting
+// Returns: remoteJID, found, error
+func (s *sendService) checkSingleUserExists(client *whatsmeow.Client, phone string, formatJid bool, instanceId string) (string, bool, error) {
+	phoneNumbers, err := utils.PrepareNumbersForWhatsAppCheck([]string{phone}, &formatJid)
+	if err != nil {
+		return "", false, fmt.Errorf("failed to prepare number for WhatsApp check: %v", err)
 	}
 
 	// Check if the number exists on WhatsApp
-	resp, err := client.IsOnWhatsApp([]string{phoneForCheck})
+	resp, err := client.IsOnWhatsApp(phoneNumbers)
 	if err != nil {
-		s.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Failed to check if number %s exists on WhatsApp: %v", instance.Id, phoneForCheck, err)
-		// Continue with sending even if check fails (network issues, etc.)
-		return recipient, nil
+		return "", false, fmt.Errorf("failed to check if number %s exists on WhatsApp: %v", phoneNumbers[0], err)
 	}
 
 	// Verify if the number was found
 	if len(resp) == 0 {
-		return recipient, fmt.Errorf("number %s not found on WhatsApp", phoneForCheck)
+		return "", false, fmt.Errorf("number %s not found in WhatsApp response", phoneNumbers[0])
 	}
 
 	// Check if the first result indicates the number is on WhatsApp
 	if !resp[0].IsIn {
-		return recipient, fmt.Errorf("number %s is not registered on WhatsApp", phoneForCheck)
+		return "", false, nil // Not an error, just not found
 	}
 
-	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Number %s verified as valid WhatsApp user", instance.Id, phoneForCheck)
-	return recipient, nil
+	// Return the remoteJID from WhatsApp's response
+	remoteJID := fmt.Sprintf("%v", resp[0].JID)
+	return remoteJID, true, nil
 }
 
 func findURL(text string) string {
