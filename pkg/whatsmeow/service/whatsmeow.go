@@ -1059,15 +1059,45 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			return
 		}
 
-		// Limpa o Sender ID removendo a parte ":numero" para exibir apenas o remoteJid correto
-		cleanSender := cleanSenderID(evt.Info.Sender.String())
-		if cleanedJID, err := types.ParseJID(cleanSender); err == nil {
-			evt.Info.Sender = cleanedJID
-		}
+		// Trata o caso especial onde Sender é @lid e SenderAlt é @s.whatsapp.net
+		// Neste caso, devemos inverter: Sender e Chat devem ser @s.whatsapp.net, SenderAlt deve ser @lid
+		senderStr := evt.Info.Sender.String()
+		senderAltStr := evt.Info.SenderAlt.String()
+		chatStr := evt.Info.Chat.String()
 
-		cleanSenderAlt := cleanSenderID(evt.Info.SenderAlt.String())
-		if cleanedLID, err := types.ParseJID(cleanSenderAlt); err == nil {
-			evt.Info.SenderAlt = cleanedLID
+		if strings.Contains(senderStr, "@lid") && strings.Contains(senderAltStr, "@s.whatsapp.net") {
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Detected LID/WhatsApp JID swap case - Sender: %s, SenderAlt: %s", mycli.userID, senderStr, senderAltStr)
+
+			// Limpa os IDs antes de fazer a troca
+			cleanSenderAlt := cleanSenderID(senderAltStr)
+			cleanSender := cleanSenderID(senderStr)
+
+			// Inverte: Sender e Chat recebem o @s.whatsapp.net, SenderAlt recebe o @lid
+			if cleanedWhatsAppJID, err := types.ParseJID(cleanSenderAlt); err == nil {
+				evt.Info.Sender = cleanedWhatsAppJID
+				// Se Chat também é @lid, atualiza para @s.whatsapp.net
+				if strings.Contains(chatStr, "@lid") {
+					evt.Info.Chat = cleanedWhatsAppJID
+				}
+			}
+
+			if cleanedLID, err := types.ParseJID(cleanSender); err == nil {
+				evt.Info.SenderAlt = cleanedLID
+			}
+
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] JID swap completed - New Sender: %s, New SenderAlt: %s, New Chat: %s",
+				mycli.userID, evt.Info.Sender.String(), evt.Info.SenderAlt.String(), evt.Info.Chat.String())
+		} else {
+			// Comportamento normal: apenas limpa os IDs
+			cleanSender := cleanSenderID(senderStr)
+			if cleanedJID, err := types.ParseJID(cleanSender); err == nil {
+				evt.Info.Sender = cleanedJID
+			}
+
+			cleanSenderAlt := cleanSenderID(senderAltStr)
+			if cleanedLID, err := types.ParseJID(cleanSenderAlt); err == nil {
+				evt.Info.SenderAlt = cleanedLID
+			}
 		}
 
 		// Auto-marca mensagens como lidas se configurado
