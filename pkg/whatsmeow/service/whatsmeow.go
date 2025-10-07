@@ -1577,8 +1577,6 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		mycli.userInfoCache.Delete(mycli.Instance.Token)
 		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] UserInfo cache cleared for token: %s", mycli.userID, mycli.Instance.Token)
 
-		mycli.killChannel[mycli.userID] <- true
-
 		mycli.Instance.DisconnectReason = evt.Reason.String()
 		mycli.Instance.Connected = false
 		err := mycli.instanceRepository.UpdateConnected(mycli.Instance.Id, mycli.Instance.Connected, mycli.Instance.DisconnectReason)
@@ -1608,6 +1606,34 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		dataMap := postMap["data"].(map[string]interface{})
 
 		dataMap["reason"] = evt.Reason.String()
+
+		// Enviar evento LoggedOut para webhook/RabbitMQ ANTES de matar o canal
+		postMap["instanceToken"] = mycli.Instance.Token
+		postMap["instanceId"] = mycli.userID
+		postMap["instanceName"] = mycli.Instance.Name
+
+		values, err := json.Marshal(postMap)
+		if err != nil {
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to marshal JSON for LoggedOut event", mycli.userID)
+		} else {
+			var queueName string
+			if _, ok := postMap["event"]; ok {
+				queueName = strings.ToLower(fmt.Sprintf("%s.%s", mycli.userID, postMap["event"]))
+			}
+
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] ===== DISPATCHING LOGGEDOUT EVENT ===== Queue: %s", mycli.userID, queueName)
+
+			// Enviar para webhook/RabbitMQ
+			go mycli.service.CallWebhook(mycli.Instance, queueName, values)
+
+			if mycli.config.AmqpGlobalEnabled || mycli.config.NatsGlobalEnabled {
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Sending LoggedOut to global queues - AMQP: %v, NATS: %v", mycli.userID, mycli.config.AmqpGlobalEnabled, mycli.config.NatsGlobalEnabled)
+				go mycli.service.SendToGlobalQueues(postMap["event"].(string), values, mycli.userID)
+			}
+		}
+
+		// Agora mata o canal DEPOIS de enviar o evento
+		mycli.killChannel[mycli.userID] <- true
 	case *events.ChatPresence:
 		doWebhook = true
 		postMap["event"] = "ChatPresence"
