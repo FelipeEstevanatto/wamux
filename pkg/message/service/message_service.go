@@ -225,7 +225,7 @@ func (m *messageService) ChatPresence(data *ChatPresenceStruct, instance *instan
 		media = "audio"
 	}
 
-	err = client.SendChatPresence(recipient, types.ChatPresence(data.State), types.ChatPresenceMedia(media))
+	err = client.SendChatPresence(context.Background(), recipient, types.ChatPresence(data.State), types.ChatPresenceMedia(media))
 	if err != nil {
 		return "", err
 	}
@@ -249,7 +249,7 @@ func (m *messageService) MarkRead(data *MarkReadStruct, instance *instance_model
 		return "", errors.New("invalid phone number")
 	}
 
-	err = client.MarkRead(data.Id, time.Now(), jid, jid)
+	err = client.MarkRead(context.Background(), data.Id, time.Now(), jid, jid)
 	if err != nil {
 		m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error marking message as read: %v", instance.Id, err)
 		return "", errors.New("error marking message as read")

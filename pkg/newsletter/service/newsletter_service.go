@@ -91,7 +91,7 @@ func (n *newsletterService) CreateNewsletter(data *CreateNewsletterStruct, insta
 		return nil, err
 	}
 
-	newsletter, err := client.CreateNewsletter(whatsmeow.CreateNewsletterParams{
+	newsletter, err := client.CreateNewsletter(context.Background(), whatsmeow.CreateNewsletterParams{
 		Name:        data.Name,
 		Description: data.Description,
 	})
@@ -109,7 +109,7 @@ func (n *newsletterService) ListNewsletter(instance *instance_model.Instance) ([
 		return nil, err
 	}
 
-	newsletters, err := client.GetSubscribedNewsletters()
+	newsletters, err := client.GetSubscribedNewsletters(context.Background())
 	if err != nil {
 		n.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error list newsletters: %v", instance.Id, err)
 		return nil, err
@@ -124,7 +124,7 @@ func (n *newsletterService) GetNewsletter(data *GetNewsletterStruct, instance *i
 		return nil, err
 	}
 
-	newsletter, err := client.GetNewsletterInfo(data.JID)
+	newsletter, err := client.GetNewsletterInfo(context.Background(), data.JID)
 	if err != nil {
 		n.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error list newsletter: %v", instance.Id, err)
 		return nil, err
@@ -139,7 +139,7 @@ func (n *newsletterService) GetNewsletterInvite(data *GetNewsletterInviteStruct,
 		return nil, err
 	}
 
-	newsletter, err := client.GetNewsletterInfoWithInvite(data.Key)
+	newsletter, err := client.GetNewsletterInfoWithInvite(context.Background(), data.Key)
 	if err != nil {
 		n.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error list newsletter: %v", instance.Id, err)
 		return nil, err
@@ -169,7 +169,7 @@ func (n *newsletterService) GetNewsletterMessages(data *GetNewsletterMessagesStr
 		return nil, err
 	}
 
-	messages, err := client.GetNewsletterMessages(data.JID,
+	messages, err := client.GetNewsletterMessages(context.Background(), data.JID,
 		&whatsmeow.GetNewsletterMessagesParams{
 			Count: data.Count, Before: data.BeforeID,
 		})
