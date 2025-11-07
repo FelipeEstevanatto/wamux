@@ -809,7 +809,7 @@ func processPresenceUpdates(mycli *MyClient) {
 	nowSp := now.In(location)
 
 	if nowSp.Hour() >= 1 && nowSp.Hour() < 24 {
-		err := mycli.WAClient.SendPresence(types.PresenceUnavailable)
+		err := mycli.WAClient.SendPresence(context.Background(), types.PresenceUnavailable)
 		if err != nil {
 			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to set presence as unavailable %v", mycli.userID, err)
 		} else {
@@ -818,7 +818,7 @@ func processPresenceUpdates(mycli *MyClient) {
 
 		time.Sleep(time.Duration(1+rand.Intn(5)) * time.Second)
 
-		err = mycli.WAClient.SendPresence(types.PresenceAvailable)
+		err = mycli.WAClient.SendPresence(context.Background(), types.PresenceAvailable)
 		if err != nil {
 			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to set presence as available %v", mycli.userID, err)
 		} else {
@@ -836,7 +836,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	switch evt := rawEvt.(type) {
 	case *events.AppStateSyncComplete:
 		if len(mycli.WAClient.Store.PushName) > 0 && evt.Name == appstate.WAPatchCriticalBlock {
-			err := mycli.WAClient.SendPresence(types.PresenceUnavailable)
+			err := mycli.WAClient.SendPresence(context.Background(), types.PresenceUnavailable)
 			if err != nil {
 				mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Failed to send unavailable presence %v", mycli.userID, err)
 			} else {
@@ -890,7 +890,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 			go schedulePresenceUpdates(mycli)
 
-			err := mycli.WAClient.SendPresence(types.PresenceAvailable)
+			err := mycli.WAClient.SendPresence(context.Background(), types.PresenceAvailable)
 			if err != nil {
 				mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Failed to send available presence %v", mycli.userID, err)
 			} else {
@@ -1031,7 +1031,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		// se readMessages for true ele marca como lida
 		if mycli.Instance.ReadMessages {
 			messageIDs := []string{evt.Info.ID}
-			err := mycli.WAClient.MarkRead(messageIDs, time.Now(), evt.Info.Sender, evt.Info.Sender)
+			err := mycli.WAClient.MarkRead(context.Background(), messageIDs, time.Now(), evt.Info.Sender, evt.Info.Sender)
 			if err != nil {
 				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to auto-mark message as read: %v", mycli.userID, err)
 			} else {
@@ -1104,7 +1104,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		if mycli.Instance.ReadMessages && !evt.Info.IsFromMe {
 			go func() {
 				time.Sleep(1 * time.Second) // Pequeno delay para parecer mais natural
-				err := mycli.WAClient.MarkRead([]types.MessageID{evt.Info.ID}, evt.Info.Timestamp, evt.Info.Chat, evt.Info.Sender)
+				err := mycli.WAClient.MarkRead(context.Background(), []types.MessageID{evt.Info.ID}, evt.Info.Timestamp, evt.Info.Chat, evt.Info.Sender)
 				if err != nil {
 					mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to auto-mark message as read: %v", mycli.userID, err)
 				} else {
@@ -1434,7 +1434,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 		isGroup := strings.HasSuffix(evt.Info.Chat.String(), "@g.us")
 		if isGroup {
-			groupData, err := mycli.WAClient.GetGroupInfo(evt.Info.Chat)
+			groupData, err := mycli.WAClient.GetGroupInfo(context.Background(), evt.Info.Chat)
 			if err == nil {
 				dataMap["groupData"] = groupData
 			}
@@ -1647,7 +1647,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Auto-rejecting call from %s", mycli.userID, evt.CallCreator.String())
 
 			// Rejeita a chamada
-			mycli.WAClient.RejectCall(evt.CallCreator, evt.CallID)
+			mycli.WAClient.RejectCall(context.Background(), evt.CallCreator, evt.CallID)
 
 			// Envia mensagem de rejeição se configurada
 			if mycli.Instance.MsgRejectCall != "" {

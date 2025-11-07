@@ -1,5 +1,16 @@
 # Evolution GO - Changelog
 
+## v0.5.3 (homolog)
+
+**Docker:** `evolucionapi/evolution-go:v0.5.3`
+
+### 🔧 Improvements
+
+- **Update context handling in service methods** 
+  - Refactored multiple service methods across various packages to include `context.Background()` as the first argument in client calls. This change ensures that all client interactions are properly context-aware, allowing for better cancellation and timeout management.
+  - Updated methods in `call_service.go`, `community_service.go`, `group_service.go`, `message_service.go`, `newsletter_service.go`, `send_service.go`, `user_service.go`, and `whatsmeow.go` to enhance consistency and reliability in handling requests.
+  - This adjustment improves the overall robustness of the API by ensuring that all client calls can leverage context for better control over execution flow and resource management.
+
 ## v0.5.2
 
 **Docker:** `evolucionapi/evolution-go:v0.5.2`
