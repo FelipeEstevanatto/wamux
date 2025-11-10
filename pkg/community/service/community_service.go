@@ -111,7 +111,7 @@ func (c *communityService) CommunityAdd(data *AddParticipantStruct, instance *in
 
 	for _, participant := range data.GroupJID {
 		groupJID, _ := utils.ParseJID(participant)
-		err := client.LinkGroup(communityJID, groupJID)
+		err := client.LinkGroup(context.Background(), communityJID, groupJID)
 		if err != nil {
 			c.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error link group: %v", instance.Id, err)
 			failedList = append(failedList, groupJID.String())
@@ -142,7 +142,7 @@ func (c *communityService) CommunityRemove(data *AddParticipantStruct, instance 
 
 	for _, participant := range data.GroupJID {
 		groupJID, _ := utils.ParseJID(participant)
-		err := client.UnlinkGroup(communityJID, groupJID)
+		err := client.UnlinkGroup(context.Background(), communityJID, groupJID)
 		if err != nil {
 			c.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error link group: %v", instance.Id, err)
 			failedList = append(failedList, groupJID.String())
