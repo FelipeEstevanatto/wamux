@@ -1,6 +1,7 @@
 package call_service
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -72,7 +73,7 @@ func (c *callService) RejectCall(data *RejectCallStruct, instance *instance_mode
 		return err
 	}
 
-	err = client.RejectCall(data.CallCreator, data.CallID)
+	err = client.RejectCall(context.Background(), data.CallCreator, data.CallID)
 	if err != nil {
 		logger.LogError("[%s] error reject call: %v", instance.Id, err)
 		return err

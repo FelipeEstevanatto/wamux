@@ -366,7 +366,7 @@ func (s *sendService) validateAndCheckUserExists(phone string, formatJid *bool, 
 
 	// Use CheckUser approach: formatJid=false by default
 	formatJidForCheck := false
-	
+
 	// First attempt with formatJid=false
 	remoteJID, found, err := s.checkSingleUserExists(client, phone, formatJidForCheck, instance.Id)
 	if err != nil {
@@ -374,7 +374,7 @@ func (s *sendService) validateAndCheckUserExists(phone string, formatJid *bool, 
 		// Continue with sending even if check fails (network issues, etc.)
 		return validateMessageFields(phone, formatJid, messageID, participant)
 	}
-	
+
 	// If not found with formatJid=false, try with formatJid=true as fallback
 	if !found {
 		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] User not found with formatJid=false, trying with formatJid=true", instance.Id)
@@ -384,7 +384,7 @@ func (s *sendService) validateAndCheckUserExists(phone string, formatJid *bool, 
 			found = foundRetry
 		}
 	}
-	
+
 	if !found {
 		return types.NewJID("", types.DefaultUserServer), fmt.Errorf("number %s is not registered on WhatsApp", phone)
 	}
@@ -405,7 +405,7 @@ func (s *sendService) checkSingleUserExists(client *whatsmeow.Client, phone stri
 	}
 
 	// Check if the number exists on WhatsApp
-	resp, err := client.IsOnWhatsApp(phoneNumbers)
+	resp, err := client.IsOnWhatsApp(context.Background(), phoneNumbers)
 	if err != nil {
 		return "", false, fmt.Errorf("failed to check if number %s exists on WhatsApp: %v", phoneNumbers[0], err)
 	}
@@ -1498,14 +1498,14 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 	}
 
 	if data.Delay > 0 {
-		err := client.SendChatPresence(recipient, types.ChatPresence("composing"), types.ChatPresenceMedia(""))
+		err := client.SendChatPresence(context.Background(), recipient, types.ChatPresence("composing"), types.ChatPresenceMedia(""))
 		if err != nil {
 			return nil, err
 		}
 
 		time.Sleep(time.Duration(data.Delay) * time.Millisecond)
 
-		err = client.SendChatPresence(recipient, types.ChatPresence("paused"), types.ChatPresenceMedia(""))
+		err = client.SendChatPresence(context.Background(), recipient, types.ChatPresence("paused"), types.ChatPresenceMedia(""))
 		if err != nil {
 			return nil, err
 		}
@@ -1656,14 +1656,14 @@ func (s *sendService) SendList(data *ListStruct, instance *instance_model.Instan
 	}
 
 	if data.Delay > 0 {
-		err := client.SendChatPresence(recipient, types.ChatPresence("composing"), types.ChatPresenceMedia(""))
+		err := client.SendChatPresence(context.Background(), recipient, types.ChatPresence("composing"), types.ChatPresenceMedia(""))
 		if err != nil {
 			return nil, err
 		}
 
 		time.Sleep(time.Duration(data.Delay) * time.Millisecond)
 
-		err = s.clientPointer[instance.Id].SendChatPresence(recipient, types.ChatPresence("paused"), types.ChatPresenceMedia(""))
+		err = s.clientPointer[instance.Id].SendChatPresence(context.Background(), recipient, types.ChatPresence("paused"), types.ChatPresenceMedia(""))
 		if err != nil {
 			return nil, err
 		}
@@ -1720,14 +1720,14 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 			media = "audio"
 		}
 
-		err := s.clientPointer[instance.Id].SendChatPresence(recipient, types.ChatPresence("composing"), types.ChatPresenceMedia(media))
+		err := s.clientPointer[instance.Id].SendChatPresence(context.Background(), recipient, types.ChatPresence("composing"), types.ChatPresenceMedia(media))
 		if err != nil {
 			return nil, err
 		}
 
 		time.Sleep(time.Duration(data.Delay) * time.Millisecond)
 
-		err = s.clientPointer[instance.Id].SendChatPresence(recipient, types.ChatPresence("paused"), types.ChatPresenceMedia(media))
+		err = s.clientPointer[instance.Id].SendChatPresence(context.Background(), recipient, types.ChatPresence("paused"), types.ChatPresenceMedia(media))
 		if err != nil {
 			return nil, err
 		}
@@ -1853,7 +1853,7 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 	isGroup := strings.Contains(data.Number, "@g.us")
 	if isGroup {
 		if data.MentionAll {
-			allParticipants, err := s.clientPointer[instance.Id].GetGroupRequestParticipants(recipient)
+			allParticipants, err := s.clientPointer[instance.Id].GetGroupRequestParticipants(context.Background(), recipient)
 			if err != nil {
 				return nil, err
 			}

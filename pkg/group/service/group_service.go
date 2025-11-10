@@ -166,7 +166,7 @@ func (g *groupService) GetGroupInfo(data *GetGroupInfoStruct, instance *instance
 		return nil, errors.New("invalid group jid")
 	}
 
-	resp, err := client.GetGroupInfo(recipient)
+	resp, err := client.GetGroupInfo(context.Background(), recipient)
 	if err != nil {
 		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error mute chat: %v", instance.Id, err)
 		return nil, err
@@ -187,7 +187,7 @@ func (g *groupService) GetGroupInviteLink(data *GetGroupInviteLinkStruct, instan
 		return "", errors.New("invalid group jid")
 	}
 
-	resp, err := client.GetGroupInviteLink(recipient, data.Reset)
+	resp, err := client.GetGroupInviteLink(context.Background(), recipient, data.Reset)
 	if err != nil {
 		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error mute chat: %v", instance.Id, err)
 		return "", err
@@ -236,7 +236,7 @@ func (g *groupService) SetGroupPhoto(data *SetGroupPhotoStruct, instance *instan
 		return "", errors.New("image data should be a valid URL or start with \"data:image/jpeg;base64,\"")
 	}
 
-	pictureID, err := client.SetGroupPhoto(recipient, fileData)
+	pictureID, err := client.SetGroupPhoto(context.Background(), recipient, fileData)
 	if err != nil {
 		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error setting group photo: %v", instance.Id, err)
 		return "", err
@@ -257,7 +257,7 @@ func (g *groupService) SetGroupName(data *SetGroupNameStruct, instance *instance
 		return errors.New("invalid group jid")
 	}
 
-	err = client.SetGroupName(recipient, data.Name)
+	err = client.SetGroupName(context.Background(), recipient, data.Name)
 	if err != nil {
 		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error mute chat: %v", instance.Id, err)
 		return err
@@ -278,7 +278,7 @@ func (g *groupService) SetGroupDescription(data *SetGroupDescriptionStruct, inst
 		return errors.New("invalid group jid")
 	}
 
-	err = client.SetGroupDescription(recipient, data.Description)
+	err = client.SetGroupDescription(context.Background(), recipient, data.Description)
 	if err != nil {
 		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error mute chat: %v", instance.Id, err)
 		return err
@@ -320,7 +320,7 @@ func (g *groupService) CreateGroup(data *CreateGroupStruct, instance *instance_m
 	}
 
 	var added []types.JID
-	infoResp, err := client.GetGroupInfo(resp.JID)
+	infoResp, err := client.GetGroupInfo(context.Background(), resp.JID)
 	if err != nil {
 		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error get group info: %v", instance.Id, err)
 		return nil, err
@@ -356,7 +356,7 @@ func (g *groupService) UpdateParticipant(data *AddParticipantStruct, instance *i
 		}
 	}
 
-	_, err = client.UpdateGroupParticipants(data.GroupJID, participants, data.Action)
+	_, err = client.UpdateGroupParticipants(context.Background(), data.GroupJID, participants, data.Action)
 	if err != nil {
 		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error create group: %v", instance.Id, err)
 		return err
@@ -401,7 +401,7 @@ func (g *groupService) JoinGroupLink(data *JoinGroupStruct, instance *instance_m
 		return err
 	}
 
-	_, err = client.JoinGroupWithLink(data.Code)
+	_, err = client.JoinGroupWithLink(context.Background(), data.Code)
 	if err != nil {
 		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error create group: %v", instance.Id, err)
 		return err
@@ -416,7 +416,7 @@ func (g *groupService) LeaveGroup(data *LeaveGroupStruct, instance *instance_mod
 		return err
 	}
 
-	err = client.LeaveGroup(data.GroupJID)
+	err = client.LeaveGroup(context.Background(), data.GroupJID)
 	if err != nil {
 		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error leave group: %v", instance.Id, err)
 		return err

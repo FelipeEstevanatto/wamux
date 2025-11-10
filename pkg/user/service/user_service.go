@@ -161,7 +161,7 @@ func (u *userService) GetUser(data *CheckUserStruct, instance *instance_model.In
 		}
 		jids = append(jids, jid)
 	}
-	resp, err := client.GetUserInfo(jids)
+	resp, err := client.GetUserInfo(context.Background(), jids)
 	if err != nil {
 		return nil, err
 	}
@@ -215,7 +215,7 @@ func (u *userService) CheckUser(data *CheckUserStruct, instance *instance_model.
 	if formatJid {
 		u.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Some users not found with formatJid=true, retrying with formatJid=false", instance.Id)
 		ucRetry, _ := u.performCheckUser(client, data.Number, false, instance.Id)
-		
+
 		// Merge results: use retry results for users that weren't found in first attempt
 		return u.mergeCheckUserResults(uc, ucRetry), nil
 	}
@@ -232,7 +232,7 @@ func (u *userService) performCheckUser(client *whatsmeow.Client, numbers []strin
 		return nil, false
 	}
 
-	resp, err := client.IsOnWhatsApp(phoneNumbers)
+	resp, err := client.IsOnWhatsApp(context.Background(), phoneNumbers)
 	if err != nil {
 		u.loggerWrapper.GetLogger(instanceId).LogError("[%s] Failed to check users on WhatsApp: %v", instanceId, err)
 		return nil, false
@@ -328,7 +328,7 @@ func (u *userService) GetAvatar(data *GetAvatarStruct, instance *instance_model.
 
 	var pic *types.ProfilePictureInfo
 
-	pic, err = client.GetProfilePictureInfo(jid, &whatsmeow.GetProfilePictureParams{
+	pic, err = client.GetProfilePictureInfo(context.Background(), jid, &whatsmeow.GetProfilePictureParams{
 		Preview: data.Preview,
 	})
 	if err != nil {
@@ -425,7 +425,7 @@ func (u *userService) BlockContact(data *BlockStruct, instance *instance_model.I
 		return nil, errors.New("invalid phone number")
 	}
 
-	resp, err := client.UpdateBlocklist(jid, events.BlocklistChangeActionBlock)
+	resp, err := client.UpdateBlocklist(context.Background(), jid, events.BlocklistChangeActionBlock)
 	if err != nil {
 		return nil, err
 	}
@@ -444,7 +444,7 @@ func (u *userService) UnlockContact(data *BlockStruct, instance *instance_model.
 		return nil, errors.New("invalid phone number")
 	}
 
-	resp, err := client.UpdateBlocklist(jid, events.BlocklistChangeActionUnblock)
+	resp, err := client.UpdateBlocklist(context.Background(), jid, events.BlocklistChangeActionUnblock)
 	if err != nil {
 		return nil, err
 	}
@@ -458,7 +458,7 @@ func (u *userService) GetBlockList(instance *instance_model.Instance) (*types.Bl
 		return nil, err
 	}
 
-	resp, err := client.GetBlocklist()
+	resp, err := client.GetBlocklist(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -485,7 +485,7 @@ func (u *userService) SetProfilePicture(data *SetProfilePictureStruct, instance 
 		return false, fmt.Errorf("failed to read image data: %v", err)
 	}
 
-	_, err = client.SetGroupPhoto(types.EmptyJID, filedata)
+	_, err = client.SetGroupPhoto(context.Background(), types.EmptyJID, filedata)
 	if err != nil {
 		return false, err
 	}
@@ -499,7 +499,7 @@ func (u *userService) SetProfileName(data *SetProfileNameStruct, instance *insta
 		return false, err
 	}
 
-	err = client.SetGroupName(types.EmptyJID, data.Name)
+	err = client.SetGroupName(context.Background(), types.EmptyJID, data.Name)
 	if err != nil {
 		return false, err
 	}
@@ -513,7 +513,7 @@ func (u *userService) SetProfileStatus(data *SetProfileStatusStruct, instance *i
 		return false, err
 	}
 
-	err = client.SetStatusMessage(data.Status)
+	err = client.SetStatusMessage(context.Background(), data.Status)
 	if err != nil {
 		return false, err
 	}
