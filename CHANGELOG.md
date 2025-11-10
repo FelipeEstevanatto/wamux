@@ -2,7 +2,7 @@
 
 ## v0.5.3 (homolog)
 
-**Docker:** `evolucionapi/evolution-go:v0.5.3`
+**Docker:** `evoapicloud/evolution-go:homolog`
 
 ### 🔧 Improvements
 
@@ -13,7 +13,7 @@
 
 ## v0.5.2
 
-**Docker:** `evolucionapi/evolution-go:v0.5.2`
+**Docker:** `evoapicloud/evolution-go:v0.5.2`
 
 ### 🆕 New Features
 - **SetProxy Endpoint**: New endpoint `POST /instance/proxy/{instanceId}` to configure proxy for instances
@@ -40,7 +40,7 @@
 
 ## v0.5.1
 
-**Docker:** `evolucionapi/evolution-go:v0.5.1`
+**Docker:** `evoapicloud/evolution-go:v0.5.1`
 
 ### 🔧 Improvements
 - **Instance Deletion**: Enhance instance deletion and media storage path resolution
@@ -50,7 +50,7 @@
 
 ## v0.5.0
 
-**Docker:** `evolucionapi/evolution-go:v0.5.0`
+**Docker:** `evoapicloud/evolution-go:v0.5.0`
 
 ### 🔧 Improvements
 - **Media Storage**: Enhance media storage and logging in Whatsmeow event handling
@@ -61,7 +61,7 @@
 
 ## v0.4.9
 
-**Docker:** `evolucionapi/evolution-go:v0.4.9`
+**Docker:** `evoapicloud/evolution-go:v0.4.9`
 
 ### 🔧 Improvements
 - **Connection Handling**: Add instance update test scenarios and improve connection handling
@@ -72,7 +72,7 @@
 
 ## v0.4.8
 
-**Docker:** `evolucionapi/evolution-go:v0.4.8`
+**Docker:** `evoapicloud/evolution-go:v0.4.8`
 
 ### 🔧 Improvements
 - **Audio Duration**: Improve audio duration parsing in convertAudioToOpusWithDuration function
@@ -81,7 +81,7 @@
 
 ## v0.4.7
 
-**Docker:** `evolucionapi/evolution-go:v0.4.7`
+**Docker:** `evoapicloud/evolution-go:v0.4.7`
 
 ### 🔧 Improvements
 - **Phone Number Formatting**: Improve phone number formatting and validation in user service
@@ -94,7 +94,7 @@
 
 ## v0.4.6
 
-**Docker:** `evolucionapi/evolution-go:v0.4.6`
+**Docker:** `evoapicloud/evolution-go:v0.4.6`
 
 ### 🆕 New Features
 - **User Existence Check**: Add user existence check configuration and JID validation middleware
@@ -103,7 +103,7 @@
 
 ## v0.4.5
 
-**Docker:** `evolucionapi/evolution-go:v0.4.5`
+**Docker:** `evoapicloud/evolution-go:v0.4.5`
 
 ### 🔧 Improvements
 - **Dependencies**: Update dependencies and enhance audio conversion functionality
@@ -112,7 +112,7 @@
 
 ## v0.4.4
 
-**Docker:** `evolucionapi/evolution-go:v0.4.4`
+**Docker:** `evoapicloud/evolution-go:v0.4.4`
 
 ### 🆕 New Features
 - **CLAUDE.md**: Add CLAUDE.md for project documentation and enhance RabbitMQ connection handling
@@ -196,7 +196,7 @@
 
 ## 🔗 Useful Links
 
-- **Docker Hub**: `evolucionapi/evolution-go`
+- **Docker Hub**: `evoapicloud/evolution-go`
 - **Documentation**: Swagger available at `/swagger/`
 - **GitHub**: [Evolution API Go](https://github.com/EvolutionAPI/evolution-go)
 
