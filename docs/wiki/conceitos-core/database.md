@@ -150,7 +150,7 @@ Todos os dados da **sua aplicação**:
 │ - token      │          │  Relacionamento
 │ - connected  │          │
 └──────────────┘          │
-                          │
+                       │
            ┌──────────────┴──────────────┐
            │                             │
     ┌──────▼──────┐             ┌───────▼──────┐

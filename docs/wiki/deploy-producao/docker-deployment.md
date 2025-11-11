@@ -77,16 +77,16 @@ services:
       SERVER_PORT: 4000
       CLIENT_NAME: "evolution"
       GLOBAL_API_KEY: "SUBSTITUA-POR-UUID-FORTE"
-      
+
       POSTGRES_AUTH_DB: "postgresql://postgres:postgres@postgres:5432/evogo_auth?sslmode=disable"
       POSTGRES_USERS_DB: "postgresql://postgres:postgres@postgres:5432/evogo_users?sslmode=disable"
       DATABASE_SAVE_MESSAGES: "false"
-      
+
       WADEBUG: "INFO"
       LOGTYPE: "console"
       CONNECT_ON_STARTUP: "false"
       WEBHOOKFILES: "true"
-      
+
     volumes:
       - evolution_data:/app/dbdata
       - evolution_logs:/app/logs
@@ -161,11 +161,11 @@ services:
     environment:
       SERVER_PORT: 4000
       GLOBAL_API_KEY: "SUA-CHAVE-AQUI"
-      
+
       POSTGRES_AUTH_DB: "postgresql://postgres:senha@postgres:5432/evogo_auth?sslmode=disable"
       POSTGRES_USERS_DB: "postgresql://postgres:senha@postgres:5432/evogo_users?sslmode=disable"
       DATABASE_SAVE_MESSAGES: "true"
-      
+
       AMQP_URL: "amqp://admin:admin@rabbitmq:5672/default"
       AMQP_GLOBAL_ENABLED: "true"
       AMQP_GLOBAL_EVENTS: "messages.upsert,messages.update,connection.update"
@@ -176,7 +176,7 @@ services:
       MINIO_SECRET_KEY: "minioadmin"
       MINIO_BUCKET: "evolution-media"
       MINIO_USE_SSL: "false"
-      
+
     volumes:
       - evolution_data:/app/dbdata
       - evolution_logs:/app/logs
@@ -373,7 +373,7 @@ services:
       GLOBAL_API_KEY: "sua-chave-api"
       POSTGRES_AUTH_DB: "postgresql://user:pass@postgres:5432/evogo_auth"
       POSTGRES_USERS_DB: "postgresql://user:pass@postgres:5432/evogo_users"
-      
+
     volumes:
       - evolution_go_data:/app/dbdata
       - evolution_go_logs:/app/logs
@@ -451,7 +451,7 @@ docker stack rm evolution
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: evolution-go
+    name: evolution-go
 ```
 
 #### ConfigMap
@@ -687,11 +687,11 @@ docker run --rm \
 ```yaml
 services:
   evolution-go:
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+logging:
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
 ```
 
 ### Boas Práticas
