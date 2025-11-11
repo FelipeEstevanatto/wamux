@@ -34,7 +34,7 @@ uuidgen
 python3 -c "import uuid; print(uuid.uuid4())"
 ```
 
-### DATABASE_SAVE_MESSAGES
+### DATABASE_SAVE_MESSAGES  
 
 Habilita persistência de mensagens no banco de dados.
 
@@ -393,7 +393,7 @@ Access Key para autenticação.
 MINIO_ACCESS_KEY=minioadmin
 ```
 
-### MINIO_SECRET_KEY
+### MINIO_SECRET_KEY  
 
 Secret Key para autenticação.
 

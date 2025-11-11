@@ -519,7 +519,7 @@ Um servidor intermediário entre você e o WhatsApp.
 
 **Exemplo**:
 ```json
-{
+  {
   "host": "proxy.exemplo.com",
   "port": "8080",
   "username": "usuario",      // Opcional

@@ -238,5 +238,5 @@ Detalhes completos: [apache.org/licenses/LICENSE-2.0](http://www.apache.org/lice
 
 ---
 
-**Versão**: 1.0.0  
+**Versão**: 1.0.0
 **Mantido por**: Equipe Evolution API

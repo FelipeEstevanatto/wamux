@@ -162,17 +162,17 @@ kubectl create secret generic evolution-secrets \
 
 ```yaml
 # deployment.yaml
-env:
-- name: GLOBAL_API_KEY
-  valueFrom:
-    secretKeyRef:
-      name: evolution-secrets
-      key: GLOBAL_API_KEY
-- name: POSTGRES_PASSWORD
-  valueFrom:
-    secretKeyRef:
-      name: evolution-secrets
-      key: POSTGRES_PASSWORD
+        env:
+        - name: GLOBAL_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: evolution-secrets
+              key: GLOBAL_API_KEY
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: evolution-secrets
+              key: POSTGRES_PASSWORD
 ```
 
 ### HashiCorp Vault
