@@ -143,9 +143,24 @@ LOGTYPE=console
 # WEBHOOK_URL=https://your-webhook-url.com/webhook
 ```
 
-## 📚 API Documentation
+## 📚 Documentation
 
-Once the server is running, you can access the Swagger documentation at:
+### 📖 Complete Documentation
+Access our comprehensive documentation with guides, tutorials and API reference:
+
+**[📚 Official Documentation](./docs/wiki/README.md)**
+
+The documentation includes:
+- 🎯 **Getting Started**: Installation, configuration and quickstart
+- 🏗️ **Core Concepts**: Architecture, instances, authentication
+- 📡 **API Guides**: All 79 endpoints documented with examples
+- 🚀 **Advanced Features**: Events, media storage, webhooks
+- 🐳 **Production Deploy**: Docker, security and scalability
+- 📖 **Reference**: Environment variables, error codes, FAQ
+
+### 🔧 API Documentation (Swagger)
+
+Once the server is running, you can access the interactive Swagger documentation at:
 
 ```
 http://localhost:4000/swagger/index.html
