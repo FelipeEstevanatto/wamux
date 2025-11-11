@@ -1,164 +1,256 @@
-# Evolution Go API Makefile
+.PHONY: help dev run build test clean swagger deps docker-build docker-run install setup migrate-up migrate-down logs
 
-# Variables
-APP_NAME = evolution-go
-BINARY_NAME = server
-CMD_PATH = ./cmd/evolution-go
-MAIN_FILE = $(CMD_PATH)/main.go
-BUILD_DIR = ./build
-DOCKER_IMAGE = evolution-go
-DOCKER_TAG = latest
+# Configurações
+APP_NAME=evolution-go
+MAIN_PATH=cmd/evolution-go/main.go
+BUILD_DIR=build
+GO=go
+GOFLAGS=-v
 
-# Go parameters
-GOCMD = go
-GOBUILD = $(GOCMD) build
-GOCLEAN = $(GOCMD) clean
-GOTEST = $(GOCMD) test
-GOGET = $(GOCMD) get
-GOMOD = $(GOCMD) mod
-GOFMT = $(GOCMD) fmt
-GOVET = $(GOCMD) vet
+# Cores para output
+GREEN=\033[0;32m
+YELLOW=\033[0;33m
+RED=\033[0;31m
+NC=\033[0m # No Color
 
-# Default target
-.PHONY: help
-help: ## Show this help message
-	@echo "Available commands:"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+##@ Ajuda
 
-.PHONY: dev
-dev: ## Run the application in development mode
-	@echo "Starting development server..."
-	$(GOCMD) run $(MAIN_FILE) -dev
+help: ## Exibe esta mensagem de ajuda
+	@echo "$(GREEN)Evolution GO - Makefile$(NC)"
+	@echo ""
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUso:\n  make $(YELLOW)<target>$(NC)\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  $(GREEN)%-15s$(NC) %s\n", $$1, $$2 } /^##@/ { printf "\n$(YELLOW)%s$(NC)\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
-.PHONY: build
-build: ## Build the application
-	@echo "Building $(APP_NAME)..."
+##@ Desenvolvimento
+
+dev: ## Roda a aplicação em modo desenvolvimento
+	@echo "$(GREEN)🚀 Rodando Evolution GO em modo desenvolvimento...$(NC)"
+	$(GO) run $(MAIN_PATH) -dev
+
+run: ## Roda a aplicação em modo produção
+	@echo "$(GREEN)🚀 Rodando Evolution GO...$(NC)"
+	$(GO) run $(MAIN_PATH)
+
+watch: ## Roda a aplicação com hot reload (requer air)
+	@if command -v air > /dev/null; then \
+		echo "$(GREEN)🔥 Rodando com hot reload...$(NC)"; \
+		air; \
+	else \
+		echo "$(RED)❌ Air não instalado. Instale com: go install github.com/cosmtrek/air@latest$(NC)"; \
+		exit 1; \
+	fi
+
+##@ Build
+
+build: ## Compila a aplicação
+	@echo "$(GREEN)🔨 Compilando $(APP_NAME)...$(NC)"
 	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOBUILD) -o $(BUILD_DIR)/$(BINARY_NAME) $(CMD_PATH)
-	@echo "Binary built: $(BUILD_DIR)/$(BINARY_NAME)"
+	$(GO) build $(GOFLAGS) -o $(BUILD_DIR)/$(APP_NAME) $(MAIN_PATH)
+	@echo "$(GREEN)✅ Build completo: $(BUILD_DIR)/$(APP_NAME)$(NC)"
 
-.PHONY: build-local
-build-local: ## Build the application for local OS
-	@echo "Building $(APP_NAME) for local platform..."
+build-linux: ## Compila para Linux
+	@echo "$(GREEN)🔨 Compilando para Linux...$(NC)"
 	@mkdir -p $(BUILD_DIR)
-	$(GOBUILD) -o $(BUILD_DIR)/$(BINARY_NAME) $(CMD_PATH)
-	@echo "Binary built: $(BUILD_DIR)/$(BINARY_NAME)"
+	GOOS=linux GOARCH=amd64 $(GO) build $(GOFLAGS) -o $(BUILD_DIR)/$(APP_NAME)-linux-amd64 $(MAIN_PATH)
+	@echo "$(GREEN)✅ Build Linux completo$(NC)"
 
-.PHONY: run
-run: build-local ## Build and run the application locally
-	@echo "Running $(APP_NAME)..."
-	./$(BUILD_DIR)/$(BINARY_NAME)
+build-windows: ## Compila para Windows
+	@echo "$(GREEN)🔨 Compilando para Windows...$(NC)"
+	@mkdir -p $(BUILD_DIR)
+	GOOS=windows GOARCH=amd64 $(GO) build $(GOFLAGS) -o $(BUILD_DIR)/$(APP_NAME)-windows-amd64.exe $(MAIN_PATH)
+	@echo "$(GREEN)✅ Build Windows completo$(NC)"
 
-.PHONY: test
-test: ## Run all tests
-	@echo "Running tests..."
-	$(GOTEST) -v ./...
+build-all: build build-linux build-windows ## Compila para todas as plataformas
+	@echo "$(GREEN)✅ Todos os builds completos$(NC)"
 
-.PHONY: test-coverage
-test-coverage: ## Run tests with coverage
-	@echo "Running tests with coverage..."
-	$(GOTEST) -v -coverprofile=coverage.out ./...
-	$(GOCMD) tool cover -html=coverage.out -o coverage.html
-	@echo "Coverage report generated: coverage.html"
+install: build ## Compila e instala no GOPATH
+	@echo "$(GREEN)📦 Instalando $(APP_NAME)...$(NC)"
+	$(GO) install $(MAIN_PATH)
+	@echo "$(GREEN)✅ Instalado com sucesso$(NC)"
 
-.PHONY: clean
-clean: ## Clean build artifacts
-	@echo "Cleaning..."
-	$(GOCLEAN)
-	rm -rf $(BUILD_DIR)
-	rm -f coverage.out coverage.html
+##@ Testes
 
-.PHONY: deps
-deps: ## Download and install dependencies
-	@echo "Downloading dependencies..."
-	$(GOMOD) download
-	$(GOMOD) tidy
+test: ## Roda todos os testes
+	@echo "$(GREEN)🧪 Rodando testes...$(NC)"
+	$(GO) test -v ./...
 
-.PHONY: deps-update
-deps-update: ## Update dependencies
-	@echo "Updating dependencies..."
-	$(GOMOD) tidy
-	$(GOGET) -u ./...
+test-coverage: ## Roda testes com cobertura
+	@echo "$(GREEN)🧪 Rodando testes com cobertura...$(NC)"
+	$(GO) test -v -coverprofile=coverage.out ./...
+	$(GO) tool cover -html=coverage.out -o coverage.html
+	@echo "$(GREEN)✅ Cobertura gerada: coverage.html$(NC)"
 
-.PHONY: fmt
-fmt: ## Format Go code
-	@echo "Formatting code..."
-	$(GOFMT) ./...
+test-race: ## Roda testes verificando race conditions
+	@echo "$(GREEN)🧪 Rodando testes com race detector...$(NC)"
+	$(GO) test -race -v ./...
 
-.PHONY: vet
-vet: ## Run go vet
-	@echo "Running go vet..."
-	$(GOVET) ./...
+bench: ## Roda benchmarks
+	@echo "$(GREEN)⚡ Rodando benchmarks...$(NC)"
+	$(GO) test -bench=. -benchmem ./...
 
-.PHONY: lint
-lint: fmt vet ## Run linting tools
-	@echo "Linting completed"
+##@ Dependências
 
-.PHONY: swagger
-swagger: ## Generate Swagger documentation
-	@echo "Generating Swagger documentation..."
-	swag init -g $(MAIN_FILE) -o ./docs
+deps: ## Instala dependências
+	@echo "$(GREEN)📦 Instalando dependências...$(NC)"
+	$(GO) mod download
+	$(GO) mod verify
+	@echo "$(GREEN)✅ Dependências instaladas$(NC)"
 
-.PHONY: docker-build
-docker-build: ## Build Docker image
-	@echo "Building Docker image..."
-	docker build -t $(DOCKER_IMAGE):$(DOCKER_TAG) .
-	@echo "Docker image built: $(DOCKER_IMAGE):$(DOCKER_TAG)"
+deps-update: ## Atualiza dependências
+	@echo "$(GREEN)📦 Atualizando dependências...$(NC)"
+	$(GO) get -u ./...
+	$(GO) mod tidy
+	@echo "$(GREEN)✅ Dependências atualizadas$(NC)"
 
-.PHONY: docker-run
-docker-run: ## Run Docker container
-	@echo "Running Docker container..."
-	docker run --rm -p 8081:8081 $(DOCKER_IMAGE):$(DOCKER_TAG)
+deps-clean: ## Limpa dependências não utilizadas
+	@echo "$(GREEN)🧹 Limpando dependências...$(NC)"
+	$(GO) mod tidy
+	@echo "$(GREEN)✅ Dependências limpas$(NC)"
 
-.PHONY: docker-run-dev
-docker-run-dev: ## Run Docker container in development mode
-	@echo "Running Docker container in development mode..."
-	docker run --rm -p 8081:8081 -v $(PWD):/app $(DOCKER_IMAGE):$(DOCKER_TAG) -dev
+##@ Documentação
 
-.PHONY: docker-clean
-docker-clean: ## Remove Docker images
-	@echo "Cleaning Docker images..."
-	docker rmi $(DOCKER_IMAGE):$(DOCKER_TAG) || true
-	docker system prune -f
+swagger: ## Gera documentação Swagger
+	@echo "$(GREEN)📚 Gerando documentação Swagger...$(NC)"
+	@if command -v swag > /dev/null; then \
+		swag init -g $(MAIN_PATH) -o ./docs; \
+		echo "$(GREEN)✅ Swagger gerado com sucesso$(NC)"; \
+	else \
+		echo "$(RED)❌ Swag não instalado. Instale com: go install github.com/swaggo/swag/cmd/swag@latest$(NC)"; \
+		exit 1; \
+	fi
 
-.PHONY: logs
-logs: ## Show application logs
-	@echo "Showing logs..."
-	tail -f logs/*.log
+docs: ## Abre a documentação local
+	@echo "$(GREEN)📖 Abrindo documentação...$(NC)"
+	@if [ -f "docs/wiki/README.md" ]; then \
+		echo "Documentação disponível em: docs/wiki/README.md"; \
+	else \
+		echo "$(RED)❌ Documentação não encontrada$(NC)"; \
+	fi
 
-.PHONY: install-tools
-install-tools: ## Install development tools
-	@echo "Installing development tools..."
-	$(GOGET) github.com/swaggo/swag/cmd/swag@latest
-	$(GOGET) golang.org/x/tools/cmd/goimports@latest
+##@ Database
 
-.PHONY: check
-check: deps lint test ## Run all checks (dependencies, linting, tests)
-	@echo "All checks completed successfully!"
+migrate-up: ## Executa migrations do banco de dados
+	@echo "$(GREEN)🗃️  Executando migrations...$(NC)"
+	@if [ -d "migrations" ]; then \
+		$(GO) run $(MAIN_PATH) migrate up; \
+	else \
+		echo "$(YELLOW)⚠️  Diretório migrations não encontrado$(NC)"; \
+	fi
 
-.PHONY: all
-all: clean deps build ## Clean, install deps, and build
+migrate-down: ## Reverte migrations do banco de dados
+	@echo "$(YELLOW)⚠️  Revertendo migrations...$(NC)"
+	@if [ -d "migrations" ]; then \
+		$(GO) run $(MAIN_PATH) migrate down; \
+	else \
+		echo "$(YELLOW)⚠️  Diretório migrations não encontrado$(NC)"; \
+	fi
 
-# Development workflow
-.PHONY: setup
-setup: deps install-tools ## Setup development environment
-	@echo "Development environment setup completed!"
+##@ Docker
 
-.PHONY: quick-start
-quick-start: deps dev ## Quick start for development
+docker-build: ## Build da imagem Docker
+	@echo "$(GREEN)🐳 Construindo imagem Docker...$(NC)"
+	docker build -t $(APP_NAME):latest .
+	@echo "$(GREEN)✅ Imagem Docker construída$(NC)"
 
-# Production workflow
-.PHONY: release
-release: check build docker-build ## Prepare release (run checks, build, docker build)
-	@echo "Release preparation completed!"
+docker-run: ## Roda container Docker
+	@echo "$(GREEN)🐳 Iniciando container...$(NC)"
+	docker run -p 4000:4000 --env-file .env $(APP_NAME):latest
 
-# File watchers (requires 'entr' tool: brew install entr)
-.PHONY: watch
-watch: ## Watch for changes and restart dev server (requires entr)
-	@echo "Watching for changes... (Press Ctrl+C to stop)"
-	find . -name "*.go" | entr -r make dev
+docker-compose-up: ## Sobe todos os serviços com docker-compose
+	@echo "$(GREEN)🐳 Iniciando serviços com docker-compose...$(NC)"
+	docker-compose up -d
 
-.PHONY: watch-test
-watch-test: ## Watch for changes and run tests (requires entr)
-	@echo "Watching for test changes... (Press Ctrl+C to stop)"
-	find . -name "*.go" | entr -c make test
+docker-compose-down: ## Para todos os serviços do docker-compose
+	@echo "$(YELLOW)🐳 Parando serviços...$(NC)"
+	docker-compose down
+
+docker-compose-logs: ## Exibe logs do docker-compose
+	docker-compose logs -f
+
+##@ Linting e Formatação
+
+fmt: ## Formata o código
+	@echo "$(GREEN)✨ Formatando código...$(NC)"
+	$(GO) fmt ./...
+	@echo "$(GREEN)✅ Código formatado$(NC)"
+
+lint: ## Executa linter (requer golangci-lint)
+	@echo "$(GREEN)🔍 Executando linter...$(NC)"
+	@if command -v golangci-lint > /dev/null; then \
+		golangci-lint run ./...; \
+		echo "$(GREEN)✅ Lint completo$(NC)"; \
+	else \
+		echo "$(RED)❌ golangci-lint não instalado. Instale com: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest$(NC)"; \
+		exit 1; \
+	fi
+
+vet: ## Executa go vet
+	@echo "$(GREEN)🔍 Executando go vet...$(NC)"
+	$(GO) vet ./...
+	@echo "$(GREEN)✅ Vet completo$(NC)"
+
+check: fmt vet lint test ## Executa todas as verificações
+
+##@ Limpeza
+
+clean: ## Remove arquivos de build
+	@echo "$(YELLOW)🧹 Limpando arquivos de build...$(NC)"
+	@rm -rf $(BUILD_DIR)
+	@rm -f coverage.out coverage.html
+	@echo "$(GREEN)✅ Limpeza completa$(NC)"
+
+clean-all: clean ## Remove arquivos de build e cache
+	@echo "$(YELLOW)🧹 Limpeza completa (incluindo cache)...$(NC)"
+	$(GO) clean -cache -testcache -modcache
+	@echo "$(GREEN)✅ Limpeza completa$(NC)"
+
+##@ Utilitários
+
+setup: deps swagger ## Setup completo do ambiente de desenvolvimento
+	@echo "$(GREEN)🎉 Setup completo!$(NC)"
+	@echo ""
+	@echo "Para começar a desenvolver, rode:"
+	@echo "  $(YELLOW)make dev$(NC)"
+	@echo ""
+	@echo "Outros comandos úteis:"
+	@echo "  $(YELLOW)make help$(NC)       - Ver todos os comandos"
+	@echo "  $(YELLOW)make test$(NC)       - Rodar testes"
+	@echo "  $(YELLOW)make build$(NC)      - Compilar a aplicação"
+
+logs: ## Exibe logs da aplicação (se estiver rodando)
+	@echo "$(GREEN)📋 Exibindo logs...$(NC)"
+	@if [ -f "logs/app.log" ]; then \
+		tail -f logs/app.log; \
+	else \
+		echo "$(YELLOW)⚠️  Arquivo de log não encontrado$(NC)"; \
+	fi
+
+version: ## Exibe versão do Go e dependências
+	@echo "$(GREEN)📌 Versões:$(NC)"
+	@$(GO) version
+	@echo ""
+	@echo "$(GREEN)Dependências principais:$(NC)"
+	@$(GO) list -m all | grep -E '(whatsmeow|postgres|minio)'
+
+status: ## Verifica status da aplicação
+	@echo "$(GREEN)🔍 Verificando status...$(NC)"
+	@curl -s http://localhost:4000/health || echo "$(RED)❌ Aplicação não está rodando$(NC)"
+
+##@ Desenvolvimento Avançado
+
+profile-cpu: ## Profile de CPU (requer aplicação rodando)
+	@echo "$(GREEN)📊 Capturando profile de CPU...$(NC)"
+	curl http://localhost:4000/debug/pprof/profile?seconds=30 > cpu.prof
+	$(GO) tool pprof -http=:8080 cpu.prof
+
+profile-mem: ## Profile de memória (requer aplicação rodando)
+	@echo "$(GREEN)📊 Capturando profile de memória...$(NC)"
+	curl http://localhost:4000/debug/pprof/heap > mem.prof
+	$(GO) tool pprof -http=:8080 mem.prof
+
+generate: ## Roda go generate
+	@echo "$(GREEN)⚙️  Executando go generate...$(NC)"
+	$(GO) generate ./...
+
+mod-graph: ## Exibe gráfico de dependências
+	@echo "$(GREEN)📊 Gráfico de dependências:$(NC)"
+	$(GO) mod graph
