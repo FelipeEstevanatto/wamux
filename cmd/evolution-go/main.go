@@ -1,12 +1,9 @@
 package main
 
 import (
-	"bytes"
 	"database/sql"
-	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -280,31 +277,6 @@ func initPostgresAuthDB(config *config.Config) (*sql.DB, error) {
 	return db, nil
 }
 
-func checkLicense(licenseToken string) error {
-	licenseAPIURL := "https://check.evolution-api.com/check"
-
-	payload := map[string]string{
-		"token": licenseToken,
-	}
-	jsonPayload, err := json.Marshal(payload)
-	if err != nil {
-		return err
-	}
-
-	resp, err := http.Post(licenseAPIURL, "application/json", bytes.NewBuffer(jsonPayload))
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := ioutil.ReadAll(resp.Body)
-		return fmt.Errorf("licença inválida: %s", string(bodyBytes))
-	}
-
-	return nil
-}
-
 // @title Evolution GO
 // @version 1.0
 // @description Evolution GO - whatsmeow
@@ -322,13 +294,6 @@ func main() {
 	licenseToken := config.GlobalApiKey
 	if licenseToken == "" {
 		log.Fatal("GlobalApiKey não configurado")
-	}
-
-	if !*devMode {
-		err := checkLicense(licenseToken)
-		if err != nil {
-			log.Fatalf("Falha na verificação de licença")
-		}
 	}
 
 	db, err := config.CreateUsersDB()
