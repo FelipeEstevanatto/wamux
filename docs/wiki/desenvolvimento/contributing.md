@@ -39,7 +39,7 @@ Contribuições são bem-vindas! Você pode contribuir:
 
 ### Antes de Reportar
 
-1. Verifique se o bug já foi reportado nas [Issues](https://git.evochat.com/Evolution/evolution-go/issues)
+1. Verifique se o bug já foi reportado nas [Issues](https://git.evoai.app/Evolution/evolution-go/issues)
 2. Teste na versão mais recente
 3. Colete informações: logs, versão do Go, sistema operacional
 
@@ -284,9 +284,9 @@ func (h *InstanceHandler) GetInstance(c *gin.Context) {
 
 ## Recursos Úteis
 
-- **Issues**: https://git.evochat.com/Evolution/evolution-go/issues
-- **Pull Requests**: https://git.evochat.com/Evolution/evolution-go/merge_requests
-- **Documentação**: https://git.evochat.com/Evolution/evolution-go/-/wikis
+- **Issues**: https://git.evoai.app/Evolution/evolution-go/issues
+- **Pull Requests**: https://git.evoai.app/Evolution/evolution-go/merge_requests
+- **Documentação**: https://git.evoai.app/Evolution/evolution-go/-/wikis
 - **Go Style Guide**: https://google.github.io/styleguide/go/
 - **Effective Go**: https://go.dev/doc/effective_go
 

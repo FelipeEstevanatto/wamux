@@ -61,7 +61,7 @@ O Evolution GO é um **gateway de API WhatsApp** escrito em Go, utilizando:
 
 ```bash
 # Via HTTPS
-git clone https://git.evochat.com/Evolution/evolution-go.git
+git clone https://git.evoai.app/Evolution/evolution-go.git
 cd evolution-go
 
 # Ou via SSH (se configurado)

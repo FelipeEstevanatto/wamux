@@ -130,7 +130,7 @@ make clean-all
 
 ```bash
 # 1. Clone o repositório
-git clone https://github.com/EvolutionAPI/evolution-go.git
+git clone https://git.evoai.app/Evolution/evolution-go.git
 cd evolution-go
 
 # 2. Setup completo do ambiente

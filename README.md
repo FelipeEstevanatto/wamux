@@ -71,7 +71,7 @@ This project uses [whatsmeow](https://github.com/tulir/whatsmeow), a Go library 
 
 ```bash
 # Clone the repository
-git clone https://github.com/EvolutionAPI/evolution-go.git
+git clone https://git.evoai.app/Evolution/evolution-go.git
 cd evolution-go
 
 # Build and run with Docker
@@ -83,7 +83,7 @@ make docker-run
 
 ```bash
 # Clone the repository
-git clone https://github.com/EvolutionAPI/evolution-go.git
+git clone https://git.evoai.app/Evolution/evolution-go.git
 cd evolution-go
 
 # Setup complete environment (installs deps + generates swagger)

@@ -140,10 +140,10 @@ Consulta rápida para desenvolvedores.
 - **Problemas técnicos?** Veja o guia de [Debugging](./desenvolvimento/debugging.md)
 
 ### 🔗 Links Importantes
-- 🌐 [Repositório Oficial](https://git.evochat.com/Evolution/evolution-go)
+- 🌐 [Repositório Oficial](https://git.evoai.app/Evolution/evolution-go)
 - 📚 [Biblioteca Whatsmeow](https://github.com/tulir/whatsmeow)
 - 🔧 [API Swagger](http://localhost:4000/swagger/index.html) (quando servidor estiver rodando)
-- 🐛 [Reportar Issues](https://git.evochat.com/Evolution/evolution-go/issues)
+- 🐛 [Reportar Issues](https://git.evoai.app/Evolution/evolution-go/issues)
 
 ### 💬 Suporte
 - **Issues técnicos**: Abra uma issue no repositório

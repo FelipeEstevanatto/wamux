@@ -246,7 +246,7 @@ Consulte [Guia de Contribuição](../desenvolvimento/contributing.md) para proce
 
 ### Reporte de Bugs
 
-Utilize [Issues no GitLab](https://git.evochat.com/Evolution/evolution-go/issues) incluindo:
+Utilize [Issues no GitLab](https://git.evoai.app/Evolution/evolution-go/issues) incluindo:
 - Versão do Evolution GO
 - Ambiente (Docker/local, SO)
 - Steps to reproduce
@@ -264,11 +264,11 @@ Utilize [Issues no GitLab](https://git.evochat.com/Evolution/evolution-go/issues
 - [Swagger UI](http://localhost:4000/swagger/index.html)
 
 ### Suporte
-- [Issues GitLab](https://git.evochat.com/Evolution/evolution-go/issues)
-- [Documentação Completa](https://git.evochat.com/Evolution/evolution-go/-/wikis)
+- [Issues GitLab](https://git.evoai.app/Evolution/evolution-go/issues)
+- [Documentação Completa](https://git.evoai.app/Evolution/evolution-go/-/wikis)
 
 ---
 
-**Não encontrou resposta?** Abra uma [issue](https://git.evochat.com/Evolution/evolution-go/issues) com sua questão.
+**Não encontrou resposta?** Abra uma [issue](https://git.evoai.app/Evolution/evolution-go/issues) com sua questão.
 
 **Documentação Evolution GO v1.0**
