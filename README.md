@@ -86,8 +86,8 @@ make docker-run
 git clone https://github.com/EvolutionAPI/evolution-go.git
 cd evolution-go
 
-# Install dependencies
-make deps
+# Setup complete environment (installs deps + generates swagger)
+make setup
 
 # Copy environment file and configure
 cp .env.example .env
@@ -95,25 +95,62 @@ cp .env.example .env
 
 # Run in development mode
 make dev
+
+# Or run with hot reload (requires air)
+make watch
 ```
 
+> 💡 **Tips**: 
+> - Run `make help` to see all available commands
+> - See [COMMANDS.md](./COMMANDS.md) for detailed command guide and workflows
+
 ### Using Make Commands
+
+The project includes a comprehensive Makefile with useful commands:
 
 ```bash
 # Show all available commands
 make help
 
-# Setup development environment
-make setup
+# Development
+make dev              # Run in development mode
+make run              # Run in production mode
+make watch            # Run with hot reload (requires air)
 
-# Run tests
-make test
+# Build
+make build            # Build for current platform
+make build-all        # Build for all platforms
+make install          # Build and install to GOPATH
 
-# Build for production
-make build
+# Testing
+make test             # Run all tests
+make test-coverage    # Run tests with coverage report
+make bench            # Run benchmarks
 
-# Generate Swagger documentation
-make swagger
+# Docker
+make docker-build           # Build Docker image
+make docker-run             # Run Docker container
+make docker-compose-up      # Start all services
+make docker-compose-down    # Stop all services
+
+# Database
+make migrate-up       # Run database migrations
+make migrate-down     # Rollback migrations
+
+# Documentation
+make swagger          # Generate Swagger docs
+make docs             # Open local documentation
+
+# Code Quality
+make fmt              # Format code
+make lint             # Run linter
+make vet              # Run go vet
+make check            # Run all checks (fmt + vet + lint + test)
+
+# Setup and Cleanup
+make setup            # Complete dev environment setup
+make clean            # Remove build files
+make clean-all        # Remove build files and cache
 ```
 
 ## ⚙️ Configuration
@@ -143,9 +180,24 @@ LOGTYPE=console
 # WEBHOOK_URL=https://your-webhook-url.com/webhook
 ```
 
-## 📚 API Documentation
+## 📚 Documentation
 
-Once the server is running, you can access the Swagger documentation at:
+### 📖 Complete Documentation
+Access our comprehensive documentation with guides, tutorials and API reference:
+
+**[📚 Official Documentation](./docs/wiki/README.md)**
+
+The documentation includes:
+- 🎯 **Getting Started**: Installation, configuration and quickstart
+- 🏗️ **Core Concepts**: Architecture, instances, authentication
+- 📡 **API Guides**: All 79 endpoints documented with examples
+- 🚀 **Advanced Features**: Events, media storage, webhooks
+- 🐳 **Production Deploy**: Docker, security and scalability
+- 📖 **Reference**: Environment variables, error codes, FAQ
+
+### 🔧 API Documentation (Swagger)
+
+Once the server is running, you can access the interactive Swagger documentation at:
 
 ```
 http://localhost:4000/swagger/index.html
