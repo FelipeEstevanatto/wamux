@@ -223,7 +223,7 @@ MINIO_USE_SSL=false
 ## Recursos
 
 - **[Configuração Detalhada](../fundamentos/configuration.md)** - Documentação completa de cada variável
-- **[.env.example](https://git.evochat.com/Evolution/evolution-go/blob/main/docker/examples/.env.example)** - Arquivo de exemplo com todas as variáveis
+- **[.env.example](https://git.evoai.app/Evolution/evolution-go/blob/main/docker/examples/.env.example)** - Arquivo de exemplo com todas as variáveis
 
 ---
 

@@ -49,7 +49,7 @@ Método mais simples e adequado para produção.
 **Opção A: Clonar repositório**
 
 ```bash
-git clone https://git.evochat.com/Evolution/evolution-go.git
+git clone https://git.evoai.app/Evolution/evolution-go.git
 cd evolution-go
 ```
 
@@ -163,7 +163,7 @@ go version
 ### 4. Clonar Repositório
 
 ```bash
-git clone https://git.evochat.com/Evolution/evolution-go.git
+git clone https://git.evoai.app/Evolution/evolution-go.git
 cd evolution-go
 ```
 

@@ -185,7 +185,7 @@ O sistema coleta métricas anônimas para melhorias:
 
 ```bash
 # Clonar repositório
-git clone https://git.evochat.com/Evolution/evolution-go.git
+git clone https://git.evoai.app/Evolution/evolution-go.git
 cd evolution-go
 
 # Configurar ambiente
