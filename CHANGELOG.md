@@ -1,8 +1,8 @@
 # Evolution GO - Changelog
 
-## v0.5.3 (homolog)
+## v0.5.3
 
-**Docker:** `evoapicloud/evolution-go:homolog`
+**Docker:** `evoapicloud/evolution-go:0.5.3`
 
 ### 🔧 Improvements
 
