@@ -140,7 +140,7 @@ func Load() *Config {
 	postgresDB := os.Getenv(config_env.POSTGRES_DB)
 
 	if postgresUsersDB == "" && (postgresHost == "" || postgresPort == "" || postgresUser == "" || postgresPassword == "" || postgresDB == "") {
-		logger.LogFatal("[CONFIG] variables POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER, POSTGRES_PASSWORD and POSTGRES_DB must be set")
+		logger.LogFatal("[CONFIG] required database configuration variables are missing. Please check your environment configuration.")
 	}
 
 	databaseSaveMessages := os.Getenv(config_env.DATABASE_SAVE_MESSAGES)
@@ -344,7 +344,7 @@ func panicIfEmpty(key, value string) {
 		if os.Getenv("DEBUG_ENABLED") != "1" {
 			logger.LogInfo("You are NOT on development mode")
 		}
-		logger.LogFatal("[CONFIG] variable %s must be set", key)
+		logger.LogFatal("[CONFIG] required configuration variable is missing. Please check your environment configuration.")
 	}
 }
 
