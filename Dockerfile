@@ -10,7 +10,7 @@ COPY . .
 # Agora fazer download das dependências (com replace funcionando)
 RUN go mod download
 
-RUN CGO_ENABLE=0 go build -o server ./cmd/evolution-go
+RUN CGO_ENABLED=0 go build -o server ./cmd/evolution-go
 
 FROM alpine:3.19.1 as final
 
@@ -19,6 +19,7 @@ RUN apk update && apk add --no-cache tzdata ffmpeg libjpeg-turbo
 WORKDIR /app
 
 COPY --from=build /build/server .
+COPY --from=build /build/manager/dist ./manager/dist
 
 ENV TZ=America/Sao_Paulo
 
