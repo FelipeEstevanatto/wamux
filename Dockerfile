@@ -1,4 +1,4 @@
-FROM golang:1.24.0-alpine as build
+FROM golang:1.24.0-alpine AS build
 
 RUN apk update && apk add --no-cache git build-base libjpeg-turbo-dev libwebp-dev
 
@@ -10,11 +10,11 @@ COPY . .
 # Agora fazer download das dependências (com replace funcionando)
 RUN go mod download
 
-RUN CGO_ENABLED=0 go build -o server ./cmd/evolution-go
+RUN CGO_ENABLED=1 go build -o server ./cmd/evolution-go
 
-FROM alpine:3.19.1 as final
+FROM alpine:3.19.1 AS final
 
-RUN apk update && apk add --no-cache tzdata ffmpeg libjpeg-turbo
+RUN apk update && apk add --no-cache tzdata ffmpeg libjpeg-turbo libwebp
 
 WORKDIR /app
 
