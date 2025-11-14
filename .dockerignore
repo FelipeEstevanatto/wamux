@@ -4,7 +4,8 @@
 
 # Documentation
 README.md
-docs/
+# docs/ - Mantido porque docs/docs.go é necessário para o build (gerado pelo swagger)
+docs/wiki/
 
 # Logs
 logs/
