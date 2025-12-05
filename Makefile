@@ -106,6 +106,16 @@ deps-clean: ## Limpa dependências não utilizadas
 	$(GO) mod tidy
 	@echo "$(GREEN)✅ Dependências limpas$(NC)"
 
+deps-reset: ## Limpa cache e reinstala dependências (força uso do código local)
+	@echo "$(GREEN)🔄 Resetando dependências e cache...$(NC)"
+	@echo "$(YELLOW)Limpeza de cache e módulos...$(NC)"
+	$(GO) clean -cache -modcache -i -r
+	@echo "$(YELLOW)Download de módulos...$(NC)"
+	$(GO) mod download
+	@echo "$(YELLOW)Organizando módulos...$(NC)"
+	$(GO) mod tidy
+	@echo "$(GREEN)✅ Dependências resetadas e atualizadas$(NC)"
+
 ##@ Documentação
 
 swagger: ## Gera documentação Swagger
