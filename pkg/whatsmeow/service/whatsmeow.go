@@ -375,13 +375,14 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		}
 	}
 
-	clientLog := waLog.Stdout("Client", w.config.WaDebug, true)
-	var client *whatsmeow.Client
-	if w.config.WaDebug != "" {
-		client = whatsmeow.NewClient(deviceStore, clientLog)
-	} else {
-		client = whatsmeow.NewClient(deviceStore, nil)
+	// 🔒 FIX: Sempre criar logger, mesmo que WaDebug esteja vazio
+	// Usar "INFO" como nível mínimo para garantir que logs importantes apareçam
+	minLevel := w.config.WaDebug
+	if minLevel == "" {
+		minLevel = "INFO" // Nível mínimo para garantir que logs INFO apareçam
 	}
+	clientLog := waLog.Stdout("Client", minLevel, true)
+	client := whatsmeow.NewClient(deviceStore, clientLog)
 
 	w.clientPointer[cd.Instance.Id] = client
 

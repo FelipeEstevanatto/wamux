@@ -321,17 +321,36 @@ func (u *userService) GetAvatar(data *GetAvatarStruct, instance *instance_model.
 		return nil, err
 	}
 
+	// 🔒 FIX: Verificar se o cliente está conectado antes de fazer a requisição
+	if !client.IsConnected() {
+		return nil, errors.New("client is not connected to WhatsApp")
+	}
+
+	// 🔒 FIX: Verificar se o cliente está autenticado
+	if !client.IsLoggedIn() {
+		return nil, errors.New("client is not logged in to WhatsApp")
+	}
+
 	jid, ok := utils.ParseJID(data.Number)
 	if !ok {
 		return nil, errors.New("invalid phone number")
 	}
 
+	u.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Requesting avatar for JID: %s, Preview: %v", instance.Id, jid, data.Preview)
+
 	var pic *types.ProfilePictureInfo
 
-	pic, err = client.GetProfilePictureInfo(context.Background(), jid, &whatsmeow.GetProfilePictureParams{
+	// 🔒 FIX: Adicionar timeout ao contexto para evitar que a requisição trave indefinidamente
+	// Usar timeout maior que o padrão do sendIQ (75s) para dar tempo suficiente
+	ctx, cancel := context.WithTimeout(context.Background(), 80*time.Second)
+	defer cancel()
+
+	u.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Starting GetProfilePictureInfo request...", instance.Id)
+	pic, err = client.GetProfilePictureInfo(ctx, jid, &whatsmeow.GetProfilePictureParams{
 		Preview: data.Preview,
 	})
 	if err != nil {
+		u.loggerWrapper.GetLogger(instance.Id).LogError("[%s] GetProfilePictureInfo failed: %v", instance.Id, err)
 		return nil, err
 	}
 
