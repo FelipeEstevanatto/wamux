@@ -64,6 +64,7 @@ This project uses [whatsmeow](https://github.com/tulir/whatsmeow), a Go library 
 - Go 1.24 or higher
 - PostgreSQL (optional, for message storage)
 - Docker (optional, for containerized deployment)
+- Git access to `EvolutionAPI/whatsmeow` repository (for cloning whatsmeow-lib)
 
 ## 🚀 Quick Start
 
@@ -85,6 +86,9 @@ make docker-run
 # Clone the repository
 git clone https://git.evoai.app/Evolution/evolution-go.git
 cd evolution-go
+
+# Clone whatsmeow-lib dependency (required before go mod tidy)
+git clone git@github.com:EvolutionAPI/whatsmeow.git whatsmeow-lib
 
 # Setup complete environment (installs deps + generates swagger)
 make setup
