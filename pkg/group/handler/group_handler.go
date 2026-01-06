@@ -259,10 +259,8 @@ func (g *groupHandler) SetGroupDescription(ctx *gin.Context) {
 		return
 	}
 
-	if data.Description == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "name is required"})
-		return
-	}
+	// Description can be empty to clear the group description
+	// No validation needed for Description field
 
 	err = g.groupService.SetGroupDescription(data, instance)
 	if err != nil {

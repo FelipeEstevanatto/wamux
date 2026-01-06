@@ -43,6 +43,7 @@ import (
 	logger_wrapper "github.com/EvolutionAPI/evolution-go/pkg/logger"
 	message_model "github.com/EvolutionAPI/evolution-go/pkg/message/model"
 	message_repository "github.com/EvolutionAPI/evolution-go/pkg/message/repository"
+	poll_service "github.com/EvolutionAPI/evolution-go/pkg/poll/service"
 	storage_interfaces "github.com/EvolutionAPI/evolution-go/pkg/storage/interfaces"
 	"github.com/EvolutionAPI/evolution-go/pkg/utils"
 )
@@ -58,6 +59,7 @@ type WhatsmeowService interface {
 	ForceUpdateJid(instanceId string, number string) error
 	UpdateInstanceSettings(instanceId string) error
 	UpdateInstanceAdvancedSettings(instanceId string) error
+	GetPollService() poll_service.PollService // NOVO: Acesso ao serviço de polls
 }
 
 type clientVersion struct {
@@ -71,6 +73,7 @@ type whatsmeowService struct {
 	authDB             *sql.DB
 	messageRepository  message_repository.MessageRepository
 	labelRepository    label_repository.LabelRepository
+	pollService        poll_service.PollService // NOVO: Serviço de enquetes
 	config             *config.Config
 	killChannel        map[string](chan bool)
 	userInfoCache      *cache.Cache
@@ -102,6 +105,7 @@ type MyClient struct {
 	instanceRepository instance_repository.InstanceRepository
 	messageRepository  message_repository.MessageRepository
 	labelRepository    label_repository.LabelRepository
+	pollService        poll_service.PollService // NOVO: Serviço de enquetes
 	clientPointer      map[string]*whatsmeow.Client
 	killChannel        map[string](chan bool)
 	userInfoCache      *cache.Cache
@@ -442,6 +446,7 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		instanceRepository: w.instanceRepository,
 		messageRepository:  w.messageRepository,
 		labelRepository:    w.labelRepository,
+		pollService:        w.pollService, // NOVO: Serviço de enquetes
 		userInfoCache:      w.userInfoCache,
 		clientPointer:      w.clientPointer,
 		killChannel:        w.killChannel,
@@ -1145,6 +1150,14 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		}
 
 		if evt.Message.GetPollUpdateMessage() != nil {
+			fmt.Printf("[POLL DEBUG] 🎯 PollUpdateMessage detected!\n")
+			fmt.Printf("[POLL DEBUG] � BEFORE accessing evt.Info - Sender: %s, Server: %s\n", evt.Info.Sender.String(), evt.Info.Sender.Server)
+			fmt.Printf("[POLL DEBUG] 📍 BEFORE accessing evt.Info - SenderAlt: %s\n", evt.Info.SenderAlt.String())
+			fmt.Printf("[POLL DEBUG] �� mycli.WAClient is nil: %v\n", mycli.WAClient == nil)
+			if mycli.WAClient != nil {
+				fmt.Printf("[POLL DEBUG] ✅ mycli.WAClient is initialized: %s\n", mycli.WAClient.Store.ID)
+			}
+
 			decrypted, err := mycli.clientPointer[mycli.userID].DecryptPollVote(context.Background(), evt)
 			if err != nil {
 				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to decrypt vote: %v", mycli.userID, err)
@@ -1154,31 +1167,51 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("- %X", option)
 
 				}
+
+				// NOVO: Salvar voto no banco de dados de forma NÃO-INVASIVA
+				if mycli.pollService != nil {
+					go func() {
+						defer func() {
+							if r := recover(); r != nil {
+								mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Panic ao salvar voto: %v", mycli.userID, r)
+							}
+						}()
+
+						pollKey := evt.Message.GetPollUpdateMessage().GetPollCreationMessageKey()
+						if pollKey == nil {
+							mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] PollCreationMessageKey not found", mycli.userID)
+							return
+						}
+
+						pollInfo := &types.MessageInfo{
+							ID: pollKey.GetID(),
+							MessageSource: types.MessageSource{
+								Chat: evt.Info.Chat, // Usar o chat do evento atual
+							},
+						}
+
+						// Construir modelo de voto usando helper seguro
+						// evt.Info já passou pelo JID swap, então Sender = número real
+						pollVote := poll_service.BuildPollVoteFromEvent(
+							pollInfo,
+							&evt.Info,
+							decrypted,
+							"", // CompanyID não disponível no MyClient, será vazio
+							mycli.Instance.Id,
+						)
+
+						// Salvar no banco com timeout de segurança
+						ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+						defer cancel()
+
+						if err := mycli.pollService.SavePollVote(ctx, pollVote); err != nil {
+							mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to save poll vote to database: %v", mycli.userID, err)
+						} else {
+							mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Poll vote saved to database successfully", mycli.userID)
+						}
+					}()
+				}
 			}
-
-			dataMap["isPoll"] = true
-			dataMap["pollVotes"] = decrypted
-		}
-
-		if protocolMessage := evt.Message.ProtocolMessage; protocolMessage != nil {
-			if protocolMessage.GetType() == waE2E.ProtocolMessage_REVOKE {
-				mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Message revoked", mycli.userID)
-
-				dataMap["revoked"] = true
-			} else if protocolMessage.GetType() == waE2E.ProtocolMessage_MESSAGE_EDIT {
-				mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Message edited", mycli.userID)
-				dataMap["edited"] = true
-			} else {
-				return
-			}
-		} else {
-			messageKey := fmt.Sprintf("%s_%s", mycli.userID, evt.Info.ID)
-			if _, found := mycli.processedMessages.Get(messageKey); found {
-				mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Message duplicated ignored: %s", mycli.userID, evt.Info.ID)
-				return
-			}
-
-			mycli.processedMessages.Set(messageKey, true, 30*time.Minute)
 		}
 
 		var quotedMessage *waE2E.Message
@@ -2447,11 +2480,15 @@ func NewWhatsmeowService(
 	natsProducer producer_interfaces.Producer,
 	loggerWrapper *logger_wrapper.LoggerManager,
 ) WhatsmeowService {
+	// Inicializar PollService de forma segura
+	pollSvc := poll_service.NewPollService(authDB, loggerWrapper)
+
 	return &whatsmeowService{
 		instanceRepository: instanceRepository,
 		authDB:             authDB,
 		messageRepository:  messageRepository,
 		labelRepository:    labelRepository,
+		pollService:        pollSvc, // NOVO: Serviço de enquetes
 		config:             config,
 		killChannel:        killChannel,
 		userInfoCache:      cache.New(5*time.Minute, 10*time.Minute),
@@ -2467,6 +2504,11 @@ func NewWhatsmeowService(
 		natsProducer:       natsProducer,
 		loggerWrapper:      loggerWrapper,
 	}
+}
+
+// GetPollService retorna o serviço de polls (evita dupla inicialização)
+func (w *whatsmeowService) GetPollService() poll_service.PollService {
+	return w.pollService
 }
 
 // cleanSenderID remove a parte ":numero" do sender ID para exibir apenas o remoteJid correto
