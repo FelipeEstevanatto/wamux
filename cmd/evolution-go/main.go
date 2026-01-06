@@ -47,6 +47,7 @@ import (
 	auth_middleware "github.com/EvolutionAPI/evolution-go/pkg/middleware"
 	newsletter_handler "github.com/EvolutionAPI/evolution-go/pkg/newsletter/handler"
 	newsletter_service "github.com/EvolutionAPI/evolution-go/pkg/newsletter/service"
+	poll_handler "github.com/EvolutionAPI/evolution-go/pkg/poll/handler"
 	routes "github.com/EvolutionAPI/evolution-go/pkg/routes"
 	send_handler "github.com/EvolutionAPI/evolution-go/pkg/sendMessage/handler"
 	send_service "github.com/EvolutionAPI/evolution-go/pkg/sendMessage/service"
@@ -177,6 +178,9 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	labelService := label_service.NewLabelService(clientPointer, whatsmeowService, labelRepository, loggerWrapper)
 	newsletterService := newsletter_service.NewNewsletterService(clientPointer, whatsmeowService, loggerWrapper)
 
+	// NOVO: PollHandler usando PollService já inicializado no whatsmeowService (evita dupla inicialização)
+	pollHandler := poll_handler.NewPollHandler(whatsmeowService.GetPollService(), loggerWrapper)
+
 	telemetry := telemetry.NewTelemetryService()
 
 	r := gin.Default()
@@ -193,6 +197,7 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		community_handler.NewCommunityHandler(communityService),
 		label_handler.NewLabelHandler(labelService),
 		newsletter_handler.NewNewsletterHandler(newsletterService),
+		pollHandler,
 		server_handler.NewServerHandler(),
 	).AssignRoutes(r)
 

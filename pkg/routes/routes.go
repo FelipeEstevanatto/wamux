@@ -17,6 +17,7 @@ import (
 	message_handler "github.com/EvolutionAPI/evolution-go/pkg/message/handler"
 	auth_middleware "github.com/EvolutionAPI/evolution-go/pkg/middleware"
 	newsletter_handler "github.com/EvolutionAPI/evolution-go/pkg/newsletter/handler"
+	poll_handler "github.com/EvolutionAPI/evolution-go/pkg/poll/handler"
 	send_handler "github.com/EvolutionAPI/evolution-go/pkg/sendMessage/handler"
 	server_handler "github.com/EvolutionAPI/evolution-go/pkg/server/handler"
 	user_handler "github.com/EvolutionAPI/evolution-go/pkg/user/handler"
@@ -35,6 +36,7 @@ type Routes struct {
 	communityHandler        community_handler.CommunityHandler
 	labelHandler            label_handler.LabelHandler
 	newsletterHandler       newsletter_handler.NewsletterHandler
+	pollHandler             *poll_handler.PollHandler
 	serverHandler           server_handler.ServerHandler
 }
 
@@ -230,6 +232,15 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 		}
 	}
 
+	// NOVO: Rotas de Enquetes (Polls)
+	routes = eng.Group("/polls")
+	{
+		routes.Use(r.authMiddleware.Auth)
+		{
+			routes.GET("/:pollMessageId/results", r.pollHandler.GetPollResults)
+		}
+	}
+
 }
 
 func NewRouter(
@@ -244,6 +255,7 @@ func NewRouter(
 	communityHandler community_handler.CommunityHandler,
 	labelHandler label_handler.LabelHandler,
 	newsletterHandler newsletter_handler.NewsletterHandler,
+	pollHandler *poll_handler.PollHandler,
 	serverHandler server_handler.ServerHandler,
 ) *Routes {
 	return &Routes{
@@ -259,6 +271,7 @@ func NewRouter(
 		communityHandler:        communityHandler,
 		labelHandler:            labelHandler,
 		newsletterHandler:       newsletterHandler,
+		pollHandler:             pollHandler,
 		serverHandler:           serverHandler,
 	}
 }

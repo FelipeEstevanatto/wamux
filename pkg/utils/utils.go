@@ -60,7 +60,8 @@ func CreateJID(number string) (string, error) {
 	if strings.Contains(number, "@g.us") ||
 		strings.Contains(number, "@s.whatsapp.net") ||
 		strings.Contains(number, "@lid") ||
-		strings.Contains(number, "@broadcast") {
+		strings.Contains(number, "@broadcast") ||
+		strings.Contains(number, "@newsletter") {
 		return number, nil
 	}
 

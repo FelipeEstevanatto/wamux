@@ -115,7 +115,20 @@ func (n *newsletterService) ListNewsletter(instance *instance_model.Instance) ([
 		return nil, err
 	}
 
-	return newsletters, nil
+	// For each newsletter, fetch full info to get subscribers_count
+	fullNewsletters := make([]*types.NewsletterMetadata, 0, len(newsletters))
+	for _, newsletter := range newsletters {
+		fullInfo, err := client.GetNewsletterInfo(context.Background(), newsletter.ID)
+		if err != nil {
+			// If we can't get full info, use the basic one
+			n.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] error getting full info for newsletter %s: %v", instance.Id, newsletter.ID.String(), err)
+			fullNewsletters = append(fullNewsletters, newsletter)
+			continue
+		}
+		fullNewsletters = append(fullNewsletters, fullInfo)
+	}
+
+	return fullNewsletters, nil
 }
 
 func (n *newsletterService) GetNewsletter(data *GetNewsletterStruct, instance *instance_model.Instance) (*types.NewsletterMetadata, error) {

@@ -57,9 +57,10 @@ type SendDataStruct struct {
 	Number       string
 	Delay        int32
 	MentionAll   bool
-	MentionedJID string
+	MentionedJID []string
 	FormatJid    *bool
 	Quoted       QuotedStruct
+	MediaHandle  string
 }
 
 type QuotedStruct struct {
@@ -72,7 +73,7 @@ type TextStruct struct {
 	Text         string       `json:"text"`
 	Id           string       `json:"id"`
 	Delay        int32        `json:"delay"`
-	MentionedJID string       `json:"mentionedJid"`
+	MentionedJID []string     `json:"mentionedJid"`
 	MentionAll   bool         `json:"mentionAll"`
 	FormatJid    *bool        `json:"formatJid,omitempty"`
 	Quoted       QuotedStruct `json:"quoted"`
@@ -87,7 +88,7 @@ type LinkStruct struct {
 	ImgUrl       string       `json:"imgUrl"`
 	Id           string       `json:"id"`
 	Delay        int32        `json:"delay"`
-	MentionedJID string       `json:"mentionedJid"`
+	MentionedJID []string     `json:"mentionedJid"`
 	MentionAll   bool         `json:"mentionAll"`
 	FormatJid    *bool        `json:"formatJid,omitempty"`
 	Quoted       QuotedStruct `json:"quoted"`
@@ -101,7 +102,7 @@ type MediaStruct struct {
 	Filename     string       `json:"filename"`
 	Id           string       `json:"id"`
 	Delay        int32        `json:"delay"`
-	MentionedJID string       `json:"mentionedJid"`
+	MentionedJID []string     `json:"mentionedJid"`
 	MentionAll   bool         `json:"mentionAll"`
 	FormatJid    *bool        `json:"formatJid,omitempty"`
 	Quoted       QuotedStruct `json:"quoted"`
@@ -114,7 +115,7 @@ type PollStruct struct {
 	MaxAnswer    int          `json:"maxAnswer"`
 	Options      []string     `json:"options"`
 	Delay        int32        `json:"delay"`
-	MentionedJID string       `json:"mentionedJid"`
+	MentionedJID []string     `json:"mentionedJid"`
 	MentionAll   bool         `json:"mentionAll"`
 	FormatJid    *bool        `json:"formatJid,omitempty"`
 	Quoted       QuotedStruct `json:"quoted"`
@@ -125,7 +126,7 @@ type StickerStruct struct {
 	Sticker      string       `json:"sticker"`
 	Id           string       `json:"id"`
 	Delay        int32        `json:"delay"`
-	MentionedJID string       `json:"mentionedJid"`
+	MentionedJID []string     `json:"mentionedJid"`
 	MentionAll   bool         `json:"mentionAll"`
 	FormatJid    *bool        `json:"formatJid,omitempty"`
 	Quoted       QuotedStruct `json:"quoted"`
@@ -139,7 +140,7 @@ type LocationStruct struct {
 	Longitude    float64      `json:"longitude"`
 	Address      string       `json:"address"`
 	Delay        int32        `json:"delay"`
-	MentionedJID string       `json:"mentionedJid"`
+	MentionedJID []string     `json:"mentionedJid"`
 	MentionAll   bool         `json:"mentionAll"`
 	FormatJid    *bool        `json:"formatJid,omitempty"`
 	Quoted       QuotedStruct `json:"quoted"`
@@ -150,7 +151,7 @@ type ContactStruct struct {
 	Id           string            `json:"id"`
 	Vcard        utils.VCardStruct `json:"vcard"`
 	Delay        int32             `json:"delay"`
-	MentionedJID string            `json:"mentionedJid"`
+	MentionedJID []string          `json:"mentionedJid"`
 	MentionAll   bool              `json:"mentionAll"`
 	FormatJid    *bool             `json:"formatJid,omitempty"`
 	Quoted       QuotedStruct      `json:"quoted"`
@@ -176,7 +177,7 @@ type ButtonStruct struct {
 	Footer       string       `json:"footer"`
 	Buttons      []Button     `json:"buttons"`
 	Delay        int32        `json:"delay"`
-	MentionedJID string       `json:"mentionedJid"`
+	MentionedJID []string     `json:"mentionedJid"`
 	MentionAll   bool         `json:"mentionAll"`
 	FormatJid    *bool        `json:"formatJid,omitempty"`
 	Quoted       QuotedStruct `json:"quoted"`
@@ -201,7 +202,7 @@ type ListStruct struct {
 	FooterText   string       `json:"footerText"`
 	Sections     []Section    `json:"sections"`
 	Delay        int32        `json:"delay"`
-	MentionedJID string       `json:"mentionedJid"`
+	MentionedJID []string     `json:"mentionedJid"`
 	MentionAll   bool         `json:"mentionAll"`
 	FormatJid    *bool        `json:"formatJid,omitempty"`
 	Quoted       QuotedStruct `json:"quoted"`
@@ -353,8 +354,8 @@ func (s *sendService) validateAndCheckUserExists(phone string, formatJid *bool, 
 		return validateMessageFields(phone, formatJid, messageID, participant)
 	}
 
-	// Skip WhatsApp check for group messages, broadcast, and LID
-	if strings.Contains(phone, "@g.us") || strings.Contains(phone, "@broadcast") || strings.Contains(phone, "@lid") {
+	// Skip WhatsApp check for group messages, broadcast, newsletter, and LID
+	if strings.Contains(phone, "@g.us") || strings.Contains(phone, "@broadcast") || strings.Contains(phone, "@newsletter") || strings.Contains(phone, "@lid") {
 		return validateMessageFields(phone, formatJid, messageID, participant)
 	}
 
@@ -839,7 +840,26 @@ func (s *sendService) sendMediaFileWithRetry(data *MediaStruct, fileData []byte,
 			return nil, errors.New("invalid media type")
 		}
 
-		uploaded, err := client.Upload(context.Background(), fileData, uploadType)
+		// Detectar se é newsletter para usar upload sem criptografia
+		isNewsletter := strings.Contains(data.Number, "@newsletter")
+
+		// Validar se é documento em newsletter (não suportado)
+		if isNewsletter && data.Type == "document" {
+			return nil, errors.New("documentos não são suportados em canais do WhatsApp. Use imagem, vídeo, áudio ou enquete")
+		}
+
+		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] SendMediaFile - Upload iniciado (Newsletter: %v)...", instance.Id, isNewsletter)
+
+		var uploaded whatsmeow.UploadResponse
+		if isNewsletter {
+			// Newsletter: upload SEM criptografia
+			uploaded, err = client.UploadNewsletter(context.Background(), fileData, uploadType)
+			s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Newsletter upload - Handle: %s", instance.Id, uploaded.Handle)
+		} else {
+			// Normal: upload COM criptografia
+			uploaded, err = client.Upload(context.Background(), fileData, uploadType)
+		}
+
 		if err != nil {
 			return nil, err
 		}
@@ -851,65 +871,123 @@ func (s *sendService) sendMediaFileWithRetry(data *MediaStruct, fileData []byte,
 
 		switch data.Type {
 		case "image":
-			media = &waE2E.Message{ImageMessage: &waE2E.ImageMessage{
-				Caption:       proto.String(data.Caption),
-				URL:           proto.String(uploaded.URL),
-				DirectPath:    proto.String(uploaded.DirectPath),
-				MediaKey:      uploaded.MediaKey,
-				Mimetype:      proto.String(mimeType),
-				FileEncSHA256: uploaded.FileEncSHA256,
-				FileSHA256:    uploaded.FileSHA256,
-				FileLength:    proto.Uint64(uint64(len(fileData))),
-			}}
+			if isNewsletter {
+				// Newsletter: SEM MediaKey e FileEncSHA256
+				media = &waE2E.Message{ImageMessage: &waE2E.ImageMessage{
+					Caption:    proto.String(data.Caption),
+					URL:        &uploaded.URL,
+					DirectPath: &uploaded.DirectPath,
+					Mimetype:   proto.String(mimeType),
+					FileSHA256: uploaded.FileSHA256,
+					FileLength: &uploaded.FileLength,
+				}}
+			} else {
+				// Normal: COM MediaKey e FileEncSHA256
+				media = &waE2E.Message{ImageMessage: &waE2E.ImageMessage{
+					Caption:       proto.String(data.Caption),
+					URL:           proto.String(uploaded.URL),
+					DirectPath:    proto.String(uploaded.DirectPath),
+					MediaKey:      uploaded.MediaKey,
+					Mimetype:      proto.String(mimeType),
+					FileEncSHA256: uploaded.FileEncSHA256,
+					FileSHA256:    uploaded.FileSHA256,
+					FileLength:    proto.Uint64(uint64(len(fileData))),
+				}}
+			}
 			mediaType = "ImageMessage"
 		case "video":
-			media = &waE2E.Message{VideoMessage: &waE2E.VideoMessage{
-				Caption:       proto.String(data.Caption),
-				URL:           proto.String(uploaded.URL),
-				DirectPath:    proto.String(uploaded.DirectPath),
-				MediaKey:      uploaded.MediaKey,
-				Mimetype:      proto.String(mimeType),
-				FileEncSHA256: uploaded.FileEncSHA256,
-				FileSHA256:    uploaded.FileSHA256,
-				FileLength:    proto.Uint64(uint64(len(fileData))),
-			}}
+			if isNewsletter {
+				media = &waE2E.Message{VideoMessage: &waE2E.VideoMessage{
+					Caption:    proto.String(data.Caption),
+					URL:        &uploaded.URL,
+					DirectPath: &uploaded.DirectPath,
+					Mimetype:   proto.String(mimeType),
+					FileSHA256: uploaded.FileSHA256,
+					FileLength: &uploaded.FileLength,
+				}}
+			} else {
+				media = &waE2E.Message{VideoMessage: &waE2E.VideoMessage{
+					Caption:       proto.String(data.Caption),
+					URL:           proto.String(uploaded.URL),
+					DirectPath:    proto.String(uploaded.DirectPath),
+					MediaKey:      uploaded.MediaKey,
+					Mimetype:      proto.String(mimeType),
+					FileEncSHA256: uploaded.FileEncSHA256,
+					FileSHA256:    uploaded.FileSHA256,
+					FileLength:    proto.Uint64(uint64(len(fileData))),
+				}}
+			}
 			mediaType = "VideoMessage"
 		case "ptv":
-			media = &waE2E.Message{PtvMessage: &waE2E.VideoMessage{
-				URL:           proto.String(uploaded.URL),
-				DirectPath:    proto.String(uploaded.DirectPath),
-				MediaKey:      uploaded.MediaKey,
-				Mimetype:      proto.String(mimeType),
-				FileEncSHA256: uploaded.FileEncSHA256,
-				FileSHA256:    uploaded.FileSHA256,
-				FileLength:    proto.Uint64(uint64(len(fileData))),
-			}}
+			if isNewsletter {
+				media = &waE2E.Message{PtvMessage: &waE2E.VideoMessage{
+					URL:        &uploaded.URL,
+					DirectPath: &uploaded.DirectPath,
+					Mimetype:   proto.String(mimeType),
+					FileSHA256: uploaded.FileSHA256,
+					FileLength: &uploaded.FileLength,
+				}}
+			} else {
+				media = &waE2E.Message{PtvMessage: &waE2E.VideoMessage{
+					URL:           proto.String(uploaded.URL),
+					DirectPath:    proto.String(uploaded.DirectPath),
+					MediaKey:      uploaded.MediaKey,
+					Mimetype:      proto.String(mimeType),
+					FileEncSHA256: uploaded.FileEncSHA256,
+					FileSHA256:    uploaded.FileSHA256,
+					FileLength:    proto.Uint64(uint64(len(fileData))),
+				}}
+			}
 			mediaType = "PtvMessage"
 		case "audio":
-			media = &waE2E.Message{AudioMessage: &waE2E.AudioMessage{
-				URL:           proto.String(uploaded.URL),
-				PTT:           proto.Bool(true),
-				DirectPath:    proto.String(uploaded.DirectPath),
-				MediaKey:      uploaded.MediaKey,
-				Mimetype:      proto.String(mimeType),
-				FileEncSHA256: uploaded.FileEncSHA256,
-				FileSHA256:    uploaded.FileSHA256,
-				FileLength:    proto.Uint64(uploaded.FileLength),
-				Seconds:       proto.Uint32(uint32(duration)),
-			}}
+			if isNewsletter {
+				media = &waE2E.Message{AudioMessage: &waE2E.AudioMessage{
+					URL:        &uploaded.URL,
+					PTT:        proto.Bool(true),
+					DirectPath: &uploaded.DirectPath,
+					Mimetype:   proto.String(mimeType),
+					FileSHA256: uploaded.FileSHA256,
+					FileLength: &uploaded.FileLength,
+					Seconds:    proto.Uint32(uint32(duration)),
+				}}
+			} else {
+				media = &waE2E.Message{AudioMessage: &waE2E.AudioMessage{
+					URL:           proto.String(uploaded.URL),
+					PTT:           proto.Bool(true),
+					DirectPath:    proto.String(uploaded.DirectPath),
+					MediaKey:      uploaded.MediaKey,
+					Mimetype:      proto.String(mimeType),
+					FileEncSHA256: uploaded.FileEncSHA256,
+					FileSHA256:    uploaded.FileSHA256,
+					FileLength:    proto.Uint64(uploaded.FileLength),
+					Seconds:       proto.Uint32(uint32(duration)),
+				}}
+			}
 			mediaType = "AudioMessage"
 		case "document":
-			media = &waE2E.Message{DocumentMessage: &waE2E.DocumentMessage{
-				FileName:      &data.Filename,
-				Caption:       proto.String(data.Caption),
-				URL:           proto.String(uploaded.URL),
-				DirectPath:    proto.String(uploaded.DirectPath),
-				MediaKey:      uploaded.MediaKey,
-				Mimetype:      proto.String(mimeType),
-				FileEncSHA256: uploaded.FileEncSHA256,
-				FileSHA256:    uploaded.FileSHA256,
-				FileLength:    proto.Uint64(uint64(len(fileData))),
-			}}
+			if isNewsletter {
+				media = &waE2E.Message{DocumentMessage: &waE2E.DocumentMessage{
+					FileName:   &data.Filename,
+					Caption:    proto.String(data.Caption),
+					URL:        &uploaded.URL,
+					DirectPath: &uploaded.DirectPath,
+					Mimetype:   proto.String(mimeType),
+					FileSHA256: uploaded.FileSHA256,
+					FileLength: &uploaded.FileLength,
+				}}
+			} else {
+				media = &waE2E.Message{DocumentMessage: &waE2E.DocumentMessage{
+					FileName:      &data.Filename,
+					Caption:       proto.String(data.Caption),
+					URL:           proto.String(uploaded.URL),
+					DirectPath:    proto.String(uploaded.DirectPath),
+					MediaKey:      uploaded.MediaKey,
+					Mimetype:      proto.String(mimeType),
+					FileEncSHA256: uploaded.FileEncSHA256,
+					FileSHA256:    uploaded.FileSHA256,
+					FileLength:    proto.Uint64(uint64(len(fileData))),
+				}}
+			}
 
 			if media.GetDocumentMessage().GetCaption() != "" {
 				media.DocumentWithCaptionMessage = &waE2E.FutureProofMessage{
@@ -933,6 +1011,7 @@ func (s *sendService) sendMediaFileWithRetry(data *MediaStruct, fileData []byte,
 			MentionAll:   data.MentionAll,
 			MentionedJID: data.MentionedJID,
 			FormatJid:    data.FormatJid,
+			MediaHandle:  uploaded.Handle,
 		})
 
 		if err != nil {
@@ -1045,9 +1124,27 @@ func (s *sendService) sendMediaUrlWithRetry(data *MediaStruct, instance *instanc
 			return nil, errors.New("invalid media type")
 		}
 
-		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Iniciando upload para WhatsApp...", instance.Id)
+		// Detectar se é newsletter para usar upload sem criptografia
+		isNewsletter := strings.Contains(data.Number, "@newsletter")
+
+		// Validar se é documento em newsletter (não suportado)
+		if isNewsletter && data.Type == "document" {
+			return nil, errors.New("documentos não são suportados em canais do WhatsApp. Use imagem, vídeo, áudio ou enquete")
+		}
+
+		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Iniciando upload para WhatsApp (Newsletter: %v)...", instance.Id, isNewsletter)
 		uploadStart := time.Now()
-		uploaded, err := client.Upload(context.Background(), fileData, uploadType)
+
+		var uploaded whatsmeow.UploadResponse
+		if isNewsletter {
+			// Newsletter: upload sem criptografia
+			uploaded, err = client.UploadNewsletter(context.Background(), fileData, uploadType)
+			s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Newsletter upload - Handle: %s", instance.Id, uploaded.Handle)
+		} else {
+			// Upload normal com criptografia
+			uploaded, err = client.Upload(context.Background(), fileData, uploadType)
+		}
+
 		if err != nil {
 			return nil, err
 		}
@@ -1058,67 +1155,127 @@ func (s *sendService) sendMediaUrlWithRetry(data *MediaStruct, instance *instanc
 
 		switch data.Type {
 		case "image":
-			media = &waE2E.Message{ImageMessage: &waE2E.ImageMessage{
-				Caption:       proto.String(data.Caption),
-				URL:           proto.String(uploaded.URL),
-				DirectPath:    proto.String(uploaded.DirectPath),
-				MediaKey:      uploaded.MediaKey,
-				Mimetype:      proto.String(mimeType),
-				FileEncSHA256: uploaded.FileEncSHA256,
-				FileSHA256:    uploaded.FileSHA256,
-				FileLength:    proto.Uint64(uint64(len(fileData))),
-			}}
+			if isNewsletter {
+				// Newsletter: sem criptografia (sem MediaKey e FileEncSHA256)
+				media = &waE2E.Message{ImageMessage: &waE2E.ImageMessage{
+					Caption:    proto.String(data.Caption),
+					URL:        &uploaded.URL,
+					DirectPath: &uploaded.DirectPath,
+					Mimetype:   proto.String(mimeType),
+					FileSHA256: uploaded.FileSHA256,
+					FileLength: &uploaded.FileLength,
+				}}
+			} else {
+				// Normal: com criptografia
+				media = &waE2E.Message{ImageMessage: &waE2E.ImageMessage{
+					Caption:       proto.String(data.Caption),
+					URL:           proto.String(uploaded.URL),
+					DirectPath:    proto.String(uploaded.DirectPath),
+					MediaKey:      uploaded.MediaKey,
+					Mimetype:      proto.String(mimeType),
+					FileEncSHA256: uploaded.FileEncSHA256,
+					FileSHA256:    uploaded.FileSHA256,
+					FileLength:    proto.Uint64(uint64(len(fileData))),
+				}}
+			}
 			mediaType = "ImageMessage"
 		case "video":
-			media = &waE2E.Message{VideoMessage: &waE2E.VideoMessage{
-				Caption:       proto.String(data.Caption),
-				URL:           proto.String(uploaded.URL),
-				DirectPath:    proto.String(uploaded.DirectPath),
-				MediaKey:      uploaded.MediaKey,
-				Mimetype:      proto.String(mimeType),
-				FileEncSHA256: uploaded.FileEncSHA256,
-				FileSHA256:    uploaded.FileSHA256,
-				FileLength:    proto.Uint64(uint64(len(fileData))),
-			}}
+			if isNewsletter {
+				media = &waE2E.Message{VideoMessage: &waE2E.VideoMessage{
+					Caption:    proto.String(data.Caption),
+					URL:        &uploaded.URL,
+					DirectPath: &uploaded.DirectPath,
+					Mimetype:   proto.String(mimeType),
+					FileSHA256: uploaded.FileSHA256,
+					FileLength: &uploaded.FileLength,
+				}}
+			} else {
+				media = &waE2E.Message{VideoMessage: &waE2E.VideoMessage{
+					Caption:       proto.String(data.Caption),
+					URL:           proto.String(uploaded.URL),
+					DirectPath:    proto.String(uploaded.DirectPath),
+					MediaKey:      uploaded.MediaKey,
+					Mimetype:      proto.String(mimeType),
+					FileEncSHA256: uploaded.FileEncSHA256,
+					FileSHA256:    uploaded.FileSHA256,
+					FileLength:    proto.Uint64(uint64(len(fileData))),
+				}}
+			}
 			mediaType = "VideoMessage"
 		case "ptv":
-			media = &waE2E.Message{PtvMessage: &waE2E.VideoMessage{
-				URL:           proto.String(uploaded.URL),
-				DirectPath:    proto.String(uploaded.DirectPath),
-				MediaKey:      uploaded.MediaKey,
-				Mimetype:      proto.String(mimeType),
-				FileEncSHA256: uploaded.FileEncSHA256,
-				FileSHA256:    uploaded.FileSHA256,
-				FileLength:    proto.Uint64(uint64(len(fileData))),
-			}}
+			if isNewsletter {
+				media = &waE2E.Message{PtvMessage: &waE2E.VideoMessage{
+					URL:        &uploaded.URL,
+					DirectPath: &uploaded.DirectPath,
+					Mimetype:   proto.String(mimeType),
+					FileSHA256: uploaded.FileSHA256,
+					FileLength: &uploaded.FileLength,
+				}}
+			} else {
+				media = &waE2E.Message{PtvMessage: &waE2E.VideoMessage{
+					URL:           proto.String(uploaded.URL),
+					DirectPath:    proto.String(uploaded.DirectPath),
+					MediaKey:      uploaded.MediaKey,
+					Mimetype:      proto.String(mimeType),
+					FileEncSHA256: uploaded.FileEncSHA256,
+					FileSHA256:    uploaded.FileSHA256,
+					FileLength:    proto.Uint64(uint64(len(fileData))),
+				}}
+			}
 			mediaType = "PtvMessage"
 		case "audio":
-			media = &waE2E.Message{AudioMessage: &waE2E.AudioMessage{
-				URL:              proto.String(uploaded.URL),
-				PTT:              proto.Bool(true),
-				DirectPath:       proto.String(uploaded.DirectPath),
-				MediaKey:         uploaded.MediaKey,
-				Mimetype:         proto.String(mimeType),
-				FileEncSHA256:    uploaded.FileEncSHA256,
-				FileSHA256:       uploaded.FileSHA256,
-				FileLength:       proto.Uint64(uploaded.FileLength),
-				StreamingSidecar: []byte(*proto.String("QpmXDsU7YLagdg==")),
-				Waveform:         []byte(*proto.String("OjAnExISDgsKCAkJBwgkHAQEBBEFAwMNAxAcKCgkFzM0QUE4Jh4eKAoKChcLCwkeFgkJCQo3JiQmIiIRPz8/Ow==")),
-				Seconds:          proto.Uint32(uint32(duration)),
-			}}
+			if isNewsletter {
+				media = &waE2E.Message{AudioMessage: &waE2E.AudioMessage{
+					URL:              &uploaded.URL,
+					PTT:              proto.Bool(true),
+					DirectPath:       &uploaded.DirectPath,
+					Mimetype:         proto.String(mimeType),
+					FileSHA256:       uploaded.FileSHA256,
+					FileLength:       &uploaded.FileLength,
+					StreamingSidecar: []byte(*proto.String("QpmXDsU7YLagdg==")),
+					Waveform:         []byte(*proto.String("OjAnExISDgsKCAkJBwgkHAQEBBEFAwMNAxAcKCgkFzM0QUE4Jh4eKAoKChcLCwkeFgkJCQo3JiQmIiIRPz8/Ow==")),
+					Seconds:          proto.Uint32(uint32(duration)),
+				}}
+			} else {
+				media = &waE2E.Message{AudioMessage: &waE2E.AudioMessage{
+					URL:              proto.String(uploaded.URL),
+					PTT:              proto.Bool(true),
+					DirectPath:       proto.String(uploaded.DirectPath),
+					MediaKey:         uploaded.MediaKey,
+					Mimetype:         proto.String(mimeType),
+					FileEncSHA256:    uploaded.FileEncSHA256,
+					FileSHA256:       uploaded.FileSHA256,
+					FileLength:       proto.Uint64(uploaded.FileLength),
+					StreamingSidecar: []byte(*proto.String("QpmXDsU7YLagdg==")),
+					Waveform:         []byte(*proto.String("OjAnExISDgsKCAkJBwgkHAQEBBEFAwMNAxAcKCgkFzM0QUE4Jh4eKAoKChcLCwkeFgkJCQo3JiQmIiIRPz8/Ow==")),
+					Seconds:          proto.Uint32(uint32(duration)),
+				}}
+			}
 			mediaType = "AudioMessage"
 		case "document":
-			media = &waE2E.Message{DocumentMessage: &waE2E.DocumentMessage{
-				URL:           proto.String(uploaded.URL),
-				FileName:      &data.Filename,
-				Caption:       proto.String(data.Caption),
-				DirectPath:    proto.String(uploaded.DirectPath),
-				MediaKey:      uploaded.MediaKey,
-				Mimetype:      proto.String(mimeType),
-				FileEncSHA256: uploaded.FileEncSHA256,
-				FileSHA256:    uploaded.FileSHA256,
-				FileLength:    proto.Uint64(uint64(len(fileData))),
-			}}
+			if isNewsletter {
+				media = &waE2E.Message{DocumentMessage: &waE2E.DocumentMessage{
+					URL:        &uploaded.URL,
+					FileName:   &data.Filename,
+					Caption:    proto.String(data.Caption),
+					DirectPath: &uploaded.DirectPath,
+					Mimetype:   proto.String(mimeType),
+					FileSHA256: uploaded.FileSHA256,
+					FileLength: &uploaded.FileLength,
+				}}
+			} else {
+				media = &waE2E.Message{DocumentMessage: &waE2E.DocumentMessage{
+					URL:           proto.String(uploaded.URL),
+					FileName:      &data.Filename,
+					Caption:       proto.String(data.Caption),
+					DirectPath:    proto.String(uploaded.DirectPath),
+					MediaKey:      uploaded.MediaKey,
+					Mimetype:      proto.String(mimeType),
+					FileEncSHA256: uploaded.FileEncSHA256,
+					FileSHA256:    uploaded.FileSHA256,
+					FileLength:    proto.Uint64(uint64(len(fileData))),
+				}}
+			}
 
 			if media.GetDocumentMessage().GetCaption() != "" {
 				media.DocumentWithCaptionMessage = &waE2E.FutureProofMessage{
@@ -1143,6 +1300,7 @@ func (s *sendService) sendMediaUrlWithRetry(data *MediaStruct, instance *instanc
 			MentionAll:   data.MentionAll,
 			MentionedJID: data.MentionedJID,
 			FormatJid:    data.FormatJid,
+			MediaHandle:  uploaded.Handle,
 		})
 
 		if err != nil {
@@ -1701,11 +1859,15 @@ func (s *sendService) SendList(data *ListStruct, instance *instance_model.Instan
 }
 
 func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.Message, messageType string, data *SendDataStruct) (*MessageSendStruct, error) {
+	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] SendMessage called for number: %s, type: %s", instance.Id, data.Number, messageType)
+
 	recipient, err := s.validateAndCheckUserExists(data.Number, data.FormatJid, &data.Quoted.MessageID, &data.Quoted.MessageID, instance)
 	if err != nil {
 		s.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields or user check: %v", instance.Id, err)
 		return nil, err
 	}
+
+	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Recipient validated: %s (Server: %s)", instance.Id, recipient.String(), recipient.Server)
 
 	var message string
 	if data.Id == "" {
@@ -1851,75 +2013,152 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 	}
 
 	isGroup := strings.Contains(data.Number, "@g.us")
-	if isGroup {
+	isNewsletter := strings.Contains(data.Number, "@newsletter")
+
+	// Only try to get participants for actual groups, not newsletters
+	if isGroup && !isNewsletter {
 		if data.MentionAll {
-			allParticipants, err := s.clientPointer[instance.Id].GetGroupRequestParticipants(context.Background(), recipient)
+			groupInfo, err := s.clientPointer[instance.Id].GetGroupInfo(context.Background(), recipient)
 			if err != nil {
 				return nil, err
 			}
 
 			var mentionedJIDs []string
-			for _, jid := range allParticipants {
-				mentionedJIDs = append(mentionedJIDs, jid.JID.String())
+			for _, participant := range groupInfo.Participants {
+				mentionedJIDs = append(mentionedJIDs, participant.JID.String())
 			}
 
 			switch messageType {
 			case "ExtendedTextMessage":
+				if msg.ExtendedTextMessage.ContextInfo == nil {
+					msg.ExtendedTextMessage.ContextInfo = &waE2E.ContextInfo{}
+				}
 				msg.ExtendedTextMessage.ContextInfo.MentionedJID = mentionedJIDs
 			case "ImageMessage":
+				if msg.ImageMessage.ContextInfo == nil {
+					msg.ImageMessage.ContextInfo = &waE2E.ContextInfo{}
+				}
 				msg.ImageMessage.ContextInfo.MentionedJID = mentionedJIDs
 			case "VideoMessage":
+				if msg.VideoMessage.ContextInfo == nil {
+					msg.VideoMessage.ContextInfo = &waE2E.ContextInfo{}
+				}
 				msg.VideoMessage.ContextInfo.MentionedJID = mentionedJIDs
 			case "PtvMessage":
+				if msg.PtvMessage.ContextInfo == nil {
+					msg.PtvMessage.ContextInfo = &waE2E.ContextInfo{}
+				}
 				msg.PtvMessage.ContextInfo.MentionedJID = mentionedJIDs
 			case "AudioMessage":
+				if msg.AudioMessage.ContextInfo == nil {
+					msg.AudioMessage.ContextInfo = &waE2E.ContextInfo{}
+				}
 				msg.AudioMessage.ContextInfo.MentionedJID = mentionedJIDs
 			case "DocumentMessage":
+				if msg.DocumentMessage.ContextInfo == nil {
+					msg.DocumentMessage.ContextInfo = &waE2E.ContextInfo{}
+				}
 				msg.DocumentMessage.ContextInfo.MentionedJID = mentionedJIDs
 			case "PollCreationMessage":
+				if msg.PollCreationMessage.ContextInfo == nil {
+					msg.PollCreationMessage.ContextInfo = &waE2E.ContextInfo{}
+				}
 				msg.PollCreationMessage.ContextInfo.MentionedJID = mentionedJIDs
 			case "StickerMessage":
+				if msg.StickerMessage.ContextInfo == nil {
+					msg.StickerMessage.ContextInfo = &waE2E.ContextInfo{}
+				}
 				msg.StickerMessage.ContextInfo.MentionedJID = mentionedJIDs
 			case "LocationMessage":
+				if msg.LocationMessage.ContextInfo == nil {
+					msg.LocationMessage.ContextInfo = &waE2E.ContextInfo{}
+				}
 				msg.LocationMessage.ContextInfo.MentionedJID = mentionedJIDs
 			case "ContactMessage":
+				if msg.ContactMessage.ContextInfo == nil {
+					msg.ContactMessage.ContextInfo = &waE2E.ContextInfo{}
+				}
 				msg.ContactMessage.ContextInfo.MentionedJID = mentionedJIDs
 			}
 
 		}
 
-		if data.MentionedJID != "" {
+		if len(data.MentionedJID) > 0 {
 			switch messageType {
 			case "ExtendedTextMessage":
-				msg.ExtendedTextMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
+				if msg.ExtendedTextMessage.ContextInfo == nil {
+					msg.ExtendedTextMessage.ContextInfo = &waE2E.ContextInfo{}
+				}
+				msg.ExtendedTextMessage.ContextInfo.MentionedJID = data.MentionedJID
 			case "ImageMessage":
-				msg.ImageMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
+				if msg.ImageMessage.ContextInfo == nil {
+					msg.ImageMessage.ContextInfo = &waE2E.ContextInfo{}
+				}
+				msg.ImageMessage.ContextInfo.MentionedJID = data.MentionedJID
 			case "VideoMessage":
-				msg.VideoMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
+				if msg.VideoMessage.ContextInfo == nil {
+					msg.VideoMessage.ContextInfo = &waE2E.ContextInfo{}
+				}
+				msg.VideoMessage.ContextInfo.MentionedJID = data.MentionedJID
 			case "PtvMessage":
-				msg.PtvMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
+				if msg.PtvMessage.ContextInfo == nil {
+					msg.PtvMessage.ContextInfo = &waE2E.ContextInfo{}
+				}
+				msg.PtvMessage.ContextInfo.MentionedJID = data.MentionedJID
 			case "AudioMessage":
-				msg.AudioMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
+				if msg.AudioMessage.ContextInfo == nil {
+					msg.AudioMessage.ContextInfo = &waE2E.ContextInfo{}
+				}
+				msg.AudioMessage.ContextInfo.MentionedJID = data.MentionedJID
 			case "DocumentMessage":
-				msg.DocumentMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
+				if msg.DocumentMessage.ContextInfo == nil {
+					msg.DocumentMessage.ContextInfo = &waE2E.ContextInfo{}
+				}
+				msg.DocumentMessage.ContextInfo.MentionedJID = data.MentionedJID
 			case "PollCreationMessage":
-				msg.PollCreationMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
+				if msg.PollCreationMessage.ContextInfo == nil {
+					msg.PollCreationMessage.ContextInfo = &waE2E.ContextInfo{}
+				}
+				msg.PollCreationMessage.ContextInfo.MentionedJID = data.MentionedJID
 			case "StickerMessage":
-				msg.StickerMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
+				if msg.StickerMessage.ContextInfo == nil {
+					msg.StickerMessage.ContextInfo = &waE2E.ContextInfo{}
+				}
+				msg.StickerMessage.ContextInfo.MentionedJID = data.MentionedJID
 			case "LocationMessage":
-				msg.LocationMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
+				if msg.LocationMessage.ContextInfo == nil {
+					msg.LocationMessage.ContextInfo = &waE2E.ContextInfo{}
+				}
+				msg.LocationMessage.ContextInfo.MentionedJID = data.MentionedJID
 			case "ContactMessage":
-				msg.ContactMessage.ContextInfo.MentionedJID = []string{data.MentionedJID}
+				if msg.ContactMessage.ContextInfo == nil {
+					msg.ContactMessage.ContextInfo = &waE2E.ContextInfo{}
+				}
+				msg.ContactMessage.ContextInfo.MentionedJID = data.MentionedJID
 			}
 		}
 	}
 
 	recipient.User = strings.ReplaceAll(recipient.User, "+", "")
 
-	response, err := s.clientPointer[instance.Id].SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{ID: message})
+	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Sending message to %s with ID %s", instance.Id, recipient.String(), message)
+
+	// Preparar extra parameters para o envio
+	sendExtra := whatsmeow.SendRequestExtra{ID: message}
+
+	// Para newsletters/canais, adicionar o MediaHandle se houver mídia
+	if recipient.Server == "newsletter" && data.MediaHandle != "" {
+		sendExtra.MediaHandle = data.MediaHandle
+		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Newsletter detected, using MediaHandle: %s", instance.Id, data.MediaHandle)
+	}
+
+	response, err := s.clientPointer[instance.Id].SendMessage(context.Background(), recipient, msg, sendExtra)
 	if err != nil {
+		s.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error sending message: %v", instance.Id, err)
 		return nil, err
 	}
+
+	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Message sent successfully! ServerID: %d", instance.Id, response.ServerID)
 
 	messageInfo := types.MessageInfo{
 		MessageSource: types.MessageSource{
@@ -2039,6 +2278,235 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 	return messageSent, nil
 }
 
+<<<<<<< Updated upstream
+=======
+func (s *sendService) SendCarousel(data *CarouselStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
+	client, err := s.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	formatJid := true
+	if data.FormatJid != nil {
+		formatJid = *data.FormatJid
+	}
+
+	var recipient types.JID
+	var ok bool
+	recipient, ok = utils.ParseJID(data.Number)
+	if !ok && formatJid {
+		s.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields", instance.Id)
+		return nil, errors.New("invalid phone number")
+	} else if !ok && !formatJid {
+		recipient = types.JID{
+			User:   data.Number,
+			Server: types.DefaultUserServer,
+		}
+	}
+
+	// Build carousel cards
+	cards := make([]*waE2E.InteractiveMessage, len(data.Cards))
+	messageVersion := int32(1)
+
+	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Building carousel for %s with %d cards", instance.Id, recipient.String(), len(data.Cards))
+
+	for i, card := range data.Cards {
+		// Each card MUST have both header and body for carousel to work
+		interactiveCard := &waE2E.InteractiveMessage{
+			Body: &waE2E.InteractiveMessage_Body{
+				Text: proto.String(card.Body.Text),
+			},
+			Header: &waE2E.InteractiveMessage_Header{
+				Title:              proto.String(card.Header.Title),
+				Subtitle:           proto.String(card.Header.Subtitle),
+				HasMediaAttachment: proto.Bool(false),
+			},
+		}
+
+		// Add media to header if URL provided
+		if card.Header.ImageUrl != "" || card.Header.VideoUrl != "" {
+			header := interactiveCard.Header
+
+			// Add media to header if URL provided
+			if card.Header.ImageUrl != "" {
+				// Download and upload image
+				resp, err := http.Get(card.Header.ImageUrl)
+				if err == nil {
+					defer resp.Body.Close()
+					fileData, err := io.ReadAll(resp.Body)
+					if err == nil {
+						uploaded, err := client.Upload(context.Background(), fileData, whatsmeow.MediaImage)
+						if err == nil {
+							header.HasMediaAttachment = proto.Bool(true)
+							header.Media = &waE2E.InteractiveMessage_Header_ImageMessage{
+								ImageMessage: &waE2E.ImageMessage{
+									URL:           proto.String(uploaded.URL),
+									DirectPath:    proto.String(uploaded.DirectPath),
+									MediaKey:      uploaded.MediaKey,
+									Mimetype:      proto.String("image/jpeg"),
+									FileEncSHA256: uploaded.FileEncSHA256,
+									FileSHA256:    uploaded.FileSHA256,
+									FileLength:    proto.Uint64(uint64(len(fileData))),
+								},
+							}
+						}
+					}
+				}
+			} else if card.Header.VideoUrl != "" {
+				// Download and upload video
+				resp, err := http.Get(card.Header.VideoUrl)
+				if err == nil {
+					defer resp.Body.Close()
+					fileData, err := io.ReadAll(resp.Body)
+					if err == nil {
+						uploaded, err := client.Upload(context.Background(), fileData, whatsmeow.MediaVideo)
+						if err == nil {
+							header.HasMediaAttachment = proto.Bool(true)
+							header.Media = &waE2E.InteractiveMessage_Header_VideoMessage{
+								VideoMessage: &waE2E.VideoMessage{
+									URL:           proto.String(uploaded.URL),
+									DirectPath:    proto.String(uploaded.DirectPath),
+									MediaKey:      uploaded.MediaKey,
+									Mimetype:      proto.String("video/mp4"),
+									FileEncSHA256: uploaded.FileEncSHA256,
+									FileSHA256:    uploaded.FileSHA256,
+									FileLength:    proto.Uint64(uint64(len(fileData))),
+								},
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// Add footer if exists
+		if card.Footer != "" {
+			interactiveCard.Footer = &waE2E.InteractiveMessage_Footer{
+				Text: proto.String(card.Footer),
+			}
+		}
+
+		// Add buttons if exist
+		if len(card.Buttons) > 0 {
+			buttons := make([]*waE2E.InteractiveMessage_NativeFlowMessage_NativeFlowButton, len(card.Buttons))
+			for j, btn := range card.Buttons {
+				buttonType := strings.ToUpper(btn.Type)
+				if buttonType == "" {
+					buttonType = "REPLY" // Default type
+				}
+
+				var buttonName string
+				var buttonParams string
+
+				switch buttonType {
+				case "URL":
+					// URL button - opens a link
+					buttonName = "cta_url"
+					buttonParams = fmt.Sprintf(`{"display_text":"%s","url":"%s"}`, btn.DisplayText, btn.Id)
+				case "CALL":
+					// Call button - initiates a phone call
+					buttonName = "cta_call"
+					buttonParams = fmt.Sprintf(`{"display_text":"%s","phone_number":"%s"}`, btn.DisplayText, btn.Id)
+				case "COPY":
+					// Copy button - copies text to clipboard
+					buttonName = "cta_copy"
+					buttonParams = fmt.Sprintf(`{"display_text":"%s","copy_code":"%s"}`, btn.DisplayText, btn.CopyCode)
+				case "REPLY":
+					fallthrough
+				default:
+					// Quick reply button (default)
+					buttonName = "quick_reply"
+					buttonParams = fmt.Sprintf(`{"display_text":"%s","id":"%s"}`, btn.DisplayText, btn.Id)
+				}
+
+				buttons[j] = &waE2E.InteractiveMessage_NativeFlowMessage_NativeFlowButton{
+					Name:             proto.String(buttonName),
+					ButtonParamsJSON: proto.String(buttonParams),
+				}
+			}
+
+			// messageParamsJSON is REQUIRED for NativeFlowMessage with buttons
+			messageParamsJSON := fmt.Sprintf(`{"from":"api","templateId":"%d"}`, time.Now().UnixNano()/1000000)
+
+			interactiveCard.InteractiveMessage = &waE2E.InteractiveMessage_NativeFlowMessage_{
+				NativeFlowMessage: &waE2E.InteractiveMessage_NativeFlowMessage{
+					Buttons:           buttons,
+					MessageParamsJSON: proto.String(messageParamsJSON),
+					MessageVersion:    proto.Int32(1),
+				},
+			}
+		}
+
+		cards[i] = interactiveCard
+	}
+
+	// Build carousel message
+	carouselCardType := waE2E.InteractiveMessage_CarouselMessage_HSCROLL_CARDS
+	interactiveMsg := &waE2E.InteractiveMessage{
+		InteractiveMessage: &waE2E.InteractiveMessage_CarouselMessage_{
+			CarouselMessage: &waE2E.InteractiveMessage_CarouselMessage{
+				Cards:            cards,
+				MessageVersion:   &messageVersion,
+				CarouselCardType: &carouselCardType,
+			},
+		},
+	}
+
+	// Add body if provided (main message above carousel)
+	if data.Body != "" {
+		interactiveMsg.Body = &waE2E.InteractiveMessage_Body{
+			Text: proto.String(data.Body),
+		}
+	}
+
+	// Add footer if provided (text below carousel)
+	if data.Footer != "" {
+		interactiveMsg.Footer = &waE2E.InteractiveMessage_Footer{
+			Text: proto.String(data.Footer),
+		}
+	}
+
+	// ContextInfo is REQUIRED for iOS compatibility
+	// Even if empty, iOS requires this field to display carousel
+	contextInfo := &waE2E.ContextInfo{}
+
+	// Add quoted message if exists
+	if data.Quoted.MessageID != "" {
+		contextInfo.StanzaID = proto.String(data.Quoted.MessageID)
+		if data.Quoted.Participant != "" {
+			participantJID, ok := utils.ParseJID(data.Quoted.Participant)
+			if ok {
+				contextInfo.Participant = proto.String(participantJID.String())
+			}
+		}
+	}
+
+	// Always set ContextInfo (required for iOS)
+	interactiveMsg.ContextInfo = contextInfo
+
+	// Build final message with MessageContextInfo for proper notification delivery
+	msg := &waE2E.Message{
+		InteractiveMessage: interactiveMsg,
+		MessageContextInfo: &waE2E.MessageContextInfo{
+			DeviceListMetadata: &waE2E.DeviceListMetadata{},
+		},
+	}
+
+	message, err := s.SendMessage(instance, msg, "InteractiveMessage", &SendDataStruct{
+		Number: data.Number,
+		Delay:  data.Delay,
+	})
+
+	if err != nil {
+		s.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error sending carousel: %v", instance.Id, err)
+		return nil, err
+	}
+
+	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Carousel sent to %s with %d cards", instance.Id, data.Number, len(data.Cards))
+	return message, nil
+}
+
+>>>>>>> Stashed changes
 func NewSendService(
 	clientPointer map[string]*whatsmeow.Client,
 	whatsmeowService whatsmeow_service.WhatsmeowService,

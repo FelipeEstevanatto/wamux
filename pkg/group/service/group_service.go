@@ -28,6 +28,12 @@ type GroupService interface {
 	SetGroupDescription(data *SetGroupDescriptionStruct, instance *instance_model.Instance) error
 	CreateGroup(data *CreateGroupStruct, instance *instance_model.Instance) (gin.H, error)
 	UpdateParticipant(data *AddParticipantStruct, instance *instance_model.Instance) error
+<<<<<<< Updated upstream
+=======
+	UpdateGroupSettings(data *UpdateGroupSettingsStruct, instance *instance_model.Instance) error
+	GetGroupRequestParticipants(data *GetGroupRequestParticipantsStruct, instance *instance_model.Instance) ([]EnrichedGroupParticipantRequest, error)
+	UpdateGroupRequestParticipants(data *UpdateGroupRequestParticipantsStruct, instance *instance_model.Instance) ([]types.GroupParticipant, error)
+>>>>>>> Stashed changes
 	GetMyGroups(instance *instance_model.Instance) ([]types.GroupInfo, error)
 	JoinGroupLink(data *JoinGroupStruct, instance *instance_model.Instance) error
 	LeaveGroup(data *LeaveGroupStruct, instance *instance_model.Instance) error
@@ -91,6 +97,33 @@ type LeaveGroupStruct struct {
 	GroupJID types.JID `json:"groupJid"`
 }
 
+<<<<<<< Updated upstream
+=======
+type UpdateGroupSettingsStruct struct {
+	GroupJID string `json:"groupJid"`
+	Action   string `json:"action"` // announcement, not_announcement, locked, unlocked
+}
+
+type GetGroupRequestParticipantsStruct struct {
+	GroupJID string `json:"groupJid"`
+}
+
+// Estrutura enriquecida com PushName
+type EnrichedGroupParticipantRequest struct {
+	JID         types.JID `json:"JID"`
+	PhoneNumber types.JID `json:"PhoneNumber"`
+	LID         types.JID `json:"LID"`
+	RequestedAt time.Time `json:"RequestedAt"`
+	PushName    string    `json:"PushName"`
+}
+
+type UpdateGroupRequestParticipantsStruct struct {
+	GroupJID     string   `json:"groupJid"`
+	Action       string   `json:"action"` // approve, reject
+	Participants []string `json:"participants"`
+}
+
+>>>>>>> Stashed changes
 func (g *groupService) ensureClientConnected(instanceId string) (*whatsmeow.Client, error) {
 	client := g.clientPointer[instanceId]
 	g.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Checking client connection status - Client exists: %v", instanceId, client != nil)
@@ -257,12 +290,19 @@ func (g *groupService) SetGroupName(data *SetGroupNameStruct, instance *instance
 		return errors.New("invalid group jid")
 	}
 
+	g.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Attempting to set group name for %s", instance.Id, recipient.String())
+
 	err = client.SetGroupName(context.Background(), recipient, data.Name)
 	if err != nil {
-		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error mute chat: %v", instance.Id, err)
+		// Log mais detalhado para erro 409
+		if strings.Contains(err.Error(), "409") || strings.Contains(err.Error(), "conflict") {
+			g.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] WhatsApp returned 409 conflict when setting name. This usually means: rate limit, duplicate content, or insufficient permissions", instance.Id)
+		}
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error setting group name: %v", instance.Id, err)
 		return err
 	}
 
+	g.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Group name set successfully", instance.Id)
 	return nil
 }
 
@@ -278,12 +318,21 @@ func (g *groupService) SetGroupDescription(data *SetGroupDescriptionStruct, inst
 		return errors.New("invalid group jid")
 	}
 
-	err = client.SetGroupDescription(context.Background(), recipient, data.Description)
+	g.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Attempting to set group description for %s", instance.Id, recipient.String())
+
+	// Use SetGroupTopic instead of SetGroupDescription (proper WhatsApp method)
+	// Empty strings for previousID and newID will be auto-filled by the library
+	err = client.SetGroupTopic(context.Background(), recipient, "", "", data.Description)
 	if err != nil {
-		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error mute chat: %v", instance.Id, err)
+		// Log mais detalhado para erro 409
+		if strings.Contains(err.Error(), "409") || strings.Contains(err.Error(), "conflict") {
+			g.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] WhatsApp returned 409 conflict when setting description. This usually means: rate limit, duplicate content, or insufficient permissions", instance.Id)
+		}
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error setting group description: %v", instance.Id, err)
 		return err
 	}
 
+	g.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Group description set successfully", instance.Id)
 	return nil
 }
 
@@ -425,6 +474,191 @@ func (g *groupService) LeaveGroup(data *LeaveGroupStruct, instance *instance_mod
 	return nil
 }
 
+<<<<<<< Updated upstream
+=======
+func (g *groupService) UpdateGroupSettings(data *UpdateGroupSettingsStruct, instance *instance_model.Instance) error {
+	client, err := g.ensureClientConnected(instance.Id)
+	if err != nil {
+		return err
+	}
+
+	recipient, ok := utils.ParseJID(data.GroupJID)
+	if !ok {
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating group jid", instance.Id)
+		return errors.New("invalid group jid")
+	}
+
+	// Validate action
+	validActions := map[string]bool{
+		"announcement":     true,
+		"not_announcement": true,
+		"locked":           true,
+		"unlocked":         true,
+		"approval_on":      true,
+		"approval_off":     true,
+		"admin_add":        true,
+		"all_member_add":   true,
+	}
+
+	if !validActions[data.Action] {
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Invalid action: %s", instance.Id, data.Action)
+		return errors.New("invalid action. Valid actions: announcement, not_announcement, locked, unlocked, approval_on, approval_off, admin_add, all_member_add")
+	}
+
+	// Apply settings based on action
+	switch data.Action {
+	case "announcement":
+		err = client.SetGroupAnnounce(context.Background(), recipient, true)
+	case "not_announcement":
+		err = client.SetGroupAnnounce(context.Background(), recipient, false)
+	case "locked":
+		err = client.SetGroupLocked(context.Background(), recipient, true)
+	case "unlocked":
+		err = client.SetGroupLocked(context.Background(), recipient, false)
+	case "approval_on":
+		err = client.SetGroupJoinApprovalMode(context.Background(), recipient, true)
+	case "approval_off":
+		err = client.SetGroupJoinApprovalMode(context.Background(), recipient, false)
+	case "admin_add":
+		err = client.SetGroupMemberAddMode(context.Background(), recipient, "admin_add")
+	case "all_member_add":
+		err = client.SetGroupMemberAddMode(context.Background(), recipient, "all_member_add")
+	}
+
+	if err != nil {
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error updating group settings: %v", instance.Id, err)
+		return err
+	}
+
+	g.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Group settings updated successfully: %s", instance.Id, data.Action)
+	return nil
+}
+
+func (g *groupService) GetGroupRequestParticipants(data *GetGroupRequestParticipantsStruct, instance *instance_model.Instance) ([]EnrichedGroupParticipantRequest, error) {
+	client, err := g.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	recipient, ok := utils.ParseJID(data.GroupJID)
+	if !ok {
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating group jid", instance.Id)
+		return nil, errors.New("invalid group jid")
+	}
+
+	requests, err := client.GetGroupRequestParticipants(context.Background(), recipient)
+	if err != nil {
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error getting group request participants: %v", instance.Id, err)
+		return nil, err
+	}
+
+	g.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Retrieved %d pending group requests", instance.Id, len(requests))
+
+	// Enriquecer com informações de usuário (PushName)
+	enrichedRequests := make([]EnrichedGroupParticipantRequest, len(requests))
+	jidsToFetch := make([]types.JID, 0, len(requests))
+
+	for _, req := range requests {
+		// Usar PhoneNumber se disponível, senão JID
+		if req.PhoneNumber.User != "" {
+			jidsToFetch = append(jidsToFetch, req.PhoneNumber)
+		} else if req.JID.User != "" {
+			jidsToFetch = append(jidsToFetch, req.JID)
+		}
+	}
+
+	// Buscar informações de usuário em lote
+	userInfoMap := make(map[types.JID]types.UserInfo)
+	if len(jidsToFetch) > 0 {
+		userInfoMap, err = client.GetUserInfo(context.Background(), jidsToFetch)
+		if err != nil {
+			g.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Could not fetch user info: %v", instance.Id, err)
+			// Continuar sem pushName se falhar
+		}
+	}
+
+	// Montar resposta enriquecida
+	for i, req := range requests {
+		enrichedRequests[i] = EnrichedGroupParticipantRequest{
+			JID:         req.JID,
+			PhoneNumber: req.PhoneNumber,
+			LID:         req.LID,
+			RequestedAt: req.RequestedAt,
+			PushName:    "",
+		}
+
+		// Tentar obter PushName
+		lookupJID := req.PhoneNumber
+		if lookupJID.User == "" {
+			lookupJID = req.JID
+		}
+
+		if userInfo, found := userInfoMap[lookupJID]; found {
+			// VerifiedName é ponteiro, verificar se não é nil
+			if userInfo.VerifiedName != nil && userInfo.VerifiedName.Details.GetVerifiedName() != "" {
+				enrichedRequests[i].PushName = userInfo.VerifiedName.Details.GetVerifiedName()
+			}
+		}
+
+		// Tentar obter do store de contatos se não tiver VerifiedName
+		if enrichedRequests[i].PushName == "" && client.Store.Contacts != nil {
+			if contactInfo, err := client.Store.Contacts.GetContact(context.Background(), lookupJID); err == nil && contactInfo.PushName != "" {
+				enrichedRequests[i].PushName = contactInfo.PushName
+			} else if contactInfo.FullName != "" {
+				enrichedRequests[i].PushName = contactInfo.FullName
+			}
+		}
+	}
+
+	return enrichedRequests, nil
+}
+
+func (g *groupService) UpdateGroupRequestParticipants(data *UpdateGroupRequestParticipantsStruct, instance *instance_model.Instance) ([]types.GroupParticipant, error) {
+	client, err := g.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	recipient, ok := utils.ParseJID(data.GroupJID)
+	if !ok {
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating group jid", instance.Id)
+		return nil, errors.New("invalid group jid")
+	}
+
+	// Validate action
+	var action whatsmeow.ParticipantRequestChange
+	switch data.Action {
+	case "approve":
+		action = whatsmeow.ParticipantChangeApprove
+	case "reject":
+		action = whatsmeow.ParticipantChangeReject
+	default:
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Invalid action: %s", instance.Id, data.Action)
+		return nil, errors.New("invalid action. Valid actions: approve, reject")
+	}
+
+	// Parse participants JIDs
+	var participants []types.JID
+	for _, participant := range data.Participants {
+		participantJID, ok := utils.ParseJID(participant)
+		if !ok {
+			g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating participant jid: %s", instance.Id, participant)
+			return nil, errors.New("invalid participant jid: " + participant)
+		}
+		participants = append(participants, participantJID)
+	}
+
+	results, err := client.UpdateGroupRequestParticipants(context.Background(), recipient, participants, action)
+	if err != nil {
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error updating group request participants: %v", instance.Id, err)
+		return nil, err
+	}
+
+	g.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Successfully %sd %d participants", instance.Id, data.Action, len(participants))
+	return results, nil
+}
+
+>>>>>>> Stashed changes
 func NewGroupService(
 	clientPointer map[string]*whatsmeow.Client,
 	whatsmeowService whatsmeow_service.WhatsmeowService,
