@@ -28,12 +28,9 @@ type GroupService interface {
 	SetGroupDescription(data *SetGroupDescriptionStruct, instance *instance_model.Instance) error
 	CreateGroup(data *CreateGroupStruct, instance *instance_model.Instance) (gin.H, error)
 	UpdateParticipant(data *AddParticipantStruct, instance *instance_model.Instance) error
-<<<<<<< Updated upstream
-=======
 	UpdateGroupSettings(data *UpdateGroupSettingsStruct, instance *instance_model.Instance) error
 	GetGroupRequestParticipants(data *GetGroupRequestParticipantsStruct, instance *instance_model.Instance) ([]EnrichedGroupParticipantRequest, error)
 	UpdateGroupRequestParticipants(data *UpdateGroupRequestParticipantsStruct, instance *instance_model.Instance) ([]types.GroupParticipant, error)
->>>>>>> Stashed changes
 	GetMyGroups(instance *instance_model.Instance) ([]types.GroupInfo, error)
 	JoinGroupLink(data *JoinGroupStruct, instance *instance_model.Instance) error
 	LeaveGroup(data *LeaveGroupStruct, instance *instance_model.Instance) error
@@ -97,8 +94,6 @@ type LeaveGroupStruct struct {
 	GroupJID types.JID `json:"groupJid"`
 }
 
-<<<<<<< Updated upstream
-=======
 type UpdateGroupSettingsStruct struct {
 	GroupJID string `json:"groupJid"`
 	Action   string `json:"action"` // announcement, not_announcement, locked, unlocked
@@ -111,8 +106,6 @@ type GetGroupRequestParticipantsStruct struct {
 // Estrutura enriquecida com PushName
 type EnrichedGroupParticipantRequest struct {
 	JID         types.JID `json:"JID"`
-	PhoneNumber types.JID `json:"PhoneNumber"`
-	LID         types.JID `json:"LID"`
 	RequestedAt time.Time `json:"RequestedAt"`
 	PushName    string    `json:"PushName"`
 }
@@ -123,7 +116,7 @@ type UpdateGroupRequestParticipantsStruct struct {
 	Participants []string `json:"participants"`
 }
 
->>>>>>> Stashed changes
+
 func (g *groupService) ensureClientConnected(instanceId string) (*whatsmeow.Client, error) {
 	client := g.clientPointer[instanceId]
 	g.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Checking client connection status - Client exists: %v", instanceId, client != nil)
@@ -474,8 +467,6 @@ func (g *groupService) LeaveGroup(data *LeaveGroupStruct, instance *instance_mod
 	return nil
 }
 
-<<<<<<< Updated upstream
-=======
 func (g *groupService) UpdateGroupSettings(data *UpdateGroupSettingsStruct, instance *instance_model.Instance) error {
 	client, err := g.ensureClientConnected(instance.Id)
 	if err != nil {
@@ -559,10 +550,7 @@ func (g *groupService) GetGroupRequestParticipants(data *GetGroupRequestParticip
 	jidsToFetch := make([]types.JID, 0, len(requests))
 
 	for _, req := range requests {
-		// Usar PhoneNumber se disponível, senão JID
-		if req.PhoneNumber.User != "" {
-			jidsToFetch = append(jidsToFetch, req.PhoneNumber)
-		} else if req.JID.User != "" {
+		if req.JID.User != "" {
 			jidsToFetch = append(jidsToFetch, req.JID)
 		}
 	}
@@ -581,17 +569,12 @@ func (g *groupService) GetGroupRequestParticipants(data *GetGroupRequestParticip
 	for i, req := range requests {
 		enrichedRequests[i] = EnrichedGroupParticipantRequest{
 			JID:         req.JID,
-			PhoneNumber: req.PhoneNumber,
-			LID:         req.LID,
 			RequestedAt: req.RequestedAt,
 			PushName:    "",
 		}
 
 		// Tentar obter PushName
-		lookupJID := req.PhoneNumber
-		if lookupJID.User == "" {
-			lookupJID = req.JID
-		}
+		lookupJID := req.JID
 
 		if userInfo, found := userInfoMap[lookupJID]; found {
 			// VerifiedName é ponteiro, verificar se não é nil
@@ -658,7 +641,6 @@ func (g *groupService) UpdateGroupRequestParticipants(data *UpdateGroupRequestPa
 	return results, nil
 }
 
->>>>>>> Stashed changes
 func NewGroupService(
 	clientPointer map[string]*whatsmeow.Client,
 	whatsmeowService whatsmeow_service.WhatsmeowService,

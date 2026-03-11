@@ -208,6 +208,41 @@ type ListStruct struct {
 	Quoted       QuotedStruct `json:"quoted"`
 }
 
+type CarouselButtonStruct struct {
+	Type        string `json:"type"`
+	DisplayText string `json:"displayText"`
+	Id          string `json:"id"`
+	CopyCode    string `json:"copyCode,omitempty"`
+}
+
+type CarouselCardHeaderStruct struct {
+	Title    string `json:"title"`
+	Subtitle string `json:"subtitle"`
+	ImageUrl string `json:"imageUrl,omitempty"`
+	VideoUrl string `json:"videoUrl,omitempty"`
+}
+
+type CarouselCardBodyStruct struct {
+	Text string `json:"text"`
+}
+
+type CarouselCardStruct struct {
+	Header  CarouselCardHeaderStruct `json:"header"`
+	Body    CarouselCardBodyStruct   `json:"body"`
+	Footer  string                   `json:"footer,omitempty"`
+	Buttons []CarouselButtonStruct   `json:"buttons,omitempty"`
+}
+
+type CarouselStruct struct {
+	Number    string             `json:"number"`
+	Body      string             `json:"body,omitempty"`
+	Footer    string             `json:"footer,omitempty"`
+	Delay     int32              `json:"delay"`
+	FormatJid *bool              `json:"formatJid,omitempty"`
+	Quoted    QuotedStruct       `json:"quoted"`
+	Cards     []CarouselCardStruct `json:"cards"`
+}
+
 type MessageSendStruct struct {
 	Info               types.MessageInfo
 	Message            *waE2E.Message
@@ -2278,8 +2313,6 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 	return messageSent, nil
 }
 
-<<<<<<< Updated upstream
-=======
 func (s *sendService) SendCarousel(data *CarouselStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
 	client, err := s.ensureClientConnected(instance.Id)
 	if err != nil {
@@ -2506,7 +2539,6 @@ func (s *sendService) SendCarousel(data *CarouselStruct, instance *instance_mode
 	return message, nil
 }
 
->>>>>>> Stashed changes
 func NewSendService(
 	clientPointer map[string]*whatsmeow.Client,
 	whatsmeowService whatsmeow_service.WhatsmeowService,
