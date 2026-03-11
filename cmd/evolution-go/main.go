@@ -262,6 +262,10 @@ func initPostgresAuthDB(config *config.Config) (*sql.DB, error) {
 		return nil, nil
 	}
 
+	if err := config.EnsureDBExists(config.PostgresAuthDB); err != nil {
+		logger.LogWarn("Auto-setup auth DB failed (will try connecting anyway): %v", err)
+	}
+
 	db, err := sql.Open("postgres", config.PostgresAuthDB)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao conectar ao banco AUTH PostgreSQL: %v", err)
@@ -321,7 +325,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer sqliteDB.Close()
+	if sqliteDB != nil {
+		defer sqliteDB.Close()
+	}
 
 	migrate(db)
 

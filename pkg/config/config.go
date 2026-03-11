@@ -69,6 +69,77 @@ type Config struct {
 	LogCompress   bool
 }
 
+// EnsureDBExists connects to postgres (without the target database) and creates it if it doesn't exist.
+func (c *Config) EnsureDBExists(dsn string) error {
+	return ensureDBExists(dsn)
+}
+
+// ensureDBExists connects to postgres (without the target database) and creates it if it doesn't exist.
+func ensureDBExists(dsn string) error {
+	dbName, adminDSN, err := extractDBNameAndAdminDSN(dsn)
+	if err != nil {
+		return err
+	}
+
+	db, err := sql.Open("postgres", adminDSN)
+	if err != nil {
+		return fmt.Errorf("failed to connect to postgres for auto-setup: %v", err)
+	}
+	defer db.Close()
+
+	var exists bool
+	err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM pg_database WHERE datname = $1)", dbName).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("failed to check database existence: %v", err)
+	}
+
+	if !exists {
+		logger.LogInfo("[CONFIG] Database %q not found, creating it automatically...", dbName)
+		_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %q", dbName))
+		if err != nil {
+			return fmt.Errorf("failed to create database %q: %v", dbName, err)
+		}
+		logger.LogInfo("[CONFIG] Database %q created successfully", dbName)
+	}
+
+	return nil
+}
+
+// extractDBNameAndAdminDSN parses a DSN (URL or key=value) and returns the database name
+// and a DSN pointing to the "postgres" maintenance database.
+func extractDBNameAndAdminDSN(dsn string) (string, string, error) {
+	// Try URL format: postgres://user:pass@host:port/dbname?...
+	if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
+		u, err := url.Parse(dsn)
+		if err != nil {
+			return "", "", fmt.Errorf("failed to parse DSN URL: %v", err)
+		}
+		dbName := strings.TrimPrefix(u.Path, "/")
+		u.Path = "/postgres"
+		return dbName, u.String(), nil
+	}
+
+	// Key=value format: host=... user=... password=... dbname=... sslmode=...
+	parts := strings.Fields(dsn)
+	kvMap := make(map[string]string, len(parts))
+	for _, p := range parts {
+		kv := strings.SplitN(p, "=", 2)
+		if len(kv) == 2 {
+			kvMap[kv[0]] = kv[1]
+		}
+	}
+	dbName, ok := kvMap["dbname"]
+	if !ok || dbName == "" {
+		return "", "", fmt.Errorf("could not extract dbname from DSN")
+	}
+	kvMap["dbname"] = "postgres"
+	adminParts := make([]string, 0, len(kvMap))
+	for k, v := range kvMap {
+		adminParts = append(adminParts, k+"="+v)
+	}
+	return dbName, strings.Join(adminParts, " "), nil
+}
+
 func (c *Config) CreateUsersDB() (*gorm.DB, error) {
 	logger.LogDebug("Connecting to database on: %s", c.postgresUsersDB)
 
@@ -76,6 +147,10 @@ func (c *Config) CreateUsersDB() (*gorm.DB, error) {
 
 	if c.postgresUsersDB == "" {
 		dbDSN = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", c.PostgresHost, c.PostgresPort, c.PostgresUser, c.PostgresPassword, c.PostgresDB)
+	}
+
+	if err := ensureDBExists(dbDSN); err != nil {
+		logger.LogWarn("[CONFIG] Auto-setup failed (will try connecting anyway): %v", err)
 	}
 
 	db, err := gorm.Open(
@@ -106,6 +181,10 @@ func (c *Config) CreateAuthDB() (*sql.DB, error) {
 
 	if c.postgresUsersDB == "" {
 		dbDSN = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", c.PostgresHost, c.PostgresPort, c.PostgresUser, c.PostgresPassword, c.PostgresDB)
+	}
+
+	if err := ensureDBExists(dbDSN); err != nil {
+		logger.LogWarn("[CONFIG] Auto-setup failed (will try connecting anyway): %v", err)
 	}
 
 	db, err := sql.Open("postgres", dbDSN)
