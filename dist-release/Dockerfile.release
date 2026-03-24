@@ -11,8 +11,9 @@ RUN go install mvdan.cc/garble@latest
 
 WORKDIR /build
 
-# Copy go.mod first for caching
+# Copy go.mod + whatsmeow-lib first for caching
 COPY go.mod go.sum ./
+COPY whatsmeow-lib ./whatsmeow-lib
 RUN go mod download
 
 # Copy source
@@ -48,6 +49,6 @@ FROM alpine:3.21
 RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
 COPY --from=build /build/server .
-COPY --from=build /build/pkg/whatsmeow/service/templates ./pkg/whatsmeow/service/templates
+COPY --from=build /build/manager ./manager
 EXPOSE 8080
 ENTRYPOINT ["./server"]
