@@ -20,7 +20,7 @@ import (
 	"gorm.io/gorm"
 	_ "modernc.org/sqlite"
 
-	gate "github.com/EvolutionAPI/evo-gate"
+	"github.com/EvolutionAPI/evolution-go/pkg/core"
 	call_handler "github.com/EvolutionAPI/evolution-go/pkg/call/handler"
 	call_service "github.com/EvolutionAPI/evolution-go/pkg/call/service"
 	chat_handler "github.com/EvolutionAPI/evolution-go/pkg/chat/handler"
@@ -69,7 +69,7 @@ var devMode = flag.Bool("dev", false, "Enable development mode")
 
 var version = "dev"
 
-func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.Config, conn *amqp.Connection, exPath string, gateClient *gate.Client) *gin.Engine {
+func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.Config, conn *amqp.Connection, exPath string, runtimeCtx *core.RuntimeContext) *gin.Engine {
 	killChannel := make(map[string](chan bool))
 	clientPointer := make(map[string]*whatsmeow.Client)
 
@@ -192,7 +192,10 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	r := gin.Default()
 	r.Use(telemetry.TelemetryMiddleware())
 
-	r.Use(gateClient.Middleware())
+	r.Use(core.GateMiddleware(runtimeCtx))
+
+	// License routes (always accessible, even without license)
+	core.LicenseRoutes(r, runtimeCtx)
 
 	routes.NewRouter(
 		auth_middleware.NewMiddleware(config, instanceService),
@@ -309,15 +312,14 @@ func main() {
 
 	cfg := config.Load()
 
-	licenseToken := cfg.GlobalApiKey
-	if licenseToken == "" {
-		log.Fatal("GlobalApiKey não configurado")
-	}
-
 	logger.LogInfo("Starting Evolution GO version %s", version)
 
 	startTime := time.Now()
-	gateClient := gate.MustActivate(gate.Config{APIKey: cfg.GlobalApiKey}, version)
+	// Initialize runtime: handles registration + activation automatically
+	// If no license exists, shows registration URL in terminal and waits
+	// If license exists, activates directly
+	tier := "community" // Default product tier
+	runtimeCtx := core.InitializeRuntime(tier, version)
 
 	db, err := cfg.CreateUsersDB()
 	if err != nil {
@@ -372,13 +374,13 @@ func main() {
 		logger.LogInfo("RabbitMQ URL not configured, skipping RabbitMQ connection")
 	}
 
-	r := setupRouter(db, authDB, sqliteDB, cfg, conn, exPath, gateClient)
+	r := setupRouter(db, authDB, sqliteDB, cfg, conn, exPath, runtimeCtx)
 
 	// Graceful shutdown with heartbeat
 	heartbeatCtx, heartbeatCancel := context.WithCancel(context.Background())
 	defer heartbeatCancel()
 
-	gateClient.StartHeartbeat(heartbeatCtx, startTime)
+	core.StartHeartbeat(heartbeatCtx, runtimeCtx, startTime)
 
 	srv := &http.Server{
 		Addr:    ":" + os.Getenv("SERVER_PORT"),
@@ -401,9 +403,7 @@ func main() {
 	// Stop heartbeat loop
 	heartbeatCancel()
 
-	if err := gateClient.Deactivate(); err != nil {
-		logger.LogWarn("%v", err)
-	}
+	core.Shutdown(runtimeCtx)
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
