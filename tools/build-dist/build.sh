@@ -212,6 +212,24 @@ else
         git tag -a "${RELEASE_VERSION}" -m "Release ${RELEASE_VERSION}" 2>/dev/null || echo "  Tag ${RELEASE_VERSION} already exists"
         git push origin main --tags
         echo "  ✓ Pushed ${RELEASE_VERSION} to $DIST_REPO"
+
+        # Create GitHub Release with changelog excerpt
+        if command -v gh &>/dev/null; then
+            echo "  Creating GitHub Release..."
+            # Extract changelog for this version (between ## vX.Y.Z and next ## v)
+            RELEASE_NOTES=$(awk "/^## v${RELEASE_VERSION}/{found=1; next} /^## v/{if(found) exit} found" "$DIST_DIR/CHANGELOG.md")
+            if [ -z "$RELEASE_NOTES" ]; then
+                RELEASE_NOTES="Release ${RELEASE_VERSION}"
+            fi
+            gh release create "${RELEASE_VERSION}" \
+                --repo "$DIST_REPO" \
+                --title "v${RELEASE_VERSION}" \
+                --notes "$RELEASE_NOTES" \
+                2>/dev/null && echo "  ✓ GitHub Release created" \
+                || echo "  ⚠ Release already exists or gh auth needed"
+        else
+            echo "  ⚠ gh CLI not found — skip GitHub Release (install: brew install gh)"
+        fi
     fi
 
     cd "$ROOT_DIR"

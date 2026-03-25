@@ -258,6 +258,24 @@ else
         git tag -a "${BETA_VERSION}" -m "Beta ${BETA_VERSION}" 2>/dev/null || echo "  Tag ${BETA_VERSION} already exists"
         git push origin main --tags
         echo "  ✓ Pushed ${BETA_VERSION} to $BETA_REPO"
+
+        # Create GitHub Release with changelog excerpt
+        if command -v gh &>/dev/null; then
+            echo "  Creating GitHub Release..."
+            RELEASE_NOTES=$(awk "/^## v${VERSION}/{found=1; next} /^## v/{if(found) exit} found" "$BETA_DIR/CHANGELOG.md")
+            if [ -z "$RELEASE_NOTES" ]; then
+                RELEASE_NOTES="Beta release ${BETA_VERSION}"
+            fi
+            gh release create "${BETA_VERSION}" \
+                --repo "$BETA_REPO" \
+                --title "v${BETA_VERSION}" \
+                --notes "$RELEASE_NOTES" \
+                --prerelease \
+                2>/dev/null && echo "  ✓ GitHub Release created (pre-release)" \
+                || echo "  ⚠ Release already exists or gh auth needed"
+        else
+            echo "  ⚠ gh CLI not found — skip GitHub Release (install: brew install gh)"
+        fi
     fi
 
     cd "$ROOT_DIR"
