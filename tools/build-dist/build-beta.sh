@@ -16,14 +16,7 @@ LOCAL_ONLY=false
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 BETA_DIR="$ROOT_DIR/dist/beta"
 BETA_REPO="https://github.com/EvolutionAPI/evolution-go-beta.git"
-# Manager source: check inside repo first, then parent dir
-if [ -d "$ROOT_DIR/evolution-go-manager/src" ]; then
-    MANAGER_SRC="$ROOT_DIR/evolution-go-manager"
-elif [ -d "$ROOT_DIR/../evolution-go-manager/src" ]; then
-    MANAGER_SRC="$ROOT_DIR/../evolution-go-manager"
-else
-    MANAGER_SRC=""
-fi
+MANAGER_SRC="$ROOT_DIR/evolution-go-manager"
 OBFUSCATE_TOOL="$(dirname "$0")/obfuscate.go"
 TEMPLATES_DIR="$(dirname "$0")/templates"
 VERSION=$(cat "$ROOT_DIR/VERSION" 2>/dev/null || echo "0.0.0")
