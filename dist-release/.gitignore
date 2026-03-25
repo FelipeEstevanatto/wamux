@@ -1,11 +1,2 @@
 .env
 logs/*
-build/
-*.prof
-coverage.*
-.instance
-.runtime.dat
-.air.toml
-.idea/
-.vscode/
-.DS_Store
