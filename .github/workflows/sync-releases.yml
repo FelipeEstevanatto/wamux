@@ -46,16 +46,7 @@ jobs:
 
       - name: Build manager
         run: |
-          # Check inside repo first, then parent dir
-          if [ -d "evolution-go-manager/src" ]; then
-            MSRC="evolution-go-manager"
-          elif [ -d "../evolution-go-manager/src" ]; then
-            MSRC="../evolution-go-manager"
-          else
-            echo "Manager source not found, using existing manager/dist/"
-            exit 0
-          fi
-          cd "$MSRC"
+          cd evolution-go-manager
           pnpm install --frozen-lockfile 2>/dev/null || pnpm install
           pnpm build
           rm -rf ${{ github.workspace }}/manager/dist
