@@ -1,2 +1,12 @@
 .env
 logs/*
+build/
+*.prof
+coverage.*
+.air.toml
+.idea/
+.vscode/
+.DS_Store
+
+# Generated release directories (built by tools/build-dist/)
+dist/
