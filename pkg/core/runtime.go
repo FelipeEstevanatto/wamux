@@ -516,6 +516,7 @@ func sendHeartbeat(rc *RuntimeContext, uptimeSeconds int64) error {
 	resp, err := postSigned("/v1/heartbeat", map[string]any{
 		"instance_id":    rc.instanceID,
 		"uptime_seconds": uptimeSeconds,
+		"version":        rc.version,
 	}, rc.apiKey)
 	if err != nil {
 		return err
