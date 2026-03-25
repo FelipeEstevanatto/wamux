@@ -1019,6 +1019,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	case *events.Message:
 		doWebhook = true
 		postMap["event"] = "Message"
+		// Message received
 
 		// Log message arrival with detailed info
 		messageSize := "unknown"
