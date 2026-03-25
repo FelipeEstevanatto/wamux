@@ -68,12 +68,15 @@ import (
 
 var devMode = flag.Bool("dev", false, "Enable development mode")
 
-var version = func() string {
-	if v, err := os.ReadFile("VERSION"); err == nil {
-		return strings.TrimSpace(string(v))
+var version = "dev"
+
+func init() {
+	if version == "dev" {
+		if v, err := os.ReadFile("VERSION"); err == nil {
+			version = strings.TrimSpace(string(v))
+		}
 	}
-	return "dev"
-}()
+}
 
 func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.Config, conn *amqp.Connection, exPath string, runtimeCtx *core.RuntimeContext) *gin.Engine {
 	killChannel := make(map[string](chan bool))

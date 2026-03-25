@@ -1,5 +1,21 @@
 # Evolution GO - Changelog
 
+## v0.6.1
+
+### 🆕 New Features
+- **Group invite info endpoint** — `GET /group/invite-info` to get group details from invite link
+- **Enhanced media sending** — GIF playback, video stickers, and transparent sticker support
+
+### 🐛 Bug Fixes
+- **Admin revoke** — Allow deleting messages from others in groups (admin revoke)
+
+### 🔧 Improvements
+- **Version management** — Reads version from `VERSION` file with ldflags fallback
+- **CORS global middleware** — Applied before all routes
+- **Makefile compatibility** — Fixed `$(shell)` syntax for GNU Make 3.81 (macOS default)
+- **CI/CD cleanup** — Removed `develop` branch trigger and `homolog` tag from Docker workflow
+- **README updated** — New links, documentation, and hosting info
+
 ## v0.6.0
 
 ### 🆕 New Features

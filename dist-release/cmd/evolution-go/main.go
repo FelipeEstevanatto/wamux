@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"path/filepath"
 	"syscall"
 	"time"
@@ -20,7 +21,6 @@ import (
 	"gorm.io/gorm"
 	_ "modernc.org/sqlite"
 
-	"github.com/EvolutionAPI/evolution-go/pkg/core"
 	call_handler "github.com/EvolutionAPI/evolution-go/pkg/call/handler"
 	call_service "github.com/EvolutionAPI/evolution-go/pkg/call/service"
 	chat_handler "github.com/EvolutionAPI/evolution-go/pkg/chat/handler"
@@ -28,6 +28,7 @@ import (
 	community_handler "github.com/EvolutionAPI/evolution-go/pkg/community/handler"
 	community_service "github.com/EvolutionAPI/evolution-go/pkg/community/service"
 	config "github.com/EvolutionAPI/evolution-go/pkg/config"
+	"github.com/EvolutionAPI/evolution-go/pkg/core"
 	producer_interfaces "github.com/EvolutionAPI/evolution-go/pkg/events/interfaces"
 	nats_producer "github.com/EvolutionAPI/evolution-go/pkg/events/nats"
 	rabbitmq_producer "github.com/EvolutionAPI/evolution-go/pkg/events/rabbitmq"
@@ -68,6 +69,14 @@ import (
 var devMode = flag.Bool("dev", false, "Enable development mode")
 
 var version = "dev"
+
+func init() {
+	if version == "dev" {
+		if v, err := os.ReadFile("VERSION"); err == nil {
+			version = strings.TrimSpace(string(v))
+		}
+	}
+}
 
 func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.Config, conn *amqp.Connection, exPath string, runtimeCtx *core.RuntimeContext) *gin.Engine {
 	killChannel := make(map[string](chan bool))
@@ -190,6 +199,21 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	telemetry := telemetry.NewTelemetryService()
 
 	r := gin.Default()
+
+	// CORS middleware — must be before everything else
+	r.Use(func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, Accept, Cache-Control, X-Requested-With, apikey, ApiKey")
+		c.Writer.Header().Set("Access-Control-Expose-Headers", "Content-Length")
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(200)
+			return
+		}
+		c.Next()
+	})
+
 	r.Use(telemetry.TelemetryMiddleware())
 
 	r.Use(core.GateMiddleware(runtimeCtx))
@@ -315,11 +339,6 @@ func main() {
 	logger.LogInfo("Starting Evolution GO version %s", version)
 
 	startTime := time.Now()
-	// Initialize runtime: handles registration + activation automatically
-	// If no license exists, shows registration URL in terminal and waits
-	// If license exists, activates directly
-	tier := "community" // Default product tier
-	runtimeCtx := core.InitializeRuntime(tier, version)
 
 	db, err := cfg.CreateUsersDB()
 	if err != nil {
@@ -345,6 +364,14 @@ func main() {
 	}
 
 	migrate(db)
+
+	// Initialize core DB + license runtime
+	core.SetDB(db)
+	if err := core.MigrateDB(); err != nil {
+		log.Fatal("Failed to migrate runtime_configs: ", err)
+	}
+	tier := "evolution-go"
+	runtimeCtx := core.InitializeRuntime(tier, version, cfg.GlobalApiKey)
 
 	var conn *amqp.Connection
 
