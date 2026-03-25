@@ -209,7 +209,9 @@ else
         echo "  No changes to sync"
     else
         git commit -m "release: ${RELEASE_VERSION}"
-        git tag -a "${RELEASE_VERSION}" -m "Release ${RELEASE_VERSION}" 2>/dev/null || echo "  Tag ${RELEASE_VERSION} already exists"
+        git tag -d "${RELEASE_VERSION}" 2>/dev/null || true
+        git push origin :refs/tags/${RELEASE_VERSION} 2>/dev/null || true
+        git tag -a "${RELEASE_VERSION}" -m "Release ${RELEASE_VERSION}"
         git push origin main --tags
         echo "  ✓ Pushed ${RELEASE_VERSION} to $DIST_REPO"
 
