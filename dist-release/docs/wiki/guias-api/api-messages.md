@@ -209,7 +209,7 @@ delay: 0
 | Tipo | Formatos Aceitos | Observações |
 |------|------------------|-------------|
 | `image` | JPG, PNG, WebP | WebP convertido para JPEG |
-| `video` | MP4, GIF | MP4. **GIF** URLs são convertidos automaticamente para vídeo com `GifPlayback` |
+| `video` | MP4 | Apenas MP4 |
 | `audio` | Qualquer | Convertido para Opus (PTT) automaticamente |
 | `document` | Qualquer | Qualquer tipo de arquivo |
 
@@ -334,8 +334,7 @@ Envia um sticker (figurinha) via URL.
 ```json
 {
   "number": "5511999999999",
-  "sticker": "https://example.com/video.mp4",
-  "transparentColor": "#000000"
+  "sticker": "https://example.com/sticker.webp"
 }
 ```
 
@@ -344,13 +343,9 @@ Envia um sticker (figurinha) via URL.
 | Campo | Tipo | Obrigatório | Descrição |
 |-------|------|-------------|-----------|
 | `number` | string | ✅ Sim | Número do destinatário |
-| `sticker` | string | ✅ Sim | URL da imagem ou vídeo (convertida para WebP automaticamente) |
-| `transparentColor` | string | ❌ Não | Cor em Hex (ex: #000000) para tornar transparente (útil para vídeos) |
+| `sticker` | string | ✅ Sim | URL da imagem (convertida para WebP automaticamente) |
 
-**Nota**: 
-- O sistema converte automaticamente imagens e **vídeos (MP4)** para o formato WebP (formato de sticker do WhatsApp).
-- Vídeos são convertidos para **stickers animados**.
-- O parâmetro `transparentColor` permite remover o fundo de uma cor específica durante a conversão.
+**Nota**: O sistema converte automaticamente a imagem para o formato WebP (formato de sticker do WhatsApp).
 
 **Resposta de Sucesso (200)**:
 ```json
@@ -367,23 +362,12 @@ Envia um sticker (figurinha) via URL.
 
 **Exemplo cURL**:
 ```bash
-# Sticker estático (Imagem)
 curl -X POST http://localhost:4000/send/sticker \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
     "number": "5511999999999",
     "sticker": "https://exemplo.com/figurinha.png"
-  }'
-
-# Sticker animado (Vídeo com fundo removido)
-curl -X POST http://localhost:4000/send/sticker \
-  -H "Content-Type: application/json" \
-  -H "apikey: SUA-CHAVE-API" \
-  -d '{
-    "number": "5511999999999",
-    "sticker": "https://exemplo.com/video.mp4",
-    "transparentColor": "#000000"
   }'
 ```
 
@@ -910,10 +894,8 @@ Deleta uma mensagem para todos (revoke).
 **Body**:
 ```json
 {
-  "chat": "120363XXXXXXXXXX@g.us",
-  "messageId": "3EB0C5A277F7F9B6C599",
-  "fromMe": false,
-  "participant": "5511888888888@s.whatsapp.net"
+  "chat": "5511999999999@s.whatsapp.net",
+  "messageId": "3EB0C5A277F7F9B6C599"
 }
 ```
 
@@ -923,13 +905,8 @@ Deleta uma mensagem para todos (revoke).
 |-------|------|-------------|-----------|
 | `chat` | string | ✅ Sim | JID do chat |
 | `messageId` | string | ✅ Sim | ID da mensagem a deletar |
-| `fromMe` | bool | ❌ Não | Se a mensagem foi enviada por você (padrão: true) |
-| `participant` | string | ❌ Não | JID do autor (obrigatório se fromMe=false em grupos) |
 
-**Nota**: 
-- Para deletar suas próprias mensagens, use `fromMe: true` (ou omita).
-- Para deletar mensagens de **outros usuários** (Admin Revoke), você deve ser **administrador** do grupo e passar `fromMe: false` e o `participant` (JID do autor).
-- O WhatsApp tem um limite de tempo para deletar suas próprias mensagens (geralmente ~2 dias), mas admins podem deletar mensagens de outros a qualquer momento.
+**Nota**: Só é possível deletar mensagens enviadas por você. O WhatsApp tem limite de tempo para deletar mensagens (geralmente até 1 hora).
 
 **Resposta de Sucesso (200)**:
 ```json
@@ -944,24 +921,12 @@ Deleta uma mensagem para todos (revoke).
 
 **Exemplo cURL**:
 ```bash
-# Deletar sua própria mensagem
 curl -X POST http://localhost:4000/message/delete \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
     "chat": "5511999999999@s.whatsapp.net",
     "messageId": "3EB0C5A277F7F9B6C599"
-  }'
-
-# Deletar mensagem de outro (Admin Revoke)
-curl -X POST http://localhost:4000/message/delete \
-  -H "Content-Type: application/json" \
-  -H "apikey: SUA-CHAVE-API" \
-  -d '{
-    "chat": "120363XXXXXXXXXX@g.us",
-    "messageId": "3EB0C5A277F7F9B6C599",
-    "fromMe": false,
-    "participant": "5511888888888@s.whatsapp.net"
   }'
 ```
 
