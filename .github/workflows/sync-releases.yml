@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - develop
 
 jobs:
   sync:
@@ -35,17 +34,9 @@ jobs:
       - name: Set release target
         id: target
         run: |
-          if [ "${{ github.ref_name }}" = "main" ]; then
-            echo "repo=EvolutionAPI/evolution-go" >> $GITHUB_OUTPUT
-            echo "dir=dist/release" >> $GITHUB_OUTPUT
-            echo "label=stable" >> $GITHUB_OUTPUT
-            echo "version=$(cat VERSION)" >> $GITHUB_OUTPUT
-          else
-            echo "repo=EvolutionAPI/evolution-go-beta" >> $GITHUB_OUTPUT
-            echo "dir=dist/beta" >> $GITHUB_OUTPUT
-            echo "label=beta" >> $GITHUB_OUTPUT
-            echo "version=$(cat VERSION)-beta" >> $GITHUB_OUTPUT
-          fi
+          echo "repo=EvolutionAPI/evolution-go" >> $GITHUB_OUTPUT
+          echo "dir=dist/release" >> $GITHUB_OUTPUT
+          echo "version=$(cat VERSION)" >> $GITHUB_OUTPUT
 
       - name: Clone target repo
         run: |
@@ -120,12 +111,6 @@ jobs:
           if [ ! -d "whatsmeow-lib/.git" ] && [ ! -f "whatsmeow-lib/.git" ]; then
             git submodule add https://github.com/EvolutionAPI/whatsmeow.git whatsmeow-lib 2>/dev/null || true
           fi
-
-      - name: Patch beta workflow
-        if: github.ref_name == 'develop'
-        run: |
-          WORKFLOW="${{ steps.target.outputs.dir }}/.github/workflows/publish_docker_image.yml"
-          [ -f "$WORKFLOW" ] && sed -i 's/value=latest/value=beta/g' "$WORKFLOW"
 
       - name: Clean artifacts
         run: |
