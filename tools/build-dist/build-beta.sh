@@ -255,7 +255,9 @@ else
         echo "  No changes to sync"
     else
         git commit -m "beta: ${BETA_VERSION}"
-        git tag -a "${BETA_VERSION}" -m "Beta ${BETA_VERSION}" 2>/dev/null || echo "  Tag ${BETA_VERSION} already exists"
+        git tag -d "${BETA_VERSION}" 2>/dev/null || true
+        git push origin :refs/tags/${BETA_VERSION} 2>/dev/null || true
+        git tag -a "${BETA_VERSION}" -m "Beta ${BETA_VERSION}"
         git push origin main --tags
         echo "  ✓ Pushed ${BETA_VERSION} to $BETA_REPO"
 
