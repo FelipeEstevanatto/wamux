@@ -21,6 +21,7 @@ type SendHandler interface {
 	SendContact(ctx *gin.Context)
 	SendButton(ctx *gin.Context)
 	SendList(ctx *gin.Context)
+	SendCarousel(ctx *gin.Context)
 }
 
 type sendHandler struct {
@@ -562,6 +563,52 @@ func (s *sendHandler) SendList(ctx *gin.Context) {
 	}
 
 	message, err := s.sendMessageService.SendList(data, instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": message})
+}
+
+// Send a carousel message
+// @Summary Send a carousel message
+// @Description Send a carousel message
+// @Tags Send Message
+// @Accept json
+// @Produce json
+// @Param message body send_service.CarouselStruct true "Message data"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /send/carousel [post]
+func (s *sendHandler) SendCarousel(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	var data *send_service.CarouselStruct
+	err := ctx.ShouldBindBodyWithJSON(&data)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if data.Number == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
+		return
+	}
+
+	if len(data.Cards) == 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "at least one card is required"})
+		return
+	}
+
+	message, err := s.sendMessageService.SendCarousel(data, instance)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
