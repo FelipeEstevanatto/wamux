@@ -33,6 +33,37 @@ type RuntimeContext struct {
 	regToken     string // Registration token for polling
 	tier         string
 	version      string
+	msgSent      atomic.Int64 // Messages sent since last heartbeat
+	msgRecv      atomic.Int64 // Messages received since last heartbeat
+}
+
+// globalRC holds a reference to the active RuntimeContext for global tracking functions.
+var globalRC atomic.Pointer[RuntimeContext]
+
+// TrackMessage increments the sent message counter.
+func (rc *RuntimeContext) TrackMessage() {
+	if rc != nil {
+		rc.msgSent.Add(1)
+	}
+}
+
+// TrackMessageSent is a global function callable from anywhere (e.g., whatsmeow event handler).
+func TrackMessageSent() {
+	if rc := globalRC.Load(); rc != nil {
+		rc.msgSent.Add(1)
+	}
+}
+
+// TrackMessageRecv increments the received message counter globally.
+func TrackMessageRecv() {
+	if rc := globalRC.Load(); rc != nil {
+		rc.msgRecv.Add(1)
+	}
+}
+
+// collectAndReset returns accumulated messages_sent and resets counter.
+func (rc *RuntimeContext) collectAndReset() int64 {
+	return rc.msgSent.Swap(0)
 }
 
 // ContextHash returns the activation hash. Used by middleware to validate requests.
@@ -132,6 +163,9 @@ func InitializeRuntime(tier, version, globalApiKey string) *RuntimeContext {
 		printRegistrationBanner()
 		rc.active.Store(false)
 	}
+
+	// Store global reference for TrackMessageSent/TrackMessageRecv
+	globalRC.Store(rc)
 
 	return rc
 }
@@ -530,17 +564,40 @@ func activateInstance(rc *RuntimeContext, version string) error {
 }
 
 func sendHeartbeat(rc *RuntimeContext, uptimeSeconds int64) error {
-	resp, err := postSigned("/v1/heartbeat", map[string]any{
+	// Collect messages sent/received since last heartbeat
+	msgSent := rc.collectAndReset()
+	msgRecv := rc.msgRecv.Swap(0)
+
+	payload := map[string]any{
 		"instance_id":    rc.instanceID,
 		"uptime_seconds": uptimeSeconds,
 		"version":        rc.version,
-	}, rc.apiKey)
+	}
+
+	// Include telemetry bundle with messages count
+	if msgSent > 0 || msgRecv > 0 {
+		bundle := map[string]any{}
+		if msgSent > 0 {
+			bundle["messages_sent"] = msgSent
+		}
+		if msgRecv > 0 {
+			bundle["messages_recv"] = msgRecv
+		}
+		payload["telemetry_bundle"] = bundle
+	}
+
+	resp, err := postSigned("/v1/heartbeat", payload, rc.apiKey)
 	if err != nil {
+		// Re-add so they're not lost
+		rc.msgSent.Add(msgSent)
+		rc.msgRecv.Add(msgRecv)
 		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		rc.msgSent.Add(msgSent)
+		rc.msgRecv.Add(msgRecv)
 		return readErrorBody(resp)
 	}
 	return nil
