@@ -227,6 +227,55 @@
           "response": []
         },
         {
+          "name": "Set Proxy",
+          "request": {
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "value",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                },
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    // \"protocol\" is optional: http, https or socks5.\r\n    // If omitted, it is inferred from the port (1080/2080/42000-43000 → socks5, otherwise http).\r\n    \"protocol\": \"http\",\r\n    \"host\": \"proxy.example.com\",\r\n    \"port\": \"8080\",\r\n    \"username\": \"user\",\r\n    \"password\": \"secret\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/instance/proxy/:instanceId",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "instance",
+                "proxy",
+                ":instanceId"
+              ],
+              "variable": [
+                {
+                  "key": "instanceId",
+                  "value": "{{instance}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
           "name": "Delete Proxy",
           "request": {
             "auth": {
@@ -575,7 +624,7 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n    \"number\": \"5511999999999\",\r\n    // O campo \"url\" aceita URL HTTP(S) OU mídia em base64 (sem prefixo data:).\r\n    // Se não começar com http:// ou https://, é decodificado como base64.\r\n    \"url\": \"https://evolution-api.com/files/evolution-api.pdf\",\r\n    // Exemplo base64:\r\n    // \"url\": \"JVBERi0xLjQKJcOkw7zDtsOfCjIgMCBvYmoKPDwv...\",\r\n    \"caption\": \"teste de mensagem\",\r\n    \"filename\": \"arquivo.pdf\",\r\n    \"type\": \"document\",\r\n    \"delay\": 1000\r\n    // \"mentionedJid\": \"557499879409@s.whatsapp.net\",\r\n    // \"mentionAll\": true\r\n    // \"quoted\": {\r\n    //     \"messageId\": \"3EB00E86C964FE604AF39A\",\r\n    //     \"participant\": \"557499879409@s.whatsapp.net\"\r\n    // }\r\n}",
+              "raw": "{\r\n    \"number\": \"5511999999999\",\r\n    // O campo \"url\" aceita URL HTTP(S) OU mídia em base64 (sem prefixo data:).\r\n    // Se não começar com http:// ou https://, é decodificado como base64.\r\n    \"url\": \"https://evolution-api.com/files/evolution-api.pdf\",\r\n    // Exemplo base64:\r\n    // \"url\": \"JVBERi0xLjQKJcOkw7zDtsOfCjIgMCBvYmoKPDwv...\",\r\n    \"caption\": \"teste de mensagem\",\r\n    \"filename\": \"arquivo.pdf\",\r\n    \"type\": \"document\",\r\n    \"delay\": 1000\r\n    // \"mentionedJid\": [\"557499879409@s.whatsapp.net\"],\r\n    // \"mentionAll\": true,\r\n    // \"quoted\": {\r\n    //     \"messageId\": \"3EB00E86C964FE604AF39A\",\r\n    //     \"participant\": \"557499879409@s.whatsapp.net\"\r\n    // }\r\n    //\r\n    // Para multipart/form-data: campos number, type, caption, filename, id,\r\n    // delay, mentionAll (\"true\"/\"false\"), mentionedJid (repetido ou CSV),\r\n    // quoted.messageId, quoted.participant, file (binário).\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
