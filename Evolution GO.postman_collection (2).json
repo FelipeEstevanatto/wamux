@@ -783,6 +783,63 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "Send Status Text",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"text\": \"Meu novo status!\"\r\n    // \"id\": \"custom-message-id\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/send/status/text",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "send",
+                "status",
+                "text"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Send Status Media (URL)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"type\": \"image\", /* image or video */\r\n    \"url\": \"https://evolution-api.com/files/status.jpg\",\r\n    \"caption\": \"Minha legenda\"\r\n    // \"id\": \"custom-message-id\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/send/status/media",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "send",
+                "status",
+                "media"
+              ]
+            },
+            "description": "Alternativa multipart/form-data: campos type, file, caption, id."
+          },
+          "response": []
         }
       ]
     },
