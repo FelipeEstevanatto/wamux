@@ -175,6 +175,23 @@ func (s *sendHandler) SendMedia(ctx *gin.Context) {
 			delay = int32(delay64)
 		}
 
+		mentionAll := ctx.PostForm("mentionAll") == "true"
+
+		var mentionedJID []string
+		// Accept multiple values (mentionedJid=x&mentionedJid=y) or a single
+		// comma-separated string (mentionedJid=x,y).
+		for _, raw := range ctx.PostFormArray("mentionedJid") {
+			for _, v := range strings.Split(raw, ",") {
+				if trimmed := strings.TrimSpace(v); trimmed != "" {
+					mentionedJID = append(mentionedJID, trimmed)
+				}
+			}
+		}
+
+		var quoted send_service.QuotedStruct
+		quoted.MessageID = ctx.PostForm("quoted.messageId")
+		quoted.Participant = ctx.PostForm("quoted.participant")
+
 		// Get file
 		file, err := ctx.FormFile("file")
 		if err != nil {
@@ -197,13 +214,15 @@ func (s *sendHandler) SendMedia(ctx *gin.Context) {
 
 		// Create MediaStruct
 		data = &send_service.MediaStruct{
-			Number:   number,
-			Type:     mediaType,
-			Caption:  caption,
-			Filename: filename,
-			Id:       id,
-			Delay:    delay,
-			// Other fields as necessary
+			Number:       number,
+			Type:         mediaType,
+			Caption:      caption,
+			Filename:     filename,
+			Id:           id,
+			Delay:        delay,
+			MentionAll:   mentionAll,
+			MentionedJID: mentionedJID,
+			Quoted:       quoted,
 		}
 
 		// Pass fileBytes to the send service
