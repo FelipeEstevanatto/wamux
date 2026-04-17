@@ -142,6 +142,7 @@ type UserCollection struct {
 }
 
 type ProxyConfig struct {
+	Protocol string `json:"protocol,omitempty"`
 	Host     string `json:"host"`
 	Password string `json:"password"`
 	Port     string `json:"port"`
@@ -399,6 +400,7 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 			return
 		}
 
+		proxyProtocol := proxyConfig.Protocol
 		proxyHost := proxyConfig.Host
 		proxyPort := proxyConfig.Port
 		proxyUsername := proxyConfig.Username
@@ -412,6 +414,10 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 			proxyPort = w.config.ProxyPort
 		}
 
+		if proxyConfig.Protocol == "" {
+			proxyProtocol = w.config.ProxyProtocol
+		}
+
 		if proxyConfig.Username == "" {
 			proxyUsername = w.config.ProxyUsername
 		}
@@ -420,12 +426,16 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 			proxyPassword = w.config.ProxyPassword
 		}
 
-		proxy, err := utils.CreateSocks5Proxy(proxyHost, proxyPort, proxyUsername, proxyPassword)
+		proxyAddress, err := utils.BuildProxyAddress(proxyProtocol, proxyHost, proxyPort, proxyUsername, proxyPassword)
 		if err != nil {
 			w.loggerWrapper.GetLogger(cd.Instance.Id).LogWarn("[%s] Proxy error, continuing without proxy: %v", cd.Instance.Id, err)
 		} else {
-			client.SetSOCKSProxy(proxy)
-			w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] Proxy enabled", cd.Instance.Id)
+			err = client.SetProxyAddress(proxyAddress)
+			if err != nil {
+				w.loggerWrapper.GetLogger(cd.Instance.Id).LogWarn("[%s] Proxy error, continuing without proxy: %v", cd.Instance.Id, err)
+			} else {
+				w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] Proxy enabled (%s)", cd.Instance.Id, utils.NormalizeProxyProtocol(proxyProtocol, proxyPort))
+			}
 		}
 	}
 
@@ -2173,7 +2183,21 @@ func (w whatsmeowService) StartInstance(instanceId string) error {
 	}
 
 	if instance.Proxy == "" && w.config.ProxyHost != "" && w.config.ProxyPort != "" && w.config.ProxyUsername != "" && w.config.ProxyPassword != "" {
-		instance.Proxy = fmt.Sprintf(`{"host": "%s", "port": "%s", "username": "%s", "password": "%s"}`, w.config.ProxyHost, w.config.ProxyPort, w.config.ProxyUsername, w.config.ProxyPassword)
+		proxyConfig := ProxyConfig{
+			Protocol: utils.NormalizeProxyProtocol(w.config.ProxyProtocol, w.config.ProxyPort),
+			Host:     w.config.ProxyHost,
+			Port:     w.config.ProxyPort,
+			Username: w.config.ProxyUsername,
+			Password: w.config.ProxyPassword,
+		}
+
+		proxyJSON, err := json.Marshal(proxyConfig)
+		if err != nil {
+			w.loggerWrapper.GetLogger(instanceId).LogError("[%s] Failed to marshal proxy config: %v", instanceId, err)
+			return err
+		}
+
+		instance.Proxy = string(proxyJSON)
 
 		err = w.instanceRepository.UpdateProxy(instance.Id, instance.Proxy)
 		if err != nil {
