@@ -1,5 +1,26 @@
 # Evolution GO - Changelog
 
+## v0.7.0
+
+**Docker:** `evoapicloud/evolution-go:0.7.0`
+
+### 🆕 New Features
+- **Multi-platform interactive messages** — Buttons, lists and carousel working on Android, iOS and WhatsApp Web/Desktop
+  - **SendButton**: removed `ViewOnceMessage` wrapper that blocked rendering on iOS and WhatsApp Web; `Footer` and `Header` are now conditional
+  - **SendList**: migrated from `InteractiveMessage`/`NativeFlowMessage` to legacy `ListMessage` (native protobuf) for broad compatibility
+  - **SendCarousel**: new endpoint `POST /send/carousel` with cards (image, text, footer, buttons) and automatic JPEG thumbnail generation for instant image loading
+  - `whatsmeow-lib`: added `biz` node for `InteractiveMessage` and pinned `product_list` type on the `biz` node for `ListMessage`
+- **Base64 media support on `/send/media`** — The `url` field on `POST /send/media` now also accepts base64-encoded media. When the value does not start with `http://` or `https://`, it is treated as base64 and decoded; reuses the existing `SendMediaFile` flow
+
+### 🔧 Improvements
+- **Dependency cleanup** — removed unused `github.com/EvolutionAPI/evo-gate` from `go.mod`
+- **whatsmeow-lib** bumped to `0923702fb`
+- **Telemetry removed** — dropped legacy `pkg/telemetry`
+
+### 📝 Docs
+- **README** — updated WhatsApp support number and issue templates
+- **Interactive messages guide** — new `docs/wiki/guias-api/api-interactive.md`
+
 ## v0.6.1
 
 ### 🆕 New Features
