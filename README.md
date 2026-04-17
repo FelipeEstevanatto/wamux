@@ -168,7 +168,7 @@ evolution-go/
 | Website | [evolutionfoundation.com.br](https://evolutionfoundation.com.br/) |
 | Documentation | [docs.evolutionfoundation.com.br](https://docs.evolutionfoundation.com.br/) |
 | Community | [evolutionfoundation.com.br/community](https://evolutionfoundation.com.br/community) |
-| WhatsApp Support | [+55 31 7000-0007](https://wa.me/553170000007) |
+| WhatsApp Support | [+55 31 9000-0004](https://wa.me/553190000004) |
 | GitHub Issues | [evolution-go/issues](https://github.com/EvolutionAPI/evolution-go/issues) |
 
 ## Hosting
