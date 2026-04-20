@@ -471,9 +471,35 @@ func (i instances) GetQr(instance *instance_model.Instance) (*QrcodeStruct, erro
 }
 
 func (i instances) Pair(data *PairStruct, instance *instance_model.Instance) (*PairReturnStruct, error) {
-	code, err := i.clientPointer[instance.Id].PairPhone(context.Background(), data.Phone, true, whatsmeow.PairClientChrome, "Chrome (Linux)")
+	logger := i.loggerWrapper.GetLogger(instance.Id)
+	client := i.clientPointer[instance.Id]
+
+	if client == nil || !client.IsConnected() {
+		if client != nil && client.IsLoggedIn() {
+			return nil, fmt.Errorf("instance is already authenticated")
+		}
+		logger.LogInfo("[%s] No active connection, starting instance for phone pairing", instance.Id)
+		if err := i.whatsmeowService.StartInstance(instance.Id); err != nil {
+			logger.LogError("[%s] Failed to start instance for pairing: %v", instance.Id, err)
+			return nil, fmt.Errorf("failed to start instance: %w", err)
+		}
+		// Wait for the WA websocket connection and initial QR generation to establish.
+		// PairPhone must be called after the QR event is received per whatsmeow docs.
+		time.Sleep(3 * time.Second)
+		client = i.clientPointer[instance.Id]
+		if client == nil {
+			return nil, fmt.Errorf("failed to initialize client for pairing")
+		}
+	}
+
+	if client.IsLoggedIn() {
+		return nil, fmt.Errorf("instance is already authenticated")
+	}
+
+	code, err := client.PairPhone(context.Background(), data.Phone, true, whatsmeow.PairClientChrome, "Chrome (Linux)")
 	if err != nil {
-		i.loggerWrapper.GetLogger(instance.Id).LogError("[%s] something went wrong calling pair phone", instance.Id)
+		logger.LogError("[%s] PairPhone failed: %v", instance.Id, err)
+		return nil, fmt.Errorf("pairing failed: %w", err)
 	}
 
 	return &PairReturnStruct{PairingCode: code}, nil
