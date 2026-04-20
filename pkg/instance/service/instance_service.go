@@ -376,9 +376,13 @@ func (i instances) Logout(instance *instance_model.Instance) (*instance_model.In
 }
 
 func (i instances) Status(instance *instance_model.Instance) (*StatusStruct, error) {
-	client, err := i.ensureClientConnected(instance.Id)
-	if err != nil {
-		return nil, err
+	client := i.clientPointer[instance.Id]
+
+	if client == nil {
+		return &StatusStruct{
+			Connected: false,
+			LoggedIn:  false,
+		}, nil
 	}
 
 	isConnected := client.IsConnected()
@@ -391,14 +395,12 @@ func (i instances) Status(instance *instance_model.Instance) (*StatusStruct, err
 		name = client.Store.PushName
 	}
 
-	status := &StatusStruct{
+	return &StatusStruct{
 		Connected: isConnected,
 		LoggedIn:  isLoggedIn,
 		myJid:     myJid,
 		Name:      name,
-	}
-
-	return status, nil
+	}, nil
 }
 
 func (i instances) GetQr(instance *instance_model.Instance) (*QrcodeStruct, error) {
