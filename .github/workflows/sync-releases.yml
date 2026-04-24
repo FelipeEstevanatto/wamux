@@ -117,6 +117,8 @@ jobs:
           cd ${{ steps.target.outputs.dir }}
           git rm -rf whatsmeow-lib 2>/dev/null || true
           rm -rf whatsmeow-lib .gitmodules
+          : > .gitmodules
+          git add .gitmodules
           git submodule add -f https://github.com/EvolutionAPI/whatsmeow.git whatsmeow-lib
           cd whatsmeow-lib
           git checkout "$WHATSMEOW_SHA"
