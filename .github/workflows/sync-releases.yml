@@ -112,14 +112,16 @@ jobs:
 
       - name: Setup whatsmeow-lib
         run: |
+          WHATSMEOW_SHA=$(cd ${{ github.workspace }}/whatsmeow-lib && git rev-parse HEAD)
+          echo "Pinning whatsmeow-lib to $WHATSMEOW_SHA (from dev repo)"
           cd ${{ steps.target.outputs.dir }}
           git rm -rf whatsmeow-lib 2>/dev/null || true
           rm -rf whatsmeow-lib .gitmodules
-          printf '[submodule "whatsmeow-lib"]\n\tpath = whatsmeow-lib\n\turl = https://github.com/EvolutionAPI/whatsmeow.git\n' > .gitmodules
-          git add .gitmodules
-          git clone https://github.com/EvolutionAPI/whatsmeow.git whatsmeow-lib
-          git submodule init
-          git submodule update
+          git submodule add -f https://github.com/EvolutionAPI/whatsmeow.git whatsmeow-lib
+          cd whatsmeow-lib
+          git checkout "$WHATSMEOW_SHA"
+          cd ..
+          git add .gitmodules whatsmeow-lib
 
       - name: Clean artifacts
         run: |
