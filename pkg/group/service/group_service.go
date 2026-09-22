@@ -338,14 +338,10 @@ func (g *groupService) CreateGroup(data *CreateGroupStruct, instance *instance_m
 		return nil, err
 	}
 
-	var participants []types.JID
-	for _, participant := range data.Participants {
-		recipient, ok := utils.ParseJID(participant)
-		participants = append(participants, recipient)
-		if !ok {
-			g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields", instance.Id)
-			return nil, errors.New("invalid phone number")
-		}
+	participants, err := normalizeParticipantJIDs(data.Participants)
+	if err != nil {
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields", instance.Id)
+		return nil, err
 	}
 
 	resp, err := client.CreateGroup(context.Background(), whatsmeow.ReqCreateGroup{
@@ -385,20 +381,36 @@ func (g *groupService) CreateGroup(data *CreateGroupStruct, instance *instance_m
 	return response, nil
 }
 
+// normalizeParticipantJIDs parses participant phone numbers / LIDs / group JIDs
+// into JIDs ready to send to WhatsApp.
+//
+// utils.ParseJID (via CreateJID) prefixes phone numbers with "+", e.g.
+// "+5514999999999@s.whatsapp.net". WhatsApp cannot resolve that form for group
+// create/add-participant operations: the IQ is dropped and whatsmeow returns
+// "info query timed out". CanonicalJID strips the "+" and leaves LID/group JIDs
+// untouched.
+func normalizeParticipantJIDs(numbers []string) ([]types.JID, error) {
+	participants := make([]types.JID, 0, len(numbers))
+	for _, number := range numbers {
+		recipient, ok := utils.ParseJID(number)
+		if !ok {
+			return nil, errors.New("invalid phone number")
+		}
+		participants = append(participants, utils.CanonicalJID(recipient))
+	}
+	return participants, nil
+}
+
 func (g *groupService) UpdateParticipant(data *AddParticipantStruct, instance *instance_model.Instance) error {
 	client, err := g.ensureClientConnected(instance.Id)
 	if err != nil {
 		return err
 	}
 
-	var participants []types.JID
-	for _, participant := range data.Participants {
-		recipient, ok := utils.ParseJID(participant)
-		participants = append(participants, recipient)
-		if !ok {
-			g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields", instance.Id)
-			return errors.New("invalid phone number")
-		}
+	participants, err := normalizeParticipantJIDs(data.Participants)
+	if err != nil {
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields", instance.Id)
+		return err
 	}
 
 	_, err = client.UpdateGroupParticipants(context.Background(), data.GroupJID, participants, data.Action)
@@ -416,28 +428,56 @@ func (g *groupService) GetMyGroups(instance *instance_model.Instance) ([]types.G
 		return nil, err
 	}
 
+	if client.Store.ID == nil {
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] cannot get my groups: instance is not logged in", instance.Id)
+		return nil, errors.New("instance is not logged in")
+	}
+
 	resp, err := client.GetJoinedGroups(context.Background())
 	if err != nil {
-		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error create group: %v", instance.Id, err)
+		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error getting joined groups: %v", instance.Id, err)
 		return nil, err
 	}
 
-	var jid string = client.Store.ID.String()
-	var jidClear = strings.Split(jid, ".")[0]
-	jidOfAdmin, ok := utils.ParseJID(jidClear)
-	if !ok {
-		g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields", instance.Id)
-		return nil, errors.New("invalid phone number")
+	return filterGroupsOwnedBy(resp, *client.Store.ID, client.Store.LID), nil
+}
+
+// filterGroupsOwnedBy returns the groups owned by the account identified by
+// selfPN (phone-number JID, Store.ID) and/or selfLID (LID, Store.LID).
+//
+// WhatsApp reports group owners using LID addressing on modern accounts
+// (GroupInfo.AddressingMode == "lid"): OwnerJID holds the owner's LID while
+// OwnerPN holds their phone-number JID. Since the account's own identifiers are
+// Store.ID (PN) and Store.LID, matching only OwnerJID against Store.ID misses
+// groups this account actually owns.
+//
+// The comparison deliberately works on the raw JID structs instead of
+// round-tripping through utils.ParseJID: CreateJID intentionally prefixes phone
+// numbers with "+", so a parsed JID never equals the digits-only owner JID
+// returned by WhatsApp and the filter matched nothing. ToNonAD normalizes away
+// the device/agent suffix on both sides.
+func filterGroupsOwnedBy(groups []*types.GroupInfo, selfPN, selfLID types.JID) []types.GroupInfo {
+	self := make(map[types.JID]struct{}, 2)
+	if !selfPN.IsEmpty() {
+		self[selfPN.ToNonAD()] = struct{}{}
 	}
-	var adminGroups []types.GroupInfo
-	for _, group := range resp {
-		if group.OwnerJID == jidOfAdmin {
-			adminGroups = append(adminGroups, *group)
-			_ = adminGroups
-		}
+	if !selfLID.IsEmpty() {
+		self[selfLID.ToNonAD()] = struct{}{}
 	}
 
-	return adminGroups, nil
+	owned := make([]types.GroupInfo, 0)
+	for _, group := range groups {
+		if _, ok := self[group.OwnerJID.ToNonAD()]; ok {
+			owned = append(owned, *group)
+			continue
+		}
+		if !group.OwnerPN.IsEmpty() {
+			if _, ok := self[group.OwnerPN.ToNonAD()]; ok {
+				owned = append(owned, *group)
+			}
+		}
+	}
+	return owned
 }
 
 func (g *groupService) JoinGroupLink(data *JoinGroupStruct, instance *instance_model.Instance) error {
