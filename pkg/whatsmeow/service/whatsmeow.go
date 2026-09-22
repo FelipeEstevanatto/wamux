@@ -2961,6 +2961,9 @@ var (
 	webVersionCacheTTL = 1 * time.Hour
 )
 
+// whatsAppWebVersionClient bounds the WhatsApp Web version lookup.
+var whatsAppWebVersionClient = &http.Client{Timeout: 10 * time.Second}
+
 func fetchWhatsAppWebVersion() (*clientVersion, error) {
 	cachedWebVersionMu.Lock()
 	defer cachedWebVersionMu.Unlock()
@@ -2969,7 +2972,9 @@ func fetchWhatsAppWebVersion() (*clientVersion, error) {
 		return cachedWebVersion, nil
 	}
 
-	resp, err := http.Get("https://web.whatsapp.com/sw.js")
+	// Bounded client: this runs inside StartClient (startup and every reconnect),
+	// so a hung http.Get would block bringing instances online.
+	resp, err := whatsAppWebVersionClient.Get("https://web.whatsapp.com/sw.js")
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch WhatsApp Web version: %v", err)
 	}

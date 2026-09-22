@@ -20,6 +20,9 @@ import (
 	"go.mau.fi/whatsmeow/types"
 )
 
+// groupImageHTTPClient bounds downloads of user-supplied group photo URLs.
+var groupImageHTTPClient = &http.Client{Timeout: 30 * time.Second}
+
 type GroupService interface {
 	ListGroups(instance *instance_model.Instance) ([]*types.GroupInfo, error)
 	GetGroupInfo(data *GetGroupInfoStruct, instance *instance_model.Instance) (*types.GroupInfo, error)
@@ -237,7 +240,7 @@ func (g *groupService) SetGroupPhoto(data *SetGroupPhotoStruct, instance *instan
 	var fileData []byte
 
 	if strings.HasPrefix(data.Image, "http://") || strings.HasPrefix(data.Image, "https://") {
-		resp, err := http.Get(data.Image)
+		resp, err := groupImageHTTPClient.Get(data.Image)
 		if err != nil {
 			g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Could not download image from URL", instance.Id)
 			return "", fmt.Errorf("failed to fetch image from URL: %v", err)

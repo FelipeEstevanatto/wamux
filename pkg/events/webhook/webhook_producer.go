@@ -72,7 +72,8 @@ func (p *webhookProducer) sendWebhook(url string, body []byte, userID string) (e
 
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{}
+	// Timeout so a dead/slow consumer cannot leak the webhook goroutine forever.
+	client := &http.Client{Timeout: 15 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return err, nil, 0
