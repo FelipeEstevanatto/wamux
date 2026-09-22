@@ -100,6 +100,49 @@ kept.
 
 ---
 
+## 3b. Fixes found by direct code review (not from a PR)
+
+These were not in the PR queue — found while auditing the code against the open
+issues.
+
+| Fix | Issue |
+|---|---|
+| Unified the AMQP and NATS `globalEventType` switches into one mapping. They had diverged: `PICTURE`, `USER_ABOUT` and `BUTTON_CLICK` configured for `NATS_GLOBAL_EVENTS` were never published. Also removed an early `return` in the AMQP branch that skipped NATS for unmapped events. | #193 |
+| `POST /user/profileName` called `SetGroupName(ctx, EmptyJID, name)` — a group rename addressed to a non-existent group — which is why it hung forever. Now sends the correct account-level profile IQ with a bounded context. | #176 |
+| Quoted replies sent `ContextInfo.QuotedMessage` as an **empty** `Conversation`, producing an empty, non-tappable quote card. Now `quoted.message` can be supplied and is rendered; otherwise the empty payload is omitted. | #189 |
+| Bounded every outbound HTTP call with a timeout. The worst was the WhatsApp Web version lookup (`http.Get` with no timeout) running inside `StartClient`, so a slow network could block instances from coming online; webhooks, media downloads, link previews and profile/group photo fetches were unbounded too. | reliability |
+
+## 3c. Known remaining issues worth tackling next
+
+Not fixed here — they are larger or need protocol work. Ordered by impact.
+
+1. **Interactive buttons / lists don't render** (#170, #59, #71, #110, #51, #69).
+   WhatsApp deprecated the legacy `buttonsMessage` / `listMessage` /
+   `templateMessage` nodes the fork still builds; only the `InteractiveMessage`
+   carousel path still works, and it splits into two bubbles. Needs porting to
+   the current interactive/native-flow format. **Biggest functional gap.**
+2. **Poll results always return 404** (#60). Votes arrive in the webhook but
+   `GetPollResults` finds none — likely the stored `poll_message_id` /
+   `instance_id` doesn't match the query. Needs tracing `SavePollVote` vs
+   `GetPollResults`.
+3. **Disappearing-messages timer not applied to outgoing messages** (#79), so
+   recipients see "this message will not disappear". Needs the chat's ephemeral
+   expiration copied into the outgoing message/context.
+4. **Error 463 / NCT tokens not persisted** (#124, #50). The whatsmeow bump
+   applied here plus the shared auth-store fix may already help; verify on a
+   previously-affected instance before deeper work.
+5. **Push notifications suppressed after connecting** (#70 23 comments, #54,
+   #55). 0.7.2 already respects `alwaysOnline` on the `Connected` path, but the
+   reports persist — audit every `SendPresence(PresenceAvailable)` call site
+   (typing, subscribe, presence loop) when `alwaysOnline=false`.
+6. **Passkey events / ceremony** (#105, #107, #172, #173). `PASSKEY*` event
+   groups are not in `event_types` or the subscription filter, so they can never
+   reach a webhook; the ceremony state machine also gets stuck.
+7. **Media fidelity** (#104 missing image width/height → square placeholder,
+   #103 link thumbnail not uploaded).
+8. **Group announcement mode / settings** (#113, #98, #42) — the
+   `/group/settings` route exists; the service implementation appears partial.
+
 ## 4. Build & run
 
 From the repository root (the `docker-compose.yml` is there):
