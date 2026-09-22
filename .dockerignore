@@ -21,6 +21,8 @@ Thumbs.db
 # Build artifacts
 server
 build/
+# Stray locally-compiled binary committed at repo root (64MB) — never needed in image
+evolution-go
 
 # Docker
 Dockerfile

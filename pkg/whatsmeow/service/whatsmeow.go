@@ -2789,21 +2789,25 @@ func (w whatsmeowService) ConnectOnStartup(clientName string) {
 	var instances []*instance_model.Instance
 	var err error
 
+	// Restore every PAIRED instance (jid set), not just those flagged Connected:
+	// after any restart the live-socket column is false for all of them, so
+	// "connected only" would leave paired sessions offline until a manual
+	// reconnect. StartClient skips instances with no session in the auth store.
 	if clientName != "" {
-		instances, err = w.instanceRepository.GetAllConnectedInstancesByClientName(clientName)
+		instances, err = w.instanceRepository.GetAllPairedInstancesByClientName(clientName)
 		if err != nil {
-			w.loggerWrapper.GetLogger(clientName).LogError("[%s] Error getting all connected instances: %s", clientName, err)
+			w.loggerWrapper.GetLogger(clientName).LogError("[%s] Error getting all paired instances: %s", clientName, err)
 			return
 		}
 	} else {
-		instances, err = w.instanceRepository.GetAllConnectedInstances()
+		instances, err = w.instanceRepository.GetAllPairedInstances()
 		if err != nil {
-			w.loggerWrapper.GetLogger(clientName).LogError("[%s] Error getting all connected instances: %s", clientName, err)
+			w.loggerWrapper.GetLogger(clientName).LogError("[%s] Error getting all paired instances: %s", clientName, err)
 			return
 		}
 	}
 
-	w.loggerWrapper.GetLogger(clientName).LogInfo("[%s] Found %d connected instances", clientName, len(instances))
+	w.loggerWrapper.GetLogger(clientName).LogInfo("[%s] Found %d paired instances", clientName, len(instances))
 
 	for _, instance := range instances {
 		w.loggerWrapper.GetLogger(clientName).LogInfo("[%s] Starting client for user '%s'", clientName, instance.Id)
