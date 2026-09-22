@@ -134,6 +134,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.POST("/check", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.userHandler.CheckUser)
 			routes.POST("/avatar", r.jidValidationMiddleware.ValidateNumberField(), r.userHandler.GetAvatar)
 			routes.GET("/contacts", r.userHandler.GetContacts)
+			routes.POST("/contacts", r.userHandler.SaveContact)
 			routes.GET("/privacy", r.userHandler.GetPrivacy)
 			routes.POST("/privacy", r.userHandler.SetPrivacy)
 			routes.POST("/block", r.jidValidationMiddleware.ValidateNumberField(), r.userHandler.BlockContact)
@@ -142,6 +143,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.POST("/profilePicture", r.userHandler.SetProfilePicture)
 			routes.POST("/profileName", r.userHandler.SetProfileName)
 			routes.POST("/profileStatus", r.userHandler.SetProfileStatus)
+			routes.POST("/lid", r.jidValidationMiddleware.ValidateJIDFields("lid", "groupJid"), r.userHandler.ResolveLid)
 		}
 	}
 	routes = eng.Group("/message")
