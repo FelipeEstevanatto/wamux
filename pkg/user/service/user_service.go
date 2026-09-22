@@ -14,6 +14,7 @@ import (
 	"github.com/evolution-foundation/evolution-go/pkg/utils"
 	whatsmeow_service "github.com/evolution-foundation/evolution-go/pkg/whatsmeow/service"
 	"go.mau.fi/whatsmeow"
+	waBinary "go.mau.fi/whatsmeow/binary"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 )
@@ -24,6 +25,10 @@ const avatarRequestTimeout = 8 * time.Second
 
 // clientReadyWait is the max time to wait after StartInstance before failing.
 const clientReadyWait = 2 * time.Second
+
+// profileNameTimeout bounds the account-level profile-name IQ so POST
+// /user/profileName can never hang (issue #176).
+const profileNameTimeout = 15 * time.Second
 
 // userInfoRequestTimeout bounds the usync IQ on POST /user/info.
 const userInfoRequestTimeout = 10 * time.Second
@@ -688,8 +693,36 @@ func (u *userService) SetProfileName(data *SetProfileNameStruct, instance *insta
 		return false, err
 	}
 
-	err = client.SetGroupName(context.Background(), types.EmptyJID, data.Name)
-	if err != nil {
+	// Changing the account's own profile name is an account-level IQ
+	// (xmlns urn:xmpp:whatsapp:account), NOT a group rename. The previous
+	// implementation called SetGroupName with types.EmptyJID, so the IQ was
+	// addressed to a non-existent group and the handler hung waiting for a
+	// reply that never came (issue #176).
+	//
+	// whatsmeow has no public SetProfileName, so send the same IQ the official
+	// clients use. It is bound by a timeout so a missing reply can never block
+	// the HTTP request indefinitely.
+	ctx, cancel := context.WithTimeout(context.Background(), profileNameTimeout)
+	defer cancel()
+
+	node := waBinary.Node{
+		Tag: "iq",
+		Attrs: waBinary.Attrs{
+			"id":    client.GenerateMessageID(),
+			"type":  "set",
+			"to":    types.ServerJID.String(),
+			"xmlns": "urn:xmpp:whatsapp:account",
+		},
+		Content: []waBinary.Node{{
+			Tag: "profile",
+			Content: []waBinary.Node{{
+				Tag:     "name",
+				Content: []byte(data.Name),
+			}},
+		}},
+	}
+
+	if err := client.DangerousInternals().SendNode(ctx, node); err != nil {
 		return false, err
 	}
 
