@@ -2,6 +2,7 @@ package webhook_producer
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -43,11 +44,52 @@ func (p *webhookProducer) Produce(
 	if p.url != "" {
 		go p.sendWebhookWithRetry(p.url, payload, 5, 30*time.Second, userID)
 	}
-	if webhookUrl != "" {
-		go p.sendWebhookWithRetry(webhookUrl, payload, 5, 30*time.Second, userID)
+
+	// Multiple webhooks per instance. The instance's Webhook field may contain
+	// several URLs (newline/comma/semicolon separated, or a JSON array); the same
+	// payload is delivered to each. Fully backwards compatible with one URL.
+	for _, url := range splitWebhookURLs(webhookUrl) {
+		u := url
+		go p.sendWebhookWithRetry(u, payload, 5, 30*time.Second, userID)
 	}
 
 	return nil
+}
+
+// splitWebhookURLs splits an instance's webhook field into one or more URLs.
+// Accepts a JSON array (["https://a","https://b"]) or a newline/comma/semicolon
+// separated list. Empty entries, duplicates and the "disabled" marker are
+// dropped.
+func splitWebhookURLs(raw string) []string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || raw == "disabled" {
+		return nil
+	}
+
+	var parts []string
+	if strings.HasPrefix(raw, "[") {
+		var arr []string
+		if err := json.Unmarshal([]byte(raw), &arr); err == nil {
+			parts = arr
+		}
+	}
+	if parts == nil {
+		parts = strings.FieldsFunc(raw, func(r rune) bool {
+			return r == '\n' || r == '\r' || r == ',' || r == ';'
+		})
+	}
+
+	out := make([]string, 0, len(parts))
+	seen := make(map[string]bool, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" || p == "disabled" || seen[p] {
+			continue
+		}
+		seen[p] = true
+		out = append(out, p)
+	}
+	return out
 }
 
 func (p *webhookProducer) sendWebhookWithRetry(url string, body []byte, maxRetries int, retryInterval time.Duration, userID string) {
