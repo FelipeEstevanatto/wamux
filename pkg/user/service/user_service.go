@@ -1,6 +1,7 @@
 package user_service
 
 import (
+	"github.com/evolution-foundation/evolution-go/pkg/safemap"
 	"context"
 	"errors"
 	"fmt"
@@ -49,7 +50,7 @@ type UserService interface {
 }
 
 type userService struct {
-	clientPointer    map[string]*whatsmeow.Client
+	clientPointer    *safemap.Map[*whatsmeow.Client]
 	whatsmeowService whatsmeow_service.WhatsmeowService
 	loggerWrapper    *logger_wrapper.LoggerManager
 }
@@ -145,7 +146,7 @@ func (u *userService) ensureClientConnectedCtx(ctx context.Context, instanceId s
 		ctx = context.Background()
 	}
 
-	client := u.clientPointer[instanceId]
+	client := u.clientPointer.Get(instanceId)
 	u.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Checking client connection status - Client exists: %v", instanceId, client != nil)
 
 	if client == nil {
@@ -179,7 +180,7 @@ func (u *userService) waitForClientReady(ctx context.Context, instanceId string,
 	defer ticker.Stop()
 
 	for {
-		client := u.clientPointer[instanceId]
+		client := u.clientPointer.Get(instanceId)
 		if client != nil && client.IsConnected() {
 			return client, nil
 		}
@@ -710,7 +711,7 @@ func (u *userService) SetProfileStatus(data *SetProfileStatusStruct, instance *i
 }
 
 func NewUserService(
-	clientPointer map[string]*whatsmeow.Client,
+	clientPointer *safemap.Map[*whatsmeow.Client],
 	whatsmeowService whatsmeow_service.WhatsmeowService,
 	loggerWrapper *logger_wrapper.LoggerManager,
 ) UserService {

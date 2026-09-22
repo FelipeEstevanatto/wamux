@@ -65,7 +65,7 @@ func (mycli *MyClient) unwrapSecretEncryptedEdit(evt *events.Message) {
 		return
 	}
 
-	client := mycli.clientPointer[mycli.userID]
+	client := mycli.clientPointer.Get(mycli.userID)
 	if client == nil {
 		return
 	}
