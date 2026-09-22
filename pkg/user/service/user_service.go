@@ -30,6 +30,9 @@ const clientReadyWait = 2 * time.Second
 // /user/profileName can never hang (issue #176).
 const profileNameTimeout = 15 * time.Second
 
+// profilePictureHTTPClient bounds downloads of user-supplied profile-picture URLs.
+var profilePictureHTTPClient = &http.Client{Timeout: 30 * time.Second}
+
 // userInfoRequestTimeout bounds the usync IQ on POST /user/info.
 const userInfoRequestTimeout = 10 * time.Second
 
@@ -668,7 +671,7 @@ func (u *userService) SetProfilePicture(data *SetProfilePictureStruct, instance 
 
 	var filedata []byte
 
-	resp, err := http.Get(data.Image)
+	resp, err := profilePictureHTTPClient.Get(data.Image)
 	if err != nil {
 		return false, fmt.Errorf("failed to fetch image from URL: %v", err)
 	}
