@@ -2863,78 +2863,72 @@ func getExtensionFromMimeType(mimeType string) string {
 	}
 }
 
+// globalEventTypeFor maps a whatsmeow event name to the coarse "global event"
+// group used by AMQP_GLOBAL_EVENTS and NATS_GLOBAL_EVENTS. Keeping the mapping
+// in one place fixes a divergence where the AMQP and NATS switches recognised
+// different sets of events, so PICTURE / USER_ABOUT / BUTTON_CLICK configured
+// for NATS were silently never published.
+func globalEventTypeFor(eventType string) (string, bool) {
+	switch eventType {
+	case "Message":
+		return "MESSAGE", true
+	case "SendMessage":
+		return "SEND_MESSAGE", true
+	case "Receipt":
+		return "READ_RECEIPT", true
+	case "Presence":
+		return "PRESENCE", true
+	case "HistorySync":
+		return "HISTORY_SYNC", true
+	case "ChatPresence", "Archive":
+		return "CHAT_PRESENCE", true
+	case "CallOffer", "CallAccept", "CallTerminate", "CallOfferNotice", "CallRelayLatency":
+		return "CALL", true
+	case "Connected", "PairSuccess", "TemporaryBan", "LoggedOut", "ConnectFailure", "Disconnected":
+		return "CONNECTION", true
+	case "LabelEdit", "LabelAssociationChat", "LabelAssociationMessage":
+		return "LABEL", true
+	case "Contact", "PushName":
+		return "CONTACT", true
+	case "Picture":
+		return "PICTURE", true
+	case "UserAbout":
+		return "USER_ABOUT", true
+	case "ButtonClick":
+		return "BUTTON_CLICK", true
+	case "GroupInfo", "JoinedGroup":
+		return "GROUP", true
+	case "NewsletterJoin", "NewsletterLeave":
+		return "NEWSLETTER", true
+	case "QRCode", "QRTimeout", "QRSuccess":
+		return "QRCODE", true
+	default:
+		return "", false
+	}
+}
+
 func (w *whatsmeowService) SendToGlobalQueues(eventType string, payload []byte, userId string) {
 	w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Starting sendToGlobalQueues for event: %s", userId, eventType)
 
+	globalEventType, mapped := globalEventTypeFor(eventType)
+
 	// AMQP: AMQP_SPECIFIC_EVENTS tem prioridade sobre AMQP_GLOBAL_EVENTS
 	if w.config.AmqpGlobalEnabled {
-		var shouldSendToAmqp bool
-		var amqpQueueName string
+		shouldSendToAmqp := false
+		amqpQueueName := strings.ToLower(eventType)
 
-		// Se AMQP_SPECIFIC_EVENTS estiver configurada, ela tem prioridade
 		if len(w.config.AmqpSpecificEvents) > 0 {
-			w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Using AMQP_SPECIFIC_EVENTS (priority over AMQP_GLOBAL_EVENTS)", userId)
-			// Verifica se o evento específico está na lista
+			// A lista específica casa com o nome do evento cru.
 			if utils.Find(w.config.AmqpSpecificEvents, eventType) {
 				shouldSendToAmqp = true
-				amqpQueueName = strings.ToLower(eventType)
-				w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Event %s found in AMQP_SPECIFIC_EVENTS", userId, eventType)
 			}
-		} else {
-			// Fallback para AMQP_GLOBAL_EVENTS (modo antigo com grupos de eventos)
-			w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Using AMQP_GLOBAL_EVENTS (fallback mode)", userId)
-
-			// Mapeia o evento do Whatsmeow para o tipo de evento global
-			var globalEventType string
-			switch eventType {
-			case "Message":
-				globalEventType = "MESSAGE"
-			case "SendMessage":
-				globalEventType = "SEND_MESSAGE"
-			case "Receipt":
-				globalEventType = "READ_RECEIPT"
-			case "Presence":
-				globalEventType = "PRESENCE"
-			case "HistorySync":
-				globalEventType = "HISTORY_SYNC"
-			case "ChatPresence", "Archive":
-				globalEventType = "CHAT_PRESENCE"
-			case "CallOffer", "CallAccept", "CallTerminate", "CallOfferNotice", "CallRelayLatency":
-				globalEventType = "CALL"
-			case "Connected", "PairSuccess", "TemporaryBan", "LoggedOut", "ConnectFailure", "Disconnected":
-				globalEventType = "CONNECTION"
-			case "LabelEdit", "LabelAssociationChat", "LabelAssociationMessage":
-				globalEventType = "LABEL"
-			case "Contact", "PushName":
-				globalEventType = "CONTACT"
-			case "Picture":
-				globalEventType = "PICTURE"
-			case "UserAbout":
-				globalEventType = "USER_ABOUT"
-			case "GroupInfo", "JoinedGroup":
-				globalEventType = "GROUP"
-			case "NewsletterJoin", "NewsletterLeave":
-				globalEventType = "NEWSLETTER"
-			case "QRCode", "QRTimeout", "QRSuccess":
-				globalEventType = "QRCODE"
-			default:
-				w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Event %s not mapped to global event type", userId, eventType)
-				return
-			}
-
-			// Verifica se o grupo de eventos está na lista
-			if utils.Find(w.config.AmqpGlobalEvents, globalEventType) {
-				shouldSendToAmqp = true
-				amqpQueueName = strings.ToLower(eventType)
-				w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Event group %s found in AMQP_GLOBAL_EVENTS", userId, globalEventType)
-			}
+		} else if mapped && utils.Find(w.config.AmqpGlobalEvents, globalEventType) {
+			shouldSendToAmqp = true
 		}
 
-		// Envia para RabbitMQ se necessário
 		if shouldSendToAmqp {
 			w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Sending to AMQP queue: %s", userId, amqpQueueName)
-			err := w.rabbitmqProducer.Produce(amqpQueueName, payload, "global", userId)
-			if err != nil {
+			if err := w.rabbitmqProducer.Produce(amqpQueueName, payload, "global", userId); err != nil {
 				w.loggerWrapper.GetLogger(userId).LogError("[%s] Failed to send message to RabbitMQ global queue %s: %v", userId, amqpQueueName, err)
 			} else {
 				w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Successfully sent message to RabbitMQ global queue %s", userId, amqpQueueName)
@@ -2944,52 +2938,18 @@ func (w *whatsmeowService) SendToGlobalQueues(eventType string, payload []byte, 
 		}
 	}
 
-	// NATS: Mantém o comportamento original por enquanto (só NATS_GLOBAL_EVENTS)
+	// NATS (NATS_GLOBAL_EVENTS)
 	if w.config.NatsGlobalEnabled {
-		// Mapeia o evento para grupo (necessário para NATS por enquanto)
-		var globalEventType string
-		switch eventType {
-		case "Message":
-			globalEventType = "MESSAGE"
-		case "SendMessage":
-			globalEventType = "SEND_MESSAGE"
-		case "Receipt":
-			globalEventType = "READ_RECEIPT"
-		case "Presence":
-			globalEventType = "PRESENCE"
-		case "HistorySync":
-			globalEventType = "HISTORY_SYNC"
-		case "ChatPresence", "Archive":
-			globalEventType = "CHAT_PRESENCE"
-		case "CallOffer", "CallAccept", "CallTerminate", "CallOfferNotice", "CallRelayLatency":
-			globalEventType = "CALL"
-		case "Connected", "PairSuccess", "TemporaryBan", "LoggedOut", "ConnectFailure", "Disconnected":
-			globalEventType = "CONNECTION"
-		case "LabelEdit", "LabelAssociationChat", "LabelAssociationMessage":
-			globalEventType = "LABEL"
-		case "Contact", "PushName":
-			globalEventType = "CONTACT"
-		case "GroupInfo", "JoinedGroup":
-			globalEventType = "GROUP"
-		case "NewsletterJoin", "NewsletterLeave":
-			globalEventType = "NEWSLETTER"
-		case "QRCode", "QRTimeout", "QRSuccess":
-			globalEventType = "QRCODE"
-		default:
-			globalEventType = ""
-		}
-
-		// Verifica se o evento está na lista de eventos globais NATS
-		if globalEventType != "" && utils.Find(w.config.NatsGlobalEvents, globalEventType) {
+		if mapped && utils.Find(w.config.NatsGlobalEvents, globalEventType) {
 			queueName := strings.ToLower(eventType)
 			w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Sending to NATS subject: %s", userId, queueName)
-
-			err := w.natsProducer.Produce(queueName, payload, "global", userId)
-			if err != nil {
+			if err := w.natsProducer.Produce(queueName, payload, "global", userId); err != nil {
 				w.loggerWrapper.GetLogger(userId).LogError("[%s] Failed to send message to NATS global subject %s: %v", userId, queueName, err)
 			} else {
 				w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Successfully sent message to NATS global subject %s", userId, queueName)
 			}
+		} else {
+			w.loggerWrapper.GetLogger(userId).LogInfo("[%s] Event %s (group %q) not configured for NATS", userId, eventType, globalEventType)
 		}
 	}
 }
