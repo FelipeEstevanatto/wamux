@@ -1560,6 +1560,18 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			}
 		}
 
+		// Explicit action flags for edit/revoke so consumers do not have to
+		// decode protocolMessage.type (a numeric enum: 0 = REVOKE, 14 = MESSAGE_EDIT).
+		// See issue #92.
+		switch parsedMessageType {
+		case "edit":
+			dataMap["IsEdit"] = true
+			dataMap["messageType"] = "edit"
+		case "revoke":
+			dataMap["IsRevoke"] = true
+			dataMap["messageType"] = "revoke"
+		}
+
 		referral := extractReferralFromMessage(evt.Message)
 
 		if evt.Message.GetPollUpdateMessage() != nil {
