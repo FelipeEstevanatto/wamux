@@ -1,5 +1,24 @@
 # Evolution GO - Changelog
 
+## Unreleased — `fork/community-stable`
+
+Fork-specific fixes on top of `0.7.2` (see `FORK_NOTES.md` for the full list).
+
+### 🐛 Bug Fixes
+- **`GET /group/myall` always returned an empty list** — the owner filter
+  compared `types.GroupInfo.OwnerJID` against a JID parsed with `utils.ParseJID`,
+  which prefixes phone numbers with `"+"`, so it never equalled WhatsApp's owner
+  JID; and on LID-addressed accounts the owner is reported as a LID while the
+  account's own `Store.ID` is a phone number. The filter now normalises both
+  sides (`ToNonAD()`) and matches `OwnerJID`/`OwnerPN` against both `Store.ID`
+  and `Store.LID`.
+- **`POST /group/create` and `POST /group/participant` hung with
+  `"info query timed out"` for phone-number participants** — `utils.ParseJID`
+  emitted `+<number>@s.whatsapp.net`, which WhatsApp cannot resolve, so the
+  request IQ was dropped (passing a LID worked, which hid the bug). Participants
+  are now canonicalised with `utils.CanonicalJID` (strips the `+`, leaves
+  LID/group JIDs untouched) before being sent.
+
 ## v0.7.2
 
 **Docker:** `evoapicloud/evolution-go:0.7.2`
