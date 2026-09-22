@@ -81,7 +81,7 @@ type whatsmeowService struct {
 	authDB             *sql.DB
 	messageRepository  message_repository.MessageRepository
 	labelRepository    label_repository.LabelRepository
-	pollService        poll_service.PollService // NOVO: Serviço de enquetes
+pollService        poll_service.PollService // NOVO: Serviço de enquetes
 	config             *config.Config
 	killChannel        map[string](chan bool)
 	userInfoCache      *cache.Cache
@@ -97,8 +97,18 @@ type whatsmeowService struct {
 	natsProducer       producer_interfaces.Producer
 	loggerWrapper      *logger_wrapper.LoggerManager
 	passkeyCeremony    *ceremony.Store
+	// authStore is heap-allocated so sync.Once works with value-receiver methods like StartClient.
+	authStore *sharedSQLStore
 }
 
+// sharedSQLStore holds the process-wide whatsmeow sqlstore.Container for PostgresAuthDB
+// (or the sqlite fallback). One Upgrade per process; never Close on instance disconnect.
+type sharedSQLStore struct {
+	once      sync.Once
+	container *sqlstore.Container
+	err       error
+	sqliteDB  *sql.DB // kept alive when not using PostgresAuthDB
+}
 type MyClient struct {
 	service            WhatsmeowService
 	WAClient           *whatsmeow.Client
@@ -130,6 +140,97 @@ type MyClient struct {
 	loggerWrapper      *logger_wrapper.LoggerManager
 	qrcodeCount        int
 	passkeyCeremony    *ceremony.Store
+	appStateRecoveryMu sync.Mutex
+	appStateRecovery   map[appstate.WAPatchName]appStateRecoveryAttempt
+}
+
+type appStateRecoveryAttempt struct {
+	fullSyncAt        time.Time
+	recoveryRequestAt time.Time
+}
+
+const appStateRecoveryCooldown = 15 * time.Minute
+
+func (mycli *MyClient) reserveAppStateRecovery(name appstate.WAPatchName, recoveryRequest bool) bool {
+	mycli.appStateRecoveryMu.Lock()
+	defer mycli.appStateRecoveryMu.Unlock()
+
+	if mycli.appStateRecovery == nil {
+		mycli.appStateRecovery = make(map[appstate.WAPatchName]appStateRecoveryAttempt)
+	}
+
+	now := time.Now()
+	attempt := mycli.appStateRecovery[name]
+	lastAttempt := attempt.fullSyncAt
+	if recoveryRequest {
+		lastAttempt = attempt.recoveryRequestAt
+	}
+	if !lastAttempt.IsZero() && now.Sub(lastAttempt) < appStateRecoveryCooldown {
+		return false
+	}
+
+	if recoveryRequest {
+		attempt.recoveryRequestAt = now
+	} else {
+		attempt.fullSyncAt = now
+	}
+	mycli.appStateRecovery[name] = attempt
+	return true
+}
+
+func (mycli *MyClient) handleAppStateSyncError(evt *events.AppStateSyncError) {
+	if evt == nil || mycli.WAClient == nil {
+		return
+	}
+
+	// A failed incremental sync is retried once as a full sync. If the full
+	// snapshot also fails verification, ask the primary phone for a recovery
+	// snapshot. This follows the recovery sequence documented by whatsmeow and
+	// deliberately avoids the fatal recovery notification, which unlinks every
+	// companion device and would require a new login/QR.
+	recoveryRequest := evt.FullSync
+	if !mycli.reserveAppStateRecovery(evt.Name, recoveryRequest) {
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo(
+			"[%s] App-state recovery already attempted recently for %s (fullSync=%t)",
+			mycli.userID, evt.Name, evt.FullSync,
+		)
+		return
+	}
+
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		if !recoveryRequest {
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn(
+				"[%s] App-state incremental sync failed for %s; starting controlled full sync",
+				mycli.userID, evt.Name,
+			)
+			if err := mycli.WAClient.FetchAppState(ctx, evt.Name, true, false); err != nil {
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn(
+					"[%s] App-state full sync did not complete for %s; recovery request will be used if the full-sync error event is emitted: %v",
+					mycli.userID, evt.Name, err,
+				)
+			}
+			return
+		}
+
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn(
+			"[%s] App-state full sync failed for %s; requesting recovery snapshot from primary device",
+			mycli.userID, evt.Name,
+		)
+		if _, err := mycli.WAClient.SendPeerMessage(ctx, whatsmeow.BuildAppStateRecoveryRequest(evt.Name)); err != nil {
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogError(
+				"[%s] Failed to send app-state recovery request for %s: %v",
+				mycli.userID, evt.Name, err,
+			)
+			return
+		}
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo(
+			"[%s] App-state recovery request sent for %s",
+			mycli.userID, evt.Name,
+		)
+	}()
 }
 
 func (mycli *MyClient) persistMessageAsync(message message_model.Message) {
@@ -301,6 +402,151 @@ func (w whatsmeowService) ForceUpdateJid(instanceId string, number string) error
 	return nil
 }
 
+
+// getSharedSQLStoreContainer returns the process-wide whatsmeow sqlstore.Container.
+// PostgresAuthDB reuses the pooled authDB from initPostgresAuthDB (Upgrade once).
+// The Users/GORM database is intentionally separate and never passed here.
+func (w whatsmeowService) getSharedSQLStoreContainer() (*sqlstore.Container, error) {
+	if w.authStore == nil {
+		return nil, fmt.Errorf("shared sqlstore not initialized")
+	}
+	w.authStore.once.Do(func() {
+		var dbLog waLog.Logger
+		if w.config.WaDebug != "" {
+			dbLog = waLog.Stdout("Database", w.config.WaDebug, true)
+		}
+		ctx := context.Background()
+		if w.config.PostgresAuthDB != "" {
+			if w.authDB == nil {
+				w.authStore.err = fmt.Errorf("postgres auth DB handle is nil")
+				return
+			}
+			container := sqlstore.NewWithDB(w.authDB, "postgres", dbLog)
+			if err := container.Upgrade(ctx); err != nil {
+				// Do not Close authDB — owned by main.
+				w.authStore.err = fmt.Errorf("failed to upgrade database: %w", err)
+				return
+			}
+			w.authStore.container = container
+			return
+		}
+		dsn := fmt.Sprintf("file:%s/dbdata/main.db?_pragma=foreign_keys(1)&_busy_timeout=5000&cache=shared&mode=rwc&_journal_mode=WAL", w.exPath)
+		db, err := sql.Open("sqlite", dsn)
+		if err != nil {
+			w.authStore.err = fmt.Errorf("failed to open sqlite auth store: %w", err)
+			return
+		}
+		db.SetMaxOpenConns(25)
+		db.SetMaxIdleConns(5)
+		db.SetConnMaxLifetime(5 * time.Minute)
+		db.SetConnMaxIdleTime(1 * time.Minute)
+		container := sqlstore.NewWithDB(db, "sqlite", dbLog)
+		if err := container.Upgrade(ctx); err != nil {
+			_ = db.Close()
+			w.authStore.err = fmt.Errorf("failed to upgrade database: %w", err)
+			return
+		}
+		w.authStore.sqliteDB = db
+		w.authStore.container = container
+	})
+	return w.authStore.container, w.authStore.err
+}
+
+// ============================================================================
+// Backoff for the reconnect loop.
+//
+// THE LOOP: an instance whose device was logged out from the phone spins
+// forever. Disconnected -> ReconnectClient -> the instance comes up with no
+// session -> emits a QR -> nobody scans -> max QR count -> forced logout ->
+// Disconnected again. Measured in production: 110 reconnects and 1135 QR codes
+// in 50 minutes from a single instance, and it only stopped when a human looked.
+//
+// Nothing in the current code counts those restarts, because from
+// ReconnectClient's point of view every turn SUCCEEDS — the instance really does
+// come up. What fails afterwards is the pairing, which nobody was measuring.
+//
+// THE SHAPE: the first reconnectFreeAttempts restarts inside the window go
+// straight through — that is the good case, a healthy instance that lost its
+// websocket and must come back within seconds. Past that the loop turns into a
+// growing wait, and the instance keeps trying: this is a backoff, not a
+// give-up. An instance with a valid session still heals on its own; what is
+// lost is the hammering.
+//
+// NOTE: only one goroutine waits per instance (the scheduled flag). Without it
+// every Disconnected arriving during the wait would stack another one, and the
+// backoff would become the very loop it was written to stop.
+// ============================================================================
+
+const (
+	reconnectWindow       = 15 * time.Minute // restarts inside this window count together
+	reconnectFreeAttempts = 5                // how many go through with no wait
+)
+
+// The ladder of waits. The last step repeats indefinitely.
+var reconnectBackoff = []time.Duration{5 * time.Minute, 15 * time.Minute, 30 * time.Minute}
+
+type reconnectState struct {
+	restarts  int
+	since     time.Time
+	step      int
+	scheduled bool
+}
+
+var (
+	reconnectMu    sync.Mutex
+	reconnectTrack = map[string]*reconnectState{}
+)
+
+// reconnectAllowed reports whether this instance may restart right now.
+//
+//	(true, 0)   — go ahead, normal path
+//	(false, d)  — wait d and then try; this goroutine owns the wait
+//	(false, -1) — another goroutine is already waiting for this instance; give up
+func reconnectAllowed(instanceID string) (bool, time.Duration) {
+	reconnectMu.Lock()
+	defer reconnectMu.Unlock()
+
+	now := time.Now()
+	st := reconnectTrack[instanceID]
+	if st == nil || now.Sub(st.since) > reconnectWindow {
+		reconnectTrack[instanceID] = &reconnectState{restarts: 1, since: now}
+		return true, 0
+	}
+	if st.scheduled {
+		return false, -1
+	}
+	st.restarts++
+	if st.restarts <= reconnectFreeAttempts {
+		return true, 0
+	}
+
+	d := reconnectBackoff[len(reconnectBackoff)-1]
+	if st.step < len(reconnectBackoff) {
+		d = reconnectBackoff[st.step]
+		st.step++
+	}
+	st.scheduled = true
+	return false, d
+}
+
+// reconnectWaitDone puts the instance back in line once its wait is over.
+func reconnectWaitDone(instanceID string) {
+	reconnectMu.Lock()
+	if st := reconnectTrack[instanceID]; st != nil {
+		st.scheduled = false
+	}
+	reconnectMu.Unlock()
+}
+
+// reconnectSucceeded clears the state — called when the instance actually
+// connects. Without it the backoff would inherit the count of a problem that is
+// already solved.
+func reconnectSucceeded(instanceID string) {
+	reconnectMu.Lock()
+	delete(reconnectTrack, instanceID)
+	reconnectMu.Unlock()
+}
+
 func (w whatsmeowService) StartClient(cd *ClientData) {
 
 	w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("Starting websocket connection to Whatsapp for user '%s'", cd.Instance.Id)
@@ -314,25 +560,7 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		}
 	}
 
-	var container *sqlstore.Container
-
-	if w.config.WaDebug != "" {
-		dbLog := waLog.Stdout("Database", w.config.WaDebug, true)
-		if w.config.PostgresAuthDB != "" {
-			container, err = sqlstore.New(context.Background(), "postgres", w.config.PostgresAuthDB, dbLog)
-		} else {
-			dsn := fmt.Sprintf("file:%s/dbdata/main.db?_pragma=foreign_keys(1)&_busy_timeout=5000&cache=shared&mode=rwc&_journal_mode=WAL", w.exPath)
-			container, err = sqlstore.New(context.Background(), "sqlite", dsn, dbLog)
-		}
-	} else {
-		if w.config.PostgresAuthDB != "" {
-			container, err = sqlstore.New(context.Background(), "postgres", w.config.PostgresAuthDB, nil)
-		} else {
-			dsn := fmt.Sprintf("file:%s/dbdata/main.db?_pragma=foreign_keys(1)&_busy_timeout=5000&cache=shared&mode=rwc&_journal_mode=WAL", w.exPath)
-			container, err = sqlstore.New(context.Background(), "sqlite", dsn, nil)
-		}
-	}
-
+	container, err := w.getSharedSQLStoreContainer()
 	if err != nil {
 		w.loggerWrapper.GetLogger(cd.Instance.Id).LogError("[%s] Failed to create container: %v", cd.Instance.Id, err)
 		return
@@ -463,6 +691,8 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 
 	client.EnableAutoReconnect = false
 	client.AutoTrustIdentity = true
+	// Re-request messages that fail to decrypt from the phone instead of dropping them.
+	client.AutomaticMessageRerequestFromPhone = w.config.RerequestFromPhone
 
 	mycli := &MyClient{
 		service:            &w,
@@ -865,7 +1095,16 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		// so the socket survives a passkey ceremony). Forward + rotate them.
 		mycli.handleQRCodes(evt.Codes)
 		return
+	case *events.AppStateSyncError:
+		mycli.handleAppStateSyncError(evt)
+		return
 	case *events.AppStateSyncComplete:
+		if evt.Recovery {
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo(
+				"[%s] App-state recovery completed for %s at version %d",
+				mycli.userID, evt.Name, evt.Version,
+			)
+		}
 		if len(mycli.WAClient.Store.PushName) > 0 && evt.Name == appstate.WAPatchCriticalBlock {
 			err := mycli.WAClient.SendPresence(context.Background(), types.PresenceUnavailable)
 			if err != nil {
@@ -875,6 +1114,9 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			}
 		}
 	case *events.Connected, *events.PushNameSetting:
+		// A real connection ends the loop, so the backoff counter dies here.
+		// Without this, a drop tomorrow would inherit today's restarts.
+		reconnectSucceeded(mycli.userID)
 		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] events.Connected to Whatsapp for user '%s'", mycli.userID, mycli.WAClient.Store.PushName)
 		if len(mycli.WAClient.Store.PushName) > 0 {
 			doWebhook = true
@@ -1235,6 +1477,10 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 				}
 			}()
 		}
+
+		// Edits arrive sealed in a secretEncryptedMessage envelope. Unwrap before typing the
+		// message, so it is classified as "edit" and the webhook carries the new text.
+		mycli.unwrapSecretEncryptedEdit(evt)
 
 		parsedMessageType := utils.GetMessageType(evt.Message)
 		if parsedMessageType == "ignore" || strings.HasPrefix(parsedMessageType, "unknown_protocol_") {
@@ -1801,12 +2047,15 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	case *events.Presence:
 		doWebhook = true
 		postMap["event"] = "Presence"
+		// Explicit top-level fields so consumers don't depend on types.JID/time marshaling.
+		postMap["from"] = evt.From.String()
 
 		if evt.Unavailable {
 			postMap["state"] = "offline"
 			if evt.LastSeen.IsZero() {
 				mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] User is now offline", mycli.userID)
 			} else {
+				postMap["lastSeen"] = evt.LastSeen.Unix()
 				mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] User is now offline since %s", mycli.userID, evt.LastSeen.Format("2006-01-02 15:04:05"))
 			}
 		} else {
@@ -1816,6 +2065,27 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	case *events.Archive:
 		doWebhook = true
 		postMap["event"] = "Archive"
+
+		// postMap["data"] still holds the raw event at this point, so the type
+		// assertion below panicked on every Archive event. Same marshal/unmarshal
+		// step every other case in this switch already does.
+		if postMap["data"] != nil {
+			jsonBytes, err := json.Marshal(postMap["data"])
+			if err != nil {
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to marshal postMap['data']: %v", mycli.userID, err)
+				return
+			}
+
+			var parsed map[string]interface{}
+			if err := json.Unmarshal(jsonBytes, &parsed); err != nil {
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to unmarshal postMap['data'] to map[string]interface{}: %v", mycli.userID, err)
+				return
+			}
+
+			postMap["data"] = parsed
+		} else {
+			postMap["data"] = make(map[string]interface{})
+		}
 
 		dataMap := postMap["data"].(map[string]interface{})
 		dataMap["JID"] = evt.JID
@@ -1982,12 +2252,69 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		}
 
 		// Trigger instance restart via websocket-capable service (non-blocking)
-		go func(instanceID string) {
-			mycli.loggerWrapper.GetLogger(instanceID).LogInfo("[%s] Disconnected detected, restarting instance", instanceID)
-			if err := mycli.service.ReconnectClient(instanceID); err != nil {
-				mycli.loggerWrapper.GetLogger(instanceID).LogError("[%s] Failed to restart instance: %v", instanceID, err)
-			}
-		}(mycli.userID)
+		// -- but ONLY for an already-paired device (Store.ID set). While a
+		// device is still mid-QR-pairing (Store.ID nil), handleQRCodes/
+		// teardownQR above is already the sole owner of this instance's
+		// restart lifecycle, on its own timer (60s/20s per code, 5-code
+		// max). *events.Disconnected fires routinely and repeatedly during
+		// that handshake -- WhatsApp's servers cycle the socket several
+		// times before a device is actually paired -- and ReconnectClient()
+		// unconditionally tears down and restarts from scratch ("Creating
+		// new device"), racing the still-running QR-rotation goroutine over
+		// the same unsynchronized qrcodeCount. That collapsed the real
+		// ~140s pairing window down to a few seconds every time, so a QR
+		// code never survived long enough to actually be scanned. Gating
+		// this on Store.ID keeps the auto-heal for a real mid-session drop
+		// (the case this was written for) without it also firing on every
+		// pairing-phase blip.
+		if mycli.WAClient != nil && mycli.WAClient.Store.ID != nil {
+			go func(instanceID string) {
+				mycli.loggerWrapper.GetLogger(instanceID).LogInfo("[%s] Disconnected detected, restarting instance", instanceID)
+
+				// Backoff: a logged-out device loops Disconnected -> reconnect ->
+				// QR -> no scan -> forced logout -> Disconnected forever. The first
+				// few restarts go straight through (healthy socket drop); after that
+				// we slow the loop down instead of hammering WhatsApp.
+				if allowed, wait := reconnectAllowed(instanceID); !allowed {
+					if wait < 0 {
+						mycli.loggerWrapper.GetLogger(instanceID).LogWarn("[%s] a reconnect is already scheduled — this event will not open another", instanceID)
+						return
+					}
+					mycli.loggerWrapper.GetLogger(instanceID).LogWarn("[%s] reconnect loop detected: more than %d restarts in %s. Next attempt in %s. If the device was logged out from the phone, only a new QR scan will fix it.", instanceID, reconnectFreeAttempts, reconnectWindow, wait)
+					if err := mycli.instanceRepository.UpdateConnected(instanceID, false, fmt.Sprintf("Reconnect backing off — next attempt in %s", wait)); err != nil {
+						mycli.loggerWrapper.GetLogger(instanceID).LogWarn("[%s] could not record the backoff reason: %v", instanceID, err)
+					}
+					time.Sleep(wait)
+					reconnectWaitDone(instanceID)
+				}
+
+				if err := mycli.service.ReconnectClient(instanceID); err != nil {
+					mycli.loggerWrapper.GetLogger(instanceID).LogError("[%s] Failed to restart instance: %v", instanceID, err)
+				}
+			}(mycli.userID)
+		} else if mycli.WAClient != nil {
+			// Still mid-QR-pairing. Not a no-op, though -- a genuinely dropped
+			// socket here (as opposed to the routine cycling handleQRCodes/
+			// teardownQR above already tolerates) would otherwise sit dead
+			// until the QR-max-count timeout eventually forces a restart, up
+			// to ~140s away. Reconnect the SAME client/session in place --
+			// same recovery idiom StartClient's own EOF-retry branch already
+			// uses (WAClient.Connect() again on an already-initialized
+			// client) -- rather than ReconnectClient()'s teardown-and-mint-
+			// a-new-device-identity path. This touches no shared instance
+			// maps or qrcodeCount, so it can't reintroduce the race this fix
+			// removed above.
+			go func(instanceID string) {
+				if mycli.WAClient.IsConnected() {
+					return // already recovered by the time this goroutine ran
+				}
+				if err := mycli.WAClient.Connect(); err != nil {
+					mycli.loggerWrapper.GetLogger(instanceID).LogWarn("[%s] Reconnect attempt during QR pairing failed: %v", instanceID, err)
+				} else {
+					mycli.loggerWrapper.GetLogger(instanceID).LogInfo("[%s] Reconnected during QR pairing (same session, no device reset)", instanceID)
+				}
+			}(mycli.userID)
+		}
 	case *events.LabelEdit:
 		doWebhook = true
 		postMap["event"] = "LabelEdit"
@@ -2831,6 +3158,7 @@ func NewWhatsmeowService(
 		natsProducer:       natsProducer,
 		loggerWrapper:      loggerWrapper,
 		passkeyCeremony:    ceremony.NewStore(),
+		authStore:          &sharedSQLStore{},
 	}
 }
 
