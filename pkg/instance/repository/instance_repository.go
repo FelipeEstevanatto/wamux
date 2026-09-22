@@ -29,6 +29,8 @@ type InstanceRepository interface {
 	UpdateConnectSettings(instanceId string, updates map[string]interface{}) error
 	GetAllConnectedInstances() ([]*instance_model.Instance, error)
 	GetAllConnectedInstancesByClientName(clientName string) ([]*instance_model.Instance, error)
+	GetAllPairedInstances() ([]*instance_model.Instance, error)
+	GetAllPairedInstancesByClientName(clientName string) ([]*instance_model.Instance, error)
 	GetAll(clientName string) ([]*instance_model.Instance, error)
 	Delete(instanceId string) error
 	GetAdvancedSettings(instanceId string) (*instance_model.AdvancedSettings, error)
@@ -141,6 +143,32 @@ func (i *instanceRepository) GetAllConnectedInstances() ([]*instance_model.Insta
 func (i *instanceRepository) GetAllConnectedInstancesByClientName(clientName string) ([]*instance_model.Instance, error) {
 	var instances []*instance_model.Instance
 	err := i.db.Where("connected = ? AND client_name = ?", true, clientName).Find(&instances).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return instances, nil
+}
+
+// GetAllPairedInstances returns instances that have already completed pairing
+// (they have a JID). The Connected column is intentionally not used: it
+// reflects the live socket, which is always false right after a restart, so
+// relying on it would leave every paired session offline until a manual
+// reconnect. StartClient safely skips instances whose session is no longer in
+// the whatsmeow auth store, so a stale JID cannot start a QR loop here.
+func (i *instanceRepository) GetAllPairedInstances() ([]*instance_model.Instance, error) {
+	var instances []*instance_model.Instance
+	err := i.db.Where("jid IS NOT NULL AND jid <> ''").Find(&instances).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return instances, nil
+}
+
+func (i *instanceRepository) GetAllPairedInstancesByClientName(clientName string) ([]*instance_model.Instance, error) {
+	var instances []*instance_model.Instance
+	err := i.db.Where("jid IS NOT NULL AND jid <> '' AND client_name = ?", clientName).Find(&instances).Error
 	if err != nil {
 		return nil, err
 	}
