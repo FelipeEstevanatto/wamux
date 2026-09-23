@@ -191,6 +191,14 @@ func (i *instances) ensureClientConnected(instanceId string) (*whatsmeow.Client,
 }
 
 func (i instances) Create(data *CreateStruct) (*instance_model.Instance, error) {
+	// Trim the name before the duplicate check and the insert. A name stored with
+	// leading/trailing spaces cannot be matched later (routes and lookups trim),
+	// so it would be effectively unreachable.
+	data.Name = strings.TrimSpace(data.Name)
+	if data.Name == "" {
+		return nil, errors.New("name is required")
+	}
+
 	if data.Proxy != nil {
 		data.Proxy.Protocol = utils.NormalizeProxyProtocol(data.Proxy.Protocol, data.Proxy.Port)
 	}
