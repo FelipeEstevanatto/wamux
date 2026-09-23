@@ -11,7 +11,7 @@
 export const COPYRIGHT_LINE = '© 2026 Evolution Foundation';
 
 export const FORK_REPO =
-  'https://github.com/FelipeEstevanatto/evolution-go';
+  'https://github.com/FelipeEstevanatto/evo-gofork';
 export const UPSTREAM_REPO =
   'https://github.com/evolution-foundation/evolution-go';
 

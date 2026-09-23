@@ -49,8 +49,8 @@ FROM alpine:3.24 AS final
 # workflow adds source/revision/version on top of these.
 LABEL org.opencontainers.image.title="Evolution Go (community fork)" \
       org.opencontainers.image.description="Unofficial community build of Evolution Go. Not affiliated with, endorsed by, or an official release of Evolution Foundation." \
-      org.opencontainers.image.url="https://github.com/FelipeEstevanatto/evolution-go" \
-      org.opencontainers.image.source="https://github.com/FelipeEstevanatto/evolution-go" \
+      org.opencontainers.image.url="https://github.com/FelipeEstevanatto/evo-gofork" \
+      org.opencontainers.image.source="https://github.com/FelipeEstevanatto/evo-gofork" \
       org.opencontainers.image.licenses="Apache-2.0" \
       org.opencontainers.image.vendor="FelipeEstevanatto (community fork, not Evolution Foundation)"
 
