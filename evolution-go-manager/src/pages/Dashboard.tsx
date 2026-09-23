@@ -45,12 +45,14 @@ function Kpi({
   value,
   sub,
   tone = 'default',
+  title,
 }: {
   icon: typeof Activity;
   label: string;
   value: string;
   sub?: string;
   tone?: 'default' | 'green' | 'red';
+  title?: string;
 }) {
   const valueColor =
     tone === 'green'
@@ -59,7 +61,10 @@ function Kpi({
         ? 'text-red-500'
         : 'text-foreground';
   return (
-    <div className="rounded-xl border border-sidebar-border bg-sidebar p-4">
+    <div
+      className="rounded-xl border border-sidebar-border bg-sidebar p-4"
+      title={title}
+    >
       <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         <Icon className="h-3.5 w-3.5" />
         {label}
@@ -122,6 +127,28 @@ export default function Dashboard() {
     [messages.byDay]
   );
   const maxDay = Math.max(1, ...byDay.map((d) => d.count));
+
+  // Load average is the average number of runnable tasks (not a percentage of a
+  // single core). Express it against the CPU count so the number is meaningful.
+  const cpus = system.numCpu || 0;
+  const load1 = system.loadAvg1;
+  const loadPct =
+    cpus > 0 && load1 !== undefined
+      ? Math.round((load1 / cpus) * 100)
+      : undefined;
+  const loadTitle =
+    load1 !== undefined
+      ? `Load average (1 min): média de tarefas executáveis (rodando ou na fila). ${load1.toFixed(2)}` +
+        (loadPct !== undefined
+          ? ` em ${cpus} CPUs ≈ ${loadPct}% da capacidade`
+          : '') +
+        (system.loadAvg5 !== undefined
+          ? ` · 5m ${system.loadAvg5.toFixed(2)}`
+          : '') +
+        (system.loadAvg15 !== undefined
+          ? ` · 15m ${system.loadAvg15.toFixed(2)}`
+          : '')
+      : undefined;
 
   return (
     <div className="h-full overflow-y-auto p-6">
@@ -215,9 +242,20 @@ export default function Dashboard() {
           />
           <Kpi
             icon={Cpu}
-            label="Load 1m"
-            value={system.loadAvg1 !== undefined ? system.loadAvg1.toFixed(2) : '—'}
-            sub={`CPUs: ${fmtNumber(system.numCpu)}`}
+            label="Carga (1m)"
+            value={
+              loadPct !== undefined
+                ? `${loadPct}%`
+                : load1 !== undefined
+                  ? load1.toFixed(2)
+                  : '—'
+            }
+            sub={
+              load1 !== undefined
+                ? `${load1.toFixed(2)} / ${fmtNumber(system.numCpu)} CPUs`
+                : 'load indisponível'
+            }
+            title={loadTitle}
           />
           <Kpi
             icon={Activity}

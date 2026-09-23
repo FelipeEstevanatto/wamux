@@ -167,7 +167,7 @@ function shell(){
     <div class="grid" style="grid-template-columns:repeat(5,1fr);margin-top:16px">
       <div class="card kpi"><h3>Mensagens</h3><div class="value" id="s-msg">—</div><div class="sub">total salvas</div></div>
       <div class="card kpi"><h3>RAM do host</h3><div class="value" id="s-ram">—</div><div class="sub" id="s-ram-sub">usada / total</div></div>
-      <div class="card kpi"><h3>Load 1m</h3><div class="value" id="s-load">—</div><div class="sub" id="s-load-sub">CPUs: —</div></div>
+      <div class="card kpi"><h3>Carga (1m)</h3><div class="value" id="s-load">—</div><div class="sub" id="s-load-sub">load / CPUs</div></div>
       <div class="card kpi"><h3>Goroutines</h3><div class="value" id="s-gor">—</div><div class="sub" id="s-heap">heap —</div></div>
       <div class="card kpi"><h3>Uptime</h3><div class="value" id="s-up">—</div><div class="sub" id="s-gover">—</div></div>
     </div>
@@ -233,8 +233,18 @@ function renderStats(d){
     $("#s-ram").textContent=Math.round(sys.hostMemUsedPct)+"%";
     $("#s-ram-sub").textContent=fmtMB(sys.hostMemTotalMB-sys.hostMemAvailableMB)+" / "+fmtMB(sys.hostMemTotalMB);
   }else{$("#s-ram").textContent="—";$("#s-ram-sub").textContent="host indisponível";}
-  $("#s-load").textContent = sys.loadAvg1!=null?sys.loadAvg1.toFixed(2):"—";
-  $("#s-load-sub").textContent = "CPUs: "+(sys.numCpu!=null?sys.numCpu:"—");
+  // Load average is the average number of runnable tasks, not a percentage of
+  // one core. Show it relative to the CPU count so the number means something.
+  const cpus=sys.numCpu||0, l1=sys.loadAvg1, l5=sys.loadAvg5, l15=sys.loadAvg15;
+  if(l1!=null){
+    const pct=cpus>0?Math.round(l1/cpus*100):null;
+    $("#s-load").textContent = pct!=null?pct+"%":l1.toFixed(2);
+    $("#s-load-sub").textContent = l1.toFixed(2)+" / "+(cpus||"—")+" CPUs";
+    $("#s-load").parentElement.title =
+      "Load average (1 min): média de tarefas executáveis (rodando ou na fila). "
+      + l1.toFixed(2) + (pct!=null?(" em "+cpus+" CPUs ≈ "+pct+"% da capacidade"):"")
+      + (l5!=null?(" · 5m "+l5.toFixed(2)):"") + (l15!=null?(" · 15m "+l15.toFixed(2)):"");
+  }else{$("#s-load").textContent="—";$("#s-load-sub").textContent="load indisponível";}
   $("#s-gor").textContent = sys.goroutines!=null?sys.goroutines:"—";
   $("#s-heap").textContent = "heap "+(sys.heapInuseMB!=null?Math.round(sys.heapInuseMB)+" MB":"—");
   $("#s-up").textContent = sys.uptimeSeconds!=null?fmtUptime(sys.uptimeSeconds):"—";
@@ -255,14 +265,14 @@ function renderMsgBar(byDay){
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:cssv("--chart-tick")},grid:{color:cssv("--chart-grid")}},y:{beginAtZero:true,ticks:{color:cssv("--chart-tick"),precision:0},grid:{color:cssv("--chart-grid")}}}}});
 }
 
-// label for a source: resolved name from the backend when available, else a
+// label for a source: the resolved name from the backend when available, else a
 // best-effort phone-number formatting of the raw stored key.
 function sourceLabel(x){
   if(x&&x.name)return x.name;
-  const k=x&&x.key!=null?String(x.key):"";
-  if(!k)return "—";
-  if(k==="status")return "Status";
-  return "+"+k.replace(/^\+/,"");
+  const p=(x&&x.phone)?x.phone:(x&&x.key!=null?String(x.key):"");
+  if(!p)return "—";
+  if(p==="status")return "Status";
+  return "+"+String(p).replace(/^\+/,"");
 }
 
 function renderTopSources(list){
@@ -272,9 +282,15 @@ function renderTopSources(list){
   box.innerHTML=list.map(x=>{
     const pct=Math.round(x.count/max*100);
     const label=sourceLabel(x);
-    const title=x.key!=null?(' title="'+esc(x.key)+'"'):"";
-    return '<div style="display:flex;align-items:center;gap:10px;margin:7px 0">'
-      +'<span class="mono" style="width:200px;color:var(--src-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"'+title+'>'+esc(label)+'</span>'
+    // The backend merges a contact's LID and phone rows, so show the phone as a
+    // second line — two contacts can share a saved name.
+    const sub=(x.name&&x.phone)?("+"+x.phone):"";
+    const title=(x.phone||x.key||"");
+    return '<div style="display:flex;align-items:center;gap:10px;margin:9px 0">'
+      +'<div style="width:230px;min-width:0">'
+        +'<div style="color:var(--src-text);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(title)+'">'+esc(label)+'</div>'
+        +(sub?'<div class="mono" style="font-size:11px;color:var(--muted)">'+esc(sub)+'</div>':'')
+      +'</div>'
       +'<span style="flex:1;background:var(--track);border-radius:6px;overflow:hidden;height:14px"><span style="display:block;height:100%;width:'+pct+'%;background:var(--accent)"></span></span>'
       +'<span class="mono" style="width:56px;text-align:right">'+x.count+'</span></div>';
   }).join("");

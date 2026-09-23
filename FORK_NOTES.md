@@ -596,15 +596,28 @@ Three UI problems were found while testing the dashboard against a live account:
 
 **"Conversas mais ativas" showed raw identifiers** (`+269182931329179`,
 `+5514981170846`, `+status`). `/server/stats` now annotates each `topSources`
-entry with a resolved `name` (`whatsmeowService.ResolveChatNames`): a saved
-contact's name, the phone number a LID maps back to (`Store.LIDs.GetPNForLID`),
-a group subject (`GetGroupInfo`), or `Status`/`Transmissão` for the special
-sources. Resolution is tried across every connected client (the endpoint is
-global and the stored `source` has no instance id) and cached for 10 minutes,
-since the dashboard polls every ~15 s and group lookups are network IQs. When
-nothing resolves, the frontend falls back to `+<key>`. Confirmed live: a LID and
-a phone number both resolved to the saved contact's name, and `status` →
-`Status`.
+entry with a resolved `name` and, where known, the `phone`
+(`whatsmeowService.ResolveChats`): a saved contact's name, the phone number a LID
+maps back to (`Store.LIDs.GetPNForLID`), a group subject (`GetGroupInfo`), or
+`Status`/`Transmissão` for the special sources. Resolution is tried across every
+connected client (the endpoint is global and the stored `source` has no instance
+id) and cached for 10 minutes, since the dashboard polls every ~15 s and group
+lookups are network IQs. When nothing resolves, the frontend falls back to
+`+<key>`.
+
+A contact is often persisted **twice**: once with the LID as `source` and once
+with the phone number (whatsapp alternates between them). Both resolve to the
+same phone, which the handler now uses as the canonical key to **merge the rows**
+and sum their counts — `269182931329179` (153) + `5514981170846` (12) became a
+single "Evogo Saved Contact · +5514981170846 · 165". The repository over-fetches
+25 sources so the merged top-8 ranking stays accurate. The phone is shown as a
+second line under the name, since two contacts can share a saved name.
+
+**The load-average card was unreadable** ("1.81 of CPUs: 16"). Load average is
+the average number of runnable tasks (running or queued), *not* a percentage of
+one core and not a core count. The card now shows the load **as a share of
+capacity** (`1.81 / 16 CPUs ≈ 11%`) with a tooltip spelling out the definition and
+the 5m/15m averages. Same treatment in the SPA and the static dashboard.
 
 
 ## 3j. Security audit & hardening
