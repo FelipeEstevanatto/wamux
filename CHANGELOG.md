@@ -12,6 +12,38 @@ Fork-specific fixes on top of `0.7.2` (see `FORK_NOTES.md` for the full list).
   account's own `Store.ID` is a phone number. The filter now normalises both
   sides (`ToNonAD()`) and matches `OwnerJID`/`OwnerPN` against both `Store.ID`
   and `Store.LID`.
+
+### ✨ Features
+- **Typebot integration** — bot CRUD, per-contact sessions, `startChat`/
+  `continueChat`, plus flood/loop protections and a `TypebotAutoPaused` alert.
+  Endpoints under `/typebot` (instance-token auth). Config:
+  `TYPEBOT_CONTACT_RATE_LIMIT`, `TYPEBOT_CONTACT_RATE_WINDOW`,
+  `TYPEBOT_SEND_RATE_LIMIT`, `TYPEBOT_SEND_RATE_BURST`.
+- **`POST /send/event`** — WhatsApp event/calendar message (`waE2E.EventMessage`);
+  ISO 8601 or epoch times.
+- **`POST /send/product`** — catalog product card (`waE2E.ProductMessage`).
+- **`PUT /instance/name/:instanceId`** — rename an instance (id/token unchanged).
+- **`GET /server/stats`** and **`GET /dashboard`** — runtime/host metrics and
+  message aggregates, plus a self-hosted dashboard page.
+- **Multiple webhooks per instance** — the `Webhook` field accepts a JSON array or
+  a newline/comma/semicolon separated list; the payload is delivered to each URL.
+- **`POST /user/savecontact`** route aligned (with a legacy `POST /user/contacts`
+  alias) and app-state desync recovery.
+
+### 🔧 Improvements
+- **Animated WebP stickers** are uploaded untouched instead of being re-encoded,
+  which previously failed on animated WebP and flattened static WebP.
+- **Interactive buttons/Pix** rewritten to the `native_flow` payloads WhatsApp
+  actually renders (reply/CTA top-level `interactiveMessage`; Pix via
+  `ViewOnceMessage`).
+- **Shared sqlstore container** no longer caches a transient database failure.
+
+### 🐛 Bug Fixes
+- **`POST /send/event` and `POST /send/product` failed with `invalid
+  messageType`** — `SendMessage` now registers both types (quoted and
+  non-quoted ContextInfo).
+- **Mentions were ignored on `EventMessage`** — `mentionAll`/`mentionedJid` now
+  apply to events too.
 - **`POST /group/create` and `POST /group/participant` hung with
   `"info query timed out"` for phone-number participants** — `utils.ParseJID`
   emitted `+<number>@s.whatsapp.net`, which WhatsApp cannot resolve, so the
