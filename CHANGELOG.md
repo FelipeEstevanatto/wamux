@@ -60,6 +60,11 @@ Fork-specific fixes on top of `0.7.2` (see `FORK_NOTES.md` for the full list).
   now cleared on `Disconnected`/`StreamReplaced` instead of being left stale.
 
 ### ✨ Features
+- **`AccountReachoutTimelock` webhook** — whatsmeow's
+  `NotifyAccountReachoutTimelock` (the account-level reach-out timelock behind
+  error 463) is now forwarded to CONNECTION subscribers, so operators learn
+  about a lock before cold sends start failing. `GET /instance/limits` still
+  exposes the same data on demand.
 - **Device platform in the instance info** — `GET /instance/overview/:id` now
   also returns `platform`/`businessName` from the whatsmeow device store (the
   phone that scanned the QR, e.g. `android`/`ios`), shown as "Dispositivo" on

@@ -2742,6 +2742,23 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	case *events.OfflineSyncCompleted:
 		doWebhook = true
 		postMap["event"] = "OfflineSyncCompleted"
+	case *events.NotifyAccountReachoutTimelock:
+		// WhatsApp pushed the account's reach-out timelock state — the
+		// account-level limit behind error 463. Forward it so operators can react
+		// before cold sends start failing; GET /instance/limits exposes the same
+		// data on demand.
+		doWebhook = true
+		postMap["event"] = "AccountReachoutTimelock"
+		ends := int64(0)
+		if !evt.TimeEnforcementEnds.IsZero() {
+			ends = evt.TimeEnforcementEnds.Unix()
+		}
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Account reach-out timelock notification: active=%v type=%s ends=%d", mycli.userID, evt.IsActive, evt.EnforcementType, ends)
+		postMap["data"] = map[string]interface{}{
+			"isActive":            evt.IsActive,
+			"enforcementType":     evt.EnforcementType,
+			"timeEnforcementEnds": ends,
+		}
 	case *events.ConnectFailure:
 		doWebhook = true
 		postMap["event"] = "ConnectFailure"
@@ -3032,7 +3049,7 @@ func (w *whatsmeowService) CallWebhook(instance *instance_model.Instance, queueN
 			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
 			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		}
-	case "Connected", "PairSuccess", "TemporaryBan", "LoggedOut", "ConnectFailure", "Disconnected":
+	case "Connected", "PairSuccess", "TemporaryBan", "LoggedOut", "ConnectFailure", "Disconnected", "AccountReachoutTimelock":
 		if contains(subscriptions, "CONNECTION") {
 			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
 			w.sendToQueueOrWebhook(instance, queueName, jsonData)
