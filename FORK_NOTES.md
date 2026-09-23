@@ -114,6 +114,22 @@ issues.
 | `GET /group/myall` always returned an empty list. The owner filter compared `types.GroupInfo.OwnerJID` against a JID parsed by `utils.ParseJID`, which prefixes phone numbers with `"+"` (so it never equalled WhatsApp's owner JID); and on LID-addressed accounts the owner is reported as a LID while the account's own `Store.ID` is a phone number. The filter now normalises both sides with `ToNonAD()` and matches `OwnerJID`/`OwnerPN` against both `Store.ID` and `Store.LID`. | — |
 | `POST /group/create` and `POST /group/participant` hung and failed with `"info query timed out"` when the participants were phone numbers. `utils.ParseJID` emitted `"+<number>@s.whatsapp.net"`, which WhatsApp cannot resolve, so the request IQ was dropped and the call timed out; passing a LID worked, which hid the bug. Participants are now canonicalised with `utils.CanonicalJID` (strips the `+`, leaves LID/group JIDs untouched) before being sent. | — |
 
+### Stability refinements + features ported from `ecosb2b/evo-go-v2`
+
+Reviewed independently against [ecosb2b/evo-go-v2](https://github.com/ecosb2b/evo-go-v2) (a fork of the same `0.7.2` base). Where both fixed the same problem, the better implementation was kept (noted below).
+
+| Fix / feature | Notes |
+|---|---|
+| Animated WebP stickers were re-encoded through `convertToWebP`, which fails on animated WebP ("webpDecodeRGBA: failed") and flattens static WebP. Now WebP is uploaded untouched (`isWebP`/`isAnimatedWebP`), `IsAnimated` is set, and the download is bounded (30s, 16 MiB) with scheme/status validation. | upstream **#151**; supersedes our earlier unbounded download |
+| Interactive buttons/Pix used shapes WhatsApp no longer renders (`ButtonsMessage` in a `DocumentWithCaptionMessage`, a guessed `native_flow_name`). Rewritten to the captured real payloads: top-level `interactiveMessage` for reply/CTA, `ViewOnceMessage` for Pix, `{"from":"api","templateId":<uuid>}`, and `<native_flow v="2" name="mixed"/>` / `name="payment_info"` biz nodes. | from evo-go-v2; closes our biggest known gap |
+| `POST /send/event` (WhatsApp event/calendar, PR #90), `POST /send/product` (catalog card as a message, not the dead `w:biz:catalog` IQ), `PUT /instance/name/:instanceId`, `GET /server/stats`, `GET /dashboard`. | new features ported |
+| Multiple webhooks per instance (`splitWebhookURLs`: JSON array or newline/comma/semicolon list). | small, backwards compatible |
+| Typebot integration (bot CRUD, sessions, startChat/continueChat, flood/loop protections, `TypebotAutoPaused` alert) + `TYPEBOT_*` config. | large feature ported |
+| `POST /user/savecontact` route aligned and app-state desync recovery added (force full sync on 409/LTHash, fall back to fatal recovery); BR/MX number normalisation via `ParseJID`+`CanonicalJID`. | evo-go-v2 alignment |
+| Shared sqlstore container no longer caches a transient init failure (`sync.Once` → mutex + memoize success). | evo-go-v2 edge case; our shared-pool approach kept |
+
+**Kept our implementation over evo-go-v2's** (ours handles an edge case theirs does not): `/group/myall` owner filter (ours is strictly owner via `Store.ID`+`Store.LID`; theirs broadens to admin/superadmin); shared Postgres pool (reuses the existing `authDB`; theirs opens a second pool); `pkg/safemap` generic wrapper (vs their global mutex at ~103 call sites); conservative reconnect backoff (vs their `runtime_lifecycle` supervisor); WebSocket multi-subscriber (theirs replaces the previous connection); startup restore of paired instances; unbounded-HTTP hardening; and a newer whatsmeow.
+
 ## 3c. Known remaining issues worth tackling next
 
 Not fixed here — they are larger or need protocol work. Ordered by impact.
