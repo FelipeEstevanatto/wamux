@@ -82,6 +82,20 @@ type WhatsmeowService interface {
 	PasskeyCeremonyStore() *ceremony.Store
 	SubmitPasskeyResponse(instanceId string, resp *types.WebAuthnResponse) error
 	ConfirmPasskey(instanceId string) error
+
+	// GetInstanceOverview returns the connected instance's own profile picture,
+	// push name and local contact count, for the dashboard.
+	GetInstanceOverview(instanceId string) (*InstanceOverview, error)
+}
+
+// InstanceOverview is the per-instance summary the self-hosted dashboard shows
+// for each instance. It is deliberately cheap: the contact count comes from the
+// local whatsmeow store and the picture is a preview fetch, both best-effort.
+type InstanceOverview struct {
+	Connected     bool   `json:"connected"`
+	ProfileName   string `json:"profileName,omitempty"`
+	ProfilePicURL string `json:"profilePicUrl,omitempty"`
+	ContactsCount int    `json:"contactsCount"`
 }
 
 // TypebotProcessor is the slice of the Typebot service this package consumes.
@@ -3609,6 +3623,36 @@ func NewWhatsmeowService(
 // GetPollService retorna o serviço de polls (evita dupla inicialização)
 func (w *whatsmeowService) GetPollService() poll_service.PollService {
 	return w.pollService
+}
+
+// GetInstanceOverview returns the instance's own profile picture, push name and
+// local contact count for the dashboard. Everything is best-effort: a missing
+// client or a failed picture lookup just leaves the corresponding field empty,
+// and the profile-picture IQ is time-bounded so the endpoint can never hang.
+func (w *whatsmeowService) GetInstanceOverview(instanceId string) (*InstanceOverview, error) {
+	client, ok := w.clientPointer.Lookup(instanceId)
+	if !ok || client == nil {
+		return &InstanceOverview{}, nil
+	}
+
+	overview := &InstanceOverview{Connected: client.IsConnected()}
+	if !overview.Connected || client.Store == nil {
+		return overview, nil
+	}
+
+	overview.ProfileName = client.Store.PushName
+	if client.Store.ID != nil {
+		jid := client.Store.ID.ToNonAD()
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		if pic, err := client.GetProfilePictureInfo(ctx, jid, &whatsmeow.GetProfilePictureParams{Preview: true}); err == nil && pic != nil {
+			overview.ProfilePicURL = pic.URL
+		}
+		cancel()
+	}
+	if contacts, err := client.Store.Contacts.GetAllContacts(context.Background()); err == nil {
+		overview.ContactsCount = len(contacts)
+	}
+	return overview, nil
 }
 
 // PasskeyCeremonyStore exposes the shared ceremony store so the public HTTP

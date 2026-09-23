@@ -2,6 +2,7 @@ package server_handler
 
 import (
 	"bufio"
+	"net/http"
 	"os"
 	"runtime"
 	"strconv"
@@ -9,16 +10,26 @@ import (
 	"time"
 
 	message_repository "github.com/evolution-foundation/evolution-go/pkg/message/repository"
+	whatsmeow_service "github.com/evolution-foundation/evolution-go/pkg/whatsmeow/service"
 	"github.com/gin-gonic/gin"
 )
 
 type ServerHandler interface {
 	ServerOk(ctx *gin.Context)
 	Stats(ctx *gin.Context)
+	InstanceOverview(ctx *gin.Context)
+}
+
+// OverviewProvider is the slice of the whatsmeow service the dashboard needs to
+// show each instance's own profile picture and contact count.
+type OverviewProvider interface {
+	GetInstanceOverview(instanceId string) (*whatsmeow_service.InstanceOverview, error)
 }
 
 type serverHandler struct {
 	messageRepo message_repository.MessageRepository
+	overview    OverviewProvider
+	version     string
 	startTime   time.Time
 }
 
@@ -37,6 +48,7 @@ func (s *serverHandler) Stats(ctx *gin.Context) {
 
 	const mb = 1024.0 * 1024.0
 	system := gin.H{
+		"version":       s.version,
 		"goroutines":    runtime.NumGoroutine(),
 		"numCpu":        runtime.NumCPU(),
 		"goVersion":     runtime.Version(),
@@ -73,6 +85,26 @@ func (s *serverHandler) Stats(ctx *gin.Context) {
 	}
 
 	ctx.JSON(200, gin.H{"system": system, "messages": messages})
+}
+
+// InstanceOverview returns the per-instance dashboard summary: the account's own
+// profile picture, push name and local contact count. Auth: AuthAdmin.
+func (s *serverHandler) InstanceOverview(ctx *gin.Context) {
+	instanceId := ctx.Param("instanceId")
+	if instanceId == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "instanceId is required"})
+		return
+	}
+	if s.overview == nil {
+		ctx.JSON(http.StatusServiceUnavailable, gin.H{"error": "instance overview unavailable"})
+		return
+	}
+	overview, err := s.overview.GetInstanceOverview(instanceId)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": overview})
 }
 
 // readLoadAvg reads /proc/loadavg (Linux). Returns the 1/5/15 min averages.
@@ -124,6 +156,6 @@ func parseMeminfoKB(line string) float64 {
 	return v
 }
 
-func NewServerHandler(messageRepo message_repository.MessageRepository) ServerHandler {
-	return &serverHandler{messageRepo: messageRepo, startTime: time.Now()}
+func NewServerHandler(messageRepo message_repository.MessageRepository, version string, overview OverviewProvider) ServerHandler {
+	return &serverHandler{messageRepo: messageRepo, overview: overview, version: version, startTime: time.Now()}
 }
