@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
   Badge,
 } from '@evoapi/design-system';
-import { Search, Filter, MoreVertical, X } from 'lucide-react';
+import { Search, Filter, MoreVertical, X, RefreshCw } from 'lucide-react';
 
 export interface HeaderAction {
   label: string;
@@ -23,6 +23,12 @@ export interface HeaderAction {
   variant?: 'default' | 'outline' | 'ghost' | 'destructive';
   show?: boolean;
   className?: string;
+}
+
+export interface HeaderRefreshAction {
+  onClick: () => void;
+  isRefreshing?: boolean;
+  title?: string;
 }
 
 export interface HeaderFilter {
@@ -38,6 +44,7 @@ export interface BaseHeaderProps {
   onSearchChange?: (value: string) => void;
   searchPlaceholder?: string;
   primaryAction?: HeaderAction;
+  refreshAction?: HeaderRefreshAction;
   secondaryActions?: HeaderAction[];
   moreActions?: HeaderAction[];
   filters?: HeaderFilter[];
@@ -58,6 +65,7 @@ export default function BaseHeader({
   onSearchChange,
   searchPlaceholder = 'Buscar...',
   primaryAction,
+  refreshAction,
   secondaryActions = [],
   moreActions = [],
   filters = [],
@@ -91,18 +99,35 @@ export default function BaseHeader({
         </div>
 
         {/* Primary Action */}
-        {primaryAction && primaryAction.show !== false && (
-          <div className="flex-shrink-0">
-            <Button
-              onClick={primaryAction.onClick}
-              variant={primaryAction.variant || 'default'}
-              className={primaryAction.className}
-            >
-              {primaryAction.icon && (
-                <span className="mr-2">{primaryAction.icon}</span>
-              )}
-              {primaryAction.label}
-            </Button>
+        {(refreshAction || (primaryAction && primaryAction.show !== false)) && (
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {refreshAction && (
+              <Button
+                onClick={refreshAction.onClick}
+                variant="outline"
+                size="icon"
+                disabled={refreshAction.isRefreshing}
+                title={refreshAction.title || 'Atualizar'}
+                aria-label={refreshAction.title || 'Atualizar'}
+                className="bg-sidebar border-sidebar-border text-sidebar-foreground hover:bg-sidebar-accent dark:text-gray-400 dark:hover:bg-sidebar-accent"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${refreshAction.isRefreshing ? 'animate-spin' : ''}`}
+                />
+              </Button>
+            )}
+            {primaryAction && primaryAction.show !== false && (
+              <Button
+                onClick={primaryAction.onClick}
+                variant={primaryAction.variant || 'default'}
+                className={primaryAction.className}
+              >
+                {primaryAction.icon && (
+                  <span className="mr-2">{primaryAction.icon}</span>
+                )}
+                {primaryAction.label}
+              </Button>
+            )}
           </div>
         )}
       </div>

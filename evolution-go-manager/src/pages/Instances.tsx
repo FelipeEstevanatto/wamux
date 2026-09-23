@@ -25,7 +25,7 @@ import { useNavigate } from 'react-router-dom';
 
 export default function Instances() {
   const navigate = useNavigate();
-  const { instances, isLoading, fetchInstances, removeInstance, overviews, fetchOverviews } =
+  const { instances, isLoading, fetchInstances, refreshInstances, isRefreshing, removeInstance, overviews, fetchOverviews } =
     useInstancesStore();
   const [query, setQuery] = useState('');
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -82,10 +82,12 @@ export default function Instances() {
       initialFetchDone.current = true;
     }
 
-    // Polling: atualizar instâncias a cada 5 segundos
+    // Polling: refresh instances every 30 seconds. The fetch is silent so the
+    // cards are updated in place instead of being replaced by skeletons, which
+    // is what made the page flicker on every 5s tick.
     const interval = setInterval(() => {
-      fetchInstances();
-    }, 5000);
+      fetchInstances({ silent: true });
+    }, 30000);
 
     return () => clearInterval(interval);
   }, [fetchInstances]);
@@ -458,6 +460,8 @@ export default function Instances() {
         searchValue={query}
         onSearchChange={setQuery}
         onNewInstance={handleNewInstance}
+        onRefresh={refreshInstances}
+        isRefreshing={isRefreshing}
         onClearSelection={() => {}}
       />
 
