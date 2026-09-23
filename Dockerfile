@@ -17,7 +17,12 @@ COPY . .
 ARG VERSION=dev
 RUN CGO_ENABLED=1 go build -ldflags "-X main.version=${VERSION}" -o server ./cmd/evolution-go
 
-FROM alpine:3.19.1 AS final
+# Runtime base is kept on the same Alpine major.minor as the build stage
+# (golang:1.26-alpine is Alpine 3.24.x). The CGO binary links dynamically against
+# musl, so building on 3.24 and running on 3.24 avoids a cross-version libc
+# mismatch, and 3.24 carries current ffmpeg/poppler/libjpeg/libwebp security
+# fixes that 3.19.1 no longer receives.
+FROM alpine:3.24 AS final
 
 # poppler-utils provides pdftoppm, used to rasterize PDF page 1 for /send/media document thumbnails
 RUN apk update && apk add --no-cache tzdata ffmpeg libjpeg-turbo libwebp poppler-utils
