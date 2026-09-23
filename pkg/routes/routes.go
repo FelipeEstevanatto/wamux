@@ -77,6 +77,13 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 
 	eng.GET("/server/ok", r.serverHandler.ServerOk)
 
+	// Self-hosted dashboard: static page served from the same origin (no CORS),
+	// plus the system/message metrics it consumes. Auth: Global API Key.
+	eng.GET("/dashboard", func(c *gin.Context) {
+		c.File("manager/dist/dashboard.html")
+	})
+	eng.GET("/server/stats", r.authMiddleware.AuthAdmin, r.serverHandler.Stats)
+
 	routes := eng.Group("/instance")
 	{
 		routes.Use(r.authMiddleware.AuthAdmin)

@@ -11,6 +11,21 @@ type MessageRepository interface {
 	GetMessageByID(messageID string) (*message_model.Message, error)
 	DeleteAllMessages() (int64, error)
 	GetLatestMessageID(source string) (string, string, error)
+	GetStats() (*MessageStats, error)
+}
+
+// StatKV is a label/count pair used by the dashboard aggregations.
+type StatKV struct {
+	Key   string `json:"key" gorm:"column:label"`
+	Count int64  `json:"count" gorm:"column:total"`
+}
+
+// MessageStats aggregates the messages table for the dashboard.
+type MessageStats struct {
+	Total      int64    `json:"total"`
+	ByStatus   []StatKV `json:"byStatus"`
+	ByDay      []StatKV `json:"byDay"`
+	TopSources []StatKV `json:"topSources"`
 }
 
 type messageRepository struct {
@@ -66,4 +81,35 @@ func (m *messageRepository) GetLatestMessageID(source string) (string, string, e
 
 func NewMessageRepository(db *gorm.DB) MessageRepository {
 	return &messageRepository{db: db}
+}
+
+// GetStats aggregates the messages table: total, breakdown by status, by day
+// (last 14 days, newest first) and top contacts by volume. Note: only received
+// messages are persisted today (Status="Received", Source=contact number), so
+// byStatus is usually dominated by "Received".
+func (m *messageRepository) GetStats() (*MessageStats, error) {
+	stats := &MessageStats{ByStatus: []StatKV{}, ByDay: []StatKV{}, TopSources: []StatKV{}}
+
+	if err := m.db.Model(&message_model.Message{}).Count(&stats.Total).Error; err != nil {
+		return nil, err
+	}
+
+	m.db.Model(&message_model.Message{}).
+		Select("status as label, count(*) as total").
+		Group("status").Order("total desc").
+		Scan(&stats.ByStatus)
+
+	m.db.Model(&message_model.Message{}).
+		Select(`substr("timestamp", 1, 10) as label, count(*) as total`).
+		Group(`substr("timestamp", 1, 10)`).Order("label desc").
+		Limit(14).
+		Scan(&stats.ByDay)
+
+	m.db.Model(&message_model.Message{}).
+		Select("source as label, count(*) as total").
+		Group("source").Order("total desc").
+		Limit(8).
+		Scan(&stats.TopSources)
+
+	return stats, nil
 }
