@@ -164,10 +164,9 @@ func (i *instances) ensureClientConnected(instanceId string) (*whatsmeow.Client,
 			return nil, errors.New("no active session found")
 		}
 
-		logger.LogInfo("[%s] Instance started, waiting 2 seconds...", instanceId)
-		time.Sleep(2 * time.Second)
+		logger.LogInfo("[%s] Instance started, waiting for the connection...", instanceId)
+		client = i.waitForClient(instanceId, 10*time.Second)
 
-		client = i.clientPointer.Get(instanceId)
 		logger.LogInfo("[%s] Checking new client - Exists: %v, Connected: %v",
 			instanceId,
 			client != nil,
@@ -940,21 +939,37 @@ func (i instances) ForceReconnect(instanceId string, number string) error {
 
 	go i.whatsmeowService.StartClient(clientData)
 
-	time.Sleep(2 * time.Second)
-
-	if i.clientPointer.Get(instance.Id) != nil {
-		if !i.clientPointer.Get(instance.Id).IsConnected() {
-			return fmt.Errorf("failed to connect")
-		}
-
-		if !i.clientPointer.Get(instance.Id).IsLoggedIn() {
-			return fmt.Errorf("failed to login")
-		}
-	} else {
+	// Wait for the client to actually connect and log in instead of guessing
+	// with a fixed sleep. StartClient runs asynchronously, so this first waits
+	// for the client object to appear, then for the socket to be ready.
+	client := i.waitForClient(instance.Id, 10*time.Second)
+	if client == nil || !client.IsConnected() {
 		return fmt.Errorf("failed to connect")
+	}
+	if !client.IsLoggedIn() {
+		return fmt.Errorf("failed to login")
 	}
 
 	return nil
+}
+
+// waitForClient waits for the instance's client object to exist and for its
+// socket to be connected and logged in, up to timeout. It replaces the fixed
+// sleeps that used to guess how long a connection takes — whatsmeow's
+// WaitForConnection is the supported way to wait, and returns as soon as the
+// socket is ready (or immediately on an expected disconnect).
+func (i instances) waitForClient(instanceId string, timeout time.Duration) *whatsmeow.Client {
+	deadline := time.Now().Add(timeout)
+	for {
+		if client := i.clientPointer.Get(instanceId); client != nil {
+			client.WaitForConnection(time.Until(deadline))
+			return client
+		}
+		if time.Now().After(deadline) {
+			return nil
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
 }
 
 func (i instances) GetInstanceByToken(token string) (*instance_model.Instance, error) {
