@@ -66,18 +66,18 @@ build-all: build build-linux build-windows ## Compila para todas as plataformas
 
 ##@ Manager (frontend React)
 
-manager-install: ## Instala as dependências do manager (pnpm, bun ou npm)
+manager-install: ## Instala as dependências do manager (bun, pnpm ou npm)
 	@echo "$(GREEN)📦 Instalando dependências do manager...$(NC)"
 	@cd evolution-go-manager && \
-	if command -v pnpm >/dev/null 2>&1; then pnpm install; \
-	elif command -v bun >/dev/null 2>&1; then bun install; \
+	if command -v bun >/dev/null 2>&1; then bun install --frozen-lockfile; \
+	elif command -v pnpm >/dev/null 2>&1; then pnpm install; \
 	else npm install; fi
 
 manager-build: ## Compila o manager e sincroniza com manager/dist (preserva dashboard.html)
 	@echo "$(GREEN)🔨 Compilando manager...$(NC)"
 	@cd evolution-go-manager && \
-	if command -v pnpm >/dev/null 2>&1; then pnpm build; \
-	elif command -v bun >/dev/null 2>&1; then bun run build; \
+	if command -v bun >/dev/null 2>&1; then bun run build; \
+	elif command -v pnpm >/dev/null 2>&1; then pnpm build; \
 	else npm run build; fi
 	rm -rf manager/dist/assets manager/dist/index.html
 	cp -r evolution-go-manager/dist/assets manager/dist/assets
