@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Save, Trash2, Power, Eye, EyeOff, Copy, Check, Network, RefreshCw } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Power, Eye, EyeOff, Copy, Check, Network, RefreshCw, Pencil, X } from "lucide-react";
 import { Button } from "@evoapi/design-system";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
@@ -9,6 +9,7 @@ import { z } from "zod";
 import * as instancesApi from "@/services/api/instances";
 import type { Instance, InstanceOverview, ProxyConfig, ProxyTestResult } from "@/types/instance";
 import { deviceLabel } from "@/utils/device";
+import useInstancesStore from "@/store/instancesStore";
 
 const webhookSchema = z.object({
   webhookUrl: z.string().url("URL inválida").optional().or(z.literal("")),
@@ -55,6 +56,9 @@ export default function InstanceSettings() {
   const [isLoading, setIsLoading] = useState(true);
   const [showToken, setShowToken] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [isRenaming, setIsRenaming] = useState(false);
   const isInitialized = useRef(false);
   const hasFetchedOnce = useRef(false);
 
@@ -300,6 +304,55 @@ export default function InstanceSettings() {
     }
   };
 
+  const startEditName = () => {
+    if (!instance) return;
+    setNameDraft(instance.instanceName);
+    setIsEditingName(true);
+  };
+
+  const cancelEditName = () => {
+    setIsEditingName(false);
+    setNameDraft("");
+  };
+
+  const handleRename = async () => {
+    if (!instanceId) return;
+
+    const name = nameDraft.trim();
+    if (!name) {
+      toast.error("Informe um nome para a instância");
+      return;
+    }
+    if (name === instance?.instanceName) {
+      cancelEditName();
+      return;
+    }
+
+    setIsRenaming(true);
+    try {
+      const updated = await instancesApi.renameInstance(instanceId, name);
+      setInstance(updated);
+      // Keep the instances list in sync without a full refetch. The list is
+      // keyed by name, so update the entry under its previous name.
+      if (instance?.instanceName) {
+        useInstancesStore.getState().updateInstance(instance.instanceName, {
+          instanceName: updated.instanceName,
+          profileName: updated.profileName,
+        });
+      }
+      setIsEditingName(false);
+      setNameDraft("");
+      toast.success("Nome da instância atualizado!");
+    } catch (error) {
+      console.error("Erro ao renomear instância:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Erro ao renomear instância"
+      );
+    } finally {
+      setIsRenaming(false);
+    }
+  };
+
   const proxyErrorMessage = (e: unknown, fallback: string) =>
     e instanceof Error ? e.message : fallback;
 
@@ -441,9 +494,59 @@ export default function InstanceSettings() {
                   <label className="text-sm font-medium text-foreground">
                     Nome da Instância
                   </label>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {instance.instanceName}
-                  </p>
+                  {isEditingName ? (
+                    <div className="mt-1 flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={nameDraft}
+                        autoFocus
+                        maxLength={100}
+                        onChange={(e) => setNameDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleRename();
+                          } else if (e.key === "Escape") {
+                            cancelEditName();
+                          }
+                        }}
+                        className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                      />
+                      <Button
+                        type="button"
+                        size="icon"
+                        onClick={handleRename}
+                        disabled={isRenaming}
+                        title="Salvar nome"
+                      >
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        onClick={cancelEditName}
+                        disabled={isRenaming}
+                        title="Cancelar"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="mt-1 flex items-center gap-2">
+                      <p className="text-sm text-muted-foreground">
+                        {instance.instanceName}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={startEditName}
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                        title="Editar nome"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="text-sm font-medium text-foreground">
