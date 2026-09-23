@@ -1675,6 +1675,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		if msg := evt.Message; msg != nil {
 			if pm := msg.GetProtocolMessage(); pm != nil && pm.GetType() == waE2E.ProtocolMessage_EPHEMERAL_SETTING {
 				SetCachedChatEphemeral(mycli.userID, evt.Info.Chat, pm.GetEphemeralExpiration())
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Disappearing timer changed for %s: %ds", mycli.userID, evt.Info.Chat.String(), pm.GetEphemeralExpiration())
 			} else if exp := messageEphemeralExpiration(msg); exp > 0 {
 				SetCachedChatEphemeral(mycli.userID, evt.Info.Chat, exp)
 			}
