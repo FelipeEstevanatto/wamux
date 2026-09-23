@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -25,7 +26,7 @@ type ServerHandler interface {
 // aggregated message sources into display names.
 type OverviewProvider interface {
 	GetInstanceOverview(instanceId string) (*whatsmeow_service.InstanceOverview, error)
-	ResolveChatNames(users []string) map[string]string
+	ResolveChats(users []string) map[string]whatsmeow_service.ChatIdentity
 }
 
 type serverHandler struct {
@@ -105,12 +106,20 @@ func (s *serverHandler) Stats(ctx *gin.Context) {
 type sourceEntry struct {
 	Key   string `json:"key"`
 	Name  string `json:"name,omitempty"`
+	Phone string `json:"phone,omitempty"`
 	Count int64  `json:"count"`
 }
 
-// resolveTopSources annotates the aggregated sources with a display name. Names
-// come from the whatsmeow contact/LID/group stores and are best-effort: when a
-// source cannot be resolved the frontend falls back to "+<key>".
+// topSourcesLimit is how many conversations the dashboard shows once LID/phone
+// duplicates have been merged.
+const topSourcesLimit = 8
+
+// resolveTopSources annotates the aggregated sources with a display name and
+// merges rows that are the same conversation. A contact persisted once under a
+// LID and once under its phone number must not show up twice: both resolve to the
+// same phone, which becomes the canonical key. Names come from the whatsmeow
+// contact/LID/group stores and are best-effort — an unresolved source keeps its
+// raw key and the frontend falls back to "+<key>".
 func (s *serverHandler) resolveTopSources(sources []message_repository.StatKV) []sourceEntry {
 	out := make([]sourceEntry, 0, len(sources))
 	if len(sources) == 0 {
@@ -120,12 +129,35 @@ func (s *serverHandler) resolveTopSources(sources []message_repository.StatKV) [
 	for _, kv := range sources {
 		users = append(users, kv.Key)
 	}
-	var names map[string]string
+	var identities map[string]whatsmeow_service.ChatIdentity
 	if s.overview != nil {
-		names = s.overview.ResolveChatNames(users)
+		identities = s.overview.ResolveChats(users)
 	}
+
+	index := make(map[string]int, len(sources))
 	for _, kv := range sources {
-		out = append(out, sourceEntry{Key: kv.Key, Name: names[kv.Key], Count: kv.Count})
+		id := identities[kv.Key]
+		canonical := kv.Key
+		if id.Phone != "" {
+			canonical = id.Phone
+		}
+		if pos, ok := index[canonical]; ok {
+			out[pos].Count += kv.Count
+			if out[pos].Name == "" {
+				out[pos].Name = id.Name
+			}
+			if out[pos].Phone == "" {
+				out[pos].Phone = id.Phone
+			}
+			continue
+		}
+		index[canonical] = len(out)
+		out = append(out, sourceEntry{Key: canonical, Name: id.Name, Phone: id.Phone, Count: kv.Count})
+	}
+
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Count > out[j].Count })
+	if len(out) > topSourcesLimit {
+		out = out[:topSourcesLimit]
 	}
 	return out
 }

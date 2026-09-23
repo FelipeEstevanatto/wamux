@@ -115,6 +115,11 @@ func (m *messageRepository) CountChatsByInstance(instanceId string) (int64, erro
 // (last 14 days, newest first) and top contacts by volume. Note: only received
 // messages are persisted today (Status="Received", Source=contact number), so
 // byStatus is usually dominated by "Received".
+//
+// TopSources is deliberately over-fetched (25 rows): the HTTP layer merges rows
+// that are the same conversation (a contact stored once under a LID and once
+// under its phone) and then trims to the display limit, so a generous raw limit
+// keeps the merged ranking accurate.
 func (m *messageRepository) GetStats() (*MessageStats, error) {
 	stats := &MessageStats{ByStatus: []StatKV{}, ByDay: []StatKV{}, TopSources: []StatKV{}}
 
@@ -136,7 +141,7 @@ func (m *messageRepository) GetStats() (*MessageStats, error) {
 	m.db.Model(&message_model.Message{}).
 		Select("source as label, count(*) as total").
 		Group("source").Order("total desc").
-		Limit(8).
+		Limit(25).
 		Scan(&stats.TopSources)
 
 	return stats, nil
