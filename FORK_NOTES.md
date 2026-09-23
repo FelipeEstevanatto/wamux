@@ -428,6 +428,39 @@ muxer needs a **seekable output** (a pipe fails with "muxer does not support non
 seekable output"), and the output file must be passed with **`-y`** because the
 temp file already exists.
 
+## 3i. Manager SPA vs. the self-hosted dashboard
+
+Two different UIs are served from the same origin:
+
+| Route | Source | Editable here? |
+|---|---|---|
+| `/manager` (+ `/manager/*`) | **Prebuilt** React SPA: `manager/dist/index.html` + `manager/dist/assets/index-*.js`/`.css`. | **No** — only the compiled bundle is committed; there is no `src/`, `package.json` or `vite.config` in this repo. The SPA's Dashboard/Messages/Events/Settings tabs are placeholders ("…will be implemented here…") baked into the minified bundle. Changing it needs the upstream Manager source and a rebuild (which also renames the hashed assets `index.html` points at). |
+| `/dashboard` | **Hand-written** static page `manager/dist/dashboard.html` (plain HTML + vanilla JS + Chart.js from CDN), added by this fork. | **Yes** — no build step; edit the file and reload. |
+
+`/dashboard` is the fork's own operational view. It already shows instance
+KPIs, a connection donut, messages/day, host RAM/load/goroutines/uptime, top
+conversations, an instance table and per-instance logs, and it supports
+`?embed=1` so it can be iframed inside the Manager's Dashboard tab.
+
+### Per-instance overview (profile picture + contacts)
+
+`GET /instance/overview/:instanceId` (AuthAdmin) returns the connected
+account's own profile picture, push name and local contact count:
+
+```json
+{"data":{"connected":true,"profileName":"…","profilePicUrl":"https://pps.whatsapp.net/…","contactsCount":346}}
+```
+
+Backed by `whatsmeowService.GetInstanceOverview` (a preview profile-picture IQ,
+time-bounded to 15 s, plus `Store.Contacts.GetAllContacts`). The dashboard
+lazy-loads it per connected instance and caches the result for 60 s, so polling
+stays cheap. `GET /server/stats` now also reports `system.version` (the
+`-X main.version=` / `VERSION` value), shown as a header badge next to a static
+GitHub link.
+
+To add more widgets, edit `manager/dist/dashboard.html`; if a value is missing
+from the API, add it to `/server/stats` or `/instance/overview/:instanceId`.
+
 ## 4. Build & run
 
 From the repository root (the `docker-compose.yml` is there):
@@ -440,6 +473,7 @@ docker compose up -d --build
 - API: <http://localhost:8081> (override with `EVOGO_PORT`)
 - Swagger: <http://localhost:8081/swagger/index.html>
 - Manager: <http://localhost:8081/manager> (log in with `GLOBAL_API_KEY`)
+- Dashboard (fork's own, editable): <http://localhost:8081/dashboard> (same key; see §3i)
 - Postgres is bundled and databases are auto-created.
 
 Optional brokers/storage, not started by default:
@@ -474,9 +508,10 @@ go vet ./...
 
 ## 6. Known limitations
 
-- The prebuilt Manager frontend still contains license-screen code; the local
-  stub keeps it satisfied. Rebuilding the Manager UI from source is out of scope
-  here.
+- The prebuilt Manager SPA (`/manager`) has no source in this repo — only the
+  compiled bundle under `manager/dist/` (and its license-screen code, which the
+  local stub keeps satisfied). Rebuilding it from source is out of scope; use
+  the fork's editable `/dashboard` page instead (see §3i).
 - `docs/docs.go` / `swagger.json` still contain generated annotations for the
   removed `/license/*` routes. They are inert documentation, not code.
 - The upstream LICENSE still applies (Apache 2.0 plus its brand-protection and

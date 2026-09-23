@@ -109,6 +109,8 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.GET("/limits/:instanceId", r.instanceHandler.Limits)
 			routes.POST("/forcereconnect/:instanceId", r.instanceHandler.ForceReconnect)
 			routes.GET("/logs/:instanceId", r.instanceHandler.GetLogs)
+			// Dashboard per-instance summary (own profile picture + contact count).
+			routes.GET("/overview/:instanceId", r.serverHandler.InstanceOverview)
 		}
 	}
 

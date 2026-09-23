@@ -40,6 +40,9 @@
   tbody tr.sel{background:var(--accent-dim)}
   .status-pill{display:inline-flex;align-items:center;gap:6px;font-size:12px}
   .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--muted)}
+  .avatar{width:24px;height:24px;border-radius:50%;background:var(--panel2);border:1px solid var(--border);display:inline-flex;align-items:center;justify-content:center;overflow:hidden;font-size:10px;color:var(--muted);flex:0 0 auto}
+  .avatar img{width:100%;height:100%;object-fit:cover}
+  .name-cell{display:flex;align-items:center;gap:8px}
   #logs{max-height:320px;overflow:auto;background:#0d0d0d;border:1px solid var(--border);border-radius:8px;padding:10px;font-family:ui-monospace,monospace;font-size:12px;white-space:pre-wrap;color:#cfcfcf}
   .muted{color:var(--muted)}
   .gate{max-width:440px;margin:80px auto;text-align:center}
@@ -67,7 +70,7 @@
 <script>
 const LS_KEY="egogo_dash_key", LS_BASE="egogo_dash_base";
 const $=(s,el=document)=>el.querySelector(s);
-const state={base:localStorage.getItem(LS_BASE)||"",key:localStorage.getItem(LS_KEY)||"",instances:[],selected:null,timer:null,interval:15,charts:{}};
+const state={base:localStorage.getItem(LS_BASE)||"",key:localStorage.getItem(LS_KEY)||"",instances:[],selected:null,timer:null,interval:15,charts:{},overview:{}};
 
 function api(path){
   return fetch((state.base||"")+path,{headers:{apikey:state.key}}).then(async r=>{
@@ -105,6 +108,8 @@ function shell(){
   <header>
     <span class="logo">Evolution GO</span>
     <span class="muted">Dashboard</span>
+    <span class="badge" title="Versão em execução">v<span id="ver">—</span></span>
+    <a class="link" href="https://github.com/evolution-foundation/evolution-go" target="_blank" rel="noopener" title="Repositório no GitHub">GitHub</a>
     <span class="spacer"></span>
     <span class="badge"><span id="srv-dot" class="dot"></span><span id="srv-txt">servidor…</span></span>
     <span class="badge">atualizado: <span id="upd">—</span></span>
@@ -140,7 +145,7 @@ function shell(){
     <div class="card" style="margin-top:16px">
       <h3>Instâncias</h3>
       <div class="err" id="tbl-err"></div>
-      <table><thead><tr><th>Status</th><th>Nome</th><th>Número / JID</th><th>SO</th><th>Cliente</th><th>Criada</th><th>Motivo desconexão</th></tr></thead>
+      <table><thead><tr><th>Status</th><th>Nome</th><th>Número / JID</th><th>SO</th><th>Cliente</th><th>Contatos</th><th>Criada</th><th>Motivo desconexão</th></tr></thead>
       <tbody id="tbody"></tbody></table>
     </div>
     <div class="card" style="margin-top:16px">
@@ -186,6 +191,7 @@ function loadStats(){ api("/server/stats").then(renderStats).catch(()=>{}); }
 
 function renderStats(d){
   d=d||{}; const sys=d.system||{}, msg=d.messages||{};
+  $("#ver").textContent = sys.version||"—";
   const total=(msg.total!=null?msg.total:null);
   $("#s-msg").textContent = total!=null?total:"—";
   $("#msg-total").textContent = total!=null?("(total: "+total+")"):"";
@@ -227,21 +233,59 @@ function renderTopSources(list){
   }).join("");
 }
 
+function initials(name){
+  const n=(name||"").trim(); if(!n)return "?";
+  const p=n.split(/\s+/);
+  return ((p[0][0]||"")+(p.length>1?p[p.length-1][0]:"")).toUpperCase();
+}
+
+// Fills the avatar + contact-count cells for one instance from /instance/overview.
+function applyOverview(id,d){
+  const av=document.querySelector('.avatar[data-id="'+id+'"]');
+  if(av){
+    const url=d&&d.profilePicUrl, name=d&&d.profileName;
+    if(url){av.innerHTML='<img src="'+esc(url)+'" alt="" referrerpolicy="no-referrer" onerror="this.remove()">';}
+    else if(name){av.textContent=initials(name);}
+  }
+  const ct=document.querySelector('[data-contacts="'+id+'"]');
+  if(ct){ct.textContent=(d&&d.contactsCount!=null)?d.contactsCount:"—";}
+}
+
+// Best-effort per-instance overview fetch, cached 60s so polling stays cheap.
+function loadOverview(inst){
+  if(!inst||!inst.connected)return;
+  const cached=state.overview[inst.id];
+  if(cached&&Date.now()-cached.at<60000){applyOverview(inst.id,cached.data);return;}
+  api("/instance/overview/"+inst.id).then(res=>{
+    const d=(res&&res.data)?res.data:{};
+    state.overview[inst.id]={at:Date.now(),data:d};
+    applyOverview(inst.id,d);
+  }).catch(()=>{});
+}
+
 function renderTable(list){
   const tb=$("#tbody"); tb.innerHTML="";
-  if(!list.length){tb.innerHTML=`<tr><td colspan="7" class="muted">Nenhuma instância.</td></tr>`;return;}
+  if(!list.length){tb.innerHTML=`<tr><td colspan="8" class="muted">Nenhuma instância.</td></tr>`;return;}
   list.forEach(i=>{
     const tr=document.createElement("tr");
     if(state.selected===i.id)tr.className="sel";
     const dot=i.connected?'<span class="dot on"></span>':'<span class="dot off"></span>';
     const txt=i.connected?"conectada":"desconectada";
+    const ov=state.overview[i.id]&&state.overview[i.id].data;
+    const avHTML=i.connected
+      ? (ov&&ov.profilePicUrl?'<img src="'+esc(ov.profilePicUrl)+'" alt="" referrerpolicy="no-referrer" onerror="this.remove()">':esc(initials((ov&&ov.profileName)||i.name)))
+      : "";
+    const contacts=i.connected?((ov&&ov.contactsCount!=null)?ov.contactsCount:"…"):"—";
     tr.innerHTML=`<td><span class="status-pill">${dot}${txt}</span></td>
-      <td>${esc(i.name)}</td><td class="mono">${esc(jidNumber(i))}</td>
+      <td><span class="name-cell"><span class="avatar" data-id="${esc(i.id)}">${avHTML}</span>${esc(i.name)}</span></td>
+      <td class="mono">${esc(jidNumber(i))}</td>
       <td>${esc(i.os_name||"—")}</td><td>${esc(i.client_name||"—")}</td>
+      <td class="mono" data-contacts="${esc(i.id)}">${contacts}</td>
       <td class="mono">${esc(fmtDate(i.createdAt))}</td><td class="muted">${esc(i.disconnect_reason||"—")}</td>`;
     tr.onclick=()=>{state.selected=i.id;renderTable(list);loadLogs(i);};
     tb.appendChild(tr);
   });
+  list.forEach(loadOverview);
 }
 
 function closeLogs(){

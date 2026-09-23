@@ -46,6 +46,10 @@ Fork-specific fixes on top of `0.7.2` (see `FORK_NOTES.md` for the full list).
 - **`PUT /instance/name/:instanceId`** — rename an instance (id/token unchanged).
 - **`GET /server/stats`** and **`GET /dashboard`** — runtime/host metrics and
   message aggregates, plus a self-hosted dashboard page.
+- **`GET /instance/overview/:instanceId`** — the connected account's own profile
+  picture, push name and local contact count (AuthAdmin). `GET /server/stats`
+  now also returns `system.version`, and `/dashboard` shows the profile picture,
+  contact count, running version and a GitHub link (see `FORK_NOTES.md` §3i).
 - **Multiple webhooks per instance** — the `Webhook` field accepts a JSON array or
   a newline/comma/semicolon separated list; the payload is delivered to each URL.
 - **`POST /user/savecontact`** route aligned (with a legacy `POST /user/contacts`
