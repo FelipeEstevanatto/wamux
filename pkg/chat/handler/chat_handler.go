@@ -15,6 +15,7 @@ type ChatHandler interface {
 	ChatUnarchive(ctx *gin.Context)
 	ChatMute(ctx *gin.Context)
 	ChatUnmute(ctx *gin.Context)
+	SetEphemeralExpiration(ctx *gin.Context)
 	HistorySyncRequest(ctx *gin.Context)
 }
 
@@ -290,6 +291,49 @@ func (c *chatHandler) ChatUnmute(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+}
+
+// Set disappearing-messages timer
+// @Summary Set the disappearing-messages timer for a chat
+// @Description Sets the chat's disappearing-messages timer in seconds (0 disables it).
+// @Description Official clients use 86400 (24h), 604800 (7d) or 7776000 (90d). Outgoing
+// @Description messages to the chat then carry the timer, so the recipient does not warn
+// @Description that the message will not disappear.
+// @Tags Chat
+// @Accept json
+// @Produce json
+// @Param message body chat_service.EphemeralStruct true "Chat and expiration"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /chat/ephemeral [post]
+func (c *chatHandler) SetEphemeralExpiration(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	var data *chat_service.EphemeralStruct
+	err := ctx.ShouldBindBodyWithJSON(&data)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if data.Chat == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "chat is required"})
+		return
+	}
+
+	if err := c.chatService.SetEphemeralExpiration(data, instance); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success"})
 }
 
 // HistorySyncRequest a chat

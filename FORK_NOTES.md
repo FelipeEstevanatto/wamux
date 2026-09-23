@@ -132,6 +132,7 @@ Reviewed independently against [ecosb2b/evo-go-v2](https://github.com/ecosb2b/ev
 | Webhook delivery: a dotless queue name (e.g. `sendstatus`) silently dropped the event before any HTTP call; delivery now uses exponential backoff, skips retrying 4xx (except 408/429), caps the read body at 8 KiB, and bounds concurrent deliveries. | NathanAshford; supersedes our earlier webhook timeout-only change |
 | Proxy tooling: `GET /instance/proxy/:id`, `POST .../test`, `POST .../reconnect` — checks reachability, the exit IP vs the server IP, and whether WhatsApp is reachable through it. | NathanAshford |
 | Account limits: `GET /instance/limits/:instanceId` — WhatsApp reachout timelock and new-chat messaging quota (the limits behind error 463), cached on connect with a live fallback. | NathanAshford (`pkg/walimits`) |
+| Outgoing messages did not respect the chat's disappearing-messages timer, so the recipient saw "This message will not disappear". The chat's timer is now cached (learned from `EPHEMERAL_SETTING` notifications and received ephemeral messages, and read once from group metadata) and stamped onto every outgoing message's `ContextInfo.Expiration`; `POST /chat/ephemeral` sets the timer and remembers it. | #79 |
 
 **Kept our implementation over evo-go-v2's** (ours handles an edge case theirs does not): `/group/myall` owner filter (ours is strictly owner via `Store.ID`+`Store.LID`; theirs broadens to admin/superadmin); shared Postgres pool (reuses the existing `authDB`; theirs opens a second pool); `pkg/safemap` generic wrapper (vs their global mutex at ~103 call sites); conservative reconnect backoff (vs their `runtime_lifecycle` supervisor); WebSocket multi-subscriber (theirs replaces the previous connection); startup restore of paired instances; unbounded-HTTP hardening; and a newer whatsmeow.
 
@@ -238,17 +239,14 @@ Not fixed here — they are larger or need protocol work. Ordered by impact.
    `templateMessage` nodes the fork still builds; only the `InteractiveMessage`
    carousel path still works, and it splits into two bubbles. Needs porting to
    the current interactive/native-flow format. **Biggest functional gap.**
-2. **Disappearing-messages timer not applied to outgoing messages** (#79), so
-   recipients see "this message will not disappear". Needs the chat's ephemeral
-   expiration copied into the outgoing message/context.
-3. **Error 463 / NCT tokens not persisted** (#124, #50). The whatsmeow bump
+2. **Error 463 / NCT tokens not persisted** (#124, #50). The whatsmeow bump
    applied here plus the shared auth-store fix may already help; verify on a
    previously-affected instance before deeper work.
-4. **Push notifications suppressed after connecting** (#70 23 comments, #54,
+3. **Push notifications suppressed after connecting** (#70 23 comments, #54,
    #55). 0.7.2 already respects `alwaysOnline` on the `Connected` path, but the
    reports persist — audit every `SendPresence(PresenceAvailable)` call site
    (typing, subscribe, presence loop) when `alwaysOnline=false`.
-5. **Passkey events / ceremony** (#105, #107, #172, #173). `PASSKEY*` event
+4. **Passkey events / ceremony** (#105, #107, #172, #173). `PASSKEY*` event
    groups are not in `event_types` or the subscription filter, so they can never
    reach a webhook; the ceremony state machine also gets stuck.
 ## 3f. Media processing: ffmpeg dependency and running outside Docker
