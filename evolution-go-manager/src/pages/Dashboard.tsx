@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Activity,
   Cpu,
@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import useServerStats from '@/hooks/useServerStats';
 import useInstancesStore from '@/store/instancesStore';
+import useAuth from '@/hooks/useAuth';
 import GithubIcon from '@/components/base/GithubIcon';
 import {
   FORK_REPO,
@@ -72,6 +73,24 @@ export default function Dashboard() {
   const { stats, error, loading } = useServerStats(15000);
   const { instances, fetchInstances, overviews, fetchOverviews } =
     useInstancesStore();
+  const { apiUrl, apiKey } = useAuth();
+
+  // The static self-hosted dashboard at /dashboard has its own charts, top
+  // sources and per-instance logs; rather than duplicate it, it is embedded
+  // below. It reads its credentials from its own localStorage keys, so seed
+  // them here (same origin) before mounting the iframe to avoid a second login.
+  const [embedReady, setEmbedReady] = useState(false);
+  useEffect(() => {
+    if (!apiKey) return;
+    const sameOrigin =
+      !apiUrl || apiUrl.replace(/\/+$/, '') === window.location.origin;
+    localStorage.setItem('egogo_dash_key', apiKey);
+    localStorage.setItem(
+      'egogo_dash_base',
+      sameOrigin ? '' : apiUrl.replace(/\/+$/, '')
+    );
+    setEmbedReady(true);
+  }, [apiUrl, apiKey]);
 
   useEffect(() => {
     fetchInstances();
@@ -246,6 +265,19 @@ export default function Dashboard() {
             </div>
           )}
         </div>
+
+        {/* Full self-hosted dashboard (charts, top sources, per-instance logs).
+            Embedded instead of duplicated; it hides its own KPI grid when
+            embedded (see dashboard.html). */}
+        {embedReady && (
+          <div className="overflow-hidden rounded-xl border border-sidebar-border bg-sidebar">
+            <iframe
+              src="/dashboard?embed=1"
+              title="Dashboard completo"
+              className="h-[70vh] w-full border-0"
+            />
+          </div>
+        )}
       </div>
     </div>
   );

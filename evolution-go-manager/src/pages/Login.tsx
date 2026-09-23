@@ -15,22 +15,21 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle } from 'lucide-react';
 
 import useAuth from '@/hooks/useAuth';
-import { initRegister } from '@/services/api/license';
 import { COPYRIGHT_LINE, FORK_DISCLAIMER, FORK_OF_NAME, PRODUCT_NAME } from '@/constants/branding';
 
 export const Login: React.FC = () => {
-  const { login, checkLicense, setApiUrl, setApiKey: setStoreApiKey, isAuthenticated, licenseState, apiUrl: defaultApiUrl, apiKey: storedApiKey } = useAuth();
+  const { login, isAuthenticated, apiUrl: defaultApiUrl, apiKey: storedApiKey } = useAuth();
   const navigate = useNavigate();
 
   const [isLoading, setIsLoading] = useState(false);
   const [loginError, setLoginError] = useState('');
 
-  // If user is already authenticated and licensed, redirect to dashboard
+  // If already authenticated, go straight to the dashboard.
   useEffect(() => {
-    if (isAuthenticated && licenseState === 'licensed') {
+    if (isAuthenticated) {
       navigate('/manager', { replace: true });
     }
-  }, [isAuthenticated, licenseState, navigate]);
+  }, [isAuthenticated, navigate]);
   
   // Usar a URL atual do navegador como placeholder
   const currentUrl = window.location.origin;
@@ -66,43 +65,11 @@ type LoginFormData = z.infer<typeof loginSchema>;
     setLoginError('');
 
     try {
-      // 1. Check license FIRST (before connecting to backend)
-      const cleanUrl = data.apiUrl.replace(/\/$/, '');
-      toast.info('Verificando licenca...');
-      const licResult = await checkLicense(cleanUrl, data.apiKey);
-
-      if (licResult !== 'licensed') {
-        // License not found - initiate registration (no need to connect to backend)
-        toast.info('Licenca necessaria', {
-          description: 'Redirecionando para registro de licenca...',
-        });
-
-        const callbackUrl = `${window.location.origin}/manager/license/callback`;
-        const registerData = await initRegister(callbackUrl, cleanUrl, data.apiKey);
-
-        if (!registerData.register_url) {
-          toast.error('Erro', {
-            description: registerData.message || 'Falha ao iniciar registro de licenca.',
-          });
-          setLoginError(registerData.message || 'Falha ao iniciar registro.');
-          return;
-        }
-
-        // Save credentials so callback page knows where to call activate
-        setApiUrl(cleanUrl);
-        setStoreApiKey(data.apiKey);
-
-        // Redirect to licensing registration page
-        window.location.href = registerData.register_url;
-        return;
-      }
-
-      // 2. License OK - now connect to backend
+      // Validate the API key against the backend (no license check — this fork
+      // removed the licensing entirely).
       await login(data.apiUrl, data.apiKey);
 
-      toast.success('Conectado com sucesso!', {
-        description: 'Licenca valida. Bem-vindo!',
-      });
+      toast.success('Conectado com sucesso!');
 
       navigate('/manager', { replace: true });
     } catch (error) {

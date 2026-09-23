@@ -1,14 +1,14 @@
 /**
  * Authentication types
+ *
+ * There is no license state: this fork removed the license gate entirely, so a
+ * valid GLOBAL_API_KEY is all that is needed.
  */
-
-export type LicenseState = 'unchecked' | 'licensed' | 'unlicensed' | 'pending';
 
 export interface AuthState {
   apiUrl: string;
   apiKey: string;
   isAuthenticated: boolean;
-  licenseState: LicenseState;
 }
 
 export interface AuthStore extends AuthState {
@@ -16,8 +16,6 @@ export interface AuthStore extends AuthState {
   logout: () => void;
   setApiUrl: (apiUrl: string) => void;
   setApiKey: (apiKey: string) => void;
-  setLicenseState: (state: LicenseState) => void;
-  checkLicense: (apiUrl?: string, apiKey?: string) => Promise<LicenseState>;
 }
 
 export interface LoginCredentials {

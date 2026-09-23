@@ -1,0 +1,1 @@
+import{t as e}from"./jsx-runtime-Cx0BB4qO.js";var t=e();function n(){return(0,t.jsxs)(`div`,{className:`p-6`,children:[(0,t.jsx)(`h1`,{className:`mb-4 text-2xl font-bold text-foreground`,children:`Eventos`}),(0,t.jsx)(`p`,{className:`text-muted-foreground`,children:`Events monitor will be implemented here...`})]})}export{n as default};
