@@ -986,6 +986,10 @@ func (i instances) GetLogs(instanceId string, startDate, endDate time.Time, leve
 		return logs, fmt.Errorf("invalid instance id")
 	}
 
+	// Per-instance logs are written asynchronously, so make sure everything
+	// already emitted for this instance has reached the file before reading it.
+	i.loggerWrapper.Flush(instanceId)
+
 	// Define valores padrão
 	if limit <= 0 {
 		limit = 100 // Limite padrão de 100 registros
