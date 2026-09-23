@@ -49,7 +49,7 @@ endorsed by, or an official release of Evolution Foundation.
   the GHCR workflow and `cmd/evolution-go/main.go` all read it). It is now
   `0.8.0`; the Makefile used to grep `CHANGELOG.md`, which started matching
   unrelated text (`amqp091-go`) and produced a broken `-X main.version`.
-- **Image**: `ghcr.io/felipeestevanatto/evolution-go-community`, published by
+- **Image**: `ghcr.io/felipeestevanatto/evo-gofork`, published by
   `.github/workflows/publish_docker_image.yml` with the automatic
   `GITHUB_TOKEN`. It is never pushed to the upstream `evoapicloud/evolution-go`
   Docker Hub repo. OCI labels mark it unofficial.

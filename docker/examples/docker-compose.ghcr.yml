@@ -19,7 +19,7 @@
 services:
   evolution-go:
     container_name: evolution_go
-    image: ghcr.io/felipeestevanatto/evolution-go-community:${EVOGO_VERSION:-0.8.0}
+    image: ghcr.io/felipeestevanatto/evo-gofork:${EVOGO_VERSION:-0.8.0}
     restart: unless-stopped
     init: true
     ports:

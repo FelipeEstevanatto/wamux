@@ -36,7 +36,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/felipeestevanatto/evolution-go-community
+          images: ghcr.io/felipeestevanatto/evo-gofork
           tags: |
             type=raw,value=${{ steps.version.outputs.version }}
             type=raw,value=latest,enable=${{ !contains(steps.version.outputs.version, '-') }}
