@@ -258,14 +258,28 @@ image**, not in the Go binary:
 
 | Tool | Version in this image | Used for |
 |---|---|---|
-| `ffprobe` | **ffmpeg-6.1.1-r0** (Alpine) | video duration/width/height (issue #104) |
-| `ffmpeg` | **ffmpeg-6.1.1-r0** (Alpine) | first-frame JPEG thumbnail; audio → Opus conversion |
-| `pdftoppm` | Alpine `poppler-utils` (3.19.1) | PDF document thumbnails |
+| `ffprobe` | **ffmpeg-8.1.2-r0** (Alpine 3.24) | video duration/width/height (issue #104) |
+| `ffmpeg` | **ffmpeg-8.1.2-r0** (Alpine 3.24) | first-frame JPEG thumbnail; audio → Opus conversion |
+| `pdftoppm` | `poppler-utils` 25.12.0-r1 (Alpine 3.24) | PDF document thumbnails |
+
+The runtime base was `alpine:3.19.1` (Alpine 3.19 had become end-of-life and no
+longer received security updates: 1 critical / 6 high / 11 medium findings). It
+was moved to **`alpine:3.24`**, matching the build stage
+(`golang:1.26-alpine` = 3.24.2). This both clears those CVEs and removes a
+cross-version libc mismatch: the CGO binary is built against 3.24's musl and was
+previously run on 3.19's. The Go binary's only dynamic dependency is musl
+(`ldd` → `ld-musl-x86_64.so.1`); libwebp/libjpeg are linked statically, and the
+runtime `libjpeg-turbo`/`libwebp` packages exist for ffmpeg.
+
+Upgrade check: every runtime package still exists in 3.24
+(`tzdata`, `ffmpeg`, `libjpeg-turbo`, `libwebp`, `poppler-utils`) and the exact
+ffprobe/ffmpeg/pdftoppm invocations used below were re-verified on ffmpeg 8.1.2 /
+poppler 25.12 (same output shape: dimensions, duration, frame thumbnail, Opus).
 
 On Alpine the `ffmpeg` package provides **both** `ffmpeg` and `ffprobe`
 (`/usr/bin/ffmpeg`, `/usr/bin/ffprobe`). The Dockerfile runtime stage installs
 `tzdata ffmpeg libjpeg-turbo libwebp poppler-utils`; that line is **upstream
-0.7.2** — this fork only changed the Go base image.
+0.7.2** — this fork only changed the Go base image and the runtime Alpine tag.
 
 **Caveat for a non-Docker deployment.** If the compiled binary is run directly on
 a host (not in this image), those tools are not present and the affected features
