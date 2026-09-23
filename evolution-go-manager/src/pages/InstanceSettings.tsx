@@ -7,7 +7,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import * as instancesApi from "@/services/api/instances";
-import type { Instance, ProxyConfig, ProxyTestResult } from "@/types/instance";
+import type { Instance, InstanceOverview, ProxyConfig, ProxyTestResult } from "@/types/instance";
+import { deviceLabel } from "@/utils/device";
 
 const webhookSchema = z.object({
   webhookUrl: z.string().url("URL inválida").optional().or(z.literal("")),
@@ -48,6 +49,7 @@ export default function InstanceSettings() {
   const { instanceId } = useParams<{ instanceId: string }>();
   const navigate = useNavigate();
   const [instance, setInstance] = useState<Instance | null>(null);
+  const [overview, setOverview] = useState<InstanceOverview | null>(null);
   const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -91,6 +93,12 @@ export default function InstanceSettings() {
         setIsLoading(true);
         const instanceData = await instancesApi.fetchInstance(instanceId);
         setInstance(instanceData);
+
+        // Per-instance overview (profile picture, device platform, counts).
+        instancesApi
+          .fetchInstanceOverview(instanceId)
+          .then(setOverview)
+          .catch(() => {});
 
         // Proxy config lives on its own admin route; null means "not set".
         const proxyData = await instancesApi.getProxy(instanceId).catch(() => null);
@@ -492,6 +500,26 @@ export default function InstanceSettings() {
                     </label>
                     <p className="mt-1 text-sm text-muted-foreground">
                       {instance.profileName}
+                    </p>
+                  </div>
+                )}
+                {deviceLabel(overview?.platform) && (
+                  <div>
+                    <label className="text-sm font-medium text-foreground">
+                      Dispositivo
+                    </label>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {deviceLabel(overview?.platform)}
+                    </p>
+                  </div>
+                )}
+                {overview?.businessName && (
+                  <div>
+                    <label className="text-sm font-medium text-foreground">
+                      Nome comercial
+                    </label>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {overview.businessName}
                     </p>
                   </div>
                 )}

@@ -100,6 +100,10 @@ export interface InstancesResponse {
 // distinct chats and messages persisted for that instance.
 export interface InstanceOverview {
   connected: boolean;
+  // Platform of the phone that paired (android/ios/...), from the whatsmeow
+  // device store. whatsmeow exposes no phone model string.
+  platform?: string;
+  businessName?: string;
   profileName?: string;
   profilePicUrl?: string;
   contactsCount: number;

@@ -13,8 +13,10 @@ import {
   FlaskConical,
   Users,
   Mail,
+  Smartphone,
 } from "lucide-react";
 import type { Instance, InstanceOverview } from "@/types/instance";
+import { deviceLabel } from "@/utils/device";
 
 type InstanceCardProps = {
   instance: Instance;
@@ -119,6 +121,16 @@ export default function InstanceCard({
               <span>Proprietário</span>
               <span className="font-mono truncate ml-2 max-w-[150px]">
                 {instance.owner}
+              </span>
+            </div>
+          )}
+          {deviceLabel(overview?.platform) && (
+            <div className="flex items-center justify-between">
+              <span className="inline-flex items-center gap-1">
+                <Smartphone className="h-3 w-3" /> Dispositivo
+              </span>
+              <span className="truncate ml-2 max-w-[150px]">
+                {deviceLabel(overview?.platform)}
               </span>
             </div>
           )}
