@@ -153,6 +153,7 @@ type whatsmeowService struct {
 	natsProducer       producer_interfaces.Producer
 	loggerWrapper      *logger_wrapper.LoggerManager
 	passkeyCeremony    *ceremony.Store
+	persistPool        *persistPool
 	// Media-retry state: pending requests (to decrypt the response) and the
 	// refreshed bytes to serve on the next download request.
 	mediaRetryPending *cache.Cache
@@ -205,6 +206,7 @@ type MyClient struct {
 	loggerWrapper      *logger_wrapper.LoggerManager
 	qrcodeCount        int
 	passkeyCeremony    *ceremony.Store
+	persistPool        *persistPool
 	appStateRecoveryMu sync.Mutex
 	appStateRecovery   map[appstate.WAPatchName]appStateRecoveryAttempt
 	nctSaltSyncMu      sync.Mutex
@@ -377,11 +379,74 @@ func (mycli *MyClient) persistMessageAsync(message message_model.Message) {
 		return
 	}
 
-	go func() {
-		if err := mycli.messageRepository.InsertMessage(message); err != nil {
-			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to persist message %s: %v", mycli.userID, message.MessageID, err)
-		}
-	}()
+	job := persistJob{
+		repo:       mycli.messageRepository,
+		logger:     mycli.loggerWrapper,
+		instanceID: mycli.userID,
+		message:    message,
+	}
+	if mycli.persistPool != nil && mycli.persistPool.submit(job) {
+		return
+	}
+
+	// No pool (a bare MyClient in a test) or the pool is saturated: persist
+	// inline so the message is never dropped.
+	if err := mycli.messageRepository.InsertMessage(message); err != nil && mycli.loggerWrapper != nil {
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to persist message %s: %v", mycli.userID, message.MessageID, err)
+	}
+}
+
+// Message persistence used to spawn one goroutine (and one DB upsert) per
+// message with no bound, so a history sync or a message burst could create
+// thousands of goroutines and put unbounded pressure on the connection pool.
+// A fixed-size worker pool with a bounded queue smooths that out; when the queue
+// is full the caller persists inline, which applies backpressure instead of
+// letting memory and goroutines grow without limit.
+const (
+	persistWorkers   = 8
+	persistQueueSize = 4096
+)
+
+type persistJob struct {
+	repo       message_repository.MessageRepository
+	logger     *logger_wrapper.LoggerManager
+	instanceID string
+	message    message_model.Message
+}
+
+type persistPool struct {
+	queue chan persistJob
+}
+
+// newPersistPool starts workers goroutines draining a queue of size size.
+func newPersistPool(workers, size int) *persistPool {
+	if workers < 1 {
+		workers = 1
+	}
+	if size < 1 {
+		size = 1
+	}
+	p := &persistPool{queue: make(chan persistJob, size)}
+	for i := 0; i < workers; i++ {
+		go func() {
+			for job := range p.queue {
+				if err := job.repo.InsertMessage(job.message); err != nil && job.logger != nil {
+					job.logger.GetLogger(job.instanceID).LogError("[%s] Failed to persist message %s: %v", job.instanceID, job.message.MessageID, err)
+				}
+			}
+		}()
+	}
+	return p
+}
+
+// submit enqueues a job without blocking, reporting false when the queue is full.
+func (p *persistPool) submit(job persistJob) bool {
+	select {
+	case p.queue <- job:
+		return true
+	default:
+		return false
+	}
 }
 
 // getGroupInfoCached resolves group metadata, reusing a recent result. Every
@@ -1084,6 +1149,7 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		loggerWrapper:      w.loggerWrapper,
 		qrcodeCount:        0,
 		passkeyCeremony:    w.passkeyCeremony,
+		persistPool:        w.persistPool,
 	}
 
 	mycli.eventHandlerID = mycli.WAClient.AddEventHandler(mycli.myEventHandler)
@@ -3825,6 +3891,7 @@ func NewWhatsmeowService(
 		mediaRetryPending:  cache.New(10*time.Minute, 15*time.Minute),
 		mediaRetryBytes:    cache.New(30*time.Minute, time.Hour),
 		authStore:          &sharedSQLStore{},
+		persistPool:        newPersistPool(persistWorkers, persistQueueSize),
 	}
 }
 
