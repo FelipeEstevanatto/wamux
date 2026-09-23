@@ -172,6 +172,10 @@ function shell(){
       <div class="card kpi"><h3>Uptime</h3><div class="value" id="s-up">—</div><div class="sub" id="s-gover">—</div></div>
     </div>
     <div class="card" style="margin-top:16px">
+      <h3>Armazenamento</h3>
+      <div id="storage"><span class="muted">—</span></div>
+    </div>
+    <div class="card" style="margin-top:16px">
       <h3>Conversas mais ativas</h3>
       <div id="top-src" class="muted">—</div>
     </div>
@@ -251,6 +255,41 @@ function renderStats(d){
   $("#s-gover").textContent = sys.goVersion||"";
   renderMsgBar(msg.byDay||[]);
   renderTopSources(msg.topSources||[]);
+  renderStorage(d.storage||{});
+}
+
+// --- Armazenamento ---------------------------------------------------------
+function fmtGB(mb){ if(mb==null)return "—"; return mb>=1024?(mb/1024).toFixed(1)+" GB":Math.round(mb)+" MB"; }
+
+function storageRow(label,value,pct){
+  const bar=pct!=null
+    ? '<span style="flex:1;max-width:260px;background:var(--track);border-radius:6px;overflow:hidden;height:12px"><span style="display:block;height:100%;width:'+Math.min(100,Math.max(0,pct))+'%;background:'+(pct>=90?'var(--red)':'var(--accent)')+'"></span></span>'
+    : '<span style="flex:1"></span>';
+  return '<div style="display:flex;align-items:center;gap:12px;margin:9px 0">'
+    +'<span style="width:300px;min-width:0;color:var(--src-text);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+label+'</span>'
+    +bar
+    +'<span class="mono" style="color:var(--muted);text-align:right">'+value+'</span></div>';
+}
+
+function renderStorage(st){
+  const box=$("#storage");
+  if(!box)return;
+  if(!st){box.innerHTML='<span class="muted">sem dados</span>';return;}
+  const rows=[];
+  if(st.diskTotalMB!=null){
+    rows.push(storageRow("Disco <span class='muted'>"+esc(st.diskPath||"")+"</span>",
+      fmtGB(st.diskUsedMB)+" / "+fmtGB(st.diskTotalMB)+" ("+Math.round(st.diskUsedPct||0)+"%)", st.diskUsedPct));
+  }
+  if(st.dataUsedMB!=null){
+    rows.push(storageRow("Dados <span class='muted'>"+esc(st.dataDir||"")+"</span>",
+      fmtGB(st.dataUsedMB)+" · "+st.dataFiles+" arquivo(s)", null));
+  }
+  if(st.dbTotalMB!=null){
+    rows.push(storageRow("Banco de dados",
+      fmtGB(st.dbTotalMB)+(st.dbMessagesMB!=null?" · messages "+fmtGB(st.dbMessagesMB):""), null));
+  }
+  rows.push(storageRow("Mídia", st.mediaEnabled?esc(st.mediaBackend):"não configurada", null));
+  box.innerHTML=rows.join("");
 }
 
 function renderMsgBar(byDay){
