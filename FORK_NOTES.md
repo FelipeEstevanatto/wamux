@@ -570,6 +570,42 @@ To add more widgets, edit `manager/dist/dashboard.html` (fork's own page) or
 `evolution-go-manager/src/` (the SPA); if a value is missing from the API, add
 it to `/server/stats` or `/instance/overview/:instanceId`.
 
+### Dashboard UI: light mode, embedded theme and resolved conversation names
+
+Three UI problems were found while testing the dashboard against a live account:
+
+- **Light mode was broken when the OS was in dark mode.** Tailwind v4 defaults
+  the `dark:` variant to `@media (prefers-color-scheme: dark)`, but the app
+  switches themes with a `.dark` class on `<html>` (the JS `darkMode: 'class'`
+  config is ignored by Tailwind v4 unless `@config` is used). With a dark OS and
+  the app toggled to light, `dark:*` utilities kept applying — e.g.
+  `dark:text-gray-200` left the header items light gray on the now-white header.
+  Fixed in `globals.css` with `@custom-variant dark (&:is(.dark *));` so `dark:`
+  follows the class. (Verified in the built CSS: zero
+  `prefers-color-scheme: dark` blocks.)
+- **The messages-per-day bar chart rendered nothing.** Each bar's height was a
+  percentage, but its parent (a flex column) had no definite height, so the
+  percentage resolved to zero and every bar collapsed. The bars now sit in a
+  fixed-height (`h-32`) flex wrapper.
+- **The embedded `/dashboard` was always dark.** It is a separate static page, so
+  it did not follow the manager theme. It now reads `?theme=light|dark` (the
+  manager passes its current theme when embedding), listens for an
+  `egogo-theme` `postMessage`, and falls back to `prefers-color-scheme` when
+  opened standalone. It is also rebranded to **Evo-GoFork** (the page still said
+  "Evolution GO") and links to this fork's repository.
+
+**"Conversas mais ativas" showed raw identifiers** (`+269182931329179`,
+`+5514981170846`, `+status`). `/server/stats` now annotates each `topSources`
+entry with a resolved `name` (`whatsmeowService.ResolveChatNames`): a saved
+contact's name, the phone number a LID maps back to (`Store.LIDs.GetPNForLID`),
+a group subject (`GetGroupInfo`), or `Status`/`Transmissão` for the special
+sources. Resolution is tried across every connected client (the endpoint is
+global and the stored `source` has no instance id) and cached for 10 minutes,
+since the dashboard polls every ~15 s and group lookups are network IQs. When
+nothing resolves, the frontend falls back to `+<key>`. Confirmed live: a LID and
+a phone number both resolved to the saved contact's name, and `status` →
+`Status`.
+
 
 ## 3j. Security audit & hardening
 
