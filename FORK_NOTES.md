@@ -234,11 +234,36 @@ as a self-contained product feature, not a patch.
 
 Not fixed here — they are larger or need protocol work. Ordered by impact.
 
-1. **Passkey events / ceremony** (#105, #107, #172, #173). `PASSKEY*` event
-   groups are not in `event_types` or the subscription filter, so they can never
-   reach a webhook; the ceremony state machine also gets stuck.
+*All items originally listed here have been resolved; see below. New issues
+should be triaged and added here as they are reported.*
 
 ### Resolved from this list
+
+- **Passkey events / ceremony** (#105, #107, #172, #173). Two independent bugs in
+  the passkey (WebAuthn) pairing flow, plus the stale-ceremony case:
+  - `PasskeyRequest` / `PasskeyConfirmation` / `PasskeyError` had no case in the
+    `CallWebhook` subscription filter, so they hit `default: return` and were
+    silently dropped. (The `===== DISPATCHING WEBHOOK =====` log is printed
+    before the filter runs, which made it look like they were sent.) A dedicated
+    `PASSKEY` event type was added, and the events also go to `QRCODE`
+    subscribers since they are part of the #wapk pairing flow.
+  - The `ALL` subscription was only recognised as the **first** element of
+    `subscribe`, and was expanded to `AllEventTypes` — which does not contain
+    `"ALL"` — so the literal `ALL` was never stored and `CallWebhook`'s
+    all-events fast-path never fired. `ALL` in any position now persists the
+    literal `ALL` (so it also covers event types added later).
+  - The ceremony store kept a stale challenge when the socket dropped and the
+    instance reconnected: the new socket has a fresh pairing context, so the old
+    ceremony could never complete. It is now cleared on `Disconnected` /
+    `StreamReplaced`; `Clear` reports whether anything was removed so the clear
+    is logged only when real.
+  Verified live: `subscribe:["PASSKEY"]` is accepted and stored (no *"Message
+  type discarded"*), and `subscribe:["ALL"]` stores `"ALL"`. The ceremony clear
+  is covered by a store unit test (no passkey-locked account was available to
+  drive a real ceremony). #172 (passkey pairing) is already implemented in this
+  fork via the `pkg/passkey` bridge; #173 is about the browser extension
+  (`tools/passkey-helper`: MAIN-world WebAuthn plus a service worker for
+  1Password), which is not shipped in this repo.
 
 - **Push notifications suppressed after connecting** (#70, #54, #55). The
   `Connected` path already sent `Unavailable` when `alwaysOnline=false`, but

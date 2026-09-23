@@ -18,15 +18,23 @@ func applyConnectSettings(instance *instance_model.Instance, data *ConnectStruct
 
 	if len(data.Subscribe) > 0 {
 		var subscribedEvents []string
-		if data.Subscribe[0] == "ALL" {
-			subscribedEvents = append(subscribedEvents, event_types.AllEventTypes...)
-		} else {
-			for _, arg := range data.Subscribe {
-				if !event_types.IsEventType(arg) {
-					continue
-				}
-				subscribedEvents = append(subscribedEvents, arg)
+		for _, arg := range data.Subscribe {
+			if arg == event_types.ALL {
+				// Persist the literal ALL so CallWebhook's fast-path — which
+				// forwards every event, including types added later — actually
+				// triggers. Previously ALL was only recognised as the *first*
+				// element and was expanded to AllEventTypes, which does not
+				// contain "ALL", so the literal was never stored and the
+				// fast-path never fired (issue #105). ALL in any other position
+				// used to be persisted literally, so this also removes that
+				// position-dependent behaviour.
+				subscribedEvents = []string{event_types.ALL}
+				break
 			}
+			if !event_types.IsEventType(arg) {
+				continue
+			}
+			subscribedEvents = append(subscribedEvents, arg)
 		}
 		eventString := strings.Join(subscribedEvents, ",")
 		instance.Events = eventString
