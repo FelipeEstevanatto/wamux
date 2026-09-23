@@ -98,6 +98,15 @@ func productImageBytes(data *ProductStruct) ([]byte, error) {
 }
 
 // SendProduct sends a catalog product card to a contact.
+//
+// IMPORTANT: this only builds and sends the message. The card body (image,
+// title, price) is self-contained and renders, but the "View" action on the
+// recipient's device asks WhatsApp for the catalog product identified by
+// (BusinessOwnerJid, ProductId). That lookup needs the sending account to be a
+// WhatsApp *Business* account with a catalog, and ProductId to be a real id from
+// it. A regular (non-business) account, or a made-up/absent ProductId, will
+// deliver the card successfully while "View" opens a broken product page. That
+// is expected, not a send failure.
 func (s *sendService) SendProduct(data *ProductStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
 	client, err := s.ensureClientConnected(instance.Id)
 	if err != nil {
