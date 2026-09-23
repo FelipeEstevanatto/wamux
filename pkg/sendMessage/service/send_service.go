@@ -1290,6 +1290,14 @@ func (s *sendService) sendMediaUrlWithRetry(data *MediaStruct, instance *instanc
 
 		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Download concluído em %v. Lendo dados...", instance.Id, time.Since(startTime))
 
+		// A non-2xx response (403 "Access Denied" pages are common for hotlinked
+		// media) is not the media the caller asked for. Without this check the
+		// error page was uploaded and delivered as the requested message, which
+		// the recipient could not play.
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			return nil, fmt.Errorf("failed to download media: HTTP %s", resp.Status)
+		}
+
 		downloadStart := time.Now()
 		fileData, err := io.ReadAll(resp.Body)
 		if err != nil {
@@ -1299,7 +1307,11 @@ func (s *sendService) sendMediaUrlWithRetry(data *MediaStruct, instance *instanc
 
 		mime, _ := mimetype.DetectReader(bytes.NewReader(fileData))
 		mimeType := mime.String()
-		if strings.HasSuffix(strings.ToLower(data.Url), ".mp4") {
+		// The extension is a hint, not proof: an HTML error page served from a
+		// .mp4 URL used to be forced to video/mp4 and delivered as a broken
+		// video. Only trust the extension when the detected content agrees it is
+		// media of that family.
+		if strings.HasSuffix(strings.ToLower(data.Url), ".mp4") && strings.HasPrefix(mimeType, "video/") {
 			mimeType = "video/mp4"
 		}
 
