@@ -5,6 +5,13 @@
 Fork-specific fixes on top of `0.7.2` (see `FORK_NOTES.md` for the full list).
 
 ### 🐛 Bug Fixes
+- **Media retry for expired media** — `/message/downloadmedia` now accepts
+  optional message context (`id`/`chat`/`fromMe`/`isGroup`/`participant`). When a
+  download fails with 403/404/410, the server asks the sender's phone to
+  re-upload the media (`SendMediaRetryReceipt`) and handles the
+  `events.MediaRetry` response (decrypt, refresh the direct path, re-download,
+  cache the bytes); a later request with the same `id` returns them. Previously
+  such media stayed permanently undownloadable.
 - **Security hardening from an audit** — parameterised the `ForceUpdateJid`
   device lookup (SQL injection via `POST /instance/forcereconnect/:id`), bumped
   the vulnerable dependencies (`x/image`, `pgx/v5`, `amqp091-go`; `govulncheck`

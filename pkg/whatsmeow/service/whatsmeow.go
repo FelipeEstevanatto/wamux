@@ -29,6 +29,7 @@ import (
 	"go.mau.fi/whatsmeow/appstate"
 	"go.mau.fi/whatsmeow/proto/waCompanionReg"
 	"go.mau.fi/whatsmeow/proto/waE2E"
+	"go.mau.fi/whatsmeow/proto/waMmsRetry"
 	"go.mau.fi/whatsmeow/store"
 	"go.mau.fi/whatsmeow/store/sqlstore"
 	"go.mau.fi/whatsmeow/types"
@@ -73,6 +74,12 @@ type WhatsmeowService interface {
 	// DeleteInstanceDevice removes the instance's device (and, by cascade, its
 	// sessions/keys/contacts) from the whatsmeow store.
 	DeleteInstanceDevice(instanceId, jid string) error
+
+	// Media retry: ask the sender's phone to re-upload media whose download
+	// failed (403/404/410), and serve the refreshed bytes on a later request.
+	RequestMediaRetry(instanceId string, info *types.MessageInfo, mediaKey []byte, media whatsmeow.DownloadableMessage) error
+	GetRetriedMedia(instanceId, messageID string) ([]byte, bool)
+	HandleMediaRetry(instanceId string, evt *events.MediaRetry)
 	CallWebhook(instance *instance_model.Instance, queueName string, jsonData []byte)
 	SendToGlobalQueues(event string, jsonData []byte, userId string)
 	ForceUpdateJid(instanceId string, number string) error
@@ -140,6 +147,10 @@ type whatsmeowService struct {
 	natsProducer       producer_interfaces.Producer
 	loggerWrapper      *logger_wrapper.LoggerManager
 	passkeyCeremony    *ceremony.Store
+	// Media-retry state: pending requests (to decrypt the response) and the
+	// refreshed bytes to serve on the next download request.
+	mediaRetryPending *cache.Cache
+	mediaRetryBytes   *cache.Cache
 	// authStore is heap-allocated so sync.Once works with value-receiver methods like StartClient.
 	authStore *sharedSQLStore
 }
@@ -1744,6 +1755,11 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			"error": msg,
 			"stage": "error",
 		}
+	case *events.MediaRetry:
+		// The sender's phone answered a media-retry request: decrypt it, refresh
+		// the direct path and cache the bytes for the next download request.
+		mycli.service.HandleMediaRetry(mycli.userID, evt)
+		return
 	case *events.StreamReplaced:
 		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Received StreamReplaced event", mycli.userID)
 		// The socket was replaced, so any in-flight passkey ceremony's pairing
@@ -3634,6 +3650,8 @@ func NewWhatsmeowService(
 		natsProducer:       natsProducer,
 		loggerWrapper:      loggerWrapper,
 		passkeyCeremony:    ceremony.NewStore(),
+		mediaRetryPending:  cache.New(10*time.Minute, 15*time.Minute),
+		mediaRetryBytes:    cache.New(30*time.Minute, time.Hour),
 		authStore:          &sharedSQLStore{},
 	}
 }
@@ -3641,6 +3659,107 @@ func NewWhatsmeowService(
 // GetPollService retorna o serviço de polls (evita dupla inicialização)
 func (w *whatsmeowService) GetPollService() poll_service.PollService {
 	return w.pollService
+}
+
+// mediaRetryEntry is what we keep so the (asynchronous) media-retry response can
+// be decrypted and re-downloaded.
+type mediaRetryEntry struct {
+	mediaKey []byte
+	media    whatsmeow.DownloadableMessage
+}
+
+func mediaRetryKey(instanceId, messageID string) string {
+	return instanceId + "|" + messageID
+}
+
+// RequestMediaRetry asks the sender's phone to re-upload media whose download
+// failed (whatsmeow returns ErrMediaDownloadFailedWith403/404/410 for expired
+// direct paths). The response arrives later as *events.MediaRetry; the refreshed
+// bytes are then served by GetRetriedMedia. See whatsmeow's mediaretry.go.
+func (w *whatsmeowService) RequestMediaRetry(instanceId string, info *types.MessageInfo, mediaKey []byte, media whatsmeow.DownloadableMessage) error {
+	if info == nil || info.ID == "" || len(mediaKey) == 0 || media == nil {
+		return fmt.Errorf("media retry requires the message info, media key and media")
+	}
+	client, ok := w.clientPointer.Lookup(instanceId)
+	if !ok || client == nil {
+		return fmt.Errorf("no active client for instance %s", instanceId)
+	}
+	if err := client.SendMediaRetryReceipt(context.Background(), info, mediaKey); err != nil {
+		return err
+	}
+	w.mediaRetryPending.Set(mediaRetryKey(instanceId, info.ID), mediaRetryEntry{mediaKey: mediaKey, media: media}, cache.DefaultExpiration)
+	w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Requested media retry for message %s", instanceId, info.ID)
+	return nil
+}
+
+// GetRetriedMedia returns the bytes re-downloaded after a successful media retry.
+func (w *whatsmeowService) GetRetriedMedia(instanceId, messageID string) ([]byte, bool) {
+	if v, ok := w.mediaRetryBytes.Get(mediaRetryKey(instanceId, messageID)); ok {
+		if b, ok := v.([]byte); ok {
+			return b, true
+		}
+	}
+	return nil, false
+}
+
+// HandleMediaRetry decrypts a media-retry response, re-downloads the media from
+// the refreshed direct path and caches the bytes.
+func (w *whatsmeowService) HandleMediaRetry(instanceId string, evt *events.MediaRetry) {
+	if evt == nil {
+		return
+	}
+	key := mediaRetryKey(instanceId, string(evt.MessageID))
+	v, ok := w.mediaRetryPending.Get(key)
+	if !ok {
+		return
+	}
+	entry := v.(mediaRetryEntry)
+	logger := w.loggerWrapper.GetLogger(instanceId)
+
+	notif, err := whatsmeow.DecryptMediaRetryNotification(evt, entry.mediaKey)
+	if err != nil {
+		logger.LogWarn("[%s] media retry response for %s could not be decrypted: %v", instanceId, evt.MessageID, err)
+		return
+	}
+	if notif.GetResult() != waMmsRetry.MediaRetryNotification_SUCCESS {
+		logger.LogWarn("[%s] media retry for %s was refused (result %v)", instanceId, evt.MessageID, notif.GetResult())
+		return
+	}
+
+	setMediaDirectPath(entry.media, notif.GetDirectPath())
+
+	client, ok := w.clientPointer.Lookup(instanceId)
+	if !ok || client == nil {
+		return
+	}
+	data, err := client.Download(context.Background(), entry.media)
+	if err != nil {
+		logger.LogWarn("[%s] media re-download after retry failed for %s: %v", instanceId, evt.MessageID, err)
+		return
+	}
+	w.mediaRetryBytes.Set(key, data, cache.DefaultExpiration)
+	w.mediaRetryPending.Delete(key)
+	logger.LogInfo("[%s] media retry succeeded for %s (%d bytes)", instanceId, evt.MessageID, len(data))
+}
+
+// setMediaDirectPath replaces the (expired) direct path on the cached media
+// with the refreshed one from the retry response.
+func setMediaDirectPath(media whatsmeow.DownloadableMessage, path string) {
+	if path == "" {
+		return
+	}
+	switch m := media.(type) {
+	case *waE2E.ImageMessage:
+		m.DirectPath = proto.String(path)
+	case *waE2E.VideoMessage:
+		m.DirectPath = proto.String(path)
+	case *waE2E.AudioMessage:
+		m.DirectPath = proto.String(path)
+	case *waE2E.DocumentMessage:
+		m.DirectPath = proto.String(path)
+	case *waE2E.StickerMessage:
+		m.DirectPath = proto.String(path)
+	}
 }
 
 // DeleteInstanceDevice removes the instance's device from the whatsmeow store.
