@@ -1,13 +1,13 @@
 package instance_service
 
 import (
-	"github.com/evolution-foundation/evolution-go/pkg/safemap"
 	"bufio"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/evolution-foundation/evolution-go/pkg/safemap"
 	"os"
 	"path/filepath"
 	"slices"
@@ -36,6 +36,7 @@ type InstanceService interface {
 	Pair(data *PairStruct, instance *instance_model.Instance) (*PairReturnStruct, error)
 	GetAll() ([]*instance_model.Instance, error)
 	Info(instanceId string) (*instance_model.Instance, error)
+	Rename(instanceId string, name string) (*instance_model.Instance, error)
 	Delete(id string) error
 	SetProxy(id string, proxyConfig *ProxyConfig) error
 	SetProxyFromStruct(id string, data *SetProxyStruct) error
@@ -567,6 +568,38 @@ func (i instances) Info(instanceId string) (*instance_model.Instance, error) {
 		instance.Connected = client.IsLoggedIn()
 	} else {
 		instance.Connected = false
+	}
+
+	instance.Proxy = ""
+
+	return instance, nil
+}
+
+type RenameStruct struct {
+	Name string `json:"name"`
+}
+
+// Rename changes the instance label. The id and token stay the same, so no
+// integration needs reconfiguring; the runtime is synced so webhooks carry the
+// new instanceName immediately.
+func (i instances) Rename(instanceId string, name string) (*instance_model.Instance, error) {
+	instance, err := i.instanceRepository.GetInstanceByID(instanceId)
+	if err != nil {
+		return nil, err
+	}
+
+	if existing, _ := i.instanceRepository.GetInstanceByName(name); existing != nil && existing.Id != instance.Id {
+		return nil, fmt.Errorf("an instance with this name already exists")
+	}
+
+	if err := i.instanceRepository.UpdateName(instance.Id, name); err != nil {
+		return nil, err
+	}
+	instance.Name = name
+
+	if err := i.whatsmeowService.UpdateInstanceSettings(instance.Id); err != nil {
+		// A disconnected instance has no runtime to update; do not fail the rename.
+		i.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Error syncing renamed instance to runtime: %v", instance.Id, err)
 	}
 
 	instance.Proxy = ""
