@@ -127,7 +127,9 @@ func (s *sendHandler) SendLink(ctx *gin.Context) {
 
 // Send a media message
 // @Summary Send a media message
-// @Description Send a media message
+// @Description Send a media message. `type` is one of image, video, gif, audio, document, ptv.
+// @Description For `type: "gif"` (or a GIF URL with `gifPlayback: true`) the animated GIF is
+// @Description transcoded to a silent MP4 and sent as a looping animation without controls.
 // @Tags Send Message
 // @Accept json
 // @Produce json
