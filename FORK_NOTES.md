@@ -130,6 +130,68 @@ Reviewed independently against [ecosb2b/evo-go-v2](https://github.com/ecosb2b/ev
 
 **Kept our implementation over evo-go-v2's** (ours handles an edge case theirs does not): `/group/myall` owner filter (ours is strictly owner via `Store.ID`+`Store.LID`; theirs broadens to admin/superadmin); shared Postgres pool (reuses the existing `authDB`; theirs opens a second pool); `pkg/safemap` generic wrapper (vs their global mutex at ~103 call sites); conservative reconnect backoff (vs their `runtime_lifecycle` supervisor); WebSocket multi-subscriber (theirs replaces the previous connection); startup restore of paired instances; unbounded-HTTP hardening; and a newer whatsmeow.
 
+## 3d. Typebot integration — caveats and known limitations
+
+Typebot is an **optional** chatbot integration ported from `ecosb2b/evo-go-v2`. It is
+**inert until configured**: with no bot created the inbound path short-circuits, no
+outbound HTTP happens, and the rest of the API behaves exactly as before (see the
+"without Typebot" checklist in §5). Things to know before relying on it:
+
+**How it talks to Typebot.** We call Typebot's HTTP chat API (`startChat` /
+`continueChat`) from the Go process and send the replies back through the
+instance. We deliberately do **not** use Typebot's own Meta/WhatsApp channel, so
+it works with a *linked-device* number (whatsmewow) instead of requiring the
+official WhatsApp Business API + Meta app. Consequence: this path is only as
+reliable as the configured Typebot URL — if Typebot is slow/down, replies are lost
+for that contact (failures are logged, never propagated to message handling).
+
+**Not implemented (inherited from the reference fork).**
+- **No JavaScript engine**, so `clientSideActions` scripts do **not** run. The JID
+  is instead pre-decomposed into `prefilledVariables` (`normalizedUserId`,
+  `userPhone`, `userLid`, `jidType`). A flow containing a script block should drop
+  it and use those variables; when one is still present the log says so instead of
+  failing silently.
+- **No `debounceTime`** — rapid successive messages are each processed, so a flow
+  can advance several blocks in a row.
+- **No `keepOpen`** — there is no "keep the bot open after the flow ends" mode.
+- **No fallback bot** and **no keyword/regex routing** for choosing a bot.
+
+**Behavioural caveats.**
+- **Only text advances a conversation.** Media (image/audio/document) neither opens
+  nor advances a session — a flow waiting on a text input will sit until the
+  contact sends text.
+- **`closed` ≠ silenced.** Closing a session clears it, so the next message starts
+  over from the greeting. To stop replying to someone, use `paused`
+  (`POST /typebot/changeStatus`).
+- **Protections can pause a contact.** The per-contact rate limit is **on by
+  default** (10 messages / 60s). Exceeding it pauses the session and emits
+  `TypebotAutoPaused`. Legitimate bursts can therefore pause a real contact.
+  The per-instance send ceiling is **off by default**.
+- **One bot per instance.** The inbound path resolves a single enabled bot; there
+  is no per-contact or per-keyword bot selection.
+- **Sessions are ephemeral by design** — they expire by inactivity (`expire`),
+  end on a keyword (`keywordFinish`), or close when the operator replies
+  (`stopBotFromMe`). They are **not** durable conversation history.
+- **`TYPEBOT_*` config is read at boot** — changing it needs a container recreate,
+  not just an image upgrade.
+- **Inbound text capture is best-effort**: only `conversation` and
+  `extendedTextMessage` are forwarded (same as the reference fork); captions and
+  other text-bearing wrappers are ignored.
+- **Group messages are not excluded by the Typebot hook itself** — it runs after
+  the existing broadcast/group checks, so `IgnoreGroups` / `EVENT_IGNORE_GROUP`
+  still gate it; without those, a group message can start a session.
+
+**Operational surface.** Adds two tables (`typebots`, `typebot_sessions`) via
+`AutoMigrate`, a `/typebot` route group (instance-token auth), and one outbound
+HTTP call per inbound text when a bot is enabled.
+
+**Verified with Typebot unused (no bot configured):** the fork boots and runs
+normally — `/server/ok`, `/dashboard`, `/swagger`, `/manager`, `/instance/all`,
+`/server/stats`, `/group/list`, `/group/myall`, `/user/contacts` and `/send/text`
+all behave as before, with zero Typebot log lines or errors. The inbound hook is a
+no-op in that state (`ProcessMessage` returns right after `GetActiveBot` finds
+nothing; no HTTP call is made) and the two Typebot tables are simply empty.
+
 ## 3c. Known remaining issues worth tackling next
 
 Not fixed here — they are larger or need protocol work. Ordered by impact.
