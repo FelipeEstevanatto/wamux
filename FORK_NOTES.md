@@ -299,6 +299,29 @@ The exact version moves with the Alpine base tag and is not pinned in the
 Dockerfile; `docker exec <container> apk info --who-owns /usr/bin/ffprobe`
 reports it.
 
+## 3g. Interactive messages: per-client rendering findings
+
+Live-tested behaviour of the interactive message types against a real account (Oct 2026). These are WhatsApp-client behaviours, not bugs we can fix in the sender — recorded so they aren't re-investigated.
+
+**Delivery vs rendering.** A message can be *delivered* (a `Receipt` event arrives, echoed by the recipient's devices) and still not *render*. Check receipts first when debugging: `/send/list` used to return success with a message id and produce **no receipt at all** — the server silently dropped it.
+
+| Type | Wire shape | Delivered | Mobile | Web/Desktop |
+|---|---|---|---|---|
+| reply / CTA buttons | `Message.interactiveMessage` + `nativeFlowMessage` | yes | renders | renders |
+| PIX (`payment_info`) | `Message.interactiveMessage` (NO `viewOnceMessage`) + flat `<biz native_flow_name="payment_info"/>` | yes | renders | renders |
+| list | `Message.interactiveMessage` + `single_select` button | yes | **renders** | *"This message couldn't load. Open the message on your phone to view it."* |
+| carousel | `Message.interactiveMessage` + `carouselMessage` | yes | renders **only with media on every card** | renders |
+
+**Legacy `listMessage` is dead.** The top-level (and `documentWithCaptionMessage`-wrapped) legacy `listMessage` is accepted by the API but **never delivered** — no receipt, nothing on any client. Lists must use the `interactiveMessage` + `single_select` form. Reuse `sectionsToString` for the button params.
+
+**`viewOnceMessage` breaks interactive messages.** Wrapping PIX (and previously reply/CTA) in `viewOnceMessage` makes Web show *"couldn't load"* and the phone drop it. Interactive messages must be top-level.
+
+**Web/desktop can differ from mobile.** The `single_select` list renders on mobile but not on Web/Desktop (a known WhatsApp limitation — the modern list format is not supported by the web client). The reverse happens for a text-only carousel: Web renders it, mobile does not.
+
+**Carousel cards require media.** WhatsApp's carousel format requires an image or video header on **every** card. The endpoint currently accepts text-only cards; those are delivered and render on Web but show nothing on mobile. Always supply `header.imageUrl` (or `videoUrl`) per card.
+
+**`carouselCardType` is intentionally unset.** None of the forks set it and it is not needed; the comments claiming an iOS requirement predate the current client.
+
 ## 4. Build & run
 
 From the repository root (the `docker-compose.yml` is there):
