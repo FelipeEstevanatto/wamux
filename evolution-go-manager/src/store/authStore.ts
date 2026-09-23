@@ -1,24 +1,25 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import apiClient from '@/services/api/client';
-import { checkLicenseStatus } from '@/services/api/license';
-import type { AuthStore, LicenseState } from '@/types/auth';
+import type { AuthStore } from '@/types/auth';
 
 /**
  * Authentication Store
  *
- * Manages authentication state including API URL and API Key
- * Persists data to localStorage
+ * Manages the API URL and API key and persists them to localStorage. There is
+ * no license state — this fork removed the license gate.
  */
+
+const defaultApiUrl = () =>
+  typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8082';
 
 const useAuthStore = create<AuthStore>()(
   persist(
     (set) => ({
       // Initial state
-      apiUrl: typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8082',
+      apiUrl: defaultApiUrl(),
       apiKey: '',
       isAuthenticated: false,
-      licenseState: 'unchecked' as LicenseState,
 
       // Login method - validates connection and stores credentials
       login: async (apiUrl: string, apiKey: string) => {
@@ -26,10 +27,10 @@ const useAuthStore = create<AuthStore>()(
         const cleanUrl = apiUrl.replace(/\/$/, '');
 
         try {
-          // Validate apikey against an admin-protected endpoint.
-          // /server/ok is public and does NOT authenticate the apikey,
-          // so hitting it would accept any value. /instance/all requires
-          // AuthAdmin (apikey == GLOBAL_API_KEY), which is what we need.
+          // Validate the apikey against an admin-protected endpoint.
+          // /server/ok is public and does NOT authenticate the apikey, so
+          // hitting it would accept any value. /instance/all requires AuthAdmin
+          // (apikey == GLOBAL_API_KEY), which is what we need.
           await apiClient.get('/instance/all', {
             baseURL: cleanUrl,
             headers: {
@@ -63,18 +64,14 @@ const useAuthStore = create<AuthStore>()(
 
       // Logout method - clears credentials and localStorage
       logout: () => {
-        // Clear localStorage
         localStorage.removeItem('evolution-auth');
-        
-        // Reset state (including license)
+
         set({
-          apiUrl: typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8082',
+          apiUrl: defaultApiUrl(),
           apiKey: '',
           isAuthenticated: false,
-          licenseState: 'unchecked' as LicenseState,
         });
-        
-        // Redirect to login page
+
         window.location.href = '/manager/login';
       },
 
@@ -87,25 +84,6 @@ const useAuthStore = create<AuthStore>()(
       setApiKey: (apiKey: string) => {
         set({ apiKey });
       },
-
-      // Update license state
-      setLicenseState: (licenseState: LicenseState) => {
-        set({ licenseState });
-      },
-
-      // Check license status against backend
-      checkLicense: async (apiUrl?: string, apiKey?: string) => {
-        try {
-          const result = await checkLicenseStatus(apiUrl, apiKey);
-          const state: LicenseState = result.status === 'active' ? 'licensed' : 'unlicensed';
-          set({ licenseState: state });
-          return state;
-        } catch (error) {
-          console.error('License check error:', error);
-          set({ licenseState: 'unlicensed' });
-          return 'unlicensed' as LicenseState;
-        }
-      },
     }),
     {
       name: 'evolution-auth', // localStorage key
@@ -113,7 +91,6 @@ const useAuthStore = create<AuthStore>()(
         apiUrl: state.apiUrl,
         apiKey: state.apiKey,
         isAuthenticated: state.isAuthenticated,
-        licenseState: state.licenseState,
       }),
     }
   )

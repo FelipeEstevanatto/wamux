@@ -55,32 +55,12 @@ apiClient.interceptors.response.use(
     return response;
   },
   (error: AxiosError) => {
-    // Handle 401 Unauthorized - logout user and reset license
+    // Handle 401 Unauthorized - clear credentials and go to login
     if (error.response?.status === 401) {
       console.error('Unauthorized - clearing auth data');
       localStorage.removeItem('evolution-auth');
       window.location.href = '/manager/login';
       return Promise.reject(error);
-    }
-
-    // Handle 403 Forbidden (license invalid) - reset license state and redirect
-    if (error.response?.status === 403) {
-      const data = error.response?.data as { code?: string } | undefined;
-      if (data?.code === 'LICENSE_INVALID' || data?.code === 'LICENSE_EXPIRED') {
-        console.error('License invalid - redirecting to login');
-        const authData = localStorage.getItem('evolution-auth');
-        if (authData) {
-          try {
-            const parsed = JSON.parse(authData);
-            const state = parsed.state || parsed;
-            state.licenseState = 'unlicensed';
-            if (parsed.state) parsed.state = state;
-            localStorage.setItem('evolution-auth', JSON.stringify(parsed));
-          } catch { /* ignore */ }
-        }
-        window.location.href = '/manager/login';
-        return Promise.reject(error);
-      }
     }
 
     // Handle network errors

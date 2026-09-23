@@ -62,6 +62,9 @@
      nao do outro. A sessao passa a ser responsabilidade unica do manager. */
   body.embed header #logout{display:none}
   body.embed main{max-width:none;margin:0;padding:14px}
+  /* O manager já mostra os KPIs acima do iframe; esconder os dele evita a
+     duplicação (o embed fica com gráficos, top conversas, tabela e logs). */
+  body.embed .kpis{display:none}
 </style>
 </head>
 <body>

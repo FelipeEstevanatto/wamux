@@ -1,36 +1,31 @@
-name: Build and Publish Docker Image (GHCR)
+name: Release (main)
 
-# Publishes this fork's image to the GitHub Container Registry, so deployers can
-# `docker compose pull` without building from source.
-#
-# The image is an UNOFFICIAL community build (see the OCI labels and README) and
-# lives under this fork's own namespace — it is never pushed to the upstream
-# evoapicloud/evolution-go Docker Hub repo. Authentication uses the automatic
-# GITHUB_TOKEN, so no secrets need to be provisioned.
+# A push to `main` publishes the versioned image (tag = VERSION) plus `latest`,
+# and creates the matching GitHub Release. The VERSION file is the source of
+# truth; bump it before merging to main.
 on:
   push:
     branches:
-      - fork/community-stable
-    tags:
-      - 'v*'
-      - '[0-9]+.[0-9]+.[0-9]+'
+      - main
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 jobs:
-  build_deploy:
-    name: Build and push to GHCR
+  release:
+    name: Build, push and release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Read version
         id: version
-        run: echo "version=$(cat VERSION 2>/dev/null || echo '0.0.0')" >> "$GITHUB_OUTPUT"
+        run: echo "version=$(cat VERSION | tr -d '[:space:]')" >> "$GITHUB_OUTPUT"
 
       - name: Docker meta
         id: meta
@@ -39,16 +34,12 @@ jobs:
           images: ghcr.io/felipeestevanatto/evo-gofork
           tags: |
             type=raw,value=${{ steps.version.outputs.version }}
-            type=raw,value=latest,enable=${{ !contains(steps.version.outputs.version, '-') }}
-            type=ref,event=tag
+            type=raw,value=latest
           labels: |
             org.opencontainers.image.title=Evolution Go (community fork)
             org.opencontainers.image.description=Unofficial community build of Evolution Go. Not affiliated with, endorsed by, or an official release of Evolution Foundation.
             org.opencontainers.image.licenses=Apache-2.0
             org.opencontainers.image.vendor=FelipeEstevanatto (community fork, not Evolution Foundation)
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -60,9 +51,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # linux/amd64 only: the binary is built with CGO_ENABLED=1, and the arm64
-      # leg under QEMU emulation is disproportionately slow. Add
-      # linux/arm64 here (the QEMU step is already present) to restore it.
       - name: Build and push
         id: docker_build
         uses: docker/build-push-action@v5
@@ -77,5 +65,23 @@ jobs:
           build-args: |
             VERSION=${{ steps.version.outputs.version }}
 
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            echo "Release $VERSION already exists — leaving it untouched."
+            exit 0
+          fi
+          NOTES=".github/release-notes/${VERSION}.md"
+          TITLE="${VERSION} — Evo-GoFork (fork comunitário do Evolution Go)"
+          if [ -f "$NOTES" ]; then
+            gh release create "$VERSION" --target "$GITHUB_SHA" --title "$TITLE" --notes-file "$NOTES"
+          else
+            gh release create "$VERSION" --target "$GITHUB_SHA" --title "$TITLE" --generate-notes
+          fi
+
       - name: Image digest
-        run: echo ${{ steps.docker_build.outputs.digest }}
+        run: echo "${{ steps.docker_build.outputs.digest }}"
