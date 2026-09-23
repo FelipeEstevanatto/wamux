@@ -1,4 +1,4 @@
-import { Sheet, SheetContent, SheetTitle } from '@evoapi/design-system';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui';
 import { SidebarNav } from './Sidebar';
 
 /**

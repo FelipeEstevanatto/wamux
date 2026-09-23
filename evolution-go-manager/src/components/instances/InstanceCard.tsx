@@ -3,7 +3,7 @@
  * Displays an instance as a card with status and actions
  */
 
-import { Button, Card, CardContent, Badge } from "@evoapi/design-system";
+import { Button, Card, CardContent, Badge } from "@/components/ui";
 import {
   Settings,
   Trash2,

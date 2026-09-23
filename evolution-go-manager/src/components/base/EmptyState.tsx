@@ -3,7 +3,7 @@
  * Displays when there's no data to show
  */
 
-import { Button } from '@evoapi/design-system';
+import { Button } from '@/components/ui';
 import { LucideIcon } from 'lucide-react';
 import { cn } from '@/utils/cn';
 

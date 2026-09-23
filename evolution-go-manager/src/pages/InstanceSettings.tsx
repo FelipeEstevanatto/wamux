@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Save, Trash2, Power, Eye, EyeOff, Copy, Check, Network, RefreshCw, Pencil, X } from "lucide-react";
-import { Button } from "@evoapi/design-system";
+import { Button } from "@/components/ui";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";

@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
   Button,
-} from '@evoapi/design-system';
+} from '@/components/ui';
 import { QrCode, RefreshCw, X, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Instance } from '@/types/instance';

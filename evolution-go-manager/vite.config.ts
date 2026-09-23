@@ -29,7 +29,6 @@ export default defineConfig({
       'react',
       'react-dom',
       'react-router-dom',
-      '@evoapi/design-system',
       'lucide-react',
       'zustand',
     ],

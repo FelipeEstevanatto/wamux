@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@evoapi/design-system';
+import { Button } from '@/components/ui';
 import { ArrowRight, Zap, Shield, Globe } from 'lucide-react';
 import {
   COPYRIGHT_LINE,

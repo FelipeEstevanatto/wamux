@@ -7,7 +7,7 @@ import {
   Alert,
   AlertTitle,
   AlertDescription,
-} from '@evoapi/design-system';
+} from '@/components/ui';
 import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
