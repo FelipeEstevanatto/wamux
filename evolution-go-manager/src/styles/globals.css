@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+/*
+ * Tailwind v4 defaults the `dark:` variant to `@media (prefers-color-scheme: dark)`.
+ * The app toggles a `.dark` class on <html> instead, so without this the two get
+ * out of sync: with an OS in dark mode but the app switched to light, `dark:*`
+ * utilities keep applying (e.g. `dark:text-gray-200` → light gray text on the now
+ * white header). Declaring the variant makes `dark:` follow the class.
+ */
+@custom-variant dark (&:is(.dark *));
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

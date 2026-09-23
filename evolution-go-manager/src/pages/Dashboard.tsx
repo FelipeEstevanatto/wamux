@@ -12,6 +12,7 @@ import {
 import useServerStats from '@/hooks/useServerStats';
 import useInstancesStore from '@/store/instancesStore';
 import useAuth from '@/hooks/useAuth';
+import { useDarkMode } from '@/hooks/useDarkMode';
 import GithubIcon from '@/components/base/GithubIcon';
 import {
   FORK_REPO,
@@ -74,6 +75,7 @@ export default function Dashboard() {
   const { instances, fetchInstances, overviews, fetchOverviews } =
     useInstancesStore();
   const { apiUrl, apiKey } = useAuth();
+  const { theme } = useDarkMode();
 
   // The static self-hosted dashboard at /dashboard has its own charts, top
   // sources and per-instance logs; rather than duplicate it, it is embedded
@@ -253,10 +255,17 @@ export default function Dashboard() {
                   className="flex flex-1 flex-col items-center gap-1"
                   title={`${d.key}: ${d.count}`}
                 >
-                  <div
-                    className="w-full rounded-t bg-primary/70"
-                    style={{ height: `${Math.max(2, (d.count / maxDay) * 100)}%` }}
-                  />
+                  {/* The bar's height is a percentage, so its parent must have a
+                      definite height — otherwise the percentage is unresolved and
+                      every bar collapses to 0px (the chart looked empty). */}
+                  <div className="flex h-32 w-full items-end">
+                    <div
+                      className="w-full rounded-t bg-primary/70"
+                      style={{
+                        height: `${Math.max(2, (d.count / maxDay) * 100)}%`,
+                      }}
+                    />
+                  </div>
                   <span className="text-[10px] text-muted-foreground">
                     {d.key.slice(5)}
                   </span>
@@ -272,7 +281,7 @@ export default function Dashboard() {
         {embedReady && (
           <div className="overflow-hidden rounded-xl border border-sidebar-border bg-sidebar">
             <iframe
-              src="/dashboard?embed=1"
+              src={`/dashboard?embed=1&theme=${theme}`}
               title="Dashboard completo"
               className="h-[70vh] w-full border-0"
             />
