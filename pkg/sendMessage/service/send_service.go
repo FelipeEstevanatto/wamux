@@ -26,6 +26,8 @@ import (
 	config "github.com/evolution-foundation/evolution-go/pkg/config"
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
 	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
+	message_model "github.com/evolution-foundation/evolution-go/pkg/message/model"
+	message_repository "github.com/evolution-foundation/evolution-go/pkg/message/repository"
 	"github.com/evolution-foundation/evolution-go/pkg/utils"
 	whatsmeow_service "github.com/evolution-foundation/evolution-go/pkg/whatsmeow/service"
 	"github.com/gabriel-vasile/mimetype"
@@ -57,10 +59,11 @@ type SendService interface {
 }
 
 type sendService struct {
-	clientPointer    *safemap.Map[*whatsmeow.Client]
-	whatsmeowService whatsmeow_service.WhatsmeowService
-	config           *config.Config
-	loggerWrapper    *logger_wrapper.LoggerManager
+	clientPointer     *safemap.Map[*whatsmeow.Client]
+	whatsmeowService  whatsmeow_service.WhatsmeowService
+	config            *config.Config
+	loggerWrapper     *logger_wrapper.LoggerManager
+	messageRepository message_repository.MessageRepository
 }
 
 type SendDataStruct struct {
@@ -3333,6 +3336,7 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 	}
 
 	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Message sent to %s", instance.Id, data.Number)
+	s.persistSentMessage(instance.Id, messageSent)
 	return messageSent, nil
 }
 
@@ -3851,11 +3855,35 @@ func NewSendService(
 	whatsmeowService whatsmeow_service.WhatsmeowService,
 	config *config.Config,
 	loggerWrapper *logger_wrapper.LoggerManager,
+	messageRepository message_repository.MessageRepository,
 ) SendService {
 	return &sendService{
-		clientPointer:    clientPointer,
-		whatsmeowService: whatsmeowService,
-		config:           config,
-		loggerWrapper:    loggerWrapper,
+		clientPointer:     clientPointer,
+		whatsmeowService:  whatsmeowService,
+		config:            config,
+		loggerWrapper:     loggerWrapper,
+		messageRepository: messageRepository,
 	}
+}
+
+// persistSentMessage records an outgoing message so counts and /server/stats
+// include sent traffic (previously only received messages were stored). It is
+// best-effort and asynchronous; the message_id unique key makes it idempotent
+// if the server also echoes the message back as an event.
+func (s *sendService) persistSentMessage(instanceId string, sent *MessageSendStruct) {
+	if s.messageRepository == nil || !s.config.DatabaseSaveMessages || sent == nil {
+		return
+	}
+	msg := message_model.Message{
+		MessageID:  sent.Info.ID,
+		InstanceId: instanceId,
+		Timestamp:  sent.Info.Timestamp.Format("2006-01-02 15:04:05"),
+		Status:     "Sent",
+		Source:     sent.Info.Chat.ToNonAD().User,
+	}
+	go func() {
+		if err := s.messageRepository.InsertMessage(msg); err != nil {
+			s.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Failed to persist sent message %s: %v", instanceId, msg.MessageID, err)
+		}
+	}()
 }

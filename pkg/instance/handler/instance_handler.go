@@ -532,8 +532,19 @@ func (i *instanceHandler) GetProxy(ctx *gin.Context) {
 		return
 	}
 
-	// data is null when the instance has no proxy configured.
-	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": proxyConfig})
+	// Never return the stored proxy password. The UI gets `hasPassword` and, on
+	// save, sends an empty password to keep the existing one.
+	if proxyConfig == nil {
+		ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": nil})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": gin.H{
+		"protocol":    proxyConfig.Protocol,
+		"host":        proxyConfig.Host,
+		"port":        proxyConfig.Port,
+		"username":    proxyConfig.Username,
+		"hasPassword": proxyConfig.Password != "",
+	}})
 }
 
 // Test proxy connectivity

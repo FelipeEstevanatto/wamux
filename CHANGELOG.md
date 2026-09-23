@@ -5,6 +5,19 @@
 Fork-specific fixes on top of `0.7.2` (see `FORK_NOTES.md` for the full list).
 
 ### 🐛 Bug Fixes
+- **Security hardening from an audit** — parameterised the `ForceUpdateJid`
+  device lookup (SQL injection via `POST /instance/forcereconnect/:id`), bumped
+  the vulnerable dependencies (`x/image`, `pgx/v5`, `amqp091-go`; `govulncheck`
+  now reports 0 reachable CVEs), added UUID validation before the log-path join
+  in `GetLogs`, purge the whatsmeow device (sessions/keys/contacts) when an
+  instance is deleted, and compare the admin key in constant time. The proxy
+  password is no longer returned by `GET /instance/proxy/:id` (it reports
+  `hasPassword`; an empty password on save keeps the stored one). See
+  `FORK_NOTES.md` §3j.
+- **Sent messages are now persisted** — previously only received messages were
+  stored, so per-instance counts and `/server/stats` ignored outbound traffic.
+  `SendMessage` records `Status="Sent"`, `IsFromMe` echoes are recorded as sent,
+  and receipt upserts carry `instance_id`.
 - **`GET /group/myall` always returned an empty list** — the owner filter
   compared `types.GroupInfo.OwnerJID` against a JID parsed with `utils.ParseJID`,
   which prefixes phone numbers with `"+"`, so it never equalled WhatsApp's owner

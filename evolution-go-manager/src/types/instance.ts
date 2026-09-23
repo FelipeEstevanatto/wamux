@@ -108,12 +108,15 @@ export interface InstanceOverview {
 }
 
 // Proxy configuration (GET/POST /instance/proxy/:instanceId, AuthAdmin).
+// GET never returns the password; it reports `hasPassword` instead, and a save
+// with an empty password keeps the stored one.
 export interface ProxyConfig {
   protocol?: string;
   host: string;
   port: string;
   username?: string;
   password?: string;
+  hasPassword?: boolean;
 }
 
 // Result of POST /instance/proxy/:instanceId/test.
