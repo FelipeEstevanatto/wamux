@@ -20,6 +20,7 @@ import (
 	poll_handler "github.com/evolution-foundation/evolution-go/pkg/poll/handler"
 	send_handler "github.com/evolution-foundation/evolution-go/pkg/sendMessage/handler"
 	server_handler "github.com/evolution-foundation/evolution-go/pkg/server/handler"
+	typebot_handler "github.com/evolution-foundation/evolution-go/pkg/typebot/handler"
 	user_handler "github.com/evolution-foundation/evolution-go/pkg/user/handler"
 )
 
@@ -38,6 +39,7 @@ type Routes struct {
 	newsletterHandler       newsletter_handler.NewsletterHandler
 	pollHandler             *poll_handler.PollHandler
 	serverHandler           server_handler.ServerHandler
+	typebotHandler          typebot_handler.TypebotHandler
 }
 
 func (r *Routes) AssignRoutes(eng *gin.Engine) {
@@ -259,6 +261,27 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 		}
 	}
 
+	// Typebot. Auth by instance token: each instance only sees its own bots and
+	// sessions.
+	routes = eng.Group("/typebot")
+	{
+		routes.Use(r.authMiddleware.Auth)
+		{
+			routes.POST("", r.typebotHandler.CreateBot)
+			routes.GET("", r.typebotHandler.ListBots)
+
+			// Session routes come before /:id so Gin does not treat "sessions"
+			// as a bot id.
+			routes.GET("/sessions", r.typebotHandler.ListSessions)
+			routes.POST("/changeStatus", r.typebotHandler.ChangeSessionStatus)
+			routes.PUT("/sessions/:id/status", r.typebotHandler.UpdateSessionStatus)
+			routes.DELETE("/sessions/:id", r.typebotHandler.DeleteSession)
+
+			routes.PUT("/:id", r.typebotHandler.UpdateBot)
+			routes.DELETE("/:id", r.typebotHandler.DeleteBot)
+		}
+	}
+
 }
 
 func NewRouter(
@@ -275,6 +298,7 @@ func NewRouter(
 	newsletterHandler newsletter_handler.NewsletterHandler,
 	pollHandler *poll_handler.PollHandler,
 	serverHandler server_handler.ServerHandler,
+	typebotHandler typebot_handler.TypebotHandler,
 ) *Routes {
 	return &Routes{
 		authMiddleware:          authMiddleware,
@@ -291,5 +315,6 @@ func NewRouter(
 		newsletterHandler:       newsletterHandler,
 		pollHandler:             pollHandler,
 		serverHandler:           serverHandler,
+		typebotHandler:          typebotHandler,
 	}
 }

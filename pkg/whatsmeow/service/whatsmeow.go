@@ -55,6 +55,18 @@ type WhatsmeowService interface {
 	StartClient(clientData *ClientData)
 	ConnectOnStartup(clientName string)
 	StartInstance(instanceId string) error
+
+	// Typebot integration. The processor is injected (not imported) because
+	// typebot_service depends on sendMessage_service, which depends on this
+	// package — importing it directly would close a cycle.
+	SetTypebotService(processor TypebotProcessor)
+	DispatchToTypebot(instance *instance_model.Instance, remoteJid, pushName, content string, fromMe bool)
+	// SendOperationalEvent publishes an operational event (today only the
+	// Typebot auto-pause) WITHOUT going through CallWebhook's subscription
+	// filter: a protection alert must not depend on the instance having
+	// subscribed to the right event.
+	SendOperationalEvent(instance *instance_model.Instance, event string, data map[string]any)
+
 	ReconnectClient(instanceId string) error
 	ClearInstanceCache(instanceId string, token string) error
 	CallWebhook(instance *instance_model.Instance, queueName string, jsonData []byte)
@@ -71,6 +83,13 @@ type WhatsmeowService interface {
 	ConfirmPasskey(instanceId string) error
 }
 
+// TypebotProcessor is the slice of the Typebot service this package consumes.
+// Declaring the interface here, at the consumer, avoids the import cycle that
+// referencing typebot_service directly would create.
+type TypebotProcessor interface {
+	ProcessMessage(instance *instance_model.Instance, remoteJid, pushName, content string, fromMe bool)
+}
+
 type clientVersion struct {
 	Major int
 	Minor int
@@ -80,6 +99,7 @@ type clientVersion struct {
 type whatsmeowService struct {
 	instanceRepository instance_repository.InstanceRepository
 	authDB             *sql.DB
+	typebotProcessor   TypebotProcessor
 	messageRepository  message_repository.MessageRepository
 	labelRepository    label_repository.LabelRepository
 	pollService        poll_service.PollService // NOVO: Serviço de enquetes
@@ -1444,6 +1464,15 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			return
 		}
 
+		// Typebot. Runs after the broadcast/group checks so it respects the same
+		// exclusions, and only handles text -- media does not open or advance a
+		// conversation.
+		if text := evt.Message.GetConversation(); text != "" {
+			mycli.service.DispatchToTypebot(mycli.Instance, evt.Info.Chat.String(), evt.Info.PushName, text, evt.Info.IsFromMe)
+		} else if extended := evt.Message.GetExtendedTextMessage().GetText(); extended != "" {
+			mycli.service.DispatchToTypebot(mycli.Instance, evt.Info.Chat.String(), evt.Info.PushName, extended, evt.Info.IsFromMe)
+		}
+
 		// Verifica advanced settings para ignorar grupos
 		if (mycli.config.EventIgnoreGroup || mycli.Instance.IgnoreGroups) && strings.Contains(evt.Info.Chat.String(), "@g.us") {
 			return
@@ -2677,6 +2706,49 @@ func contains(subscriptions []string, event string) bool {
 		}
 	}
 	return false
+}
+
+// SetTypebotService wires the Typebot processor. Called once at boot, before any
+// client starts, so no lock is needed: the write happens before any goroutine
+// that reads the field exists.
+func (w *whatsmeowService) SetTypebotService(processor TypebotProcessor) {
+	w.typebotProcessor = processor
+}
+
+// DispatchToTypebot forwards a received message to the Typebot in its own
+// goroutine. Without this, the HTTP call (up to 30s) would hold the whatsmeow
+// event dispatch goroutine and delay everything else for that instance.
+func (w whatsmeowService) DispatchToTypebot(instance *instance_model.Instance, remoteJid, pushName, content string, fromMe bool) {
+	if w.typebotProcessor == nil || instance == nil {
+		return
+	}
+	go w.typebotProcessor.ProcessMessage(instance, remoteJid, pushName, content, fromMe)
+}
+
+// SendOperationalEvent publishes an operational event (today only the Typebot
+// auto-pause) bypassing CallWebhook's subscription filter, so the alert always
+// reaches the configured queue/webhook.
+func (w *whatsmeowService) SendOperationalEvent(instance *instance_model.Instance, event string, data map[string]any) {
+	if instance == nil {
+		return
+	}
+
+	payload := map[string]any{
+		"event":         event,
+		"instanceId":    instance.Id,
+		"instanceName":  instance.Name,
+		"instanceToken": instance.Token,
+		"data":          data,
+	}
+
+	values, err := json.Marshal(payload)
+	if err != nil {
+		w.loggerWrapper.GetLogger(instance.Id).LogError("[%s] erro ao serializar evento operacional %s: %v", instance.Id, event, err)
+		return
+	}
+
+	queueName := strings.ToLower(fmt.Sprintf("%s.%s", instance.Id, event))
+	go w.sendToQueueOrWebhook(instance, queueName, values)
 }
 
 func (w *whatsmeowService) sendToQueueOrWebhook(instance *instance_model.Instance, queueName string, jsonData []byte) {
