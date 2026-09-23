@@ -234,21 +234,53 @@ as a self-contained product feature, not a patch.
 
 Not fixed here — they are larger or need protocol work. Ordered by impact.
 
-1. **Interactive buttons / lists don't render** (#170, #59, #71, #110, #51, #69).
-   WhatsApp deprecated the legacy `buttonsMessage` / `listMessage` /
-   `templateMessage` nodes the fork still builds; only the `InteractiveMessage`
-   carousel path still works, and it splits into two bubbles. Needs porting to
-   the current interactive/native-flow format. **Biggest functional gap.**
-2. **Error 463 / NCT tokens not persisted** (#124, #50). The whatsmeow bump
-   applied here plus the shared auth-store fix may already help; verify on a
-   previously-affected instance before deeper work.
-3. **Push notifications suppressed after connecting** (#70 23 comments, #54,
+1. **Push notifications suppressed after connecting** (#70 23 comments, #54,
    #55). 0.7.2 already respects `alwaysOnline` on the `Connected` path, but the
    reports persist — audit every `SendPresence(PresenceAvailable)` call site
    (typing, subscribe, presence loop) when `alwaysOnline=false`.
-4. **Passkey events / ceremony** (#105, #107, #172, #173). `PASSKEY*` event
+2. **Passkey events / ceremony** (#105, #107, #172, #173). `PASSKEY*` event
    groups are not in `event_types` or the subscription filter, so they can never
    reach a webhook; the ceremony state machine also gets stuck.
+
+### Resolved from this list
+
+- **Error 463 / NCT tokens** (#124, #50).
+  - **#50 (tctoken/cstoken not persisted after inbound messages)** is fixed by
+    the whatsmeow bump: this version implements the full token lifecycle
+    (`ensureTCToken`, `IncludePrivacyToken`, inbound extraction in
+    `message.go` → `PutPrivacyTokens`, the `nct_salt_sync` app-state mutation,
+    and the `whatsmeow_privacy_tokens` / `whatsmeow_nct_salt` stores). No fork
+    change was needed.
+  - **#124 (pre-v0.7.2 instances never receive the NCT salt)** is fixed here.
+    Those instances did their one-time HistorySync with the old fork, which had
+    no NCT concept, and whatsmeow's `handleAppStateSyncKeyShare` calls
+    `FetchAppState(..., onlyIfNotSynced=true)`, so an already-synced
+    `regular_high` is never re-read and the salt is never backfilled — making
+    error 463 permanent and silent on cold 1:1 sends. On `events.Connected`,
+    when no salt is stored, the fork now forces
+    `FetchAppState(ctx, appstate.WAPatchRegularHigh, true, false)` once per
+    instance, rate-limited to one try per 6 h (`reserveNctSaltSync`), mirroring
+    Baileys' `ensureNctSaltSynced()`. Verified live: the forced sync runs
+    cleanly, `regular_high` keeps a valid version/hash, no app-state event flood
+    (`EmitAppStateEventsOnFullSync` is default false), the instance keeps
+    sending, and the try is not repeated within the cooldown. (The test account
+    itself has no salt provisioned server-side, so the sync legitimately finds
+    none — the log distinguishes "backfilled" from "none provisioned".)
+- **Interactive buttons / lists render** (#170, #59, #71, #110, #51, #69).
+  Reply/CTA buttons were still built with an incomplete relay node — a `<biz>`
+  with no `actual_actors`/`host_storage`/`privacy_mode_ts`, no `quality_control`,
+  and `native_flow v="2"`. Completed to the reference shape (`v="9"`,
+  `quality_control`, `<bot>` before `<biz>`); delivered with receipts and
+  confirmed rendering on mobile. Lists and PIX were already fixed (see §3g).
+- **Disappearing-messages timer** (#79). Inbound `EPHEMERAL_SETTING` is cached
+  per chat and applied to outgoing messages as `ContextInfo.Expiration`. Verified
+  live: a change made on the phone is captured, and `POST /chat/ephemeral`
+  enable (86400/604800) / disable (0) is reflected on the next outgoing message.
+  The residual client notice *"Disappearing messages are not supported in this
+  chat"* is WhatsApp's judgement about the linked-device peer, not the payload —
+  it cannot be cleared from message content.
+
+
 ## 3f. Media processing: ffmpeg dependency and running outside Docker
 
 Some media features shell out to external binaries that live in the **runtime
