@@ -30,10 +30,13 @@ type OverviewProvider interface {
 }
 
 type serverHandler struct {
-	messageRepo message_repository.MessageRepository
-	overview    OverviewProvider
-	version     string
-	startTime   time.Time
+	messageRepo  message_repository.MessageRepository
+	overview     OverviewProvider
+	version      string
+	startTime    time.Time
+	dataDir      string
+	mediaBackend string
+	dirUsage     dirUsage
 }
 
 // ServerOk implements ServerHandler.
@@ -89,7 +92,7 @@ func (s *serverHandler) Stats(ctx *gin.Context) {
 
 	messages := gin.H{"total": 0}
 	if s.messageRepo != nil {
-		if st, err := s.messageRepo.GetStats(); err == nil {
+		if st, err := s.messageRepo.GetStats(); err == nil && st != nil {
 			messages = gin.H{
 				"total":      st.Total,
 				"byStatus":   st.ByStatus,
@@ -99,7 +102,49 @@ func (s *serverHandler) Stats(ctx *gin.Context) {
 		}
 	}
 
-	ctx.JSON(200, gin.H{"system": system, "messages": messages})
+	ctx.JSON(200, gin.H{"system": system, "messages": messages, "storage": s.storageStats()})
+}
+
+// storageStats reports disk, data-directory and database usage for the
+// dashboard's storage panel. Every field is best-effort and omitted when it
+// cannot be read, so the endpoint keeps working on platforms or setups where a
+// metric is unavailable.
+func (s *serverHandler) storageStats() gin.H {
+	const mb = 1024.0 * 1024.0
+	storage := gin.H{}
+
+	diskPath := s.dataDir
+	if diskPath == "" {
+		diskPath = "."
+	}
+	if total, used, avail, ok := diskUsage(diskPath); ok && total > 0 {
+		storage["diskPath"] = diskPath
+		storage["diskTotalMB"] = float64(total) / mb
+		storage["diskUsedMB"] = float64(used) / mb
+		storage["diskAvailableMB"] = float64(avail) / mb
+		storage["diskUsedPct"] = float64(used) / float64(total) * 100
+	}
+
+	if s.dataDir != "" {
+		if bytes, files := s.dirUsage.get(s.dataDir); bytes > 0 || files > 0 {
+			storage["dataDir"] = s.dataDir
+			storage["dataUsedMB"] = float64(bytes) / mb
+			storage["dataFiles"] = files
+		}
+	}
+
+	if s.messageRepo != nil {
+		if total, table, err := s.messageRepo.DatabaseSizeBytes(); err == nil {
+			storage["dbTotalMB"] = float64(total) / mb
+			storage["dbMessagesMB"] = float64(table) / mb
+		}
+	}
+
+	storage["mediaEnabled"] = s.mediaBackend != ""
+	if s.mediaBackend != "" {
+		storage["mediaBackend"] = s.mediaBackend
+	}
+	return storage
 }
 
 // sourceEntry is a top source annotated with a resolved display name.
@@ -249,6 +294,14 @@ func parseMeminfoKB(line string) float64 {
 	return v
 }
 
-func NewServerHandler(messageRepo message_repository.MessageRepository, version string, overview OverviewProvider) ServerHandler {
-	return &serverHandler{messageRepo: messageRepo, overview: overview, version: version, startTime: time.Now()}
+func NewServerHandler(messageRepo message_repository.MessageRepository, version string, overview OverviewProvider, dataDir string, mediaBackend string) ServerHandler {
+	return &serverHandler{
+		messageRepo:  messageRepo,
+		overview:     overview,
+		version:      version,
+		startTime:    time.Now(),
+		dataDir:      dataDir,
+		mediaBackend: mediaBackend,
+		dirUsage:     dirUsage{interval: time.Minute},
+	}
 }

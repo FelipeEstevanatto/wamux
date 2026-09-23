@@ -14,6 +14,7 @@ type MessageRepository interface {
 	GetStats() (*MessageStats, error)
 	CountByInstance(instanceId string) (int64, error)
 	CountChatsByInstance(instanceId string) (int64, error)
+	DatabaseSizeBytes() (totalBytes int64, messagesBytes int64, err error)
 }
 
 // StatKV is a label/count pair used by the dashboard aggregations.
@@ -145,4 +146,20 @@ func (m *messageRepository) GetStats() (*MessageStats, error) {
 		Scan(&stats.TopSources)
 
 	return stats, nil
+}
+
+// DatabaseSizeBytes returns the size of the current database and of the messages
+// table, in bytes, for the dashboard's storage panel. The query is
+// Postgres-specific; callers treat an error as "size unknown".
+func (m *messageRepository) DatabaseSizeBytes() (int64, int64, error) {
+	var total int64
+	if err := m.db.Raw("SELECT pg_database_size(current_database())").Row().Scan(&total); err != nil {
+		return 0, 0, err
+	}
+	// The table size is secondary: if it fails, still report the database total.
+	var table int64
+	if err := m.db.Raw("SELECT pg_total_relation_size('messages')").Row().Scan(&table); err != nil {
+		table = 0
+	}
+	return total, table, nil
 }
