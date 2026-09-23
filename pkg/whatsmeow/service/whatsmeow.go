@@ -97,9 +97,9 @@ type WhatsmeowService interface {
 	// push name and local contact count, for the dashboard.
 	GetInstanceOverview(instanceId string) (*InstanceOverview, error)
 
-	// ResolveChatNames turns bare message sources into display names for the
-	// dashboard's "most active conversations" list.
-	ResolveChatNames(users []string) map[string]string
+	// ResolveChats turns bare message sources into display names (and the phone
+	// behind them) for the dashboard's "most active conversations" list.
+	ResolveChats(users []string) map[string]ChatIdentity
 }
 
 // InstanceOverview is the per-instance summary the self-hosted dashboard shows
@@ -3941,16 +3941,26 @@ func (w *whatsmeowService) GetInstanceOverview(instanceId string) (*InstanceOver
 	return overview, nil
 }
 
-// ResolveChatNames maps the bare user strings persisted in messages.source to a
-// human-friendly display name: a saved contact's name, the resolved phone number,
-// a group subject, or a label for the special status/broadcast sources.
+// ChatIdentity is the resolved identity of a bare message source: a display name
+// and, when the source is (or maps back to) a phone number, that number. The
+// phone lets the caller merge a conversation that was persisted once under a LID
+// and once under the phone number into a single row.
+type ChatIdentity struct {
+	Name  string `json:"name,omitempty"`
+	Phone string `json:"phone,omitempty"`
+}
+
+// ResolveChats maps the bare user strings persisted in messages.source to a
+// display name and, where known, the phone number behind them. It resolves, in
+// order: the special status/broadcast sources, a saved contact, a LID mapped
+// back to its phone number, and a group subject.
 //
 // /server/stats is global and the stored source carries no instance id, so each
 // source is tried against every live client until one resolves it. Results are
 // cached (see chatNameCache) because the dashboard polls /server/stats every ~15s
 // and group lookups are network round-trips.
-func (w *whatsmeowService) ResolveChatNames(users []string) map[string]string {
-	out := make(map[string]string, len(users))
+func (w *whatsmeowService) ResolveChats(users []string) map[string]ChatIdentity {
+	out := make(map[string]ChatIdentity, len(users))
 	if len(users) == 0 {
 		return out
 	}
@@ -3967,53 +3977,54 @@ func (w *whatsmeowService) ResolveChatNames(users []string) map[string]string {
 
 	for _, user := range users {
 		if w.chatNameCache != nil {
-			if name, ok := w.chatNameCache.Get(user); ok {
-				out[user] = name.(string)
+			if id, ok := w.chatNameCache.Get(user); ok {
+				out[user] = id.(ChatIdentity)
 				continue
 			}
 		}
-		name := resolveChatName(ctx, clients, user)
+		id := resolveChatIdentity(ctx, clients, user)
 		if w.chatNameCache != nil {
-			w.chatNameCache.Set(user, name, cache.DefaultExpiration)
+			w.chatNameCache.Set(user, id, cache.DefaultExpiration)
 		}
-		out[user] = name
+		out[user] = id
 	}
 	return out
 }
 
-// resolveChatName resolves a single bare source string. Order matters: a phone
-// number that is a saved contact wins, then a LID mapped back to its phone
-// number (contact or just the number), then a group subject, and finally the raw
-// value as "+<user>".
-func resolveChatName(ctx context.Context, clients []*whatsmeow.Client, user string) string {
+// resolveChatIdentity resolves a single bare source string. Order matters: a
+// phone number that is a saved contact wins, then a LID mapped back to its phone
+// number (contact or just the number), then a group subject. An unresolved source
+// yields an empty identity and the caller falls back to the raw key.
+func resolveChatIdentity(ctx context.Context, clients []*whatsmeow.Client, user string) ChatIdentity {
 	if user == "" {
-		return ""
+		return ChatIdentity{}
 	}
 	switch user {
 	case "status", "0":
-		return "Status"
+		return ChatIdentity{Name: "Status"}
 	}
 	if strings.Contains(user, "broadcast") {
-		return "Transmissão"
+		return ChatIdentity{Name: "Transmissão"}
 	}
 
-	var lastPN string
+	var lidPhone string
 	for _, cli := range clients {
 		// 1) The source is a phone number.
 		if name := contactDisplayName(ctx, cli, types.NewJID(user, types.DefaultUserServer)); name != "" {
-			return name
+			return ChatIdentity{Name: name, Phone: user}
 		}
 		// 2) The source is a LID: map it back to the phone number.
-		lid := types.NewJID(user, types.HiddenUserServer)
-		if pn, err := cli.Store.LIDs.GetPNForLID(ctx, lid); err == nil && !pn.IsEmpty() {
-			lastPN = pn.User
+		if pn, err := cli.Store.LIDs.GetPNForLID(ctx, types.NewJID(user, types.HiddenUserServer)); err == nil && !pn.IsEmpty() {
+			lidPhone = pn.User
 			if name := contactDisplayName(ctx, cli, pn.ToNonAD()); name != "" {
-				return name
+				return ChatIdentity{Name: name, Phone: pn.User}
 			}
 		}
 	}
-	if lastPN != "" {
-		return "+" + lastPN
+	// A LID that mapped to a phone but has no saved contact: the phone alone is
+	// enough to both label and merge it.
+	if lidPhone != "" {
+		return ChatIdentity{Phone: lidPhone}
 	}
 
 	// 3) The source is a group id (groups store the group's user part).
@@ -4022,11 +4033,11 @@ func resolveChatName(ctx context.Context, clients []*whatsmeow.Client, user stri
 		info, err := cli.GetGroupInfo(gctx, types.NewJID(user, types.GroupServer))
 		cancel()
 		if err == nil && info != nil && info.Name != "" {
-			return info.Name
+			return ChatIdentity{Name: info.Name}
 		}
 	}
 
-	return "+" + user
+	return ChatIdentity{}
 }
 
 // contactDisplayName returns the best available name for a contact, or "".

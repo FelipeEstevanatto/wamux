@@ -16,18 +16,18 @@ import (
 type fakeOverview struct {
 	ov    *whatsmeow_service.InstanceOverview
 	err   error
-	names map[string]string
+	chats map[string]whatsmeow_service.ChatIdentity
 }
 
 func (f fakeOverview) GetInstanceOverview(string) (*whatsmeow_service.InstanceOverview, error) {
 	return f.ov, f.err
 }
 
-func (f fakeOverview) ResolveChatNames(users []string) map[string]string {
-	out := make(map[string]string, len(users))
+func (f fakeOverview) ResolveChats(users []string) map[string]whatsmeow_service.ChatIdentity {
+	out := make(map[string]whatsmeow_service.ChatIdentity, len(users))
 	for _, u := range users {
-		if n, ok := f.names[u]; ok {
-			out[u] = n
+		if c, ok := f.chats[u]; ok {
+			out[u] = c
 		}
 	}
 	return out
@@ -128,7 +128,7 @@ func TestStatsIncludesVersion(t *testing.T) {
 	}
 }
 
-func TestStatsResolvesTopSourceNames(t *testing.T) {
+func TestStatsResolvesAndMergesTopSources(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	h := &serverHandler{
 		version:   "1.2.3-fork",
@@ -136,13 +136,15 @@ func TestStatsResolvesTopSourceNames(t *testing.T) {
 		messageRepo: fakeMessageRepo{stats: &message_repository.MessageStats{
 			Total: 170,
 			TopSources: []message_repository.StatKV{
-				{Key: "269182931329179", Count: 153},
+				{Key: "269182931329179", Count: 153}, // LID
+				{Key: "5514981170846", Count: 12},    // same contact, by phone
 				{Key: "status", Count: 5},
 			},
 		}},
-		overview: fakeOverview{names: map[string]string{
-			"269182931329179": "+5514981170846",
-			"status":          "Status",
+		overview: fakeOverview{chats: map[string]whatsmeow_service.ChatIdentity{
+			"269182931329179": {Name: "Evogo Saved Contact", Phone: "5514981170846"},
+			"5514981170846":   {Name: "Evogo Saved Contact", Phone: "5514981170846"},
+			"status":          {Name: "Status"},
 		}},
 	}
 
@@ -158,6 +160,7 @@ func TestStatsResolvesTopSourceNames(t *testing.T) {
 			TopSources []struct {
 				Key   string `json:"key"`
 				Name  string `json:"name"`
+				Phone string `json:"phone"`
 				Count int64  `json:"count"`
 			} `json:"topSources"`
 		} `json:"messages"`
@@ -165,17 +168,20 @@ func TestStatsResolvesTopSourceNames(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
+
+	// The LID and phone rows are the same conversation and must collapse into one.
 	if len(body.Messages.TopSources) != 2 {
-		t.Fatalf("topSources len = %d, want 2", len(body.Messages.TopSources))
+		t.Fatalf("topSources len = %d, want 2 (merged): %+v", len(body.Messages.TopSources), body.Messages.TopSources)
 	}
-	if body.Messages.TopSources[0].Key != "269182931329179" || body.Messages.TopSources[0].Name != "+5514981170846" {
-		t.Fatalf("source[0] = %+v, want key 269182931329179 name +5514981170846", body.Messages.TopSources[0])
+	first := body.Messages.TopSources[0]
+	if first.Key != "5514981170846" || first.Name != "Evogo Saved Contact" || first.Phone != "5514981170846" {
+		t.Fatalf("merged source = %+v, want key/phone 5514981170846 name Evogo Saved Contact", first)
 	}
-	if body.Messages.TopSources[0].Count != 153 {
-		t.Fatalf("source[0].count = %d, want 153", body.Messages.TopSources[0].Count)
+	if first.Count != 165 {
+		t.Fatalf("merged count = %d, want 165 (153+12)", first.Count)
 	}
-	if body.Messages.TopSources[1].Name != "Status" {
-		t.Fatalf("source[1].name = %q, want Status", body.Messages.TopSources[1].Name)
+	if body.Messages.TopSources[1].Name != "Status" || body.Messages.TopSources[1].Count != 5 {
+		t.Fatalf("status source = %+v, want name Status count 5", body.Messages.TopSources[1])
 	}
 }
 
