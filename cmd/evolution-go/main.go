@@ -15,8 +15,8 @@ import (
 	"syscall"
 	"time"
 
+	logger "github.com/evolution-foundation/evolution-go/pkg/applog"
 	"github.com/gin-gonic/gin"
-	"github.com/gomessguii/logger"
 	"github.com/joho/godotenv"
 	"go.mau.fi/whatsmeow"
 	"gorm.io/gorm"

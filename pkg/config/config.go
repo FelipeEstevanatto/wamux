@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gomessguii/logger"
+	logger "github.com/evolution-foundation/evolution-go/pkg/applog"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 

@@ -1,9 +1,9 @@
 package nats_producer
 
 import (
+	logger "github.com/evolution-foundation/evolution-go/pkg/applog"
 	producer_interfaces "github.com/evolution-foundation/evolution-go/pkg/events/interfaces"
 	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
-	"github.com/gomessguii/logger"
 	"github.com/nats-io/nats.go"
 	"strings"
 )
