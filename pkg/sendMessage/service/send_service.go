@@ -2576,71 +2576,70 @@ func sectionsToString(data *ListStruct) (string, error) {
 }
 
 func (s *sendService) SendList(data *ListStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
-	// Legacy ListMessage format - works on iOS, Android and Web
-	// Matching PAPI Node.js default (non-modern) path exactly
-
-	buttonText := data.ButtonText
-	if buttonText == "" {
-		buttonText = "Ver Menu"
+	// Lists are sent as a modern interactive message carrying a `single_select`
+	// native-flow button.
+	//
+	// The legacy top-level `listMessage` is silently dropped by the current
+	// WhatsApp server: /send/list returns success (and a message id) but the
+	// message is never delivered — no receipt ever arrives, and nothing shows on
+	// Web or mobile. The interactive container is the same one the reply/CTA/PIX
+	// messages use, all of which are delivered.
+	paramsJSON, err := sectionsToString(data)
+	if err != nil {
+		return nil, err
 	}
 
-	// Build sections in legacy ListMessage format
-	var sections []*waE2E.ListMessage_Section
-	for _, sec := range data.Sections {
-		sectionTitle := sec.Title
-		if sectionTitle == "" {
-			sectionTitle = " "
-		}
-		var rows []*waE2E.ListMessage_Row
-		for i, r := range sec.Rows {
-			rowTitle := r.Title
-			if rowTitle == "" {
-				rowTitle = " "
-			}
-			rowId := r.RowId
-			if rowId == "" {
-				rowId = fmt.Sprintf("row_%d_%d", i, len(rows))
-			}
-			rows = append(rows, &waE2E.ListMessage_Row{
-				Title:       proto.String(rowTitle),
-				Description: proto.String(r.Description),
-				RowID:       proto.String(rowId),
-			})
-		}
-		sections = append(sections, &waE2E.ListMessage_Section{
-			Title: proto.String(sectionTitle),
-			Rows:  rows,
+	buttons := []*waE2E.InteractiveMessage_NativeFlowMessage_NativeFlowButton{{
+		Name:             proto.String("single_select"),
+		ButtonParamsJSON: proto.String(paramsJSON),
+	}}
+
+	interactive := &waE2E.InteractiveMessage{
+		Body: &waE2E.InteractiveMessage_Body{Text: proto.String(data.Description)},
+		InteractiveMessage: &waE2E.InteractiveMessage_NativeFlowMessage_{
+			NativeFlowMessage: &waE2E.InteractiveMessage_NativeFlowMessage{
+				Buttons: buttons,
+			},
+		},
+	}
+	if data.Title != "" {
+		interactive.Header = &waE2E.InteractiveMessage_Header{Title: proto.String(data.Title)}
+	}
+	if data.FooterText != "" {
+		interactive.Footer = &waE2E.InteractiveMessage_Footer{Text: proto.String(data.FooterText)}
+	}
+
+	msg := &waE2E.Message{InteractiveMessage: interactive}
+
+	// Relay node: same shape as the delivered reply/CTA buttons.
+	nativeFlowNode := waBinary.Node{
+		Tag:   "native_flow",
+		Attrs: waBinary.Attrs{"v": "2", "name": "mixed"},
+	}
+	listBizNodes := []waBinary.Node{{
+		Tag: "biz",
+		Content: []waBinary.Node{{
+			Tag:     "interactive",
+			Attrs:   waBinary.Attrs{"type": "native_flow", "v": "1"},
+			Content: []waBinary.Node{nativeFlowNode},
+		}},
+	}}
+	if !strings.Contains(data.Number, "@g.us") {
+		listBizNodes = append(listBizNodes, waBinary.Node{
+			Tag:   "bot",
+			Attrs: waBinary.Attrs{"biz_bot": "1"},
 		})
 	}
 
-	listType := waE2E.ListMessage_SINGLE_SELECT
-	listMessage := &waE2E.ListMessage{
-		Title:       proto.String(data.Title),
-		Description: proto.String(data.Description),
-		ButtonText:  proto.String(buttonText),
-		FooterText:  proto.String(data.FooterText),
-		ListType:    &listType,
-		Sections:    sections,
-	}
-
-	// Relay the legacy ListMessage at the TOP LEVEL, the way the official
-	// clients and evolution-api do.
-	//
-	// The previous shape wrapped it in a documentWithCaptionMessage, attached a
-	// message secret and injected a <biz><list .../></biz> node. The API still
-	// returned success, but nothing reached the recipient on Web or mobile. No
-	// extra nodes are needed: Baileys injects none for listMessage either.
-	msg := &waE2E.Message{ListMessage: listMessage}
-
-	message, err := s.SendMessage(instance, msg, "ListMessage", &SendDataStruct{
-		Number:       data.Number,
-		Delay:        data.Delay,
-		MentionAll:   data.MentionAll,
-		MentionedJID: data.MentionedJID,
-		FormatJid:    data.FormatJid,
-		Quoted:       data.Quoted,
+	message, err := s.SendMessage(instance, msg, "InteractiveMessage", &SendDataStruct{
+		Number:          data.Number,
+		Delay:           data.Delay,
+		MentionAll:      data.MentionAll,
+		MentionedJID:    data.MentionedJID,
+		FormatJid:       data.FormatJid,
+		Quoted:          data.Quoted,
+		AdditionalNodes: &listBizNodes,
 	})
-
 	if err != nil {
 		s.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error sending list: %v", instance.Id, err)
 		return nil, err
