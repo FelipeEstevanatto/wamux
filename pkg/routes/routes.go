@@ -131,6 +131,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.POST("/list", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendList)
 			routes.POST("/carousel", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendCarousel)
 			routes.POST("/event", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendEvent)
+			routes.POST("/product", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendProduct)
 			routes.POST("/status/text", r.sendHandler.SendStatusText)
 			routes.POST("/status/media", r.sendHandler.SendStatusMedia)
 		}
