@@ -77,6 +77,14 @@ type MarkPlayedStruct struct {
 
 type DownloadMediaStruct struct {
 	Message *waE2E.Message `json:"message"`
+	// Optional message context. When the media is gone (403/404/410) and this is
+	// provided, the server asks the sender's phone to re-upload it (media retry)
+	// and the next request with the same `id` returns the refreshed bytes.
+	Id          string `json:"id,omitempty"`
+	Chat        string `json:"chat,omitempty"`
+	FromMe      bool   `json:"fromMe,omitempty"`
+	IsGroup     bool   `json:"isGroup,omitempty"`
+	Participant string `json:"participant,omitempty"`
 }
 
 type MessageStatusStruct struct {
@@ -469,59 +477,105 @@ func (m *messageService) DownloadMedia(data *DownloadMediaStruct, instance *inst
 		}
 	}
 
-	if img != nil {
-		mediaData, err = client.Download(context.Background(), img)
-		if err != nil {
-			m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to download image", instance.Id)
-			msg := fmt.Sprintf("Failed to download image %v", err)
-			return nil, "", errors.New(msg)
-		}
-		mimetype = img.GetMimetype()
+	// Resolve which media this message carries.
+	type mediaJob struct {
+		label string
+		media whatsmeow.DownloadableMessage
+		mime  string
+	}
+	var job *mediaJob
+	switch {
+	case img != nil:
+		job = &mediaJob{"image", img, img.GetMimetype()}
+	case audio != nil:
+		job = &mediaJob{"audio", audio, audio.GetMimetype()}
+	case document != nil:
+		job = &mediaJob{"document", document, document.GetMimetype()}
+	case video != nil:
+		job = &mediaJob{"video", video, video.GetMimetype()}
+	case sticker != nil:
+		job = &mediaJob{"sticker", sticker, sticker.GetMimetype()}
 	}
 
-	if audio != nil {
-		mediaData, err = client.Download(context.Background(), audio)
-		if err != nil {
-			m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to download audio", instance.Id)
-			msg := fmt.Sprintf("Failed to download audio %v", err)
-			return nil, "", errors.New(msg)
+	// A previously requested media retry may already have refreshed the bytes.
+	if data.Id != "" {
+		if refreshed, ok := m.whatsmeowService.GetRetriedMedia(instance.Id, data.Id); ok {
+			m.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Serving %s from the media-retry cache", instance.Id, job.label)
+			return dataurl.New(refreshed, job.mime), ts.String(), nil
 		}
-		mimetype = audio.GetMimetype()
 	}
 
-	if document != nil {
-		mediaData, err = client.Download(context.Background(), document)
-		if err != nil {
-			m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to download document", instance.Id)
-			msg := fmt.Sprintf("Failed to download document %v", err)
-			return nil, "", errors.New(msg)
+	mediaData, err = client.Download(context.Background(), job.media)
+	if err != nil {
+		m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to download %s", instance.Id, job.label)
+		// An expired direct path (403/404/410) can be refreshed by asking the
+		// sender's phone to re-upload the media. This needs the message context
+		// (id/chat/fromMe), which is optional in the request; without it we can
+		// only report the failure.
+		if data.Id != "" && isMediaGoneError(err) {
+			if info := data.messageInfo(); info != nil {
+				if rerr := m.whatsmeowService.RequestMediaRetry(instance.Id, info, mediaKeyOf(msg), job.media); rerr == nil {
+					return nil, "", fmt.Errorf("%s is no longer available; a media retry was requested, try again in a few seconds", job.label)
+				}
+			}
 		}
-		mimetype = document.GetMimetype()
+		return nil, "", fmt.Errorf("Failed to download %s %v", job.label, err)
 	}
-
-	if video != nil {
-		mediaData, err = client.Download(context.Background(), video)
-		if err != nil {
-			m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to download video", instance.Id)
-			msg := fmt.Sprintf("Failed to download video %v", err)
-			return nil, "", errors.New(msg)
-		}
-		mimetype = video.GetMimetype()
-	}
-
-	if sticker != nil {
-		mediaData, err = client.Download(context.Background(), sticker)
-		if err != nil {
-			m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to download sticker", instance.Id)
-			msg := fmt.Sprintf("Failed to download sticker %v", err)
-			return nil, "", errors.New(msg)
-		}
-		mimetype = sticker.GetMimetype()
-	}
+	mimetype = job.mime
 
 	dataURL := dataurl.New(mediaData, mimetype)
 
 	return dataURL, ts.String(), nil
+}
+
+// isMediaGoneError reports whether a download failed because the media expired.
+func isMediaGoneError(err error) bool {
+	return errors.Is(err, whatsmeow.ErrMediaDownloadFailedWith403) ||
+		errors.Is(err, whatsmeow.ErrMediaDownloadFailedWith404) ||
+		errors.Is(err, whatsmeow.ErrMediaDownloadFailedWith410)
+}
+
+// mediaKeyOf returns the media key of whichever media the message carries.
+func mediaKeyOf(msg *waE2E.Message) []byte {
+	switch {
+	case msg.GetImageMessage() != nil:
+		return msg.GetImageMessage().GetMediaKey()
+	case msg.GetAudioMessage() != nil:
+		return msg.GetAudioMessage().GetMediaKey()
+	case msg.GetDocumentMessage() != nil:
+		return msg.GetDocumentMessage().GetMediaKey()
+	case msg.GetVideoMessage() != nil:
+		return msg.GetVideoMessage().GetMediaKey()
+	case msg.GetStickerMessage() != nil:
+		return msg.GetStickerMessage().GetMediaKey()
+	}
+	return nil
+}
+
+// messageInfo rebuilds the message source a media retry needs from the optional
+// request context. Returns nil when the caller did not provide it.
+func (d *DownloadMediaStruct) messageInfo() *types.MessageInfo {
+	if d == nil || d.Id == "" || d.Chat == "" {
+		return nil
+	}
+	chat, ok := utils.ParseJID(d.Chat)
+	if !ok {
+		return nil
+	}
+	info := &types.MessageInfo{
+		MessageSource: types.MessageSource{
+			Chat:     utils.CanonicalJID(chat),
+			IsFromMe: d.FromMe,
+			IsGroup:  d.IsGroup,
+		},
+		ID: d.Id,
+	}
+	if d.Participant != "" {
+		if p, ok := utils.ParseJID(d.Participant); ok {
+			info.Sender = utils.CanonicalJID(p)
+		}
+	}
+	return info
 }
 
 func (m *messageService) GetMessageStatus(data *MessageStatusStruct, instance *instance_model.Instance) (*message_model.Message, string, error) {
