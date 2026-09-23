@@ -3641,23 +3641,73 @@ var (
 	cachedWebVersion   *clientVersion
 	cachedWebVersionAt time.Time
 	cachedWebVersionMu sync.Mutex
+
+	// webVersionFetchMu serialises the actual fetch. It is distinct from the
+	// cache lock so the HTTP request (and its 10s timeout) is never performed
+	// while holding cachedWebVersionMu, which would block every reader.
+	webVersionFetchMu  sync.Mutex
 	webVersionCacheTTL = 1 * time.Hour
 )
 
 // whatsAppWebVersionClient bounds the WhatsApp Web version lookup.
 var whatsAppWebVersionClient = &http.Client{Timeout: 10 * time.Second}
 
-func fetchWhatsAppWebVersion() (*clientVersion, error) {
+// whatsAppWebVersionURL is a var so tests can point the lookup at a local server.
+var whatsAppWebVersionURL = "https://web.whatsapp.com/sw.js"
+
+// webVersionRevisionPatterns are compiled once; they used to be recompiled on
+// every fetch (and inside a loop).
+var webVersionRevisionPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`"client_revision":\s*(\d+)`),              // Formato direto
+	regexp.MustCompile(`\\"client_revision\\":\s*(\d+)`),          // Formato escaped
+	regexp.MustCompile(`client_revision\\?\\"?:[\s]*(\d+)`),       // Formato mais flexível
+	regexp.MustCompile(`["']client_revision["'][\s]*:[\s]*(\d+)`), // Com aspas variadas
+}
+
+// getCachedWebVersion returns the cached version when it is still fresh.
+func getCachedWebVersion() *clientVersion {
 	cachedWebVersionMu.Lock()
 	defer cachedWebVersionMu.Unlock()
-
 	if cachedWebVersion != nil && time.Since(cachedWebVersionAt) < webVersionCacheTTL {
-		return cachedWebVersion, nil
+		return cachedWebVersion
+	}
+	return nil
+}
+
+func fetchWhatsAppWebVersion() (*clientVersion, error) {
+	if v := getCachedWebVersion(); v != nil {
+		return v, nil
 	}
 
+	// One goroutine performs the request while the others wait; the cache lock
+	// is only taken to read/write the value, never across the HTTP call.
+	webVersionFetchMu.Lock()
+	defer webVersionFetchMu.Unlock()
+
+	// Re-check: another goroutine may have populated the cache while we waited.
+	if v := getCachedWebVersion(); v != nil {
+		return v, nil
+	}
+
+	version, err := fetchWhatsAppWebVersionUncached()
+	if err != nil {
+		return nil, err
+	}
+
+	cachedWebVersionMu.Lock()
+	cachedWebVersion = version
+	cachedWebVersionAt = time.Now()
+	cachedWebVersionMu.Unlock()
+
+	return version, nil
+}
+
+// fetchWhatsAppWebVersionUncached performs the actual HTTP request and parse. It
+// must be called with webVersionFetchMu held.
+func fetchWhatsAppWebVersionUncached() (*clientVersion, error) {
 	// Bounded client: this runs inside StartClient (startup and every reconnect),
 	// so a hung http.Get would block bringing instances online.
-	resp, err := whatsAppWebVersionClient.Get("https://web.whatsapp.com/sw.js")
+	resp, err := whatsAppWebVersionClient.Get(whatsAppWebVersionURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch WhatsApp Web version: %v", err)
 	}
@@ -3670,35 +3720,22 @@ func fetchWhatsAppWebVersion() (*clientVersion, error) {
 
 	content := string(body)
 
-	// Múltiplas estratégias para encontrar client_revision
-	patterns := []string{
-		`"client_revision":\s*(\d+)`,              // Formato direto
-		`\\"client_revision\\":\s*(\d+)`,          // Formato escaped
-		`client_revision\\?\\"?:[\s]*(\d+)`,       // Formato mais flexível
-		`["']client_revision["'][\s]*:[\s]*(\d+)`, // Com aspas variadas
-	}
-
-	for _, pattern := range patterns {
-		re := regexp.MustCompile(pattern)
+	for _, re := range webVersionRevisionPatterns {
 		matches := re.FindStringSubmatch(content)
-
-		if len(matches) >= 2 {
-			clientRevision, err := strconv.Atoi(matches[1])
-			if err != nil {
-				continue // Tenta próximo padrão
-			}
-
-			// Log qual padrão funcionou
-			if clientRevision > 0 {
-				cachedWebVersion = &clientVersion{
-					Major: 2,
-					Minor: 3000,
-					Patch: clientRevision,
-				}
-				cachedWebVersionAt = time.Now()
-				return cachedWebVersion, nil
-			}
+		if len(matches) < 2 {
+			continue
 		}
+
+		clientRevision, err := strconv.Atoi(matches[1])
+		if err != nil || clientRevision <= 0 {
+			continue
+		}
+
+		return &clientVersion{
+			Major: 2,
+			Minor: 3000,
+			Patch: clientRevision,
+		}, nil
 	}
 
 	// Se chegou aqui, nenhum padrão funcionou - log do conteúdo para debug
