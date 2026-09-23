@@ -98,6 +98,11 @@ Fork-specific fixes on top of `0.7.2` (see `FORK_NOTES.md` for the full list).
   alias) and app-state desync recovery.
 
 ### 🔧 Improvements
+- **Wait for the connection instead of sleeping** — `ensureClientConnected` and
+  `Reconnect` used fixed `time.Sleep(2s)` guesses before checking the client.
+  They now use `client.WaitForConnection(timeout)` (whatsmeow's supported wait),
+  so a slow connect is no longer failed early and a fast one returns
+  immediately.
 - **Manager frontend source is now vendored and built in-repo** — the React SPA
   source lives at `evolution-go-manager/` (taken from upstream's `develop`
   branch, the only place it exists) and is built into `manager/dist` by
