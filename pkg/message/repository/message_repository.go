@@ -1,7 +1,10 @@
 package message_repository
 
 import (
+	"time"
+
 	message_model "github.com/evolution-foundation/evolution-go/pkg/message/model"
+	"github.com/patrickmn/go-cache"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -33,6 +36,28 @@ type MessageStats struct {
 
 type messageRepository struct {
 	db *gorm.DB
+
+	// aggCache memoizes the dashboard's aggregations. They are whole-table
+	// scans: measured at 2M rows, /server/stats costs ~0.5s and
+	// CountChatsByInstance ~0.9s, and both are re-run on every 15s poll of every
+	// open dashboard. The values they show change slowly, so a short TTL is
+	// invisible in the UI while making the DB cost independent of client count.
+	//
+	// nil when caching is disabled (ttl <= 0).
+	aggCache *cache.Cache
+}
+
+// Option configures the repository at construction time.
+type Option func(*messageRepository)
+
+// WithAggregateCacheTTL caches the dashboard aggregations for ttl. Zero (the
+// default) disables the cache, which is what tests want.
+func WithAggregateCacheTTL(ttl time.Duration) Option {
+	return func(m *messageRepository) {
+		if ttl > 0 {
+			m.aggCache = cache.New(ttl, 2*ttl)
+		}
+	}
 }
 
 func messageUpdateColumns(message message_model.Message) []string {
@@ -42,6 +67,47 @@ func messageUpdateColumns(message message_model.Message) []string {
 	}
 
 	return updates
+}
+
+// cacheKeyStatus etc. are the cache keys for the aggregate queries.
+const (
+	cacheKeyStats  = "stats"
+	cacheKeyDBSize = "dbsize"
+	cacheKeyChats  = "chats:" // + instanceId
+	cacheKeyCount  = "count:" // + instanceId
+)
+
+// cached returns the cached value for key, if any.
+func (m *messageRepository) cached(key string) (any, bool) {
+	if m.aggCache == nil {
+		return nil, false
+	}
+	return m.aggCache.Get(key)
+}
+
+// store caches value under key for the configured TTL.
+func (m *messageRepository) store(key string, value any) {
+	if m.aggCache != nil {
+		m.aggCache.Set(key, value, cache.DefaultExpiration)
+	}
+}
+
+// invalidateAggregates drops every cached aggregation. Called when rows are
+// removed, where a stale count would be wrong rather than merely late.
+func (m *messageRepository) invalidateAggregates() {
+	if m.aggCache != nil {
+		m.aggCache.Flush()
+	}
+}
+
+// cloneStats returns a copy so callers cannot mutate what is shared through the
+// cache.
+func cloneStats(s *MessageStats) *MessageStats {
+	c := *s
+	c.ByStatus = append([]StatKV(nil), s.ByStatus...)
+	c.ByDay = append([]StatKV(nil), s.ByDay...)
+	c.TopSources = append([]StatKV(nil), s.TopSources...)
+	return &c
 }
 
 func (m *messageRepository) InsertMessage(message message_model.Message) error {
@@ -66,6 +132,7 @@ func (m *messageRepository) GetMessageByID(messageID string) (*message_model.Mes
 
 func (m *messageRepository) DeleteAllMessages() (int64, error) {
 	result := m.db.Exec("DELETE FROM messages")
+	m.invalidateAggregates()
 	return result.RowsAffected, result.Error
 }
 
@@ -82,25 +149,49 @@ func (m *messageRepository) GetLatestMessageID(source string) (string, string, e
 	return message.MessageID, message.Timestamp, nil
 }
 
-func NewMessageRepository(db *gorm.DB) MessageRepository {
-	return &messageRepository{db: db}
+// NewMessageRepository builds the repository. Pass WithAggregateCacheTTL to
+// memoize the dashboard aggregations; without it every call hits the database.
+func NewMessageRepository(db *gorm.DB, opts ...Option) MessageRepository {
+	m := &messageRepository{db: db}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
 }
 
 // CountByInstance counts persisted messages attributed to one instance. Only
 // rows written after the instance_id column was added carry it, so older rows
 // are not counted.
 func (m *messageRepository) CountByInstance(instanceId string) (int64, error) {
+	key := cacheKeyCount + instanceId
+	if v, ok := m.cached(key); ok {
+		if total, ok := v.(int64); ok {
+			return total, nil
+		}
+	}
+
 	var total int64
 	err := m.db.Model(&message_model.Message{}).
 		Where("instance_id = ?", instanceId).
 		Count(&total).Error
-	return total, err
+	if err != nil {
+		return 0, err
+	}
+	m.store(key, total)
+	return total, nil
 }
 
 // CountChatsByInstance counts distinct conversations for an instance. The Go
 // fork does not persist a chat list, so "chats" is the number of distinct
 // contacts that have at least one persisted message with this instance.
 func (m *messageRepository) CountChatsByInstance(instanceId string) (int64, error) {
+	key := cacheKeyChats + instanceId
+	if v, ok := m.cached(key); ok {
+		if total, ok := v.(int64); ok {
+			return total, nil
+		}
+	}
+
 	var total int64
 	row := m.db.Model(&message_model.Message{}).
 		Where("instance_id = ?", instanceId).
@@ -109,6 +200,7 @@ func (m *messageRepository) CountChatsByInstance(instanceId string) (int64, erro
 	if err := row.Scan(&total); err != nil {
 		return 0, err
 	}
+	m.store(key, total)
 	return total, nil
 }
 
@@ -122,6 +214,12 @@ func (m *messageRepository) CountChatsByInstance(instanceId string) (int64, erro
 // under its phone) and then trims to the display limit, so a generous raw limit
 // keeps the merged ranking accurate.
 func (m *messageRepository) GetStats() (*MessageStats, error) {
+	if v, ok := m.cached(cacheKeyStats); ok {
+		if stats, ok := v.(*MessageStats); ok {
+			return cloneStats(stats), nil
+		}
+	}
+
 	stats := &MessageStats{ByStatus: []StatKV{}, ByDay: []StatKV{}, TopSources: []StatKV{}}
 
 	if err := m.db.Model(&message_model.Message{}).Count(&stats.Total).Error; err != nil {
@@ -145,6 +243,7 @@ func (m *messageRepository) GetStats() (*MessageStats, error) {
 		Limit(25).
 		Scan(&stats.TopSources)
 
+	m.store(cacheKeyStats, stats)
 	return stats, nil
 }
 
@@ -152,6 +251,13 @@ func (m *messageRepository) GetStats() (*MessageStats, error) {
 // table, in bytes, for the dashboard's storage panel. The query is
 // Postgres-specific; callers treat an error as "size unknown".
 func (m *messageRepository) DatabaseSizeBytes() (int64, int64, error) {
+	type dbSize struct{ total, table int64 }
+	if v, ok := m.cached(cacheKeyDBSize); ok {
+		if s, ok := v.(dbSize); ok {
+			return s.total, s.table, nil
+		}
+	}
+
 	var total int64
 	if err := m.db.Raw("SELECT pg_database_size(current_database())").Row().Scan(&total); err != nil {
 		return 0, 0, err
@@ -161,5 +267,6 @@ func (m *messageRepository) DatabaseSizeBytes() (int64, int64, error) {
 	if err := m.db.Raw("SELECT pg_total_relation_size('messages')").Row().Scan(&table); err != nil {
 		table = 0
 	}
+	m.store(cacheKeyDBSize, dbSize{total: total, table: table})
 	return total, table, nil
 }

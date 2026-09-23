@@ -1,7 +1,7 @@
 package nats_producer
 
 import (
-	logger "github.com/evolution-foundation/evolution-go/pkg/applog"
+	applog "github.com/evolution-foundation/evolution-go/pkg/applog"
 	producer_interfaces "github.com/evolution-foundation/evolution-go/pkg/events/interfaces"
 	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
 	"github.com/nats-io/nats.go"
@@ -32,7 +32,7 @@ func NewNatsProducer(
 
 	conn, err := nats.Connect(url)
 	if err != nil {
-		logger.LogError("Failed to connect to NATS: %v", err)
+		applog.Logger.LogError("Failed to connect to NATS: %v", err)
 		return &natsProducer{
 			conn:              nil,
 			natsGlobalEnabled: false,

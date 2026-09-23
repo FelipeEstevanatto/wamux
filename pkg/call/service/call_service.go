@@ -6,7 +6,7 @@ import (
 	"github.com/evolution-foundation/evolution-go/pkg/safemap"
 	"time"
 
-	logger "github.com/evolution-foundation/evolution-go/pkg/applog"
+	applog "github.com/evolution-foundation/evolution-go/pkg/applog"
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
 	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
 	whatsmeow_service "github.com/evolution-foundation/evolution-go/pkg/whatsmeow/service"
@@ -76,7 +76,7 @@ func (c *callService) RejectCall(data *RejectCallStruct, instance *instance_mode
 
 	err = client.RejectCall(context.Background(), data.CallCreator, data.CallID)
 	if err != nil {
-		logger.LogError("[%s] error reject call: %v", instance.Id, err)
+		applog.Logger.LogError("[%s] error reject call: %v", instance.Id, err)
 		return err
 	}
 

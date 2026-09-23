@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	logger "github.com/evolution-foundation/evolution-go/pkg/applog"
+	applog "github.com/evolution-foundation/evolution-go/pkg/applog"
 	"github.com/evolution-foundation/evolution-go/pkg/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -74,7 +74,7 @@ func (m *JIDValidationMiddleware) ValidateJIDFields(fieldNames ...string) gin.Ha
 					if normalizedJID != strValue {
 						requestData[fieldName] = normalizedJID
 						modified = true
-						logger.LogDebug("Normalized %s from %s to %s", fieldName, strValue, normalizedJID)
+						applog.Logger.LogDebug("Normalized %s from %s to %s", fieldName, strValue, normalizedJID)
 					}
 				} else if strValue == "" {
 					c.JSON(http.StatusBadRequest, gin.H{
@@ -188,7 +188,7 @@ func (m *JIDValidationMiddleware) ValidateNumberField() gin.HandlerFunc {
 						if normalizedJID != strValue {
 							arrayValue[i] = normalizedJID
 							modified = true
-							logger.LogDebug("Normalized number[%d] from %s to %s", i, strValue, normalizedJID)
+							applog.Logger.LogDebug("Normalized number[%d] from %s to %s", i, strValue, normalizedJID)
 						}
 					} else if strValue == "" {
 						c.JSON(http.StatusBadRequest, gin.H{
@@ -220,7 +220,7 @@ func (m *JIDValidationMiddleware) ValidateNumberField() gin.HandlerFunc {
 				if normalizedJID != strValue {
 					requestData["number"] = normalizedJID
 					modified = true
-					logger.LogDebug("Normalized number from %s to %s", strValue, normalizedJID)
+					applog.Logger.LogDebug("Normalized number from %s to %s", strValue, normalizedJID)
 				}
 			} else {
 				c.JSON(http.StatusBadRequest, gin.H{
@@ -384,7 +384,7 @@ func (m *JIDValidationMiddleware) ValidateNumberFieldWithFormatJid() gin.Handler
 							if normalizedJID != strValue {
 								arrayValue[i] = normalizedJID
 								modified = true
-								logger.LogDebug("Normalized number[%d] from %s to %s", i, strValue, normalizedJID)
+								applog.Logger.LogDebug("Normalized number[%d] from %s to %s", i, strValue, normalizedJID)
 							}
 						}
 						// When formatJid is false, we accept numbers as received without validation
@@ -420,7 +420,7 @@ func (m *JIDValidationMiddleware) ValidateNumberFieldWithFormatJid() gin.Handler
 					if normalizedJID != strValue {
 						requestData["number"] = normalizedJID
 						modified = true
-						logger.LogDebug("Normalized number from %s to %s", strValue, normalizedJID)
+						applog.Logger.LogDebug("Normalized number from %s to %s", strValue, normalizedJID)
 					}
 				}
 				// When formatJid is false, we accept numbers as received without validation

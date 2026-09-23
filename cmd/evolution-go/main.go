@@ -15,7 +15,7 @@ import (
 	"syscall"
 	"time"
 
-	logger "github.com/evolution-foundation/evolution-go/pkg/applog"
+	applog "github.com/evolution-foundation/evolution-go/pkg/applog"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"go.mau.fi/whatsmeow"
@@ -94,7 +94,7 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 
 	var rabbitmqProducer producer_interfaces.Producer
 	if conn != nil {
-		logger.LogInfo("RabbitMQ enabled")
+		applog.Logger.LogInfo("RabbitMQ enabled")
 		rabbitmqProducer = rabbitmq_producer.NewRabbitMQProducer(
 			conn,
 			config.AmqpGlobalEnabled,
@@ -117,7 +117,7 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 
 	var natsProducer producer_interfaces.Producer
 	if config.NatsUrl != "" {
-		logger.LogInfo("NATS enabled")
+		applog.Logger.LogInfo("NATS enabled")
 		natsProducer = nats_producer.NewNatsProducer(
 			config.NatsUrl,
 			config.NatsGlobalEnabled,
@@ -138,11 +138,11 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 
 	// Cria filas globais se o RabbitMQ global estiver habilitado
 	if config.AmqpGlobalEnabled && conn != nil {
-		logger.LogInfo("Creating global RabbitMQ queues...")
+		applog.Logger.LogInfo("Creating global RabbitMQ queues...")
 		if err := rabbitmqProducer.CreateGlobalQueues(); err != nil {
-			logger.LogError("Failed to create global RabbitMQ queues: %v", err)
+			applog.Logger.LogError("Failed to create global RabbitMQ queues: %v", err)
 		} else {
-			logger.LogInfo("Global RabbitMQ queues created successfully")
+			applog.Logger.LogInfo("Global RabbitMQ queues created successfully")
 		}
 	}
 
@@ -163,14 +163,14 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	}
 
 	instanceRepository := instance_repository.NewInstanceRepository(db)
-	messageRepository := message_repository.NewMessageRepository(db)
+	messageRepository := message_repository.NewMessageRepository(db, message_repository.WithAggregateCacheTTL(config.DashboardCacheTTL))
 	labelRepository := label_repository.NewLabelRepository(db)
 	typebotRepository := typebot_repository.NewTypebotRepository(db)
 
 	whatsmeowService := whatsmeow_service.NewWhatsmeowService(
 		instanceRepository,
 		authDB,
-		message_repository.NewMessageRepository(db),
+		message_repository.NewMessageRepository(db, message_repository.WithAggregateCacheTTL(config.DashboardCacheTTL)),
 		labelRepository,
 		config,
 		killChannel,
@@ -298,7 +298,7 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		instanceId := c.Query("instanceId")
 
 		if token != config.GlobalApiKey {
-			logger.LogError("Token inválido: %s", token)
+			applog.Logger.LogError("Token inválido: %s", token)
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token inválido"})
 			return
 		}
@@ -357,7 +357,7 @@ func initPostgresAuthDB(config *config.Config) (*sql.DB, error) {
 	}
 
 	if err := config.EnsureDBExists(config.PostgresAuthDB); err != nil {
-		logger.LogWarn("Auto-setup auth DB failed (will try connecting anyway): %v", err)
+		applog.Logger.LogWarn("Auto-setup auth DB failed (will try connecting anyway): %v", err)
 	}
 
 	db, err := sql.Open("postgres", config.PostgresAuthDB)
@@ -376,7 +376,7 @@ func initPostgresAuthDB(config *config.Config) (*sql.DB, error) {
 		return nil, fmt.Errorf("erro ao pingar banco AUTH PostgreSQL: %v", err)
 	}
 
-	logger.LogInfo("Conectado ao banco AUTH PostgreSQL com pool configurado")
+	applog.Logger.LogInfo("Conectado ao banco AUTH PostgreSQL com pool configurado")
 	return db, nil
 }
 
@@ -394,7 +394,7 @@ func main() {
 
 	cfg := config.Load()
 
-	logger.LogInfo("Starting Evolution GO version %s", version)
+	applog.Logger.LogInfo("Starting Evolution GO version %s", version)
 
 	db, err := cfg.CreateUsersDB()
 	if err != nil {
@@ -424,7 +424,7 @@ func main() {
 	var conn *amqp.Connection
 
 	if cfg.AmqpUrl != "" {
-		logger.LogInfo("Attempting to connect to RabbitMQ...")
+		applog.Logger.LogInfo("Attempting to connect to RabbitMQ...")
 
 		// Create connection with heartbeat to prevent timeouts
 		amqpConfig := amqp.Config{
@@ -434,19 +434,19 @@ func main() {
 
 		conn, err = amqp.DialConfig(cfg.AmqpUrl, amqpConfig)
 		if err != nil {
-			logger.LogError("Failed to connect to RabbitMQ, err: %v", err)
-			logger.LogInfo("RabbitMQ producer will be created with reconnection capability")
+			applog.Logger.LogError("Failed to connect to RabbitMQ, err: %v", err)
+			applog.Logger.LogInfo("RabbitMQ producer will be created with reconnection capability")
 		} else {
-			logger.LogInfo("Successfully connected to RabbitMQ with heartbeat enabled")
+			applog.Logger.LogInfo("Successfully connected to RabbitMQ with heartbeat enabled")
 			defer func(conn *amqp.Connection) {
 				err := conn.Close()
 				if err != nil {
-					logger.LogError("Failed to close RabbitMQ connection, err: %v", err)
+					applog.Logger.LogError("Failed to close RabbitMQ connection, err: %v", err)
 				}
 			}(conn)
 		}
 	} else {
-		logger.LogInfo("RabbitMQ URL not configured, skipping RabbitMQ connection")
+		applog.Logger.LogInfo("RabbitMQ URL not configured, skipping RabbitMQ connection")
 	}
 
 	r := setupRouter(db, authDB, sqliteDB, cfg, conn, exPath)
@@ -460,21 +460,21 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		logger.LogInfo("Iniciando servidor na porta %s", os.Getenv("SERVER_PORT"))
+		applog.Logger.LogInfo("Iniciando servidor na porta %s", os.Getenv("SERVER_PORT"))
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("server error: %v", err)
 		}
 	}()
 
 	<-quit
-	logger.LogInfo("[SHUTDOWN] Signal received, shutting down...")
+	applog.Logger.LogInfo("[SHUTDOWN] Signal received, shutting down...")
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		logger.LogError("[SHUTDOWN] Server forced to shutdown: %v", err)
+		applog.Logger.LogError("[SHUTDOWN] Server forced to shutdown: %v", err)
 	}
 
-	logger.LogInfo("[SHUTDOWN] Server exited")
+	applog.Logger.LogInfo("[SHUTDOWN] Server exited")
 }

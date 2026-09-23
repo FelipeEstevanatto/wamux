@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	logger "github.com/evolution-foundation/evolution-go/pkg/applog"
+	applog "github.com/evolution-foundation/evolution-go/pkg/applog"
 	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
 	"github.com/gorilla/websocket"
 )
@@ -59,7 +59,7 @@ func NewWebsocketProducer(loggerWrapper *logger_wrapper.LoggerManager) *websocke
 func ServeWs(w http.ResponseWriter, r *http.Request, instanceId string, producer *websocketProducer) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		logger.LogError("Erro ao fazer upgrade da conexão websocket: %v", err)
+		applog.Logger.LogError("Erro ao fazer upgrade da conexão websocket: %v", err)
 		return
 	}
 
@@ -95,7 +95,7 @@ func (p *websocketProducer) addBroadcastClient(c *client) {
 	p.broadcast = append(p.broadcast, c)
 	n := len(p.broadcast)
 	p.clientsMux.Unlock()
-	logger.LogInfo("Cliente broadcast websocket adicionado (total: %d)", n)
+	applog.Logger.LogInfo("Cliente broadcast websocket adicionado (total: %d)", n)
 }
 
 func (p *websocketProducer) removeBroadcastClient(c *client) {
@@ -103,7 +103,7 @@ func (p *websocketProducer) removeBroadcastClient(c *client) {
 	p.broadcast = drop(p.broadcast, c)
 	n := len(p.broadcast)
 	p.clientsMux.Unlock()
-	logger.LogInfo("Cliente broadcast websocket removido (total: %d)", n)
+	applog.Logger.LogInfo("Cliente broadcast websocket removido (total: %d)", n)
 }
 
 func (p *websocketProducer) addClient(instanceID string, c *client) {

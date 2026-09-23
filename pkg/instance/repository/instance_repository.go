@@ -3,7 +3,7 @@ package instance_repository
 import (
 	"fmt"
 
-	logger "github.com/evolution-foundation/evolution-go/pkg/applog"
+	applog "github.com/evolution-foundation/evolution-go/pkg/applog"
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -99,7 +99,7 @@ func (i *instanceRepository) GetConnectedInstanceByID(instanceId string) (*insta
 func (i *instanceRepository) Update(instance *instance_model.Instance) error {
 	err := i.db.Save(&instance).Error
 	if err != nil {
-		logger.LogError("Error updating instance in DB: %v", err)
+		applog.Logger.LogError("Error updating instance in DB: %v", err)
 	}
 	return err
 }
@@ -133,7 +133,7 @@ func (i *instanceRepository) UpdateConnectSettings(instanceId string, updates ma
 	}
 	err := i.db.Model(&instance_model.Instance{}).Where("id = ?", instanceId).Updates(updates).Error
 	if err != nil {
-		logger.LogError("Error updating connect settings in DB: %v", err)
+		applog.Logger.LogError("Error updating connect settings in DB: %v", err)
 	}
 	return err
 }
@@ -254,7 +254,7 @@ func (i *instanceRepository) UpdateAdvancedSettings(instanceId string, settings 
 
 	err := i.db.Model(&instance_model.Instance{}).Where("id = ?", instanceId).Updates(updates).Error
 	if err != nil {
-		logger.LogError("Error updating advanced settings in DB: %v", err)
+		applog.Logger.LogError("Error updating advanced settings in DB: %v", err)
 		return err
 	}
 

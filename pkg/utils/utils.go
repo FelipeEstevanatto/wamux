@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	logger "github.com/evolution-foundation/evolution-go/pkg/applog"
+	applog "github.com/evolution-foundation/evolution-go/pkg/applog"
 	"go.mau.fi/whatsmeow/proto/waCompanionReg"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	whatsmeow_types "go.mau.fi/whatsmeow/types"
@@ -196,19 +196,19 @@ func ParseJID(arg string) (whatsmeow_types.JID, bool) {
 	// Use CreateJID for consistent formatting
 	jidString, err := CreateJID(arg)
 	if err != nil {
-		logger.LogWarn("Failed to create JID: %s", err.Error())
+		applog.Logger.LogWarn("Failed to create JID: %s", err.Error())
 		return whatsmeow_types.NewJID("", whatsmeow_types.DefaultUserServer), false
 	}
 
 	// Parse the formatted JID
 	recipient, err := whatsmeow_types.ParseJID(jidString)
 	if err != nil {
-		logger.LogWarn("Invalid JID: %s", err.Error())
+		applog.Logger.LogWarn("Invalid JID: %s", err.Error())
 		return recipient, false
 	}
 
 	if recipient.User == "" && !strings.Contains(jidString, "@broadcast") {
-		logger.LogError("Invalid JID. No user specified: %s", jidString)
+		applog.Logger.LogError("Invalid JID. No user specified: %s", jidString)
 		return recipient, false
 	}
 
@@ -332,11 +332,11 @@ func BuildProxyAddress(protocol, host, port, user, password string) (string, err
 func UpdateUserInfo(values interface{}, field string, value string) interface{} {
 	v, ok := values.(Values)
 	if !ok {
-		logger.LogError("Failed to cast values to Values type")
+		applog.Logger.LogError("Failed to cast values to Values type")
 		return values
 	}
 
-	logger.LogDebug("User info updated field: %s value: %s", field, value)
+	applog.Logger.LogDebug("User info updated field: %s value: %s", field, value)
 	v.m[field] = value
 	return v
 }
@@ -370,7 +370,7 @@ func GetObject(message []byte, keyFind string) string {
 	var messageMap map[string]interface{}
 	err := json.Unmarshal(message, &messageMap)
 	if err != nil {
-		logger.LogError("failed to unmarshal message: %s", err)
+		applog.Logger.LogError("failed to unmarshal message: %s", err)
 		return ""
 	}
 	for key, value := range messageMap {
@@ -383,7 +383,7 @@ func GetObject(message []byte, keyFind string) string {
 		if nestedMap, ok := value.(map[string]interface{}); ok {
 			nestedMapBytes, err := json.Marshal(nestedMap)
 			if err != nil {
-				logger.LogError("failed to marshal nestedMap: %s", err)
+				applog.Logger.LogError("failed to marshal nestedMap: %s", err)
 				continue
 			}
 			if caption := GetObject(nestedMapBytes, keyFind); caption != "" {
