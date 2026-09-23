@@ -58,6 +58,10 @@ export interface Instance {
   disconnectReason?: string;
   createdAt?: string;
   updatedAt?: string;
+  // client_name is the client identifier the instance was created with;
+  // osName is what WhatsApp shows as the linked device (DeviceProps.Os).
+  clientName?: string;
+  osName?: string;
   alwaysOnline?: boolean;
   rejectCall?: boolean;
   readMessages?: boolean;

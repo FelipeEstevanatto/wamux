@@ -1,59 +1,42 @@
-import { LogOut, Moon, Sun, TerminalSquare, BookOpen } from 'lucide-react';
-import { NavLink } from 'react-router-dom';
+import { LogOut, Menu, Moon, Sun } from 'lucide-react';
 import useAuth from '@/hooks/useAuth';
 import { useDarkMode } from '@/hooks/useDarkMode';
+import { PRODUCT_NAME } from '@/constants/branding';
 
-function Header() {
-  const { logout, apiUrl } = useAuth();
+/**
+ * Top bar. API Tester and Swagger now live in the sidebar (they are separate
+ * pages, so they belong with the other navigation), which leaves this bar with
+ * the mobile menu button, the theme toggle and logout.
+ */
+function Header({ onOpenMenu }: { onOpenMenu?: () => void }) {
+  const { logout } = useAuth();
   const { theme, toggleTheme } = useDarkMode();
 
-  const handleLogout = () => {
-    logout();
-  };
-
-  const swaggerHref = apiUrl
-    ? `${apiUrl.replace(/\/$/, '')}/swagger/index.html`
-    : '/swagger/index.html';
-
   return (
-    <header className="flex h-16 items-center justify-between border-b border-sidebar-border bg-sidebar px-0 py-3 shadow-sm">
-      {/* Left side - empty space aligned with sidebar width */}
-      <div className="w-56 flex items-center px-4">
-        {/* Empty - logo is in sidebar */}
+    <header className="flex h-16 items-center gap-2 border-b border-sidebar-border bg-sidebar px-3 py-3 shadow-sm sm:px-4">
+      {/* Left: menu + product name, shown only where the sidebar is hidden. */}
+      <div className="flex min-w-0 items-center gap-2 md:hidden">
+        <button
+          type="button"
+          onClick={onOpenMenu}
+          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
+          aria-label="Abrir menu"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+        <span className="truncate text-base font-bold text-primary">
+          {PRODUCT_NAME}
+        </span>
       </div>
 
-      {/* Right side */}
-      <div className="flex items-center gap-2 px-4">
-        <NavLink
-          to="/manager/api-tester"
-          className={({ isActive }) =>
-            `flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-              isActive
-                ? 'bg-purple-500/15 text-purple-400'
-                : 'text-sidebar-foreground hover:bg-sidebar-accent dark:text-gray-200 dark:hover:bg-sidebar-accent'
-            }`
-          }
-          title="Testar endpoints da API interativamente"
-        >
-          <TerminalSquare className="h-4 w-4" />
-          <span className="hidden sm:inline">API Tester</span>
-        </NavLink>
-
-        <a
-          href={swaggerHref}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent dark:text-gray-200 dark:hover:bg-sidebar-accent"
-          title="Abrir Swagger em nova aba"
-        >
-          <BookOpen className="h-4 w-4" />
-          <span className="hidden sm:inline">Swagger</span>
-        </a>
-
+      {/* Right */}
+      <div className="ml-auto flex items-center gap-1 sm:gap-2">
         <button
+          type="button"
           onClick={toggleTheme}
-          className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent dark:text-gray-200 dark:hover:bg-sidebar-accent"
+          className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
           title={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
+          aria-label={theme === 'dark' ? 'Ativar modo claro' : 'Ativar modo escuro'}
         >
           {theme === 'dark' ? (
             <Sun className="h-4 w-4" />
@@ -63,11 +46,13 @@ function Header() {
         </button>
 
         <button
-          onClick={handleLogout}
-          className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent dark:text-gray-200 dark:hover:bg-sidebar-accent"
+          type="button"
+          onClick={logout}
+          className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
+          title="Sair"
         >
           <LogOut className="h-4 w-4" />
-          Sair
+          <span className="hidden sm:inline">Sair</span>
         </button>
       </div>
     </header>

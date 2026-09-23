@@ -404,7 +404,7 @@ export default function InstanceSettings() {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="border-b border-sidebar-border bg-sidebar p-6">
+      <div className="border-b border-sidebar-border bg-sidebar p-4 sm:p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button
@@ -428,7 +428,7 @@ export default function InstanceSettings() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         <div className="max-w-4xl mx-auto space-y-6">
           {/* Instance Info Card */}
           <div className="rounded-lg border border-sidebar-border bg-card p-6">
