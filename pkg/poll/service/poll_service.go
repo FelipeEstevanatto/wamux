@@ -274,18 +274,10 @@ func BuildPollVoteFromEvent(
 		selectedOptions[i] = fmt.Sprintf("%x", option) // Converte bytes para hex
 	}
 
-	// Extrair telefone do votante
-	// NOTA: O JID swap já foi feito antes de chegar aqui!
-	// Se havia LID+WhatsApp, o Sender JÁ É o número real (@s.whatsapp.net) e SenderAlt é o LID
-	voterPhone := voteInfo.Sender.User
-	voterJid := voteInfo.Sender.String()
-
-	fmt.Printf("[POLL DEBUG] ==========================================\n")
-	fmt.Printf("[POLL DEBUG] Voter JID: %s\n", voterJid)
-	fmt.Printf("[POLL DEBUG] Sender.Server: %s\n", voteInfo.Sender.Server)
-	fmt.Printf("[POLL DEBUG] Sender.User: %s\n", voteInfo.Sender.User)
-	fmt.Printf("[POLL DEBUG] FINAL voterPhone: %s\n", voterPhone)
-	fmt.Printf("[POLL DEBUG] ==========================================\n")
+	// Telefone do votante. O caller já resolveu o LID->PN e removeu o sufixo de
+	// aparelho (ver handlePollVote); aqui só extraímos o usuário.
+	voterPhone := voteInfo.Sender.ToNonAD().User
+	voterJid := voteInfo.Sender.ToNonAD().String()
 
 	return &model.PollVote{
 		ID:              uuid.New().String(),
@@ -294,7 +286,7 @@ func BuildPollVoteFromEvent(
 		PollMessageID:   pollInfo.ID,
 		PollChatJid:     pollInfo.Chat.String(),
 		VoteMessageID:   voteInfo.ID,
-		VoterJid:        voteInfo.Sender.String(),
+		VoterJid:        voterJid,
 		VoterPhone:      voterPhone,
 		VoterName:       voteInfo.PushName,
 		SelectedOptions: selectedOptions,
