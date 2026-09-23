@@ -1,0 +1,81 @@
+# =============================================================================
+# Evolution Go (community fork) — pull-only stack
+#
+# Runs the published image from GHCR, so you do NOT need to clone or build the
+# project. Pin a tag; `latest` is rewritten on every release.
+#
+#   mkdir evogo && cd evogo
+#   cp docker-compose.ghcr.yml docker-compose.yml
+#   cp .env.example .env        # then set GLOBAL_API_KEY
+#   docker compose pull && docker compose up -d
+#
+# API:      http://localhost:8081
+# Swagger:  http://localhost:8081/swagger/index.html
+# Manager:  http://localhost:8081/manager
+#
+# This is an UNOFFICIAL community build. See the README/NOTICE for attribution
+# and the usage-notification requirement.
+# =============================================================================
+services:
+  evolution-go:
+    container_name: evolution_go
+    image: ghcr.io/felipeestevanatto/evolution-go-community:${EVOGO_VERSION:-0.8.0}
+    restart: unless-stopped
+    init: true
+    ports:
+      - "${EVOGO_PORT:-8081}:8080"
+    environment:
+      SERVER_PORT: 8080
+      CLIENT_NAME: ${CLIENT_NAME:-evolution}
+      OS_NAME: ${OS_NAME:-Evolution GO}
+
+      GLOBAL_API_KEY: ${GLOBAL_API_KEY:?set GLOBAL_API_KEY in .env}
+
+      POSTGRES_AUTH_DB: postgresql://${POSTGRES_USER:-evolution_user}:${POSTGRES_PASSWORD:-evolution_pass}@evolution-database:5432/evogo_auth?sslmode=disable
+      POSTGRES_USERS_DB: postgresql://${POSTGRES_USER:-evolution_user}:${POSTGRES_PASSWORD:-evolution_pass}@evolution-database:5432/evogo_users?sslmode=disable
+      DATABASE_SAVE_MESSAGES: ${DATABASE_SAVE_MESSAGES:-true}
+
+      WADEBUG: ${WADEBUG:-INFO}
+      LOGTYPE: ${LOGTYPE:-console}
+      WEBHOOK_FILES: ${WEBHOOK_FILES:-true}
+      CONNECT_ON_STARTUP: ${CONNECT_ON_STARTUP:-true}
+      LOG_DIRECTORY: /app/data/logs
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
+
+      WEBHOOK_URL: ${WEBHOOK_URL:-}
+      PASSKEY_PUBLIC_URL: ${PASSKEY_PUBLIC_URL:-}
+    depends_on:
+      evolution-database:
+        condition: service_healthy
+    volumes:
+      - evolution_go_data:/app/data
+    networks:
+      - evolution_go_network
+
+  evolution-database:
+    container_name: evolution_go_postgres
+    # PostgreSQL 18. The 18 image declares /var/lib/postgresql as the volume
+    # (not .../data as in 15), so the mount point below differs.
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-evolution_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-evolution_pass}
+      POSTGRES_DB: evogo_auth
+    volumes:
+      - evolution_go_database:/var/lib/postgresql
+    networks:
+      - evolution_go_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-evolution_user} -d evogo_auth"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  evolution_go_data:
+  evolution_go_database:
+
+networks:
+  evolution_go_network:
+    driver: bridge
