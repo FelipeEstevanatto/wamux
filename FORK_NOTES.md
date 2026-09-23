@@ -730,6 +730,54 @@ dispatched standalone (they are carried inside `Blocklist` / `Message`), and
 `AcceptTOSNotice`, `GetUserDevices`, `GetBusinessProfile`, `SetMediaHTTPClient`,
 `SetDefaultDisappearingTimer` remain unused (niche or low value).
 
+## 3l. Dependency modernization
+
+The toolchain was already current (`go 1.26.0`, toolchain 1.26.8, Docker
+`golang:1.26-alpine`), so only the modules needed work. `govulncheck` reported
+**0 called vulnerabilities** before and after; the module-level findings dropped
+from 3 to 1.
+
+| module | was | now |
+|---|---|---|
+| `gin-gonic/gin` | 1.10.0 | 1.10.1 |
+| `gorm.io/gorm` | 1.25.10 | 1.31.2 |
+| `gorm.io/driver/postgres` | 1.5.9 | 1.6.3 |
+| `go-playground/validator/v10` | 10.22.0 | 10.30.1 |
+| `gabriel-vasile/mimetype` | 1.4.5 | 1.4.12 |
+| `go.mau.fi/whatsmeow` | 2026-09-04 | 2026-09-21 |
+| `gomessguii/logger` | 0.0.3 | **1.0.0 (major)** |
+| `golang.org/x/{net,crypto,tools,exp}` | — | latest |
+
+**gin is pinned to 1.10.1, not 1.12.0, on purpose.** gin ≥1.11 imports
+`quic-go/http3` from the root package and adds BSON/YAML bindings to `binding`,
+none of which is behind a build tag — so they are always linked. That costs
+**+12.7 MB** on a 66.5 MB binary for HTTP/3 and bindings we never use. 1.10.1 is
+the latest patch of the same minor. (The whole modernization costs ~+8 MB
+/+12%: 66.5 → 74.6 MB, and I confirmed by reverting that gorm is *not* the
+cause.)
+
+**`gomessguii/logger` v1.0.0 is a rewrite**: the package-level
+`LogInfo`/`LogError`/... free functions became methods on a `*Logger`. Rather
+than touch ~60 call sites, the v1 logger is wrapped in `pkg/applog`, which
+re-exposes the free-function style; the nine files that used the library only
+changed their import line. `pkg/applog` deliberately imports nothing internal —
+`pkg/config` logs through it and `pkg/logger` imports `pkg/config`, so anything
+with those dependencies would cycle. Behaviour is preserved (both versions emit
+ANSI levels and `LogFatal` exits); v1 adds a `[evolution-go]` prefix and is the
+only version with a maintained API.
+
+Verified live after the upgrade: the container starts, the paired instance
+reconnects and authenticates, the event handler runs (Connected /
+OfflineSyncCompleted / NCT-salt / reachout-timelock), and `/server/stats` and
+`/instance/overview` return correct data.
+
+**Known remaining cost (not addressed):** the dashboard re-aggregates the whole
+`messages` table on every poll and the table has no retention. Measured on a
+seeded 2M-row table: `/server/stats` ≈ 0.5 s and `/instance/overview` ≈ 0.9 s
+(`COUNT(DISTINCT source)`), growing linearly forever. Indexes alone do not fix
+the three whole-table aggregates (the planner still seq-scans); the fix is a
+short-lived aggregate cache and/or a rollup table, plus optional pruning.
+
 ## 4. Build & run
 
 From the repository root (the `docker-compose.yml` is there):

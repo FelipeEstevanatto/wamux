@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gomessguii/logger"
+	logger "github.com/evolution-foundation/evolution-go/pkg/applog"
 	"go.mau.fi/whatsmeow/proto/waCompanionReg"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	whatsmeow_types "go.mau.fi/whatsmeow/types"

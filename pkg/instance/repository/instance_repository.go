@@ -3,8 +3,8 @@ package instance_repository
 import (
 	"fmt"
 
+	logger "github.com/evolution-foundation/evolution-go/pkg/applog"
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
-	"github.com/gomessguii/logger"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
