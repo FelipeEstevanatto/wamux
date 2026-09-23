@@ -78,3 +78,35 @@ func TestInsertMessagePreservesReferralOnStatusUpdate(t *testing.T) {
 		t.Fatalf("expected updated upsert SQL to keep core columns, got %q", updatedSQL)
 	}
 }
+
+func TestCountByInstanceScopesToTheInstance(t *testing.T) {
+	sqlDB, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("open sqlmock db: %v", err)
+	}
+	defer sqlDB.Close()
+
+	gormDB, err := gorm.Open(postgres.New(postgres.Config{Conn: sqlDB}), &gorm.Config{
+		SkipDefaultTransaction: true,
+	})
+	if err != nil {
+		t.Fatalf("open gorm db: %v", err)
+	}
+
+	repo := NewMessageRepository(gormDB)
+
+	mock.ExpectQuery(`SELECT count\(\*\) FROM "messages" WHERE instance_id = \$1`).
+		WithArgs("inst-1").
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(7))
+
+	total, err := repo.CountByInstance("inst-1")
+	if err != nil {
+		t.Fatalf("CountByInstance: %v", err)
+	}
+	if total != 7 {
+		t.Fatalf("CountByInstance = %d, want 7", total)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}

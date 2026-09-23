@@ -6,6 +6,7 @@
 import apiClient from './client';
 import type {
   Instance,
+  InstanceOverview,
   RawInstance,
   InstancesResponse,
   CreateInstancePayload,
@@ -74,6 +75,22 @@ export const fetchInstance = async (instanceId: string): Promise<Instance> => {
     data: RawInstance;
   }>(`/instance/info/${instanceId}`);
   return normalizeInstance(response.data.data);
+};
+
+/**
+ * Fetch the per-instance overview (own profile picture, push name, contact and
+ * message counts)
+ * GET /instance/overview/:instanceId
+ * Uses the admin apikey (default header)
+ */
+export const fetchInstanceOverview = async (
+  instanceId: string
+): Promise<InstanceOverview> => {
+  const response = await apiClient.get<{
+    message: string;
+    data: InstanceOverview;
+  }>(`/instance/overview/${instanceId}`);
+  return response.data.data;
 };
 
 /**
@@ -362,6 +379,7 @@ export const sendCarouselMessage = async (
 export default {
   fetchInstances,
   fetchInstance,
+  fetchInstanceOverview,
   createInstance,
   connectInstance,
   pairInstance,

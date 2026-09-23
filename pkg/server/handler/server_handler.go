@@ -104,6 +104,12 @@ func (s *serverHandler) InstanceOverview(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	// The message count comes from the local messages table, not whatsmeow.
+	if s.messageRepo != nil {
+		if total, merr := s.messageRepo.CountByInstance(instanceId); merr == nil {
+			overview.MessagesCount = total
+		}
+	}
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": overview})
 }
 

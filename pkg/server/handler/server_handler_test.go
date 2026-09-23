@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	message_model "github.com/evolution-foundation/evolution-go/pkg/message/model"
+	message_repository "github.com/evolution-foundation/evolution-go/pkg/message/repository"
 	whatsmeow_service "github.com/evolution-foundation/evolution-go/pkg/whatsmeow/service"
 	"github.com/gin-gonic/gin"
 )
@@ -20,14 +22,27 @@ func (f fakeOverview) GetInstanceOverview(string) (*whatsmeow_service.InstanceOv
 	return f.ov, f.err
 }
 
+// fakeMessageRepo implements just enough of MessageRepository for the handler.
+type fakeMessageRepo struct{ byInstance int64 }
+
+func (fakeMessageRepo) InsertMessage(message_model.Message) error             { return nil }
+func (fakeMessageRepo) GetMessageByID(string) (*message_model.Message, error) { return nil, nil }
+func (fakeMessageRepo) DeleteAllMessages() (int64, error)                     { return 0, nil }
+func (fakeMessageRepo) GetLatestMessageID(string) (string, string, error)     { return "", "", nil }
+func (fakeMessageRepo) GetStats() (*message_repository.MessageStats, error)   { return nil, nil }
+func (f fakeMessageRepo) CountByInstance(string) (int64, error)               { return f.byInstance, nil }
+
 func TestInstanceOverviewHandlerReturnsProviderData(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	h := &serverHandler{overview: fakeOverview{ov: &whatsmeow_service.InstanceOverview{
-		Connected:     true,
-		ProfileName:   "Numero CLARO",
-		ProfilePicURL: "https://pps.whatsapp.net/x.jpg",
-		ContactsCount: 346,
-	}}}
+	h := &serverHandler{
+		overview: fakeOverview{ov: &whatsmeow_service.InstanceOverview{
+			Connected:     true,
+			ProfileName:   "Numero CLARO",
+			ProfilePicURL: "https://pps.whatsapp.net/x.jpg",
+			ContactsCount: 346,
+		}},
+		messageRepo: fakeMessageRepo{byInstance: 42},
+	}
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -45,6 +60,9 @@ func TestInstanceOverviewHandlerReturnsProviderData(t *testing.T) {
 	}
 	if body.Data.ContactsCount != 346 || !body.Data.Connected || body.Data.ProfilePicURL == "" {
 		t.Fatalf("unexpected payload: %+v", body.Data)
+	}
+	if body.Data.MessagesCount != 42 {
+		t.Fatalf("messagesCount = %d, want 42", body.Data.MessagesCount)
 	}
 }
 

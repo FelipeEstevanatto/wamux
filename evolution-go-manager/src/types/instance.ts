@@ -94,3 +94,14 @@ export interface InstancesResponse {
   data: RawInstance[];
   message: string;
 }
+
+// Per-instance summary from GET /instance/overview/:instanceId (AuthAdmin):
+// the account's own profile picture/push name, local contact count and the
+// number of messages persisted for that instance.
+export interface InstanceOverview {
+  connected: boolean;
+  profileName?: string;
+  profilePicUrl?: string;
+  contactsCount: number;
+  messagesCount: number;
+}

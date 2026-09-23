@@ -35,6 +35,15 @@ Fork-specific fixes on top of `0.7.2` (see `FORK_NOTES.md` for the full list).
   now cleared on `Disconnected`/`StreamReplaced` instead of being left stale.
 
 ### ✨ Features
+- **Manager UI additions** — the Instances page now shows each connected
+  account's profile picture, contact count and message count (from
+  `GET /instance/overview/:instanceId`); the sidebar shows the running version
+  and a GitHub link; and the Dashboard placeholder is replaced by a small
+  system-wide view (instances, messages, contacts, host metrics, messages/day).
+- **Per-instance message count** — the `messages` table gained a nullable
+  `instance_id` column, filled on insert and exposed as `messagesCount` in
+  `/instance/overview/:instanceId`; deleting an instance now cleans up its
+  messages by `instance_id`.
 - **Typebot integration** — bot CRUD, per-contact sessions, `startChat`/
   `continueChat`, plus flood/loop protections and a `TypebotAutoPaused` alert.
   Endpoints under `/typebot` (instance-token auth). Config:

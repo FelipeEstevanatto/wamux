@@ -12,6 +12,7 @@ type MessageRepository interface {
 	DeleteAllMessages() (int64, error)
 	GetLatestMessageID(source string) (string, string, error)
 	GetStats() (*MessageStats, error)
+	CountByInstance(instanceId string) (int64, error)
 }
 
 // StatKV is a label/count pair used by the dashboard aggregations.
@@ -81,6 +82,17 @@ func (m *messageRepository) GetLatestMessageID(source string) (string, string, e
 
 func NewMessageRepository(db *gorm.DB) MessageRepository {
 	return &messageRepository{db: db}
+}
+
+// CountByInstance counts persisted messages attributed to one instance. Only
+// rows written after the instance_id column was added carry it, so older rows
+// are not counted.
+func (m *messageRepository) CountByInstance(instanceId string) (int64, error) {
+	var total int64
+	err := m.db.Model(&message_model.Message{}).
+		Where("instance_id = ?", instanceId).
+		Count(&total).Error
+	return total, err
 }
 
 // GetStats aggregates the messages table: total, breakdown by status, by day
