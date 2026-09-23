@@ -581,8 +581,11 @@ go vet ./...
   compiled `manager/dist`). `develop` is an older revision than the bundle
   `main` previously shipped, so the rebuilt `manager/dist` differs slightly; see
   §3i for the two bug fixes applied and how to rebuild.
-- `docs/docs.go` / `swagger.json` still contain generated annotations for the
-  removed `/license/*` routes. They are inert documentation, not code.
+- Swagger docs (`docs/`) are regenerated with `swag init --parseDependency`
+  (plain `swag init` cannot resolve `gin.H`/`types.JID`). This picked up the
+  endpoints added by this fork and dropped the stale `/license/*` paths, so the
+  frontend API Tester (which reads the live `/swagger/doc.json`) is current.
+  Regenerate with `make swagger` after changing routes/annotations.
 - The upstream LICENSE still applies (Apache 2.0 plus its brand-protection and
   attribution conditions). Removing the runtime *activation* does not change the
   license terms of the source — see `LICENSE` and `TRADEMARKS.md`, and note that

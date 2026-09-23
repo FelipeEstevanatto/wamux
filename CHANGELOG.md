@@ -44,6 +44,12 @@ Fork-specific fixes on top of `0.7.2` (see `FORK_NOTES.md` for the full list).
   `instance_id` column, filled on insert and exposed as `messagesCount` in
   `/instance/overview/:instanceId`; deleting an instance now cleans up its
   messages by `instance_id`.
+- **Swagger docs regenerated** — `docs/` now reflects the fork's routes
+  (`/chat/ephemeral`, `/send/event`, `/send/product`, `/typebot/*`,
+  `/instance/overview/:id`, `/server/stats`, `/instance/limits/:id`, …) and no
+  longer lists the removed `/license/*` paths. The frontend API Tester reads the
+  live `/swagger/doc.json`, so it is current. Use `make swagger`
+  (`swag init --parseDependency`) after route/annotation changes.
 - **Typebot integration** — bot CRUD, per-contact sessions, `startChat`/
   `continueChat`, plus flood/loop protections and a `TypebotAutoPaused` alert.
   Endpoints under `/typebot` (instance-token auth). Config:

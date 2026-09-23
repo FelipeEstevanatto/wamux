@@ -34,6 +34,12 @@ type serverHandler struct {
 }
 
 // ServerOk implements ServerHandler.
+// @Summary Server health
+// @Description Returns ok when the server is up (public, no apikey)
+// @Tags Server
+// @Produce json
+// @Success 200 {object} gin.H "status"
+// @Router /server/ok [get]
 func (s *serverHandler) ServerOk(ctx *gin.Context) {
 	ctx.JSON(200, gin.H{
 		"status": "ok",
@@ -42,6 +48,12 @@ func (s *serverHandler) ServerOk(ctx *gin.Context) {
 
 // Stats returns system metrics (Go runtime + Linux host) and message stats.
 // Used by the self-hosted dashboard (GET /dashboard). Auth: AuthAdmin.
+// @Summary System and message metrics
+// @Description Runtime/host metrics (version, RAM, load, goroutines, uptime) and message aggregates
+// @Tags Server
+// @Produce json
+// @Success 200 {object} gin.H "system and messages"
+// @Router /server/stats [get]
 func (s *serverHandler) Stats(ctx *gin.Context) {
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
@@ -89,6 +101,15 @@ func (s *serverHandler) Stats(ctx *gin.Context) {
 
 // InstanceOverview returns the per-instance dashboard summary: the account's own
 // profile picture, push name and local contact count. Auth: AuthAdmin.
+// @Summary Per-instance overview
+// @Description Own profile picture, push name, local contact count and persisted message count
+// @Tags Instance
+// @Produce json
+// @Param instanceId path string true "Instance Id"
+// @Success 200 {object} gin.H "overview"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /instance/overview/{instanceId} [get]
 func (s *serverHandler) InstanceOverview(ctx *gin.Context) {
 	instanceId := ctx.Param("instanceId")
 	if instanceId == "" {
