@@ -794,7 +794,55 @@ late). Inserts deliberately do **not** invalidate — messages arrive continuous
 so that would defeat the cache; the visible effect is that the dashboard counters
 lag by at most the TTL.
 
-Still open: a rollup table would remove the cache staleness entirely.
+The rollup below removes that staleness entirely.
+
+### Message counter rollup (fresh, O(rollup) dashboard aggregates)
+
+The TTL cache made the dashboard cheap but up to `DASHBOARD_CACHE_TTL_SECONDS`
+stale. `message_counters` removes the staleness: one row per
+`(instance_id, day, status, source)` with a count, which answers every dashboard
+question (total, by status, by day, top sources, per-instance count, distinct
+conversations per instance) while staying bounded by conversations-per-day
+rather than message volume.
+
+**It has to be a trigger, not application code.** A message row is *not*
+append-only: the same `message_id` is re-written as `Sent → Delivered → Read`,
+each time with a new status *and a new timestamp*. So the counters must move a
+count from the old bucket to the new one, and a naive "increment on insert"
+would inflate every time. `message_counters_sync()` runs `AFTER INSERT OR UPDATE
+OR DELETE` and sees `OLD` and `NEW`, in the same transaction as the message
+write, so it cannot drift.
+
+`EnsureMessageCounters` installs the table, the function and the trigger, and
+backfills from existing rows on first run. Installing the trigger and
+backfilling happen in **one transaction holding `LOCK TABLE messages IN SHARE
+MODE`**: that blocks writes (reads are unaffected) so no row can slip between
+the backfill's snapshot and the trigger becoming active — counted once, not
+twice and not zero times. The lock is only taken when something needs
+installing, so later boots do two cheap catalog lookups.
+
+Measured on a 2M-row `messages` table (12 000 counter rows):
+
+| query | live | rollup |
+|---|---|---|
+| total | 59 ms | 1.6 ms |
+| by status | 128 ms | 2.0 ms |
+| by day | 192 ms | 2.0 ms |
+| top sources | 163 ms | 3.5 ms |
+| distinct conversations per instance | **811 ms** | **4.2 ms** |
+
+`/server/stats` goes from ~541 ms to ~9 ms and `CountChatsByInstance` from
+811 ms to 4 ms — and the numbers are never stale. The rollup path deliberately
+**bypasses** the TTL cache (that is the point); the cache now only covers the
+live fallback. If a rollup query fails the repository logs once, disables the
+rollup for the process and falls back to the live aggregation, so a broken
+rollup degrades instead of breaking the dashboard.
+
+Verified live: the backfill matched the table exactly (171 = 171, per status and
+distinct sources too), the trigger moved counts correctly on a status change and
+on a day change, ignored an unrelated update, and removed the bucket on delete;
+and `/server/stats` reflected an insert immediately (171 → 172) with the 30 s
+cache still configured.
 
 ### Message retention
 

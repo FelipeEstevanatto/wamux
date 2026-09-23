@@ -1,8 +1,10 @@
 package message_repository
 
 import (
+	"sync/atomic"
 	"time"
 
+	applog "github.com/evolution-foundation/evolution-go/pkg/applog"
 	message_model "github.com/evolution-foundation/evolution-go/pkg/message/model"
 	"github.com/patrickmn/go-cache"
 	"gorm.io/gorm"
@@ -38,11 +40,16 @@ type MessageStats struct {
 type messageRepository struct {
 	db *gorm.DB
 
-	// aggCache memoizes the dashboard's aggregations. They are whole-table
-	// scans: measured at 2M rows, /server/stats costs ~0.5s and
-	// CountChatsByInstance ~0.9s, and both are re-run on every 15s poll of every
-	// open dashboard. The values they show change slowly, so a short TTL is
-	// invisible in the UI while making the DB cost independent of client count.
+	// rollup reports whether the message_counters table is installed, so the
+	// dashboard can read the (fresh, small) rollup instead of aggregating
+	// `messages`. Cleared if a rollup query fails, which degrades to the live
+	// aggregation rather than failing requests.
+	rollup atomic.Bool
+
+	// aggCache memoizes the live aggregations. With the rollup installed they are
+	// not used at all; without it they are whole-table scans (measured at 2M rows:
+	// /server/stats ~0.5s, CountChatsByInstance ~0.9s) re-run on every 15s poll of
+	// every open dashboard.
 	//
 	// nil when caching is disabled (ttl <= 0).
 	aggCache *cache.Cache
@@ -51,13 +58,22 @@ type messageRepository struct {
 // Option configures the repository at construction time.
 type Option func(*messageRepository)
 
-// WithAggregateCacheTTL caches the dashboard aggregations for ttl. Zero (the
+// WithAggregateCacheTTL caches the live dashboard aggregations for ttl. Zero (the
 // default) disables the cache, which is what tests want.
 func WithAggregateCacheTTL(ttl time.Duration) Option {
 	return func(m *messageRepository) {
 		if ttl > 0 {
 			m.aggCache = cache.New(ttl, 2*ttl)
 		}
+	}
+}
+
+// WithRollup tells the repository that the message_counters rollup is installed,
+// so it should read the dashboard aggregates from it instead of scanning
+// `messages`. See EnsureMessageCounters.
+func WithRollup(enabled bool) Option {
+	return func(m *messageRepository) {
+		m.rollup.Store(enabled)
 	}
 }
 
@@ -150,8 +166,9 @@ func (m *messageRepository) GetLatestMessageID(source string) (string, string, e
 	return message.MessageID, message.Timestamp, nil
 }
 
-// NewMessageRepository builds the repository. Pass WithAggregateCacheTTL to
-// memoize the dashboard aggregations; without it every call hits the database.
+// NewMessageRepository builds the repository. Pass WithRollup to read the
+// dashboard aggregates from the message_counters rollup, and/or
+// WithAggregateCacheTTL to memoize the live aggregations.
 func NewMessageRepository(db *gorm.DB, opts ...Option) MessageRepository {
 	m := &messageRepository{db: db}
 	for _, opt := range opts {
@@ -160,10 +177,29 @@ func NewMessageRepository(db *gorm.DB, opts ...Option) MessageRepository {
 	return m
 }
 
+// rollupFailed disables the rollup for the rest of the process and logs why. The
+// live aggregation is correct, just slower, so a broken rollup must not turn
+// every dashboard request into an error.
+func (m *messageRepository) rollupFailed(op string, err error) {
+	applog.Logger.LogError("[stats] %s failed on the message rollup, falling back to the live aggregation: %v", op, err)
+	m.rollup.Store(false)
+}
+
 // CountByInstance counts persisted messages attributed to one instance. Only
 // rows written after the instance_id column was added carry it, so older rows
 // are not counted.
 func (m *messageRepository) CountByInstance(instanceId string) (int64, error) {
+	if m.rollup.Load() {
+		total, err := m.countByInstanceFromCounters(instanceId)
+		if err == nil {
+			return total, nil
+		}
+		m.rollupFailed("CountByInstance", err)
+	}
+	return m.countByInstanceLive(instanceId)
+}
+
+func (m *messageRepository) countByInstanceLive(instanceId string) (int64, error) {
 	key := cacheKeyCount + instanceId
 	if v, ok := m.cached(key); ok {
 		if total, ok := v.(int64); ok {
@@ -186,6 +222,17 @@ func (m *messageRepository) CountByInstance(instanceId string) (int64, error) {
 // fork does not persist a chat list, so "chats" is the number of distinct
 // contacts that have at least one persisted message with this instance.
 func (m *messageRepository) CountChatsByInstance(instanceId string) (int64, error) {
+	if m.rollup.Load() {
+		total, err := m.countChatsByInstanceFromCounters(instanceId)
+		if err == nil {
+			return total, nil
+		}
+		m.rollupFailed("CountChatsByInstance", err)
+	}
+	return m.countChatsByInstanceLive(instanceId)
+}
+
+func (m *messageRepository) countChatsByInstanceLive(instanceId string) (int64, error) {
 	key := cacheKeyChats + instanceId
 	if v, ok := m.cached(key); ok {
 		if total, ok := v.(int64); ok {
@@ -215,6 +262,19 @@ func (m *messageRepository) CountChatsByInstance(instanceId string) (int64, erro
 // under its phone) and then trims to the display limit, so a generous raw limit
 // keeps the merged ranking accurate.
 func (m *messageRepository) GetStats() (*MessageStats, error) {
+	if m.rollup.Load() {
+		stats, err := m.statsFromCounters()
+		if err == nil {
+			return stats, nil
+		}
+		m.rollupFailed("GetStats", err)
+	}
+	return m.statsLive()
+}
+
+// statsLive aggregates the messages table directly. It is the fallback when the
+// rollup is unavailable, and is memoized by aggCache because it is expensive.
+func (m *messageRepository) statsLive() (*MessageStats, error) {
 	if v, ok := m.cached(cacheKeyStats); ok {
 		if stats, ok := v.(*MessageStats); ok {
 			return cloneStats(stats), nil

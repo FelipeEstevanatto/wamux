@@ -3,6 +3,7 @@ package message_repository
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"log"
 	"strings"
 	"testing"
@@ -269,6 +270,100 @@ func TestCountChatsByInstanceCountsDistinctSources(t *testing.T) {
 	}
 }
 
+// expectCounterStatsQueries queues the four queries GetStats runs against the
+// message_counters rollup.
+func expectCounterStatsQueries(mock sqlmock.Sqlmock, total int64) {
+	mock.ExpectQuery(`SELECT COALESCE\(sum\(total\), 0\)::bigint FROM message_counters`).
+		WillReturnRows(sqlmock.NewRows([]string{"sum"}).AddRow(total))
+	mock.ExpectQuery(`SELECT status AS label, sum\(total\)::bigint AS total FROM message_counters`).
+		WillReturnRows(sqlmock.NewRows([]string{"label", "total"}).AddRow("Received", total))
+	mock.ExpectQuery(`SELECT day AS label, sum\(total\)::bigint AS total FROM message_counters`).
+		WillReturnRows(sqlmock.NewRows([]string{"label", "total"}).AddRow("2026-09-23", total))
+	mock.ExpectQuery(`SELECT source AS label, sum\(total\)::bigint AS total FROM message_counters`).
+		WillReturnRows(sqlmock.NewRows([]string{"label", "total"}).AddRow("5514991421911", total))
+}
+
+// With the rollup installed the aggregates come from message_counters, and they
+// are NOT cached: a second call must re-query, which is the whole point of the
+// rollup (fresh numbers, no TTL staleness).
+func TestGetStatsUsesTheRollupAndStaysFresh(t *testing.T) {
+	repo, mock := newMockRepo(t, WithRollup(true), WithAggregateCacheTTL(time.Minute))
+
+	expectCounterStatsQueries(mock, 42)
+	first, err := repo.GetStats()
+	if err != nil {
+		t.Fatalf("GetStats: %v", err)
+	}
+	if first.Total != 42 || len(first.TopSources) != 1 {
+		t.Fatalf("rollup stats = %+v, want total 42 and one source", first)
+	}
+
+	// A different value proves the second call is not served from the cache.
+	expectCounterStatsQueries(mock, 43)
+	second, err := repo.GetStats()
+	if err != nil {
+		t.Fatalf("second GetStats: %v", err)
+	}
+	if second.Total != 43 {
+		t.Fatalf("total = %d, want 43 (rollup results must not be cached)", second.Total)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+// A rollup that fails must not break the dashboard: it degrades to the live
+// aggregation and stops trying.
+func TestRollupFailureFallsBackToLive(t *testing.T) {
+	repo, mock := newMockRepo(t, WithRollup(true))
+
+	mock.ExpectQuery(`SELECT COALESCE\(sum\(total\), 0\)::bigint FROM message_counters`).
+		WillReturnError(errors.New(`relation "message_counters" does not exist`))
+	expectStatsQueries(mock, 7)
+
+	stats, err := repo.GetStats()
+	if err != nil {
+		t.Fatalf("GetStats should have fallen back: %v", err)
+	}
+	if stats.Total != 7 {
+		t.Fatalf("total = %d, want 7 from the live fallback", stats.Total)
+	}
+
+	// The rollup is now disabled for the process, so this goes straight live
+	// (no further attempt at the counter table).
+	expectStatsQueries(mock, 7)
+	if _, err := repo.GetStats(); err != nil {
+		t.Fatalf("second GetStats: %v", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestCountsUseTheRollup(t *testing.T) {
+	repo, mock := newMockRepo(t, WithRollup(true))
+
+	mock.ExpectQuery(`SELECT COALESCE\(sum\(total\), 0\)::bigint FROM message_counters WHERE instance_id = \$1`).
+		WithArgs("inst-1").
+		WillReturnRows(sqlmock.NewRows([]string{"sum"}).AddRow(7))
+	mock.ExpectQuery(`SELECT count\(DISTINCT source\)::bigint FROM message_counters WHERE instance_id = \$1`).
+		WithArgs("inst-1").
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(3))
+
+	if total, err := repo.CountByInstance("inst-1"); err != nil || total != 7 {
+		t.Fatalf("CountByInstance = %d, %v; want 7", total, err)
+	}
+	if total, err := repo.CountChatsByInstance("inst-1"); err != nil || total != 3 {
+		t.Fatalf("CountChatsByInstance = %d, %v; want 3", total, err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+// for the whole sweep, and it must drop the cached aggregates.
 // The retention delete runs in batches so a year of backlog cannot hold locks
 // for the whole sweep, and it must drop the cached aggregates.
 func TestDeleteMessagesOlderThanBatchesAndInvalidatesCache(t *testing.T) {
