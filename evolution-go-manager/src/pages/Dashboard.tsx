@@ -75,6 +75,30 @@ function Kpi({
   );
 }
 
+function StorageRow({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value?: string;
+  hint?: string;
+}) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+        {label}
+      </dt>
+      <dd className="font-mono text-xs text-foreground">{value || '—'}</dd>
+      {hint && (
+        <dd className="truncate text-[11px] text-muted-foreground" title={hint}>
+          {hint}
+        </dd>
+      )}
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { stats, error, loading } = useServerStats(15000);
   const { instances, fetchInstances, overviews, fetchOverviews } =
@@ -122,6 +146,8 @@ export default function Dashboard() {
 
   const system = stats?.system || {};
   const messages = stats?.messages || {};
+  const storage = stats?.storage || {};
+  const diskPct = Math.min(100, Math.max(0, storage.diskUsedPct ?? 0));
   const byDay = useMemo(
     () => (messages.byDay || []).slice().reverse(),
     [messages.byDay]
@@ -269,6 +295,73 @@ export default function Dashboard() {
             value={fmtUptime(system.uptimeSeconds)}
             sub={system.goVersion || '—'}
           />
+        </div>
+
+        {/* Storage */}
+        <div className="rounded-xl border border-sidebar-border bg-sidebar p-4">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-foreground">
+              Armazenamento
+            </h2>
+            <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
+          </div>
+          <div className="space-y-4">
+            {storage.diskTotalMB !== undefined && (
+              <div>
+                <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <span className="text-muted-foreground">
+                    Disco{' '}
+                    <span className="font-mono text-xs">
+                      {storage.diskPath}
+                    </span>
+                  </span>
+                  <span className="font-mono text-xs">
+                    {fmtMB(storage.diskUsedMB)} / {fmtMB(storage.diskTotalMB)}{' '}
+                    · {Math.round(storage.diskUsedPct ?? 0)}%
+                  </span>
+                </div>
+                <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className={`h-full rounded-full ${diskPct >= 90 ? 'bg-red-500' : 'bg-primary'}`}
+                    style={{ width: `${diskPct}%` }}
+                  />
+                </div>
+              </div>
+            )}
+            <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+              <StorageRow
+                label="Dados"
+                hint={storage.dataDir}
+                value={
+                  storage.dataUsedMB !== undefined
+                    ? `${fmtMB(storage.dataUsedMB)} · ${fmtNumber(storage.dataFiles)} arquivo(s)`
+                    : undefined
+                }
+              />
+              <StorageRow
+                label="Banco de dados"
+                hint="PostgreSQL"
+                value={
+                  storage.dbTotalMB !== undefined
+                    ? `${fmtMB(storage.dbTotalMB)}${
+                        storage.dbMessagesMB
+                          ? ` · messages ${fmtMB(storage.dbMessagesMB)}`
+                          : ''
+                      }`
+                    : undefined
+                }
+              />
+              <StorageRow
+                label="Mídia"
+                value={storage.mediaEnabled ? storage.mediaBackend : 'não configurada'}
+                hint={
+                  storage.mediaEnabled
+                    ? 'arquivos enviados/recebidos'
+                    : 'mídia não é gravada localmente'
+                }
+              />
+            </dl>
+          </div>
         </div>
 
         {/* Messages per day */}

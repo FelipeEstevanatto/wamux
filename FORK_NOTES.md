@@ -619,6 +619,28 @@ one core and not a core count. The card now shows the load **as a share of
 capacity** (`1.81 / 16 CPUs ≈ 11%`) with a tooltip spelling out the definition and
 the 5m/15m averages. Same treatment in the SPA and the static dashboard.
 
+**Storage panel.** `/server/stats` now returns a `storage` object and both
+dashboards render it:
+
+```json
+{"diskPath":"/app/data","diskTotalMB":1006.85,"diskUsedMB":73.88,"diskAvailableMB":881.75,"diskUsedPct":7.3,
+ "dataDir":"/app/data","dataUsedMB":1.4,"dataFiles":14,
+ "dbTotalMB":8.0,"dbMessagesMB":0.1,"mediaEnabled":false}
+```
+
+- **Disk** — `statfs` of the app's data directory (the `LOG_DIRECTORY` parent, so
+  the mounted volume in Docker), shown with a usage bar that turns red past 90%.
+  Linux-only (`disk_linux.go`); a portable stub omits the fields elsewhere.
+- **Data directory** — recursive size and file count, cached for a minute
+  (`dirUsage`) so the 15 s poll does not re-walk a large log directory.
+- **Database** — `pg_database_size` plus `pg_total_relation_size('messages')`
+  (new `MessageRepository.DatabaseSizeBytes`), so message growth is visible.
+- **Media** — this fork only ships MinIO/S3 media storage and nothing is written
+  to local disk, so the panel reports the configured backend (or "não
+  configurada") rather than inventing a local media size.
+
+Every field is best-effort: a failure omits it and the endpoint still returns 200.
+
 
 ## 3j. Security audit & hardening
 

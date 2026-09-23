@@ -8,6 +8,8 @@ import apiClient from './client';
 export interface StatKV {
   key: string;
   count: number;
+  name?: string;
+  phone?: string;
 }
 
 export interface ServerSystemStats {
@@ -35,9 +37,25 @@ export interface ServerMessageStats {
   topSources?: StatKV[];
 }
 
+export interface ServerStorageStats {
+  diskPath?: string;
+  diskTotalMB?: number;
+  diskUsedMB?: number;
+  diskAvailableMB?: number;
+  diskUsedPct?: number;
+  dataDir?: string;
+  dataUsedMB?: number;
+  dataFiles?: number;
+  dbTotalMB?: number;
+  dbMessagesMB?: number;
+  mediaEnabled?: boolean;
+  mediaBackend?: string;
+}
+
 export interface ServerStats {
   system: ServerSystemStats;
   messages: ServerMessageStats;
+  storage?: ServerStorageStats;
 }
 
 export const fetchServerStats = async (): Promise<ServerStats> => {
