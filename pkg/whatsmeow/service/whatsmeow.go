@@ -2759,6 +2759,51 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			"enforcementType":     evt.EnforcementType,
 			"timeEnforcementEnds": ends,
 		}
+	case *events.PrivacySettings:
+		doWebhook = true
+		postMap["event"] = "PrivacySettings"
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Privacy settings changed", mycli.userID)
+		postMap["data"] = map[string]interface{}{
+			"newSettings":         evt.NewSettings,
+			"groupAddChanged":     evt.GroupAddChanged,
+			"lastSeenChanged":     evt.LastSeenChanged,
+			"statusChanged":       evt.StatusChanged,
+			"profileChanged":      evt.ProfileChanged,
+			"readReceiptsChanged": evt.ReadReceiptsChanged,
+			"onlineChanged":       evt.OnlineChanged,
+			"callAddChanged":      evt.CallAddChanged,
+			"messagesChanged":     evt.MessagesChanged,
+			"defenseChanged":      evt.DefenseChanged,
+			"stickersChanged":     evt.StickersChanged,
+		}
+	case *events.Blocklist:
+		doWebhook = true
+		postMap["event"] = "Blocklist"
+		changes := make([]map[string]string, 0, len(evt.Changes))
+		for _, c := range evt.Changes {
+			changes = append(changes, map[string]string{"jid": c.JID.String(), "action": string(c.Action)})
+		}
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Blocklist changed (%s), %d change(s)", mycli.userID, evt.Action, len(changes))
+		postMap["data"] = map[string]interface{}{
+			"action":  string(evt.Action),
+			"dhash":   evt.DHash,
+			"changes": changes,
+		}
+	case *events.NewsletterLiveUpdate:
+		doWebhook = true
+		postMap["event"] = "NewsletterLiveUpdate"
+		postMap["data"] = map[string]interface{}{
+			"jid":      evt.JID.String(),
+			"time":     evt.Time.Unix(),
+			"messages": len(evt.Messages),
+		}
+	case *events.NewsletterMuteChange:
+		doWebhook = true
+		postMap["event"] = "NewsletterMuteChange"
+		postMap["data"] = map[string]interface{}{
+			"id":   evt.ID.String(),
+			"mute": string(evt.Mute),
+		}
 	case *events.ConnectFailure:
 		doWebhook = true
 		postMap["event"] = "ConnectFailure"
@@ -3049,7 +3094,7 @@ func (w *whatsmeowService) CallWebhook(instance *instance_model.Instance, queueN
 			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
 			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		}
-	case "Connected", "PairSuccess", "TemporaryBan", "LoggedOut", "ConnectFailure", "Disconnected", "AccountReachoutTimelock":
+	case "Connected", "PairSuccess", "TemporaryBan", "LoggedOut", "ConnectFailure", "Disconnected", "AccountReachoutTimelock", "PrivacySettings", "Blocklist":
 		if contains(subscriptions, "CONNECTION") {
 			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
 			w.sendToQueueOrWebhook(instance, queueName, jsonData)
@@ -3079,7 +3124,7 @@ func (w *whatsmeowService) CallWebhook(instance *instance_model.Instance, queueN
 			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
 			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		}
-	case "NewsletterJoin", "NewsletterLeave":
+	case "NewsletterJoin", "NewsletterLeave", "NewsletterLiveUpdate", "NewsletterMuteChange":
 		if contains(subscriptions, "NEWSLETTER") {
 			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
 			w.sendToQueueOrWebhook(instance, queueName, jsonData)

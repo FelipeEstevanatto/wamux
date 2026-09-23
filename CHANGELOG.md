@@ -60,6 +60,10 @@ Fork-specific fixes on top of `0.7.2` (see `FORK_NOTES.md` for the full list).
   now cleared on `Disconnected`/`StreamReplaced` instead of being left stale.
 
 ### ✨ Features
+- **More webhook events** — `PrivacySettings`, `Blocklist` (with its per-JID
+  changes) and the newsletter events `NewsletterLiveUpdate` /
+  `NewsletterMuteChange` are now forwarded. `PrivacySettings`/`Blocklist` go to
+  CONNECTION subscribers and the newsletter events to NEWSLETTER subscribers.
 - **`AccountReachoutTimelock` webhook** — whatsmeow's
   `NotifyAccountReachoutTimelock` (the account-level reach-out timelock behind
   error 463) is now forwarded to CONNECTION subscribers, so operators learn
