@@ -11,6 +11,10 @@ import * as instancesApi from '@/services/api/instances';
 // fetched at most once per minute instead of on every 5s instance poll.
 const OVERVIEW_TTL_MS = 60_000;
 
+// Minimum time the refresh button stays disabled and spinning. The API answers
+// in a few milliseconds locally, so without this the feedback is imperceptible.
+const REFRESH_FEEDBACK_MS = 500;
+
 interface InstancesStore {
   instances: Instance[];
   isLoading: boolean;
@@ -66,13 +70,25 @@ const useInstancesStore = create<InstancesStore>()((set, get) => ({
   },
 
   // Manual refresh from the header button: keeps the list on screen and only
-  // spins the refresh icon.
+  // spins the refresh icon. The list is updated as soon as the data arrives, but
+  // the button stays disabled + spinning for a minimum time so the feedback is
+  // visible.
   refreshInstances: async () => {
     if (get().isRefreshing) return;
     set({ isRefreshing: true, error: null });
+
+    const startedAt = Date.now();
     try {
       const instances = await instancesApi.fetchInstances();
-      set({ instances, isRefreshing: false });
+      set({ instances });
+
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < REFRESH_FEEDBACK_MS) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, REFRESH_FEEDBACK_MS - elapsed)
+        );
+      }
+      set({ isRefreshing: false });
     } catch (error) {
       console.error('Failed to refresh instances:', error);
       set({

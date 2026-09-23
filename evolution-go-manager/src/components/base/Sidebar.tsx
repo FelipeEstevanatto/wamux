@@ -53,15 +53,21 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <div className="flex h-full w-full flex-col bg-sidebar text-sidebar-foreground">
-      {/* Logo Header */}
-      <div className="flex h-16 flex-col items-start justify-center border-b border-sidebar-border px-4">
+      {/* Logo Header — links back to the Dashboard */}
+      <NavLink
+        to="/manager"
+        end
+        onClick={onNavigate}
+        title="Ir para o Dashboard"
+        className="flex h-16 flex-col items-start justify-center border-b border-sidebar-border px-4 transition-colors hover:bg-sidebar-accent/50"
+      >
         <h2 className="text-lg font-bold leading-tight text-primary">
           {PRODUCT_NAME}
         </h2>
         <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
           fork de {FORK_OF_NAME}
         </span>
-      </div>
+      </NavLink>
 
       {/* Navigation Menu */}
       <nav className="flex-1 space-y-1.5 overflow-y-auto px-2 py-4">
