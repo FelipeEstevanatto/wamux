@@ -12,6 +12,8 @@ interface InstancesHeaderProps {
   searchValue: string;
   onSearchChange: (value: string) => void;
   onNewInstance: () => void;
+  onRefresh: () => void;
+  isRefreshing?: boolean;
   onClearSelection: () => void;
 }
 
@@ -21,6 +23,8 @@ export default function InstancesHeader({
   searchValue,
   onSearchChange,
   onNewInstance,
+  onRefresh,
+  isRefreshing = false,
   onClearSelection,
 }: InstancesHeaderProps) {
   const primaryAction: HeaderAction = {
@@ -39,6 +43,11 @@ export default function InstancesHeader({
       onSearchChange={onSearchChange}
       searchPlaceholder="Buscar instâncias..."
       primaryAction={primaryAction}
+      refreshAction={{
+        onClick: onRefresh,
+        isRefreshing,
+        title: 'Atualizar instâncias',
+      }}
       onClearSelection={onClearSelection}
       showFilters={false}
       className="mb-4"

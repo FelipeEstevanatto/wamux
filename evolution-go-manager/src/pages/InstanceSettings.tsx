@@ -489,7 +489,7 @@ export default function InstanceSettings() {
               Informações da Instância
             </h2>
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="text-sm font-medium text-foreground">
                     Nome da Instância
@@ -552,14 +552,14 @@ export default function InstanceSettings() {
                   <label className="text-sm font-medium text-foreground">
                     Token da Instância
                   </label>
-                  <div className="mt-1 flex items-center gap-2">
-                    <p className="text-sm text-muted-foreground font-mono">
+                  <div className="mt-1 flex min-w-0 items-center gap-2">
+                    <p className="min-w-0 flex-1 break-all text-sm text-muted-foreground font-mono">
                       {showToken ? (instance.apikey || '') : '•'.repeat((instance.apikey || '').length)}
                     </p>
                     <button
                       type="button"
                       onClick={() => setShowToken(!showToken)}
-                      className="text-muted-foreground hover:text-foreground transition-colors"
+                      className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
                       title={showToken ? "Ocultar token" : "Mostrar token"}
                     >
                       {showToken ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -567,7 +567,7 @@ export default function InstanceSettings() {
                     <button
                       type="button"
                       onClick={handleCopyToken}
-                      className="text-muted-foreground hover:text-foreground transition-colors"
+                      className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
                       title="Copiar token"
                     >
                       {copied ? (

@@ -14,6 +14,7 @@ const OVERVIEW_TTL_MS = 60_000;
 interface InstancesStore {
   instances: Instance[];
   isLoading: boolean;
+  isRefreshing: boolean;
   error: string | null;
 
   // instanceId -> overview
@@ -21,7 +22,8 @@ interface InstancesStore {
   overviewFetchedAt: Record<string, number>;
 
   // Actions
-  fetchInstances: () => Promise<void>;
+  fetchInstances: (options?: { silent?: boolean }) => Promise<void>;
+  refreshInstances: () => Promise<void>;
   fetchOverviews: (instances: Instance[]) => Promise<void>;
   addInstance: (instance: Instance) => void;
   updateInstance: (instanceName: string, updates: Partial<Instance>) => void;
@@ -34,13 +36,20 @@ interface InstancesStore {
 const useInstancesStore = create<InstancesStore>()((set, get) => ({
   instances: [],
   isLoading: false,
+  isRefreshing: false,
   error: null,
   overviews: {},
   overviewFetchedAt: {},
 
-  // Fetch all instances from API
-  fetchInstances: async () => {
-    set({ isLoading: true, error: null });
+  // Fetch all instances from API. A silent fetch (the background poll) updates
+  // the list in place without toggling isLoading, so the cards are not replaced
+  // by skeletons on every tick. The skeleton is only shown when there is nothing
+  // to display yet.
+  fetchInstances: async (options) => {
+    const silent = options?.silent ?? false;
+    if (!silent && get().instances.length === 0) {
+      set({ isLoading: true, error: null });
+    }
     try {
       const instances = await instancesApi.fetchInstances();
       set({ instances, isLoading: false });
@@ -52,6 +61,26 @@ const useInstancesStore = create<InstancesStore>()((set, get) => ({
             ? error.message
             : 'Erro ao buscar instâncias',
         isLoading: false,
+      });
+    }
+  },
+
+  // Manual refresh from the header button: keeps the list on screen and only
+  // spins the refresh icon.
+  refreshInstances: async () => {
+    if (get().isRefreshing) return;
+    set({ isRefreshing: true, error: null });
+    try {
+      const instances = await instancesApi.fetchInstances();
+      set({ instances, isRefreshing: false });
+    } catch (error) {
+      console.error('Failed to refresh instances:', error);
+      set({
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Erro ao buscar instâncias',
+        isRefreshing: false,
       });
     }
   },
