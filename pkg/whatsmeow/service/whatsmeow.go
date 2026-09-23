@@ -1745,6 +1745,26 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 		// Pairing succeeded — tear down any pending passkey ceremony for this instance.
 		mycli.passkeyCeremony.Clear(mycli.userID)
+	case *events.PairError:
+		// The server accepted the pairing but finishing it locally failed (e.g.
+		// the device identity could not be stored). Without this case the error
+		// was only visible as an "Unhandled event" warning, and a passkey
+		// ceremony would stay stuck until its TTL.
+		doWebhook = true
+		postMap["event"] = "PairError"
+		msg := "unknown pairing error"
+		if evt.Error != nil {
+			msg = evt.Error.Error()
+		}
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Pairing failed after pair-success (platform=%s): %s", mycli.userID, evt.Platform, msg)
+		if mycli.passkeyCeremony != nil {
+			mycli.passkeyCeremony.SetError(mycli.userID, msg)
+		}
+		postMap["data"] = map[string]interface{}{
+			"error":    msg,
+			"platform": evt.Platform,
+			"stage":    "error",
+		}
 	case *events.PairPasskeyRequest:
 		// The server demands a WebAuthn passkey to finish linking. We CANNOT
 		// produce the assertion here (it needs the user's authenticator on the
@@ -3052,12 +3072,12 @@ func (w *whatsmeowService) CallWebhook(instance *instance_model.Instance, queueN
 			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
 			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		}
-	case "PasskeyRequest", "PasskeyConfirmation", "PasskeyError":
-		// Passkey (WebAuthn) events are part of the #wapk pairing flow, so they
-		// are delivered to dedicated PASSKEY subscribers and to QRCODE
-		// subscribers. Previously they hit `default: return` and were silently
-		// dropped, even though myEventHandler logged "DISPATCHING WEBHOOK" before
-		// this filter ran (issue #105).
+	case "PasskeyRequest", "PasskeyConfirmation", "PasskeyError", "PairError":
+		// Passkey (WebAuthn) events are part of the #wapk pairing flow, and
+		// PairError is a pairing failure, so they are delivered to dedicated
+		// PASSKEY subscribers and to QRCODE subscribers. Previously they hit
+		// `default: return` and were silently dropped, even though myEventHandler
+		// logged "DISPATCHING WEBHOOK" before this filter ran (issue #105).
 		if shouldForwardPasskey(subscriptions) {
 			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
 			w.sendToQueueOrWebhook(instance, queueName, jsonData)
