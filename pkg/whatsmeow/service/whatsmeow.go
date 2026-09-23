@@ -1256,6 +1256,29 @@ func (mycli *MyClient) handlePollVote(evt *events.Message) {
 	instanceID := mycli.Instance.Id
 	userID := mycli.userID
 
+	// Resolve the voter to the phone-number form the rest of the API uses (the
+	// webhook Sender, quoted replies, etc.). The vote arrives LID-addressed and
+	// with a device suffix; storing it raw made voterPhone hold the LID number
+	// instead of the phone. done here because this is where the client lives —
+	// BuildPollVoteFromEvent stays pure.
+	voter := info.Sender.ToNonAD()
+	if voter.Server == types.HiddenUserServer {
+		if mycli.WAClient != nil && mycli.WAClient.Store != nil && mycli.WAClient.Store.LIDs != nil {
+			if pn, err := mycli.WAClient.Store.LIDs.GetPNForLID(context.Background(), voter); err == nil && !pn.IsEmpty() {
+				log.LogInfo("[%s] Resolved poll voter %s to %s", mycli.userID, voter, pn.ToNonAD())
+				voter = pn.ToNonAD()
+			}
+		}
+	}
+	info.Sender = voter
+	info.SenderAlt = info.SenderAlt.ToNonAD()
+
+	if info.Sender.Server == types.HiddenUserServer {
+		// No LID->PN mapping available (yet): keep the LID but make clear that
+		// the phone is unknown rather than storing the LID number as if it were one.
+		log.LogWarn("[%s] No PN mapping for poll voter %s; storing the LID form", mycli.userID, info.Sender)
+	}
+
 	// Saving touches the database, so keep it off the event dispatch path.
 	go func() {
 		defer func() {
