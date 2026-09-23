@@ -1,18 +1,22 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Smartphone } from 'lucide-react';
+import { LayoutDashboard, Smartphone, Info } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import useServerStats from '@/hooks/useServerStats';
 import GithubIcon from './GithubIcon';
+import {
+  COPYRIGHT_LINE,
+  FORK_DISCLAIMER,
+  FORK_REPO,
+  UPSTREAM_REPO,
+} from '@/constants/branding';
 
 const navItems = [
   { to: '/manager', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/manager/instances', label: 'Instâncias', icon: Smartphone },
+  { to: '/manager/about', label: 'Sobre', icon: Info },
 ];
 
-const GITHUB_URL = 'https://github.com/evolution-foundation/evolution-go';
-
 function Sidebar() {
-  const currentYear = new Date().getFullYear();
   const { stats } = useServerStats();
   const version = stats?.system?.version;
 
@@ -57,19 +61,31 @@ function Sidebar() {
         <div className="text-xs text-muted-foreground">
           {version ? `versão ${version}` : 'versão —'}
         </div>
-        <a
-          href={GITHUB_URL}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-          title="Repositório no GitHub"
-        >
-          <GithubIcon className="h-3.5 w-3.5" />
-          GitHub
-        </a>
-        <div className="text-xs text-muted-foreground">
-          © {currentYear} All rights reserved
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <a
+            href={FORK_REPO}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            title="Repositório deste fork"
+          >
+            <GithubIcon className="h-3.5 w-3.5" />
+            Fork
+          </a>
+          <a
+            href={UPSTREAM_REPO}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            title="Projeto upstream (Evolution Foundation)"
+          >
+            Upstream
+          </a>
         </div>
+        <p className="text-[11px] leading-snug text-muted-foreground">
+          {FORK_DISCLAIMER}
+        </p>
+        <div className="text-[11px] text-muted-foreground">{COPYRIGHT_LINE}</div>
       </div>
     </div>
   );

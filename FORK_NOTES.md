@@ -40,6 +40,34 @@ The API is fully operational from first boot — no 503 gate, no registration.
 
 ---
 
+## 1b. Distribution & compliance
+
+This is an **unofficial community fork**. Nothing here is affiliated with,
+endorsed by, or an official release of Evolution Foundation.
+
+- **Version**: the `VERSION` file is the single source of truth (the Dockerfile,
+  the GHCR workflow and `cmd/evolution-go/main.go` all read it). It is now
+  `0.8.0`; the Makefile used to grep `CHANGELOG.md`, which started matching
+  unrelated text (`amqp091-go`) and produced a broken `-X main.version`.
+- **Image**: `ghcr.io/felipeestevanatto/evolution-go-community`, published by
+  `.github/workflows/publish_docker_image.yml` with the automatic
+  `GITHUB_TOKEN`. It is never pushed to the upstream `evoapicloud/evolution-go`
+  Docker Hub repo. OCI labels mark it unofficial.
+- **Apache-2.0 §4**: the image ships `LICENSE`, `NOTICE`, `TRADEMARKS.md` and
+  this file under `/app` (the Dockerfile copies them into the final stage).
+- **Usage notification (LICENSE additional condition 1.b)**: the manager has a
+  **Sobre / About** page (`/manager/about`) stating that the system uses
+  Evolution Go, reachable from the sidebar. `README.md` documents the
+  obligation for anyone embedding this image in another product.
+- **Brand assets**: the manager keeps the Evolution Go copyright line (correct
+  attribution, previously "© Evolution GO") and adds a visible fork disclaimer.
+  It does **not** add the official logo. Note the tension between LICENSE
+  condition 1.a (do not remove the LOGO/copyright from the console) and
+  `TRADEMARKS.md` §4.2 (a *modified* UI must remove the brand assets and pick a
+  clearly distinct name): this fork's UI is modified, so §4.2 arguably applies,
+  while removing the logo triggers 1.a. Any use not expressly permitted needs
+  written permission (`TRADEMARKS.md` §5, suporte@evofoundation.com.br).
+
 ## 2. Applied community fixes
 
 All of these are main-branch PRs based on `0.7.2`, except where noted as ported

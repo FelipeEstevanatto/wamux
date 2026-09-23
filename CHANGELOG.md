@@ -1,8 +1,13 @@
 # Evolution GO - Changelog
 
-## Unreleased — `fork/community-stable`
+## 0.8.0 — `fork/community-stable`
 
-Fork-specific fixes on top of `0.7.2` (see `FORK_NOTES.md` for the full list).
+Community fork release on top of `0.7.2` (see `FORK_NOTES.md` for the full
+list). Highlights: vendored manager source + dependency refresh, a large set of
+API/manager features, a security audit pass, and a whatsmeow API audit.
+
+> **Unofficial community build.** Not affiliated with, endorsed by, or an
+> official release of Evolution Foundation. See `README.md` and `NOTICE`.
 
 ### 🐛 Bug Fixes
 - **`PairError` is handled** — pairing failures after pair-success (e.g. the

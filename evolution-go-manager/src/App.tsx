@@ -12,6 +12,7 @@ import Events from '@/pages/Events';
 import Settings from '@/pages/Settings';
 import LicenseCallback from '@/pages/LicenseCallback';
 import ApiTester from '@/pages/ApiTester';
+import About from '@/pages/About';
 import useAuth from '@/hooks/useAuth';
 import { DarkModeProvider } from '@/contexts/ThemeContext';
 
@@ -48,6 +49,7 @@ function App() {
               <Route path="events" element={<Events />} />
               <Route path="api-tester" element={<ApiTester />} />
               <Route path="settings" element={<Settings />} />
+              <Route path="about" element={<About />} />
             </Route>
             ) : (
               /* Redirect to login if not authenticated or not licensed */

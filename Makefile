@@ -5,7 +5,11 @@ APP_NAME=evolution-go
 MAIN_PATH=cmd/evolution-go/main.go
 BUILD_DIR=build
 GO=go
-VERSION=$(shell grep -om1 "v[0-9].*" CHANGELOG.md)
+# The VERSION file is the single source of truth for the release version: the
+# Dockerfile, the GHCR workflow and cmd/evolution-go/main.go all read it. (It
+# used to grep CHANGELOG.md, which started matching unrelated text like
+# "amqp091-go" and produced a broken -X main.version.)
+VERSION=$(shell cat VERSION 2>/dev/null | tr -d '[:space:]')
 LDFLAGS=-ldflags "-X main.version=$(VERSION)"
 GOFLAGS=-v
 
