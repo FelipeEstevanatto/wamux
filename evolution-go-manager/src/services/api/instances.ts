@@ -100,6 +100,22 @@ export const fetchInstanceOverview = async (
 };
 
 /**
+ * Rename an instance (display name only; id and token stay the same)
+ * PUT /instance/name/:instanceId
+ * Uses the admin apikey (default header)
+ */
+export const renameInstance = async (
+  instanceId: string,
+  name: string
+): Promise<Instance> => {
+  const response = await apiClient.put<{
+    message: string;
+    data: RawInstance;
+  }>(`/instance/name/${instanceId}`, { name });
+  return normalizeInstance(response.data.data);
+};
+
+/**
  * Create a new instance
  * POST /instance/create
  */
@@ -427,6 +443,7 @@ export default {
   fetchInstances,
   fetchInstance,
   fetchInstanceOverview,
+  renameInstance,
   createInstance,
   connectInstance,
   pairInstance,
