@@ -111,6 +111,7 @@ issues.
 | `POST /user/profileName` called `SetGroupName(ctx, EmptyJID, name)` — a group rename addressed to a non-existent group — which is why it hung forever. Now sends the correct account-level profile IQ with a bounded context. | #176 |
 | Quoted replies sent `ContextInfo.QuotedMessage` as an **empty** `Conversation`, producing an empty, non-tappable quote card. Now `quoted.message` can be supplied and is rendered; otherwise the empty payload is omitted. | #189 |
 | Bounded every outbound HTTP call with a timeout. The worst was the WhatsApp Web version lookup (`http.Get` with no timeout) running inside `StartClient`, so a slow network could block instances from coming online; webhooks, media downloads, link previews and profile/group photo fetches were unbounded too. | reliability |
+| Poll votes from any contact other than the poll author never decrypted (`cipher: message authentication failed`), so `GET /polls/:id/results` only ever saw the author's own vote. The JID swap rewrites the event's `Sender`/`Chat` before decryption, and whatsmeow derives the vote's GCM additional data from those. Decryption now runs before the swap. | #60 |
 | `GET /group/myall` always returned an empty list. The owner filter compared `types.GroupInfo.OwnerJID` against a JID parsed by `utils.ParseJID`, which prefixes phone numbers with `"+"` (so it never equalled WhatsApp's owner JID); and on LID-addressed accounts the owner is reported as a LID while the account's own `Store.ID` is a phone number. The filter now normalises both sides with `ToNonAD()` and matches `OwnerJID`/`OwnerPN` against both `Store.ID` and `Store.LID`. | — |
 | `POST /group/create` and `POST /group/participant` hung and failed with `"info query timed out"` when the participants were phone numbers. `utils.ParseJID` emitted `"+<number>@s.whatsapp.net"`, which WhatsApp cannot resolve, so the request IQ was dropped and the call timed out; passing a LID worked, which hid the bug. Participants are now canonicalised with `utils.CanonicalJID` (strips the `+`, leaves LID/group JIDs untouched) before being sent. | — |
 
@@ -236,38 +237,25 @@ Not fixed here — they are larger or need protocol work. Ordered by impact.
    `templateMessage` nodes the fork still builds; only the `InteractiveMessage`
    carousel path still works, and it splits into two bubbles. Needs porting to
    the current interactive/native-flow format. **Biggest functional gap.**
-2. **Poll results always return 404** (#60). Votes arrive in the webhook but
-   `GetPollResults` finds none — likely the stored `poll_message_id` /
-   `instance_id` doesn't match the query. Needs tracing `SavePollVote` vs
-   `GetPollResults`.
-3. **Disappearing-messages timer not applied to outgoing messages** (#79), so
+2. **Disappearing-messages timer not applied to outgoing messages** (#79), so
    recipients see "this message will not disappear". Needs the chat's ephemeral
    expiration copied into the outgoing message/context.
-4. **Error 463 / NCT tokens not persisted** (#124, #50). The whatsmeow bump
+3. **Error 463 / NCT tokens not persisted** (#124, #50). The whatsmeow bump
    applied here plus the shared auth-store fix may already help; verify on a
    previously-affected instance before deeper work.
-5. **Push notifications suppressed after connecting** (#70 23 comments, #54,
+4. **Push notifications suppressed after connecting** (#70 23 comments, #54,
    #55). 0.7.2 already respects `alwaysOnline` on the `Connected` path, but the
    reports persist — audit every `SendPresence(PresenceAvailable)` call site
    (typing, subscribe, presence loop) when `alwaysOnline=false`.
-6. **Passkey events / ceremony** (#105, #107, #172, #173). `PASSKEY*` event
+5. **Passkey events / ceremony** (#105, #107, #172, #173). `PASSKEY*` event
    groups are not in `event_types` or the subscription filter, so they can never
    reach a webhook; the ceremony state machine also gets stuck.
-7. **Media fidelity** (#104 missing image width/height → square placeholder,
+6. **Media fidelity** (#104 missing image width/height → square placeholder,
    #103 link thumbnail not uploaded).
-8. **Group announcement mode / settings** (#113, #98, #42) — the
-   `/group/settings` route exists; the service implementation appears partial.
-9. **Poll votes from a LID/PN-alternating voter fail to decrypt.** Verified live:
-   the first vote from a contact decrypts and is stored, but a later vote from
-   the *same contact* arrives with a phone-number sender instead of a LID and
-   fails with `cipher: message authentication failed`. whatsmeow's
-   `decryptMsgSecret` looks the poll's message secret up by
-   `(chat, origSender, origMessageID)`; the secret was stored under the bot's LID
-   as `origSender`, and its LID↔PN fallback re-derives the GCM additional data
-   for the wrong sender. Net effect: one vote per poll per contact is captured,
-   repeat votes are dropped. Needs normalising the vote's sender JID (LID↔PN)
-   before calling `DecryptPollVote`, or retrying with the stored sender.
-
+7. **Group announcement mode / settings** (#113, #98, #42) — verified working
+   (announcement / not_announcement / locked / unlocked all succeed and the
+   group reflects the change); the item is kept only to track the upstream
+   issue numbers.
 ## 4. Build & run
 
 From the repository root (the `docker-compose.yml` is there):
