@@ -2245,24 +2245,35 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 		}
 		bizNodes = append(bizNodes, waBinary.Node{Tag: "biz", Attrs: bizAttrs})
 	} else {
-		nativeFlowNode := waBinary.Node{
-			Tag:   "native_flow",
-			Attrs: waBinary.Attrs{"v": "2", "name": "mixed"},
-		}
-		bizNodes = []waBinary.Node{{
+		// Relay node for reply/CTA buttons, matching the reference that renders:
+		//   <biz actual_actors="2" host_storage="2" privacy_mode_ts="...">
+		//     <interactive type="native_flow" v="1"><native_flow v="9" name="mixed"/></interactive>
+		//     <quality_control source_type="third_party"/>
+		//   </biz>
+		// The three <biz> attributes and the v="9" flow name were missing before.
+		mixedBiz := waBinary.Node{
 			Tag: "biz",
-			Content: []waBinary.Node{{
-				Tag:     "interactive",
-				Attrs:   waBinary.Attrs{"type": "native_flow", "v": "1"},
-				Content: []waBinary.Node{nativeFlowNode},
-			}},
-		}}
+			Attrs: waBinary.Attrs{
+				"actual_actors":   "2",
+				"host_storage":    "2",
+				"privacy_mode_ts": strconv.FormatInt(time.Now().Unix()-privacyModeTSOffset, 10),
+			},
+			Content: []waBinary.Node{
+				{
+					Tag:     "interactive",
+					Attrs:   waBinary.Attrs{"type": "native_flow", "v": "1"},
+					Content: []waBinary.Node{{Tag: "native_flow", Attrs: waBinary.Attrs{"v": "9", "name": "mixed"}}},
+				},
+				{Tag: "quality_control", Attrs: waBinary.Attrs{"source_type": "third_party"}},
+			},
+		}
 		if !strings.Contains(data.Number, "@g.us") {
 			bizNodes = append(bizNodes, waBinary.Node{
 				Tag:   "bot",
 				Attrs: waBinary.Attrs{"biz_bot": "1"},
 			})
 		}
+		bizNodes = append(bizNodes, mixedBiz)
 	}
 
 	// Route through centralized SendMessage for ContextInfo, webhooks, quotes, mentions.
