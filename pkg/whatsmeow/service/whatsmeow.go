@@ -835,6 +835,11 @@ const (
 	historyStorageQuotaMb      = 2048 // 2 GB
 )
 
+// maxParallelRetryReceipts caps how many retry receipts whatsmeow handles at
+// once. Its default is unlimited; a burst of undecryptable messages (each
+// triggering a retry receipt) would otherwise spawn unbounded goroutines.
+const maxParallelRetryReceipts = 10
+
 func (w whatsmeowService) StartClient(cd *ClientData) {
 
 	w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("Starting websocket connection to Whatsapp for user '%s'", cd.Instance.Id)
@@ -936,6 +941,11 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 	}
 	clientLog := waLog.Stdout("Client", minLevel, true)
 	client := whatsmeow.NewClient(deviceStore, clientLog)
+
+	// whatsmeow handles retry receipts with unlimited parallelism by default, so
+	// a retry storm can spawn unbounded goroutines. Bound it; this must be set
+	// before connecting.
+	client.SetMaxParallelRetryReceiptHandling(maxParallelRetryReceipts)
 
 	w.clientPointer.Set(cd.Instance.Id, client)
 

@@ -98,6 +98,10 @@ Fork-specific fixes on top of `0.7.2` (see `FORK_NOTES.md` for the full list).
   alias) and app-state desync recovery.
 
 ### 🔧 Improvements
+- **Bound retry-receipt concurrency** — `SetMaxParallelRetryReceiptHandling(10)`
+  before connect. whatsmeow's default is unlimited, so a burst of
+  undecryptable messages (each triggering a retry receipt) could spawn
+  unbounded goroutines.
 - **Wait for the connection instead of sleeping** — `ensureClientConnected` and
   `Reconnect` used fixed `time.Sleep(2s)` guesses before checking the client.
   They now use `client.WaitForConnection(timeout)` (whatsmeow's supported wait),
