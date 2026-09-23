@@ -140,6 +140,7 @@ type whatsmeowService struct {
 	killChannel        *safemap.Map[chan bool]
 	userInfoCache      *cache.Cache
 	chatNameCache      *cache.Cache
+	groupInfoCache     *cache.Cache
 	clientPointer      *safemap.Map[*whatsmeow.Client]
 	myClientPointer    *safemap.Map[*MyClient]
 	rabbitmqProducer   producer_interfaces.Producer
@@ -193,6 +194,7 @@ type MyClient struct {
 	killChannel        *safemap.Map[chan bool]
 	userInfoCache      *cache.Cache
 	config             *config.Config
+	groupInfoCache     *cache.Cache
 	historySyncID      int32
 	rabbitmqProducer   producer_interfaces.Producer
 	webhookProducer    producer_interfaces.Producer
@@ -380,6 +382,29 @@ func (mycli *MyClient) persistMessageAsync(message message_model.Message) {
 			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to persist message %s: %v", mycli.userID, message.MessageID, err)
 		}
 	}()
+}
+
+// getGroupInfoCached resolves group metadata, reusing a recent result. Every
+// group message used to trigger a live IQ inside the event handler; group
+// metadata changes rarely, so a short cache removes that call from the hot path.
+func (mycli *MyClient) getGroupInfoCached(jid types.JID) (*types.GroupInfo, error) {
+	key := mycli.userID + "|" + jid.String()
+	if mycli.groupInfoCache != nil {
+		if v, ok := mycli.groupInfoCache.Get(key); ok {
+			if info, ok := v.(*types.GroupInfo); ok {
+				return info, nil
+			}
+		}
+	}
+
+	info, err := mycli.WAClient.GetGroupInfo(context.Background(), jid)
+	if err != nil {
+		return nil, err
+	}
+	if mycli.groupInfoCache != nil {
+		mycli.groupInfoCache.Set(key, info, cache.DefaultExpiration)
+	}
+	return info, nil
 }
 
 type ClientData struct {
@@ -1023,6 +1048,7 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		labelRepository:    w.labelRepository,
 		pollService:        w.pollService, // NOVO: Serviço de enquetes
 		userInfoCache:      w.userInfoCache,
+		groupInfoCache:     w.groupInfoCache,
 		clientPointer:      w.clientPointer,
 		myClientPointer:    w.myClientPointer,
 		killChannel:        w.killChannel,
@@ -2358,7 +2384,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 		isGroup := strings.HasSuffix(evt.Info.Chat.String(), "@g.us")
 		if isGroup {
-			groupData, err := mycli.WAClient.GetGroupInfo(context.Background(), evt.Info.Chat)
+			groupData, err := mycli.getGroupInfoCached(evt.Info.Chat)
 			if err == nil {
 				dataMap["groupData"] = groupData
 			}
@@ -3743,6 +3769,7 @@ func NewWhatsmeowService(
 		killChannel:        killChannel,
 		userInfoCache:      cache.New(5*time.Minute, 10*time.Minute),
 		chatNameCache:      cache.New(10*time.Minute, 15*time.Minute),
+		groupInfoCache:     cache.New(5*time.Minute, 10*time.Minute),
 		clientPointer:      clientPointer,
 		myClientPointer:    safemap.New[*MyClient](),
 		rabbitmqProducer:   rabbitmqProducer,
