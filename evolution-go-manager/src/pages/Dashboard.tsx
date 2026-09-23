@@ -12,8 +12,12 @@ import {
 import useServerStats from '@/hooks/useServerStats';
 import useInstancesStore from '@/store/instancesStore';
 import GithubIcon from '@/components/base/GithubIcon';
+import {
+  FORK_REPO,
+  UPSTREAM_REPO,
+} from '@/constants/branding';
 
-const GITHUB_URL = 'https://github.com/evolution-foundation/evolution-go';
+// (fork/upstream links come from @/constants/branding)
 
 const fmtNumber = (n?: number) =>
   n === undefined || n === null ? '—' : n.toLocaleString('pt-BR');
@@ -115,13 +119,24 @@ export default function Dashboard() {
               {system.version ? `versão ${system.version}` : 'versão —'}
             </span>
             <a
-              href={GITHUB_URL}
+              href={FORK_REPO}
               target="_blank"
               rel="noreferrer noopener"
               className="inline-flex items-center gap-2 rounded-md border border-sidebar-border bg-sidebar px-3 py-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
+              title="Repositório deste fork"
             >
               <GithubIcon className="h-3.5 w-3.5" />
-              GitHub
+              Fork
+            </a>
+            <a
+              href={UPSTREAM_REPO}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="inline-flex items-center gap-2 rounded-md border border-sidebar-border bg-sidebar px-3 py-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
+              title="Projeto upstream (Evolution Foundation)"
+            >
+              <GithubIcon className="h-3.5 w-3.5" />
+              Upstream
             </a>
           </div>
         </div>

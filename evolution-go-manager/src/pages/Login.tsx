@@ -16,6 +16,7 @@ import { AlertCircle } from 'lucide-react';
 
 import useAuth from '@/hooks/useAuth';
 import { initRegister } from '@/services/api/license';
+import { COPYRIGHT_LINE, FORK_DISCLAIMER } from '@/constants/branding';
 
 export const Login: React.FC = () => {
   const { login, checkLicense, setApiUrl, setApiKey: setStoreApiKey, isAuthenticated, licenseState, apiUrl: defaultApiUrl, apiKey: storedApiKey } = useAuth();
@@ -209,6 +210,8 @@ type LoginFormData = z.infer<typeof loginSchema>;
             </a>
             .
           </p>
+          <p className="mt-3">{COPYRIGHT_LINE}</p>
+          <p className="mt-1">{FORK_DISCLAIMER}</p>
         </div>
       </div>
     </div>

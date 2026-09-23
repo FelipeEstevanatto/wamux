@@ -1,35 +1,51 @@
-name: Build and Publish Docker Image
+name: Build and Publish Docker Image (GHCR)
 
+# Publishes this fork's image to the GitHub Container Registry, so deployers can
+# `docker compose pull` without building from source.
+#
+# The image is an UNOFFICIAL community build (see the OCI labels and README) and
+# lives under this fork's own namespace — it is never pushed to the upstream
+# evoapicloud/evolution-go Docker Hub repo. Authentication uses the automatic
+# GITHUB_TOKEN, so no secrets need to be provisioned.
 on:
   push:
     branches:
-      - main
+      - fork/community-stable
+    tags:
+      - 'v*'
+      - '[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
   build_deploy:
-    name: Build and Deploy
+    name: Build and push to GHCR
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Read version
         id: version
-        run: echo "version=$(cat VERSION 2>/dev/null || echo '0.0.0')" >> $GITHUB_OUTPUT
+        run: echo "version=$(cat VERSION 2>/dev/null || echo '0.0.0')" >> "$GITHUB_OUTPUT"
 
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: evoapicloud/evolution-go
+          images: ghcr.io/felipeestevanatto/evolution-go-community
           tags: |
             type=raw,value=${{ steps.version.outputs.version }}
-            type=raw,value=latest,enable=${{ !contains(steps.version.outputs.version, '-beta') }}
+            type=raw,value=latest,enable=${{ !contains(steps.version.outputs.version, '-') }}
+            type=ref,event=tag
+          labels: |
+            org.opencontainers.image.title=Evolution Go (community fork)
+            org.opencontainers.image.description=Unofficial community build of Evolution Go. Not affiliated with, endorsed by, or an official release of Evolution Foundation.
+            org.opencontainers.image.licenses=Apache-2.0
+            org.opencontainers.image.vendor=FelipeEstevanatto (community fork, not Evolution Foundation)
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -37,18 +53,22 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to Docker Hub
+      - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
+      # linux/amd64 only: the binary is built with CGO_ENABLED=1, and the arm64
+      # leg under QEMU emulation is disproportionately slow. Add
+      # linux/arm64 here (the QEMU step is already present) to restore it.
       - name: Build and push
         id: docker_build
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

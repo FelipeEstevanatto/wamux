@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@evoapi/design-system';
 import { ArrowRight, Zap, Shield, Globe } from 'lucide-react';
+import { COPYRIGHT_LINE, FORK_DISCLAIMER } from '@/constants/branding';
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -72,7 +73,10 @@ export const Home: React.FC = () => {
               Evolution GO Manager - Gerencie suas instâncias WhatsApp de forma simples e eficiente
             </p>
             <p className="text-xs text-muted-foreground mt-2">
-              © {new Date().getFullYear()} Evolution GO. Todos os direitos reservados.
+              {COPYRIGHT_LINE}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1 max-w-xl mx-auto">
+              {FORK_DISCLAIMER}
             </p>
           </div>
         </div>

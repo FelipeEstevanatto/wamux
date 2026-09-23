@@ -10,12 +10,21 @@
   High-performance WhatsApp API built in Go — part of the Evolution Foundation ecosystem.
 </p>
 
+> ### ⚠️ Unofficial community fork
+>
+> This repository is a **community fork** of Evolution Go. It is **not
+> affiliated with, endorsed by, or an official release of Evolution
+> Foundation**. Upstream: <https://github.com/evolution-foundation/evolution-go>.
+>
+> - Container image: `ghcr.io/felipeestevanatto/evolution-go-community`
+> - What this fork changed: [`FORK_NOTES.md`](./FORK_NOTES.md) and [`CHANGELOG.md`](./CHANGELOG.md)
+> - Attribution & brand terms: [`NOTICE`](./NOTICE) and [`TRADEMARKS.md`](./TRADEMARKS.md)
+
 <p align="center">
-  <a href="https://github.com/evolution-foundation/evolution-go/releases/latest"><img src="https://img.shields.io/github/v/release/evolution-foundation/evolution-go?include_prereleases&label=version&color=00ffa7" alt="Latest version" /></a>
+  <a href="https://github.com/FelipeEstevanatto/evolution-go/releases/latest"><img src="https://img.shields.io/github/v/release/FelipeEstevanatto/evolution-go?include_prereleases&label=version&color=00ffa7" alt="Latest version" /></a>
   <a href="https://opensource.org/licenses/Apache-2.0"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License: Apache 2.0" /></a>
-  <a href="https://docs.evolutionfoundation.com.br"><img src="https://img.shields.io/badge/Docs-evolutionfoundation.com.br-00ffa7" alt="Documentation" /></a>
-  <a href="https://evolutionfoundation.com.br/community"><img src="https://img.shields.io/badge/Community-Join%20us-white" alt="Community" /></a>
-  <a href="https://hub.docker.com/r/evoapicloud/evolution-go"><img src="https://img.shields.io/badge/Docker-evoapicloud-blue" alt="Docker image" /></a>
+  <a href="https://docs.evolutionfoundation.com.br"><img src="https://img.shields.io/badge/Docs-upstream-00ffa7" alt="Documentation (upstream)" /></a>
+  <a href="https://github.com/FelipeEstevanatto/evolution-go/pkgs/container/evolution-go-community"><img src="https://img.shields.io/badge/Container-ghcr.io-blue" alt="Container image (this fork)" /></a>
 </p>
 
 <p align="center">
@@ -55,9 +64,20 @@ Evolution Go is one of the messaging engines maintained by Evolution Foundation.
 
 ### Docker (recommended)
 
+Pull this fork's image from GHCR (no build needed):
+
 ```bash
-git clone https://github.com/evolution-foundation/evolution-go.git
+# docker-compose.yml with: image: ghcr.io/felipeestevanatto/evolution-go-community:0.8.0
+docker compose pull
+docker compose up -d
+```
+
+Or build from source:
+
+```bash
+git clone https://github.com/FelipeEstevanatto/evolution-go.git
 cd evolution-go
+git checkout fork/community-stable
 make docker-build
 make docker-run
 ```
@@ -65,8 +85,9 @@ make docker-run
 ### Local development
 
 ```bash
-git clone https://github.com/evolution-foundation/evolution-go.git
+git clone https://github.com/FelipeEstevanatto/evolution-go.git
 cd evolution-go
+git checkout fork/community-stable
 
 # Setup, configure and run
 make setup
@@ -191,27 +212,46 @@ evolution-go/
 
 | Resource | Link |
 |---|---|
-| Website | [evolutionfoundation.com.br](https://evolutionfoundation.com.br) |
-| Documentation | [docs.evolutionfoundation.com.br](https://docs.evolutionfoundation.com.br) |
-| Community | [evolutionfoundation.com.br/community](https://evolutionfoundation.com.br/community) |
-| Docker Hub | [evoapicloud/evolution-go](https://hub.docker.com/r/evoapicloud/evolution-go) |
-| Changelog | [CHANGELOG.md](./CHANGELOG.md) |
+| This fork (source) | [FelipeEstevanatto/evolution-go](https://github.com/FelipeEstevanatto/evolution-go) |
+| This fork (container) | [ghcr.io/felipeestevanatto/evolution-go-community](https://github.com/FelipeEstevanatto/evolution-go/pkgs/container/evolution-go-community) |
+| What this fork changed | [FORK_NOTES.md](./FORK_NOTES.md) · [CHANGELOG.md](./CHANGELOG.md) |
+| Upstream project | [evolution-foundation/evolution-go](https://github.com/evolution-foundation/evolution-go) |
+| Upstream docs | [docs.evolutionfoundation.com.br](https://docs.evolutionfoundation.com.br) |
+| Attribution & brand terms | [NOTICE](./NOTICE) · [TRADEMARKS.md](./TRADEMARKS.md) |
 | Contributing | [CONTRIBUTING.md](./CONTRIBUTING.md) |
 | Security | [SECURITY.md](./SECURITY.md) |
 
 ---
 
+## Usage notification (deployers)
+
+Evolution Go's license (`LICENSE`, additional condition **1.b**) requires any
+system that uses it to show a **clear, administrator-visible notification that
+Evolution Go is being utilized**, reachable from the system's documentation or
+settings page.
+
+This fork satisfies it in the manager: an admin can open **Sobre / About**
+(`/manager/about`), which states that the system uses Evolution Go and links the
+license and attribution.
+
+**If you embed this image (or the API) in another product**, you inherit that
+obligation for *your* users: surface an equivalent admin-visible notice. The
+image ships `LICENSE`, `NOTICE`, `TRADEMARKS.md` and `FORK_NOTES.md` in `/app`.
+
+---
+
 ## Hosting
 
-Deploy Evolution Go with optimized infrastructure through our HostGator partnership:
-
-[**Evolution Go VPS — HostGator**](https://evolution-api.com/vps-evolution-go)
+This fork does not operate any hosting service. (The upstream project has a
+HostGator partnership; see the [upstream repository](https://github.com/evolution-foundation/evolution-go).)
 
 ---
 
 ## Telemetry
 
-Evolution Go collects anonymous telemetry data (routes used, API version) to help improve the service. **No sensitive or personal data is collected.**
+**This fork has no telemetry.** Upstream's license gate, heartbeat and
+telemetry were removed (see `FORK_NOTES.md` §1): nothing here contacts Evolution
+Foundation or any other third party on its own.
 
 ---
 
@@ -238,7 +278,17 @@ For security issues, **do not open a public issue**. Email **suporte@evofoundati
 
 ## License
 
-Evolution Go is licensed under the Apache License 2.0, with additional brand-protection conditions (LOGO/copyright preservation and Usage Notification requirement). See [LICENSE](./LICENSE) for full details.
+Evolution Go is licensed under the Apache License 2.0, with additional
+brand-protection conditions (LOGO/copyright preservation and the Usage
+Notification requirement). See [LICENSE](./LICENSE) for full details.
+
+**This is an unofficial community fork.** It is not affiliated with, endorsed
+by, or an official release of Evolution Foundation. If you redistribute it or
+embed it in another product, review the additional conditions — and note the
+tension between `LICENSE` condition 1.a (do not remove the LOGO/copyright from
+the console) and `TRADEMARKS.md` §4.2 (a *modified* UI must remove the brand
+assets and use a distinct name). For any use not expressly permitted, contact
+**suporte@evofoundation.com.br** (`TRADEMARKS.md` §5).
 
 For licensing inquiries, contact **suporte@evofoundation.com.br**.
 

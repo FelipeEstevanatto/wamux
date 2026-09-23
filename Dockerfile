@@ -44,6 +44,16 @@ RUN CGO_ENABLED=1 go build -ldflags "-X main.version=${VERSION}" -o server ./cmd
 # fixes that 3.19.1 no longer receives.
 FROM alpine:3.24 AS final
 
+# Image metadata. This is an UNOFFICIAL community build: the labels say so, so
+# nobody mistakes it for the official evoapicloud/evolution-go image. The CI
+# workflow adds source/revision/version on top of these.
+LABEL org.opencontainers.image.title="Evolution Go (community fork)" \
+      org.opencontainers.image.description="Unofficial community build of Evolution Go. Not affiliated with, endorsed by, or an official release of Evolution Foundation." \
+      org.opencontainers.image.url="https://github.com/FelipeEstevanatto/evolution-go" \
+      org.opencontainers.image.source="https://github.com/FelipeEstevanatto/evolution-go" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.vendor="FelipeEstevanatto (community fork, not Evolution Foundation)"
+
 # poppler-utils provides pdftoppm, used to rasterize PDF page 1 for /send/media document thumbnails
 RUN apk update && apk add --no-cache tzdata ffmpeg libjpeg-turbo libwebp poppler-utils
 
@@ -52,6 +62,11 @@ WORKDIR /app
 COPY --from=build /build/server .
 COPY --from=build /build/manager/dist ./manager/dist
 COPY --from=build /build/VERSION ./VERSION
+
+# Apache-2.0 §4(a): ship the license text with the Object form. NOTICE and
+# TRADEMARKS carry the additional conditions, and FORK_NOTES explains what this
+# fork changed (Apache-2.0 §4(b)).
+COPY --from=build /build/LICENSE /build/NOTICE /build/TRADEMARKS.md /build/FORK_NOTES.md ./
 
 ENV TZ=America/Sao_Paulo
 
