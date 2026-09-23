@@ -16,7 +16,7 @@ import { AlertCircle } from 'lucide-react';
 
 import useAuth from '@/hooks/useAuth';
 import { initRegister } from '@/services/api/license';
-import { COPYRIGHT_LINE, FORK_DISCLAIMER } from '@/constants/branding';
+import { COPYRIGHT_LINE, FORK_DISCLAIMER, FORK_OF_NAME, PRODUCT_NAME } from '@/constants/branding';
 
 export const Login: React.FC = () => {
   const { login, checkLicense, setApiUrl, setApiKey: setStoreApiKey, isAuthenticated, licenseState, apiUrl: defaultApiUrl, apiKey: storedApiKey } = useAuth();
@@ -128,7 +128,7 @@ type LoginFormData = z.infer<typeof loginSchema>;
         {/* Logo */}
         <div className="text-center">
           <h1 className="text-3xl font-bold text-primary">
-            Evolution GO
+            {PRODUCT_NAME}
           </h1>
         </div>
 
@@ -150,7 +150,7 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
           <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="login-apiUrl">URL da API Evolution GO</Label>
+              <Label htmlFor="login-apiUrl">URL da API</Label>
               <Input
                 id="login-apiUrl"
                 type="text"
@@ -187,7 +187,7 @@ type LoginFormData = z.infer<typeof loginSchema>;
                 <code className="relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-xs">
                   GLOBAL_API_KEY
                 </code>{' '}
-                configurada no arquivo .env do Evolution GO.
+                configurada no arquivo .env do {PRODUCT_NAME}.
               </p>
             </div>
 
@@ -211,6 +211,9 @@ type LoginFormData = z.infer<typeof loginSchema>;
             .
           </p>
           <p className="mt-3">{COPYRIGHT_LINE}</p>
+          <p className="mt-1">
+            {PRODUCT_NAME} é um fork comunitário não oficial do {FORK_OF_NAME}.
+          </p>
           <p className="mt-1">{FORK_DISCLAIMER}</p>
         </div>
       </div>

@@ -6,7 +6,9 @@ import GithubIcon from './GithubIcon';
 import {
   COPYRIGHT_LINE,
   FORK_DISCLAIMER,
+  FORK_OF_NAME,
   FORK_REPO,
+  PRODUCT_NAME,
   UPSTREAM_REPO,
 } from '@/constants/branding';
 
@@ -23,10 +25,13 @@ function Sidebar() {
   return (
     <div className="hidden md:flex bg-sidebar text-sidebar-foreground flex-col w-56 border-r border-sidebar-border">
       {/* Logo Header */}
-      <div className="h-16 flex items-center px-4 border-b border-sidebar-border">
-        <h2 className="text-lg font-bold text-primary">
-          Evolution GO
+      <div className="h-16 flex flex-col items-start justify-center px-4 border-b border-sidebar-border">
+        <h2 className="text-lg font-bold text-primary leading-tight">
+          {PRODUCT_NAME}
         </h2>
+        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+          fork de {FORK_OF_NAME}
+        </span>
       </div>
 
       {/* Navigation Menu */}
@@ -57,7 +62,7 @@ function Sidebar() {
 
       {/* Sidebar Footer */}
       <div className="mt-auto p-4 border-t border-sidebar-border space-y-2">
-        <div className="text-sm text-primary font-medium">Evolution GO</div>
+        <div className="text-sm text-primary font-medium">{PRODUCT_NAME}</div>
         <div className="text-xs text-muted-foreground">
           {version ? `versão ${version}` : 'versão —'}
         </div>
@@ -77,7 +82,7 @@ function Sidebar() {
             target="_blank"
             rel="noreferrer noopener"
             className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-            title="Projeto upstream (Evolution Foundation)"
+            title={`Projeto upstream (${FORK_OF_NAME})`}
           >
             Upstream
           </a>

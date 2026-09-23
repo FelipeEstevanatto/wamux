@@ -32,7 +32,7 @@ export default function InstancesHeader({
   return (
     <BaseHeader
       title="Instâncias"
-      subtitle="Gerencie suas instâncias WhatsApp do Evolution GO"
+      subtitle="Gerencie suas instâncias WhatsApp do Evo-GoFork"
       totalCount={totalCount}
       selectedCount={selectedCount}
       searchValue={searchValue}

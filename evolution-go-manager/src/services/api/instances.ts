@@ -1,6 +1,6 @@
 /**
  * Instances API Service
- * Handles all Evolution GO instance-related API calls
+ * Handles all instance-related API calls
  */
 
 import apiClient from './client';

@@ -71,7 +71,7 @@ const LicenseCallback: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-t from-primary/20 via-background/95 to-background">
       <div className="w-full max-w-md space-y-6">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-primary">Evolution GO</h1>
+          <h1 className="text-3xl font-bold text-primary">Evo-GoFork</h1>
         </div>
 
         <div className="bg-background/80 backdrop-blur-sm border rounded-lg p-8 shadow-lg text-center space-y-4">
