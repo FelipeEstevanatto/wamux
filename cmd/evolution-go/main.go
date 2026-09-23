@@ -1,11 +1,11 @@
 package main
 
 import (
-	"github.com/evolution-foundation/evolution-go/pkg/safemap"
 	"context"
 	"database/sql"
 	"flag"
 	"fmt"
+	"github.com/evolution-foundation/evolution-go/pkg/safemap"
 	"log"
 	"net/http"
 	"os"
@@ -60,6 +60,10 @@ import (
 	server_handler "github.com/evolution-foundation/evolution-go/pkg/server/handler"
 	storage_interfaces "github.com/evolution-foundation/evolution-go/pkg/storage/interfaces"
 	minio_storage "github.com/evolution-foundation/evolution-go/pkg/storage/minio"
+	typebot_handler "github.com/evolution-foundation/evolution-go/pkg/typebot/handler"
+	typebot_model "github.com/evolution-foundation/evolution-go/pkg/typebot/model"
+	typebot_repository "github.com/evolution-foundation/evolution-go/pkg/typebot/repository"
+	typebot_service "github.com/evolution-foundation/evolution-go/pkg/typebot/service"
 	user_handler "github.com/evolution-foundation/evolution-go/pkg/user/handler"
 	user_service "github.com/evolution-foundation/evolution-go/pkg/user/service"
 	whatsmeow_service "github.com/evolution-foundation/evolution-go/pkg/whatsmeow/service"
@@ -161,6 +165,7 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	instanceRepository := instance_repository.NewInstanceRepository(db)
 	messageRepository := message_repository.NewMessageRepository(db)
 	labelRepository := label_repository.NewLabelRepository(db)
+	typebotRepository := typebot_repository.NewTypebotRepository(db)
 
 	whatsmeowService := whatsmeow_service.NewWhatsmeowService(
 		instanceRepository,
@@ -196,6 +201,19 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	communityService := community_service.NewCommunityService(clientPointer, whatsmeowService, loggerWrapper)
 	labelService := label_service.NewLabelService(clientPointer, whatsmeowService, labelRepository, loggerWrapper)
 	newsletterService := newsletter_service.NewNewsletterService(clientPointer, whatsmeowService, loggerWrapper)
+
+	// Typebot replies through the instance itself, so it consumes
+	// sendMessageService and is registered on whatsmeowService to be called when
+	// a message arrives.
+	typebotService := typebot_service.NewTypebotService(
+		typebotRepository,
+		instanceRepository,
+		sendMessageService,
+		whatsmeowService, // emitter of auto-pause alerts
+		config,
+		loggerWrapper,
+	)
+	whatsmeowService.SetTypebotService(typebotService)
 
 	// NOVO: PollHandler usando PollService já inicializado no whatsmeowService (evita dupla inicialização)
 	pollHandler := poll_handler.NewPollHandler(whatsmeowService.GetPollService(), loggerWrapper)
@@ -252,6 +270,7 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		newsletter_handler.NewNewsletterHandler(newsletterService),
 		pollHandler,
 		server_handler.NewServerHandler(messageRepository),
+		typebot_handler.NewTypebotHandler(typebotRepository, loggerWrapper),
 	).AssignRoutes(r)
 
 	if config.ConnectOnStartup {
@@ -275,7 +294,13 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 }
 
 func migrate(db *gorm.DB) {
-	err := db.AutoMigrate(&instance_model.Instance{}, &message_model.Message{}, &label_model.Label{})
+	err := db.AutoMigrate(
+		&instance_model.Instance{},
+		&message_model.Message{},
+		&label_model.Label{},
+		&typebot_model.Typebot{},
+		&typebot_model.TypebotSession{},
+	)
 
 	if err != nil {
 		log.Fatal(err)

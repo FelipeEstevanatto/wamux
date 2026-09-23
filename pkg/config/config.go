@@ -63,6 +63,12 @@ type Config struct {
 	QrcodeMaxCount       int
 	CheckUserExists      bool
 
+	// Typebot flood/loop protections. See pkg/typebot/service/protection.go.
+	TypebotContactRateLimit  int
+	TypebotContactRateWindow int
+	TypebotSendRateLimit     int
+	TypebotSendRateBurst     int
+
 	// Logger configurations
 	LogMaxSize    int
 	LogMaxBackups int
@@ -345,50 +351,62 @@ func Load() *Config {
 		logCompress = true // Default compression enabled
 	}
 
+	// Typebot protections. The per-contact limit is on by default (it only
+	// affects senders bursting many messages); the per-instance send ceiling is
+	// off by default (a badly tuned value would delay legitimate replies).
+	typebotContactRateLimit := envInt(config_env.TYPEBOT_CONTACT_RATE_LIMIT, 10)
+	typebotContactRateWindow := envInt(config_env.TYPEBOT_CONTACT_RATE_WINDOW, 60)
+	typebotSendRateLimit := envInt(config_env.TYPEBOT_SEND_RATE_LIMIT, 0)
+	typebotSendRateBurst := envInt(config_env.TYPEBOT_SEND_RATE_BURST, 20)
+
 	config := &Config{
-		PostgresAuthDB:       postgresAuthDB,
-		postgresUsersDB:      postgresUsersDB,
-		DatabaseSaveMessages: databaseSaveMessages == "true",
-		GlobalApiKey:         globalApiKey,
-		WaDebug:              waDebug,
-		LogType:              logType,
-		WebhookFiles:         webhookFiles == "true",
-		ConnectOnStartup:     connectOnStartup == "true",
-		OsName:               osName,
-		AmqpUrl:              amqpUrl,
-		AmqpGlobalEnabled:    amqpGlobalEnabled == "true",
-		WebhookUrl:           webhookUrl,
-		ClientName:           clientName,
-		ApiAudioConverter:    apiAudioConverter,
-		ApiAudioConverterKey: apiAudioConverterKey,
-		PostgresHost:         postgresHost,
-		PostgresPort:         postgresPort,
-		PostgresUser:         postgresUser,
-		PostgresPassword:     postgresPassword,
-		PostgresDB:           postgresDB,
-		WhatsappVersionMajor: major,
-		WhatsappVersionMinor: minor,
-		WhatsappVersionPatch: patch,
-		ProxyProtocol:        proxyProtocol,
-		ProxyHost:            proxyHost,
-		ProxyPort:            proxyPort,
-		ProxyUsername:        proxyUsername,
-		ProxyPassword:        proxyPassword,
-		EventIgnoreGroup:     eventIgnoreGroup == "true",
-		EventIgnoreStatus:    eventIgnoreStatus == "true",
-		QrcodeMaxCount:       qrMaxCount,
-		CheckUserExists:      checkUserExists != "false", // Default true, set to false to disable
-		RerequestFromPhone:   rerequestFromPhone == "true",
-		AmqpGlobalEvents:     amqpGlobalEvents,
-		AmqpSpecificEvents:   amqpSpecificEvents,
-		NatsUrl:              natsUrl,
-		NatsGlobalEnabled:    natsGlobalEnabled == "true",
-		NatsGlobalEvents:     natsGlobalEvents,
-		LogMaxSize:           logMaxSize,
-		LogMaxBackups:        logMaxBackups,
-		LogMaxAge:            logMaxAge,
-		LogDirectory:         logDirectory,
-		LogCompress:          logCompress,
+		PostgresAuthDB:           postgresAuthDB,
+		postgresUsersDB:          postgresUsersDB,
+		DatabaseSaveMessages:     databaseSaveMessages == "true",
+		GlobalApiKey:             globalApiKey,
+		WaDebug:                  waDebug,
+		LogType:                  logType,
+		WebhookFiles:             webhookFiles == "true",
+		ConnectOnStartup:         connectOnStartup == "true",
+		OsName:                   osName,
+		AmqpUrl:                  amqpUrl,
+		AmqpGlobalEnabled:        amqpGlobalEnabled == "true",
+		WebhookUrl:               webhookUrl,
+		ClientName:               clientName,
+		ApiAudioConverter:        apiAudioConverter,
+		ApiAudioConverterKey:     apiAudioConverterKey,
+		PostgresHost:             postgresHost,
+		PostgresPort:             postgresPort,
+		PostgresUser:             postgresUser,
+		PostgresPassword:         postgresPassword,
+		PostgresDB:               postgresDB,
+		WhatsappVersionMajor:     major,
+		WhatsappVersionMinor:     minor,
+		WhatsappVersionPatch:     patch,
+		ProxyProtocol:            proxyProtocol,
+		ProxyHost:                proxyHost,
+		ProxyPort:                proxyPort,
+		ProxyUsername:            proxyUsername,
+		ProxyPassword:            proxyPassword,
+		EventIgnoreGroup:         eventIgnoreGroup == "true",
+		EventIgnoreStatus:        eventIgnoreStatus == "true",
+		QrcodeMaxCount:           qrMaxCount,
+		CheckUserExists:          checkUserExists != "false", // Default true, set to false to disable
+		TypebotContactRateLimit:  typebotContactRateLimit,
+		TypebotContactRateWindow: typebotContactRateWindow,
+		TypebotSendRateLimit:     typebotSendRateLimit,
+		TypebotSendRateBurst:     typebotSendRateBurst,
+		RerequestFromPhone:       rerequestFromPhone == "true",
+		AmqpGlobalEvents:         amqpGlobalEvents,
+		AmqpSpecificEvents:       amqpSpecificEvents,
+		NatsUrl:                  natsUrl,
+		NatsGlobalEnabled:        natsGlobalEnabled == "true",
+		NatsGlobalEvents:         natsGlobalEvents,
+		LogMaxSize:               logMaxSize,
+		LogMaxBackups:            logMaxBackups,
+		LogMaxAge:                logMaxAge,
+		LogDirectory:             logDirectory,
+		LogCompress:              logCompress,
 	}
 
 	minioEnabled := os.Getenv(config_env.MINIO_ENABLED) == "true"
@@ -458,4 +476,21 @@ func validateAMQPURL(amqpURL string) error {
 
 	logger.LogInfo("[CONFIG] AMQP URL validation successful: %s://%s", parsedURL.Scheme, parsedURL.Host)
 	return nil
+}
+
+// envInt reads an integer from the environment, falling back to the default
+// when the variable is absent or not a number. An invalid value does not stop
+// the service: the default is safe, and a misconfigured protection should not
+// prevent boot.
+func envInt(key string, fallback int) int {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return fallback
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil || value < 0 {
+		logger.LogWarn("[CONFIG] %s inválido (%q), usando %d", key, raw, fallback)
+		return fallback
+	}
+	return value
 }
