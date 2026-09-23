@@ -1939,6 +1939,7 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 	hasPix := false
 	hasOtherTypes := false
 	replyCount := 0
+	ctaCount := 0
 
 	for _, v := range data.Buttons {
 		switch v.Type {
@@ -1949,6 +1950,8 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 			hasPix = true
 		default:
 			hasOtherTypes = true
+			// url / copy / call are all CTA (call-to-action) buttons.
+			ctaCount++
 		}
 	}
 
@@ -1959,6 +1962,12 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 		if hasOtherTypes {
 			return nil, errors.New("botões do tipo 'reply' não podem ser misturados com outros tipos")
 		}
+	}
+
+	// The WhatsApp Business contract allows at most 2 call-to-action buttons.
+	// More than that is accepted by the API but is not guaranteed to render.
+	if ctaCount > 2 {
+		return nil, errors.New("máximo de 2 botões de ação (url/copy/call) permitidos")
 	}
 
 	if hasPix {
@@ -3276,6 +3285,40 @@ func (s *sendService) SendCarousel(data *CarouselStruct, instance *instance_mode
 		}
 
 		cards[i] = interactiveCard
+	}
+
+	// A single card WITHOUT a media header does not render as a carousel on some
+	// clients (notably iOS). evolution-api falls back to a plain interactive
+	// message in that case, so do the same: send the card itself (body, header,
+	// buttons) as a normal interactiveMessage instead of a one-card carousel.
+	if len(cards) == 1 && !cards[0].GetHeader().GetHasMediaAttachment() {
+		fallbackNodes := []waBinary.Node{{
+			Tag: "biz",
+			Content: []waBinary.Node{{
+				Tag:     "interactive",
+				Attrs:   waBinary.Attrs{"type": "native_flow", "v": "1"},
+				Content: []waBinary.Node{{Tag: "native_flow", Attrs: waBinary.Attrs{"v": "2", "name": "mixed"}}},
+			}},
+		}}
+		if !strings.Contains(data.Number, "@g.us") {
+			fallbackNodes = append(fallbackNodes, waBinary.Node{
+				Tag:   "bot",
+				Attrs: waBinary.Attrs{"biz_bot": "1"},
+			})
+		}
+
+		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Single card without media: sending as an interactive message instead of a carousel", instance.Id)
+		message, err := s.SendMessage(instance, &waE2E.Message{InteractiveMessage: cards[0]}, "InteractiveMessage", &SendDataStruct{
+			Number:          data.Number,
+			Delay:           data.Delay,
+			Quoted:          data.Quoted,
+			AdditionalNodes: &fallbackNodes,
+		})
+		if err != nil {
+			s.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error sending single-card carousel fallback: %v", instance.Id, err)
+			return nil, err
+		}
+		return message, nil
 	}
 
 	// Build carousel message (do NOT set CarouselCardType - matching PAPI Node.js for iOS)

@@ -322,6 +322,26 @@ Live-tested behaviour of the interactive message types against a real account (O
 
 **`carouselCardType` is intentionally unset.** None of the forks set it and it is not needed; the comments claiming an iOS requirement predate the current client.
 
+## 3h. Review of other forks / Evolution API 2.4.0-rc — hypothesis check
+
+Each fix/feature from `evolution-api` 2.4.0-rc1/rc2 (the reference Node implementation) and the Go forks was checked against this codebase. Verdicts below; "Not affected" items were tested live, not assumed.
+
+| Item (source) | Verdict | Evidence / note |
+|---|---|---|
+| `onWhatsApp` returns `exists:false` for `@lid` → sends throw (2.4.0-rc2 #2544) | **Not affected** | Sending directly to a `@lid` JID is delivered (receipt). whatsmeow resolves it; the Baileys LID bug does not exist here. |
+| `quoted` not propagated on audio sends (2.4.0-rc2 #2516) | **Not affected** | The audio message's `contextInfo` carries `stanzaID` + `participant`; the quote threads correctly. |
+| Instance name not trimmed on create → 404 by name (2.4.0-rc2 #2546) | **Fixed** | `Create` now trims the name (and rejects an all-space name); `Rename` already trimmed. Verified: `"  padded-name  "` stores `"padded-name"`. |
+| Interactive buttons: max 2 CTA, no mixing with reply/PIX (2.4.0-rc1) | **Fixed** | reply↔others and PIX isolation were already enforced; added the **max 2 CTA (url/copy/call)** rule. Verified: 3 CTA now returns 400, 2 CTA still sends. |
+| Carousel: single card without image falls back to `nativeFlowMessage` (2.4.0-rc1) | **Fixed** | A one-card, no-media carousel is now sent as a plain interactive message. Verified: top-level `interactiveMessage`, not a carousel. |
+| List: switched to legacy `listMessage` (2.4.0-rc1) | **Superseded** | The legacy `listMessage` is silently dropped by the current server; we send `interactiveMessage` + `single_select` instead (see §3g). |
+| PIX (`payment_info`) support (2.3.7 / 2.4.0-rc1) | **Fixed** | §3g. |
+| Native GIF / `gifPlayback` (2.4.0-rc2 #2540) | **Not implemented** | `/send/media` accepts only jpeg/png/webp (image) and mp4 (video); animated GIFs are not supported. Feature request, not a regression. |
+| Path traversal in `/assets` (2.3.3, CRITICAL) | **Not affected** | We mount assets via gin's `Static` (Go `http.FileServer`), which cleans paths; the vuln was in their custom handler. |
+| Incoming events stop after reconnect (Baileys/rxjs) (2.3.7) | **Not applicable** | Baileys' RxJS subject lifecycle; whatsmeow registers its event handler differently. |
+| License activation required (2.4.0-rc1, breaking) | **N/A** | This fork removed licensing entirely. |
+| History-sync `isLatest`/`progress` in the event payload (2.3.7) | **Already present** | We forward the raw whatsmeow event, whose `HistorySync` already carries `IsLatest` and `Progress`. |
+| mediaKey conversion to avoid bad-decrypt (2.3.3) | **Not applicable** | Baileys-specific key handling; no equivalent path here. |
+
 ## 4. Build & run
 
 From the repository root (the `docker-compose.yml` is there):
