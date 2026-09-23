@@ -2569,6 +2569,22 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 					QuotedMessage: quotedMessageContent(data.Quoted.Message),
 				}
 			}
+		case "ProductMessage":
+			if msg.ProductMessage != nil {
+				msg.ProductMessage.ContextInfo = &waE2E.ContextInfo{
+					StanzaID:      proto.String(data.Quoted.MessageID),
+					Participant:   proto.String(data.Quoted.Participant),
+					QuotedMessage: quotedMessageContent(data.Quoted.Message),
+				}
+			}
+		case "EventMessage":
+			if msg.EventMessage != nil {
+				msg.EventMessage.ContextInfo = &waE2E.ContextInfo{
+					StanzaID:      proto.String(data.Quoted.MessageID),
+					Participant:   proto.String(data.Quoted.Participant),
+					QuotedMessage: quotedMessageContent(data.Quoted.Message),
+				}
+			}
 		default:
 			return nil, fmt.Errorf("invalid messageType: %s", messageType)
 		}
@@ -2609,6 +2625,14 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 			// ContextInfo already set in SendList
 		case "ButtonsMessage":
 			// Reply-only buttons: ContextInfo already set in SendButton
+		case "ProductMessage":
+			if msg.ProductMessage != nil {
+				msg.ProductMessage.ContextInfo = &waE2E.ContextInfo{}
+			}
+		case "EventMessage":
+			if msg.EventMessage != nil {
+				msg.EventMessage.ContextInfo = &waE2E.ContextInfo{}
+			}
 		default:
 			return nil, fmt.Errorf("invalid messageType: %s", messageType)
 		}
