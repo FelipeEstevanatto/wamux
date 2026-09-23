@@ -98,6 +98,12 @@ Fork-specific fixes on top of `0.7.2` (see `FORK_NOTES.md` for the full list).
   alias) and app-state desync recovery.
 
 ### 🔧 Improvements
+- **Reconnect on `StreamError` / `KeepAliveTimeout`** — whatsmeow only emits
+  `StreamError` for unrecognised stream errors and never acts on
+  `KeepAliveTimeout` itself. Both now heal the socket via the same reconnect
+  machinery as `Disconnected` (extracted into `scheduleReconnect`), so a dead
+  socket is recovered instead of waiting for the TCP layer. A single keepalive
+  blip is ignored (acts on the second consecutive timeout).
 - **Reactions use `BuildReaction`/`BuildMessageKey`** — the message key's
   `FromMe` is now derived from the author (comparing against both our phone
   number and our LID) and the group participant is set only for group messages,
