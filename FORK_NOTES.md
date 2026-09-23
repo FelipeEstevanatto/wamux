@@ -128,6 +128,7 @@ Reviewed independently against [ecosb2b/evo-go-v2](https://github.com/ecosb2b/ev
 | Typebot integration (bot CRUD, sessions, startChat/continueChat, flood/loop protections, `TypebotAutoPaused` alert) + `TYPEBOT_*` config. | large feature ported |
 | `POST /user/savecontact` route aligned and app-state desync recovery added (force full sync on 409/LTHash, fall back to fatal recovery); BR/MX number normalisation via `ParseJID`+`CanonicalJID`. | evo-go-v2 alignment |
 | Shared sqlstore container no longer caches a transient init failure (`sync.Once` → mutex + memoize success). | evo-go-v2 edge case; our shared-pool approach kept |
+| Images/videos carried no pixel dimensions, so clients drew a square/generic placeholder until the media loaded (#104); link previews embedded the raw `og:image` bytes (often PNG/WebP) in the JPEG-only `JPEGThumbnail` field and never uploaded a preview (#103). Images and video notes now set width/height (video also seconds + a first-frame JPEG), and link previews are converted to JPEG, sized, and uploaded so the large preview renders. | #104, #103 |
 | Webhook delivery: a dotless queue name (e.g. `sendstatus`) silently dropped the event before any HTTP call; delivery now uses exponential backoff, skips retrying 4xx (except 408/429), caps the read body at 8 KiB, and bounds concurrent deliveries. | NathanAshford; supersedes our earlier webhook timeout-only change |
 | Proxy tooling: `GET /instance/proxy/:id`, `POST .../test`, `POST .../reconnect` — checks reachability, the exit IP vs the server IP, and whether WhatsApp is reachable through it. | NathanAshford |
 | Account limits: `GET /instance/limits/:instanceId` — WhatsApp reachout timelock and new-chat messaging quota (the limits behind error 463), cached on connect with a live fallback. | NathanAshford (`pkg/walimits`) |
@@ -250,12 +251,6 @@ Not fixed here — they are larger or need protocol work. Ordered by impact.
 5. **Passkey events / ceremony** (#105, #107, #172, #173). `PASSKEY*` event
    groups are not in `event_types` or the subscription filter, so they can never
    reach a webhook; the ceremony state machine also gets stuck.
-6. **Media fidelity** (#104 missing image width/height → square placeholder,
-   #103 link thumbnail not uploaded).
-7. **Group announcement mode / settings** (#113, #98, #42) — verified working
-   (announcement / not_announcement / locked / unlocked all succeed and the
-   group reflects the change); the item is kept only to track the upstream
-   issue numbers.
 ## 4. Build & run
 
 From the repository root (the `docker-compose.yml` is there):

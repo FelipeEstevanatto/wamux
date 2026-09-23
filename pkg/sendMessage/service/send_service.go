@@ -16,6 +16,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -740,7 +741,7 @@ func (s *sendService) sendLinkWithRetry(data *LinkStruct, instance *instance_mod
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] SendLink attempt %d/%d", instance.Id, attempt, maxRetries)
 
-		_, err := s.ensureClientConnectedWithRetry(instance.Id, 2)
+		client, err := s.ensureClientConnectedWithRetry(instance.Id, 2)
 		if err != nil {
 			if attempt == maxRetries {
 				return nil, err
@@ -764,30 +765,45 @@ func (s *sendService) sendLinkWithRetry(data *LinkStruct, instance *instance_mod
 			data.ImgUrl = imgUrl
 		}
 
-		var fileData []byte
+		// Download the preview image and turn it into the small JPEG thumbnail
+		// WhatsApp expects. og:image is commonly PNG or WebP while JPEGThumbnail
+		// is a JPEG field, so the raw bytes could not be embedded as-is.
+		var thumbJPEG []byte
+		var thumbW, thumbH uint32
 		if data.ImgUrl != "" {
-			resp, err := mediaHTTPClient.Get(data.ImgUrl)
-			if err != nil {
-				if attempt == maxRetries {
-					return nil, err
-				}
-				continue
-			}
-			defer resp.Body.Close()
-			fileData, _ = io.ReadAll(resp.Body)
+			thumbJPEG, thumbW, thumbH = fetchLinkThumbnail(data.ImgUrl)
 		}
 
-		previewType := waE2E.ExtendedTextMessage_VIDEO
-		msg := &waE2E.Message{
-			ExtendedTextMessage: &waE2E.ExtendedTextMessage{
-				Text:          &data.Text,
-				Title:         &data.Title,
-				MatchedText:   &matchedText,
-				JPEGThumbnail: fileData,
-				Description:   &data.Description,
-				PreviewType:   &previewType,
-			},
+		ext := &waE2E.ExtendedTextMessage{
+			Text:        &data.Text,
+			Title:       &data.Title,
+			MatchedText: &matchedText,
+			Description: &data.Description,
 		}
+
+		if len(thumbJPEG) > 0 {
+			ext.JPEGThumbnail = thumbJPEG
+			ext.PreviewType = waE2E.ExtendedTextMessage_IMAGE.Enum()
+			if thumbW > 0 && thumbH > 0 {
+				ext.ThumbnailWidth = proto.Uint32(thumbW)
+				ext.ThumbnailHeight = proto.Uint32(thumbH)
+			}
+			// Upload the thumbnail so clients can render the larger preview. The
+			// inline JPEGThumbnail alone is only a small low-res hint; on failure
+			// the link still goes out with the inline preview.
+			if uploaded, upErr := client.Upload(context.Background(), thumbJPEG, whatsmeow.MediaImage); upErr == nil {
+				ext.ThumbnailDirectPath = proto.String(uploaded.DirectPath)
+				ext.ThumbnailSHA256 = uploaded.FileSHA256
+				ext.ThumbnailEncSHA256 = uploaded.FileEncSHA256
+				ext.MediaKey = uploaded.MediaKey
+			} else {
+				s.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] link thumbnail upload failed (inline preview still sent): %v", instance.Id, upErr)
+			}
+		} else {
+			ext.PreviewType = waE2E.ExtendedTextMessage_NONE.Enum()
+		}
+
+		msg := &waE2E.Message{ExtendedTextMessage: ext}
 
 		message, err := s.SendMessage(instance, msg, "ExtendedTextMessage", &SendDataStruct{
 			Id:           data.Id,
@@ -1069,9 +1085,10 @@ func (s *sendService) sendMediaFileWithRetry(data *MediaStruct, fileData []byte,
 			// particular). On failure jpegThumb is nil and the message is sent
 			// without a preview rather than failing the request.
 			jpegThumb := makeJPEGThumbnail(fileData, 72)
+			imgW, imgH, hasDims := imageDimensions(fileData)
 			if isNewsletter {
 				// Newsletter: SEM MediaKey e FileEncSHA256
-				media = &waE2E.Message{ImageMessage: &waE2E.ImageMessage{
+				img := &waE2E.ImageMessage{
 					Caption:       proto.String(data.Caption),
 					URL:           &uploaded.URL,
 					DirectPath:    &uploaded.DirectPath,
@@ -1079,10 +1096,14 @@ func (s *sendService) sendMediaFileWithRetry(data *MediaStruct, fileData []byte,
 					FileSHA256:    uploaded.FileSHA256,
 					FileLength:    &uploaded.FileLength,
 					JPEGThumbnail: jpegThumb,
-				}}
+				}
+				if hasDims {
+					img.Width, img.Height = proto.Uint32(imgW), proto.Uint32(imgH)
+				}
+				media = &waE2E.Message{ImageMessage: img}
 			} else {
 				// Normal: COM MediaKey e FileEncSHA256
-				media = &waE2E.Message{ImageMessage: &waE2E.ImageMessage{
+				img := &waE2E.ImageMessage{
 					Caption:       proto.String(data.Caption),
 					URL:           proto.String(uploaded.URL),
 					DirectPath:    proto.String(uploaded.DirectPath),
@@ -1092,21 +1113,32 @@ func (s *sendService) sendMediaFileWithRetry(data *MediaStruct, fileData []byte,
 					FileSHA256:    uploaded.FileSHA256,
 					FileLength:    proto.Uint64(uint64(len(fileData))),
 					JPEGThumbnail: jpegThumb,
-				}}
+				}
+				if hasDims {
+					img.Width, img.Height = proto.Uint32(imgW), proto.Uint32(imgH)
+				}
+				media = &waE2E.Message{ImageMessage: img}
 			}
 			mediaType = "ImageMessage"
 		case "video":
+			// Video bubbles likewise use width/height (and seconds) for their
+			// placeholder; without them clients draw a generic box. The first
+			// frame gives a real preview instead of a blank one.
+			meta, hasMeta := probeVideo(fileData)
+			vidThumb := makeVideoThumbnail(fileData, 72)
 			if isNewsletter {
-				media = &waE2E.Message{VideoMessage: &waE2E.VideoMessage{
+				vid := &waE2E.VideoMessage{
 					Caption:    proto.String(data.Caption),
 					URL:        &uploaded.URL,
 					DirectPath: &uploaded.DirectPath,
 					Mimetype:   proto.String(mimeType),
 					FileSHA256: uploaded.FileSHA256,
 					FileLength: &uploaded.FileLength,
-				}}
+				}
+				applyVideoMeta(vid, meta, hasMeta, vidThumb)
+				media = &waE2E.Message{VideoMessage: vid}
 			} else {
-				media = &waE2E.Message{VideoMessage: &waE2E.VideoMessage{
+				vid := &waE2E.VideoMessage{
 					Caption:       proto.String(data.Caption),
 					URL:           proto.String(uploaded.URL),
 					DirectPath:    proto.String(uploaded.DirectPath),
@@ -1115,20 +1147,27 @@ func (s *sendService) sendMediaFileWithRetry(data *MediaStruct, fileData []byte,
 					FileEncSHA256: uploaded.FileEncSHA256,
 					FileSHA256:    uploaded.FileSHA256,
 					FileLength:    proto.Uint64(uint64(len(fileData))),
-				}}
+				}
+				applyVideoMeta(vid, meta, hasMeta, vidThumb)
+				media = &waE2E.Message{VideoMessage: vid}
 			}
 			mediaType = "VideoMessage"
 		case "ptv":
+			// Round video notes use the same placeholder metadata as videos.
+			meta, hasMeta := probeVideo(fileData)
+			vidThumb := makeVideoThumbnail(fileData, 72)
 			if isNewsletter {
-				media = &waE2E.Message{PtvMessage: &waE2E.VideoMessage{
+				vid := &waE2E.VideoMessage{
 					URL:        &uploaded.URL,
 					DirectPath: &uploaded.DirectPath,
 					Mimetype:   proto.String(mimeType),
 					FileSHA256: uploaded.FileSHA256,
 					FileLength: &uploaded.FileLength,
-				}}
+				}
+				applyVideoMeta(vid, meta, hasMeta, vidThumb)
+				media = &waE2E.Message{PtvMessage: vid}
 			} else {
-				media = &waE2E.Message{PtvMessage: &waE2E.VideoMessage{
+				vid := &waE2E.VideoMessage{
 					URL:           proto.String(uploaded.URL),
 					DirectPath:    proto.String(uploaded.DirectPath),
 					MediaKey:      uploaded.MediaKey,
@@ -1136,7 +1175,9 @@ func (s *sendService) sendMediaFileWithRetry(data *MediaStruct, fileData []byte,
 					FileEncSHA256: uploaded.FileEncSHA256,
 					FileSHA256:    uploaded.FileSHA256,
 					FileLength:    proto.Uint64(uint64(len(fileData))),
-				}}
+				}
+				applyVideoMeta(vid, meta, hasMeta, vidThumb)
+				media = &waE2E.Message{PtvMessage: vid}
 			}
 			mediaType = "PtvMessage"
 		case "audio":
@@ -1399,9 +1440,10 @@ func (s *sendService) sendMediaUrlWithRetry(data *MediaStruct, instance *instanc
 			// particular). On failure jpegThumb is nil and the message is sent
 			// without a preview rather than failing the request.
 			jpegThumb := makeJPEGThumbnail(fileData, 72)
+			imgW, imgH, hasDims := imageDimensions(fileData)
 			if isNewsletter {
 				// Newsletter: sem criptografia (sem MediaKey e FileEncSHA256)
-				media = &waE2E.Message{ImageMessage: &waE2E.ImageMessage{
+				img := &waE2E.ImageMessage{
 					Caption:       proto.String(data.Caption),
 					URL:           &uploaded.URL,
 					DirectPath:    &uploaded.DirectPath,
@@ -1409,10 +1451,14 @@ func (s *sendService) sendMediaUrlWithRetry(data *MediaStruct, instance *instanc
 					FileSHA256:    uploaded.FileSHA256,
 					FileLength:    &uploaded.FileLength,
 					JPEGThumbnail: jpegThumb,
-				}}
+				}
+				if hasDims {
+					img.Width, img.Height = proto.Uint32(imgW), proto.Uint32(imgH)
+				}
+				media = &waE2E.Message{ImageMessage: img}
 			} else {
 				// Normal: com criptografia
-				media = &waE2E.Message{ImageMessage: &waE2E.ImageMessage{
+				img := &waE2E.ImageMessage{
 					Caption:       proto.String(data.Caption),
 					URL:           proto.String(uploaded.URL),
 					DirectPath:    proto.String(uploaded.DirectPath),
@@ -1422,21 +1468,32 @@ func (s *sendService) sendMediaUrlWithRetry(data *MediaStruct, instance *instanc
 					FileSHA256:    uploaded.FileSHA256,
 					FileLength:    proto.Uint64(uint64(len(fileData))),
 					JPEGThumbnail: jpegThumb,
-				}}
+				}
+				if hasDims {
+					img.Width, img.Height = proto.Uint32(imgW), proto.Uint32(imgH)
+				}
+				media = &waE2E.Message{ImageMessage: img}
 			}
 			mediaType = "ImageMessage"
 		case "video":
+			// Video bubbles likewise use width/height (and seconds) for their
+			// placeholder; without them clients draw a generic box. The first
+			// frame gives a real preview instead of a blank one.
+			meta, hasMeta := probeVideo(fileData)
+			vidThumb := makeVideoThumbnail(fileData, 72)
 			if isNewsletter {
-				media = &waE2E.Message{VideoMessage: &waE2E.VideoMessage{
+				vid := &waE2E.VideoMessage{
 					Caption:    proto.String(data.Caption),
 					URL:        &uploaded.URL,
 					DirectPath: &uploaded.DirectPath,
 					Mimetype:   proto.String(mimeType),
 					FileSHA256: uploaded.FileSHA256,
 					FileLength: &uploaded.FileLength,
-				}}
+				}
+				applyVideoMeta(vid, meta, hasMeta, vidThumb)
+				media = &waE2E.Message{VideoMessage: vid}
 			} else {
-				media = &waE2E.Message{VideoMessage: &waE2E.VideoMessage{
+				vid := &waE2E.VideoMessage{
 					Caption:       proto.String(data.Caption),
 					URL:           proto.String(uploaded.URL),
 					DirectPath:    proto.String(uploaded.DirectPath),
@@ -1445,20 +1502,27 @@ func (s *sendService) sendMediaUrlWithRetry(data *MediaStruct, instance *instanc
 					FileEncSHA256: uploaded.FileEncSHA256,
 					FileSHA256:    uploaded.FileSHA256,
 					FileLength:    proto.Uint64(uint64(len(fileData))),
-				}}
+				}
+				applyVideoMeta(vid, meta, hasMeta, vidThumb)
+				media = &waE2E.Message{VideoMessage: vid}
 			}
 			mediaType = "VideoMessage"
 		case "ptv":
+			// Round video notes use the same placeholder metadata as videos.
+			meta, hasMeta := probeVideo(fileData)
+			vidThumb := makeVideoThumbnail(fileData, 72)
 			if isNewsletter {
-				media = &waE2E.Message{PtvMessage: &waE2E.VideoMessage{
+				vid := &waE2E.VideoMessage{
 					URL:        &uploaded.URL,
 					DirectPath: &uploaded.DirectPath,
 					Mimetype:   proto.String(mimeType),
 					FileSHA256: uploaded.FileSHA256,
 					FileLength: &uploaded.FileLength,
-				}}
+				}
+				applyVideoMeta(vid, meta, hasMeta, vidThumb)
+				media = &waE2E.Message{PtvMessage: vid}
 			} else {
-				media = &waE2E.Message{PtvMessage: &waE2E.VideoMessage{
+				vid := &waE2E.VideoMessage{
 					URL:           proto.String(uploaded.URL),
 					DirectPath:    proto.String(uploaded.DirectPath),
 					MediaKey:      uploaded.MediaKey,
@@ -1466,7 +1530,9 @@ func (s *sendService) sendMediaUrlWithRetry(data *MediaStruct, instance *instanc
 					FileEncSHA256: uploaded.FileEncSHA256,
 					FileSHA256:    uploaded.FileSHA256,
 					FileLength:    proto.Uint64(uint64(len(fileData))),
-				}}
+				}
+				applyVideoMeta(vid, meta, hasMeta, vidThumb)
+				media = &waE2E.Message{PtvMessage: vid}
 			}
 			mediaType = "PtvMessage"
 		case "audio":
@@ -2060,8 +2126,8 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 					if uploaded, upErr := client.Upload(context.Background(), fileData, whatsmeow.MediaImage); upErr == nil {
 						interactive.Header = &waE2E.InteractiveMessage_Header{
 							HasMediaAttachment: proto.Bool(true),
-							Media: &waE2E.InteractiveMessage_Header_ImageMessage{
-								ImageMessage: &waE2E.ImageMessage{
+							Media: func() *waE2E.InteractiveMessage_Header_ImageMessage {
+								img := &waE2E.ImageMessage{
 									URL:           proto.String(uploaded.URL),
 									DirectPath:    proto.String(uploaded.DirectPath),
 									MediaKey:      uploaded.MediaKey,
@@ -2070,8 +2136,10 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 									FileSHA256:    uploaded.FileSHA256,
 									FileLength:    proto.Uint64(uint64(len(fileData))),
 									JPEGThumbnail: makeJPEGThumbnail(fileData, 72),
-								},
-							},
+								}
+								applyImageDims(img, fileData)
+								return &waE2E.InteractiveMessage_Header_ImageMessage{ImageMessage: img}
+							}(),
 						}
 					}
 				}
@@ -2237,6 +2305,179 @@ func makePDFThumbnail(fileData []byte, maxWidth int) []byte {
 
 	// Re-encode the rendered PNG as a JPEG thumbnail for consistency with images.
 	return makeJPEGThumbnail(out.Bytes(), maxWidth)
+}
+
+// imageDimensions returns the pixel dimensions of an encoded image.
+//
+// WhatsApp uses ImageMessage.width/height to size the bubble's placeholder
+// before the media is downloaded; leaving them unset makes every image show as
+// a square until it loads. DecodeConfig only reads the header, so it is cheap.
+func imageDimensions(fileData []byte) (uint32, uint32, bool) {
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(fileData))
+	if err != nil || cfg.Width <= 0 || cfg.Height <= 0 {
+		return 0, 0, false
+	}
+	return uint32(cfg.Width), uint32(cfg.Height), true
+}
+
+// applyImageDims copies decoded pixel dimensions onto an ImageMessage so the
+// client can size the placeholder correctly. No-op when the bytes are not a
+// decodable image.
+func applyImageDims(img *waE2E.ImageMessage, fileData []byte) {
+	if w, h, ok := imageDimensions(fileData); ok {
+		img.Width, img.Height = proto.Uint32(w), proto.Uint32(h)
+	}
+}
+
+// videoMetadata describes an encoded video: pixel dimensions, duration and a
+// JPEG frame used as the bubble preview. It shells out to ffprobe/ffmpeg (both
+// present in the runtime image) and returns ok=false when they are unavailable
+// or fail, so the caller still sends the video without dimensions.
+type videoMetadata struct {
+	Width   uint32
+	Height  uint32
+	Seconds uint32
+}
+
+func probeVideo(fileData []byte) (videoMetadata, bool) {
+	if _, err := exec.LookPath("ffprobe"); err != nil {
+		return videoMetadata{}, false
+	}
+
+	// MP4/MOV need a seekable input (the moov atom may be at the end), so a
+	// pipe does not work: write to a temp file and probe that.
+	tmp, err := os.CreateTemp("", "evogo-probe-*")
+	if err != nil {
+		return videoMetadata{}, false
+	}
+	defer os.Remove(tmp.Name())
+	if _, err := tmp.Write(fileData); err != nil {
+		tmp.Close()
+		return videoMetadata{}, false
+	}
+	tmp.Close()
+
+	cmd := exec.Command("ffprobe",
+		"-v", "error",
+		"-select_streams", "v:0",
+		"-show_entries", "stream=width,height:format=duration",
+		"-of", "default=noprint_wrappers=1:nokey=1",
+		tmp.Name(),
+	)
+	out, err := cmd.Output()
+	if err != nil {
+		return videoMetadata{}, false
+	}
+
+	// Output is one value per line: width, height, duration (seconds, may be
+	// float). Order follows the -show_entries request and is stable in practice,
+	// but parse by position defensively.
+	lines := strings.Fields(strings.TrimSpace(string(out)))
+	if len(lines) < 2 {
+		return videoMetadata{}, false
+	}
+
+	w, errW := strconv.ParseUint(lines[0], 10, 32)
+	h, errH := strconv.ParseUint(lines[1], 10, 32)
+	if errW != nil || errH != nil || w == 0 || h == 0 {
+		return videoMetadata{}, false
+	}
+
+	meta := videoMetadata{Width: uint32(w), Height: uint32(h)}
+	if len(lines) >= 3 {
+		if secs, err := strconv.ParseFloat(lines[2], 64); err == nil && secs > 0 {
+			meta.Seconds = uint32(secs)
+		}
+	}
+	return meta, true
+}
+
+// makeVideoThumbnail extracts the first frame of a video as a small JPEG. It
+// returns nil when ffmpeg is missing or extraction fails.
+func makeVideoThumbnail(fileData []byte, maxWidth int) []byte {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		return nil
+	}
+	if maxWidth < 1 {
+		maxWidth = 72
+	}
+
+	// Same seekability requirement as probeVideo.
+	tmp, err := os.CreateTemp("", "evogo-vthumb-*")
+	if err != nil {
+		return nil
+	}
+	defer os.Remove(tmp.Name())
+	if _, err := tmp.Write(fileData); err != nil {
+		tmp.Close()
+		return nil
+	}
+	tmp.Close()
+
+	// -frames:v 1 grabs a single frame; scale keeps the aspect ratio.
+	cmd := exec.Command("ffmpeg",
+		"-v", "error",
+		"-i", tmp.Name(),
+		"-frames:v", "1",
+		"-vf", fmt.Sprintf("scale=%d:-1", maxWidth),
+		"-f", "mjpeg",
+		"pipe:1",
+	)
+
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	if err := cmd.Run(); err != nil || out.Len() == 0 {
+		return nil
+	}
+	return out.Bytes()
+}
+
+// applyVideoMeta copies probed dimensions/duration and the preview frame onto a
+// VideoMessage when they are available.
+func applyVideoMeta(vid *waE2E.VideoMessage, meta videoMetadata, ok bool, thumb []byte) {
+	if ok {
+		if meta.Width > 0 && meta.Height > 0 {
+			vid.Width, vid.Height = proto.Uint32(meta.Width), proto.Uint32(meta.Height)
+		}
+		if meta.Seconds > 0 {
+			vid.Seconds = proto.Uint32(meta.Seconds)
+		}
+	}
+	if len(thumb) > 0 {
+		vid.JPEGThumbnail = thumb
+	}
+}
+
+// fetchLinkThumbnail downloads an og:image and returns a small JPEG thumbnail
+// plus its pixel dimensions. It returns nil when the download fails, the response
+// is not a 2xx, or the payload cannot be decoded as an image — the caller then
+// sends the link without a preview rather than failing the request.
+func fetchLinkThumbnail(rawURL string) ([]byte, uint32, uint32) {
+	resp, err := mediaHTTPClient.Get(rawURL)
+	if err != nil {
+		return nil, 0, 0
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, 0, 0
+	}
+
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
+	if err != nil || len(raw) == 0 {
+		return nil, 0, 0
+	}
+
+	jpegThumb := makeJPEGThumbnail(raw, 300)
+	if len(jpegThumb) == 0 {
+		return nil, 0, 0
+	}
+
+	w, h, ok := imageDimensions(jpegThumb)
+	if !ok {
+		return jpegThumb, 0, 0
+	}
+	return jpegThumb, w, h
 }
 
 func sectionsToString(data *ListStruct) (string, error) {
@@ -2947,18 +3188,18 @@ func (s *sendService) SendCarousel(data *CarouselStruct, instance *instance_mode
 							jpegThumb := makeJPEGThumbnail(fileData, 72)
 
 							header.HasMediaAttachment = proto.Bool(true)
-							header.Media = &waE2E.InteractiveMessage_Header_ImageMessage{
-								ImageMessage: &waE2E.ImageMessage{
-									URL:           proto.String(uploaded.URL),
-									DirectPath:    proto.String(uploaded.DirectPath),
-									MediaKey:      uploaded.MediaKey,
-									Mimetype:      proto.String("image/jpeg"),
-									FileEncSHA256: uploaded.FileEncSHA256,
-									FileSHA256:    uploaded.FileSHA256,
-									FileLength:    proto.Uint64(uint64(len(fileData))),
-									JPEGThumbnail: jpegThumb,
-								},
+							img := &waE2E.ImageMessage{
+								URL:           proto.String(uploaded.URL),
+								DirectPath:    proto.String(uploaded.DirectPath),
+								MediaKey:      uploaded.MediaKey,
+								Mimetype:      proto.String("image/jpeg"),
+								FileEncSHA256: uploaded.FileEncSHA256,
+								FileSHA256:    uploaded.FileSHA256,
+								FileLength:    proto.Uint64(uint64(len(fileData))),
+								JPEGThumbnail: jpegThumb,
 							}
+							applyImageDims(img, fileData)
+							header.Media = &waE2E.InteractiveMessage_Header_ImageMessage{ImageMessage: img}
 						}
 					}
 				}
@@ -3257,7 +3498,7 @@ func (s *sendService) sendStatusMedia(client *whatsmeow.Client, data *StatusMedi
 		// inline preview instead of the gray camera placeholder. On failure
 		// jpegThumb is nil and the status is posted without a preview.
 		jpegThumb := makeJPEGThumbnail(fileData, 72)
-		media = &waE2E.Message{ImageMessage: &waE2E.ImageMessage{
+		img := &waE2E.ImageMessage{
 			Caption:       proto.String(data.Caption),
 			URL:           proto.String(uploaded.URL),
 			DirectPath:    proto.String(uploaded.DirectPath),
@@ -3267,10 +3508,15 @@ func (s *sendService) sendStatusMedia(client *whatsmeow.Client, data *StatusMedi
 			FileSHA256:    uploaded.FileSHA256,
 			FileLength:    proto.Uint64(uint64(len(fileData))),
 			JPEGThumbnail: jpegThumb,
-		}}
+		}
+		if w, h, ok := imageDimensions(fileData); ok {
+			img.Width, img.Height = proto.Uint32(w), proto.Uint32(h)
+		}
+		media = &waE2E.Message{ImageMessage: img}
 		mediaType = "ImageMessage"
 	case "video":
-		media = &waE2E.Message{VideoMessage: &waE2E.VideoMessage{
+		meta, hasMeta := probeVideo(fileData)
+		vid := &waE2E.VideoMessage{
 			Caption:       proto.String(data.Caption),
 			URL:           proto.String(uploaded.URL),
 			DirectPath:    proto.String(uploaded.DirectPath),
@@ -3279,7 +3525,9 @@ func (s *sendService) sendStatusMedia(client *whatsmeow.Client, data *StatusMedi
 			FileEncSHA256: uploaded.FileEncSHA256,
 			FileSHA256:    uploaded.FileSHA256,
 			FileLength:    proto.Uint64(uint64(len(fileData))),
-		}}
+		}
+		applyVideoMeta(vid, meta, hasMeta, makeVideoThumbnail(fileData, 72))
+		media = &waE2E.Message{VideoMessage: vid}
 		mediaType = "VideoMessage"
 	}
 
