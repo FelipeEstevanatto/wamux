@@ -757,26 +757,46 @@ the latest patch of the same minor. (The whole modernization costs ~+8 MB
 cause.)
 
 **`gomessguii/logger` v1.0.0 is a rewrite**: the package-level
-`LogInfo`/`LogError`/... free functions became methods on a `*Logger`. Rather
-than touch ~60 call sites, the v1 logger is wrapped in `pkg/applog`, which
-re-exposes the free-function style; the nine files that used the library only
-changed their import line. `pkg/applog` deliberately imports nothing internal —
-`pkg/config` logs through it and `pkg/logger` imports `pkg/config`, so anything
-with those dependencies would cycle. Behaviour is preserved (both versions emit
-ANSI levels and `LogFatal` exits); v1 adds a `[evolution-go]` prefix and is the
-only version with a maintained API.
+`LogInfo`/`LogError`/... free functions became methods on a `*Logger`, and there
+is no global instance any more. Every symbol the codebase used is present in v1
+(`Log`, `LogInfo`, `LogError`, `LogWarn`, `LogDebug`, `LogFatal` and the level
+constants), so nothing had to change behaviour: `pkg/applog` owns the single
+process-wide `*logger.Logger` and all 66 call sites invoke the library's methods
+on it directly (`applog.Logger.LogInfo(...)`). `pkg/applog` deliberately imports
+nothing internal — `pkg/config` logs through it and `pkg/logger` imports
+`pkg/config`, so anything else would cycle. Both versions emit ANSI levels and
+`LogFatal` exits; v1 adds a `[evolution-go]` prefix. v1's `CaptureExceptionFunc`
+and `WebhookConfig` are left off so logging stays local; they can be wired from
+configuration if wanted.
 
 Verified live after the upgrade: the container starts, the paired instance
 reconnects and authenticates, the event handler runs (Connected /
 OfflineSyncCompleted / NCT-salt / reachout-timelock), and `/server/stats` and
 `/instance/overview` return correct data.
 
-**Known remaining cost (not addressed):** the dashboard re-aggregates the whole
-`messages` table on every poll and the table has no retention. Measured on a
-seeded 2M-row table: `/server/stats` ≈ 0.5 s and `/instance/overview` ≈ 0.9 s
-(`COUNT(DISTINCT source)`), growing linearly forever. Indexes alone do not fix
-the three whole-table aggregates (the planner still seq-scans); the fix is a
-short-lived aggregate cache and/or a rollup table, plus optional pruning.
+### Dashboard aggregation cache
+
+The three `GetStats` aggregates plus `CountByInstance` / `CountChatsByInstance` /
+`DatabaseSizeBytes` are whole-table scans, re-run every 15 s by every open
+dashboard. Measured on a seeded 2M-row table, `/server/stats` cost ~0.5 s and
+`CountChatsByInstance` ~0.9 s. Indexes do **not** fix the three whole-table
+aggregates — the planner still seq-scans, because a count over the whole table
+must visit every row (I verified this with `EXPLAIN ANALYZE`; only the
+`COUNT(DISTINCT source)` benefited, 861 → 578 ms with `(instance_id, source)`).
+
+The repository now memoizes them in a `go-cache` TTL cache
+(`WithAggregateCacheTTL`, wired from `DASHBOARD_CACHE_TTL_SECONDS`, default 30 s,
+0 disables). This makes the database cost **independent of how many dashboards
+are open**: ten clients polling every 15 s go from ~40 aggregations/minute to 2.
+Cached values are cloned on read so a caller cannot corrupt the entry, and
+`DeleteAllMessages` flushes the cache (a stale count there is wrong, not merely
+late). Inserts deliberately do **not** invalidate — messages arrive continuously,
+so that would defeat the cache; the visible effect is that the dashboard counters
+lag by at most the TTL.
+
+Still open: there is no retention, so the `messages` table grows without bound
+(the storage panel now makes that visible), and a rollup table would remove the
+staleness entirely.
 
 ## 4. Build & run
 

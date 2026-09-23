@@ -37,7 +37,7 @@ type LogEntry struct {
 func NewLoggerManager(config *config.Config) *LoggerManager {
 	// Garante que o diretório base de logs existe
 	if err := os.MkdirAll(config.LogDirectory, 0755); err != nil {
-		applog.LogError("Falha ao criar diretório base de logs: %v", err)
+		applog.Logger.LogError("Falha ao criar diretório base de logs: %v", err)
 	}
 
 	return &LoggerManager{
@@ -93,22 +93,22 @@ func newLogger(instanceId string, config *config.Config) *Logger {
 
 func (l *Logger) LogInfo(format string, args ...interface{}) {
 	l.log("INFO", format, args...)
-	applog.LogInfo(format, args...)
+	applog.Logger.LogInfo(format, args...)
 }
 
 func (l *Logger) LogError(format string, args ...interface{}) {
 	l.log("ERROR", format, args...)
-	applog.LogError(format, args...)
+	applog.Logger.LogError(format, args...)
 }
 
 func (l *Logger) LogWarn(format string, args ...interface{}) {
 	l.log("WARN", format, args...)
-	applog.LogWarn(format, args...)
+	applog.Logger.LogWarn(format, args...)
 }
 
 func (l *Logger) LogDebug(format string, args ...interface{}) {
 	l.log("DEBUG", format, args...)
-	applog.LogDebug(format, args...)
+	applog.Logger.LogDebug(format, args...)
 }
 
 func (l *Logger) log(level string, format string, args ...interface{}) {
@@ -124,12 +124,12 @@ func (l *Logger) log(level string, format string, args ...interface{}) {
 
 	jsonEntry, err := json.Marshal(entry)
 	if err != nil {
-		applog.LogError("Failed to marshal log entry: %v", err)
+		applog.Logger.LogError("Failed to marshal log entry: %v", err)
 		return
 	}
 
 	if _, err := l.writer.Write(append(jsonEntry, '\n')); err != nil {
-		applog.LogError("Failed to write log: %v", err)
+		applog.Logger.LogError("Failed to write log: %v", err)
 	}
 }
 

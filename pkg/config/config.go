@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	logger "github.com/evolution-foundation/evolution-go/pkg/applog"
+	applog "github.com/evolution-foundation/evolution-go/pkg/applog"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
@@ -79,6 +79,12 @@ type Config struct {
 	LogMaxAge     int
 	LogDirectory  string
 	LogCompress   bool
+
+	// DashboardCacheTTL bounds how long the dashboard's message aggregations
+	// (/server/stats and /instance/overview counts) may be served from memory.
+	// Those queries are whole-table scans, so caching keeps the DB cost
+	// independent of how many dashboards are open. Zero disables the cache.
+	DashboardCacheTTL time.Duration
 }
 
 // EnsureDBExists connects to postgres (without the target database) and creates it if it doesn't exist.
@@ -106,12 +112,12 @@ func ensureDBExists(dsn string) error {
 	}
 
 	if !exists {
-		logger.LogInfo("[CONFIG] Database %q not found, creating it automatically...", dbName)
+		applog.Logger.LogInfo("[CONFIG] Database %q not found, creating it automatically...", dbName)
 		_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %q", dbName))
 		if err != nil {
 			return fmt.Errorf("failed to create database %q: %v", dbName, err)
 		}
-		logger.LogInfo("[CONFIG] Database %q created successfully", dbName)
+		applog.Logger.LogInfo("[CONFIG] Database %q created successfully", dbName)
 	}
 
 	return nil
@@ -153,7 +159,7 @@ func extractDBNameAndAdminDSN(dsn string) (string, string, error) {
 }
 
 func (c *Config) CreateUsersDB() (*gorm.DB, error) {
-	logger.LogDebug("Connecting to database on: %s", c.postgresUsersDB)
+	applog.Logger.LogDebug("Connecting to database on: %s", c.postgresUsersDB)
 
 	dbDSN := c.postgresUsersDB
 
@@ -162,7 +168,7 @@ func (c *Config) CreateUsersDB() (*gorm.DB, error) {
 	}
 
 	if err := ensureDBExists(dbDSN); err != nil {
-		logger.LogWarn("[CONFIG] Auto-setup failed (will try connecting anyway): %v", err)
+		applog.Logger.LogWarn("[CONFIG] Auto-setup failed (will try connecting anyway): %v", err)
 	}
 
 	db, err := gorm.Open(
@@ -196,7 +202,7 @@ func (c *Config) CreateAuthDB() (*sql.DB, error) {
 	}
 
 	if err := ensureDBExists(dbDSN); err != nil {
-		logger.LogWarn("[CONFIG] Auto-setup failed (will try connecting anyway): %v", err)
+		applog.Logger.LogWarn("[CONFIG] Auto-setup failed (will try connecting anyway): %v", err)
 	}
 
 	db, err := sql.Open("postgres", dbDSN)
@@ -231,7 +237,7 @@ func Load() *Config {
 	postgresDB := os.Getenv(config_env.POSTGRES_DB)
 
 	if postgresUsersDB == "" && (postgresHost == "" || postgresPort == "" || postgresUser == "" || postgresPassword == "" || postgresDB == "") {
-		logger.LogFatal("[CONFIG] required database configuration variables are missing. Please check your environment configuration.")
+		applog.Logger.LogFatal("[CONFIG] required database configuration variables are missing. Please check your environment configuration.")
 	}
 
 	databaseSaveMessages := os.Getenv(config_env.DATABASE_SAVE_MESSAGES)
@@ -262,7 +268,7 @@ func Load() *Config {
 
 	// Validate AMQP URL format
 	if err := validateAMQPURL(amqpUrl); err != nil {
-		logger.LogFatal("[CONFIG] AMQP URL validation failed: %v", err)
+		applog.Logger.LogFatal("[CONFIG] AMQP URL validation failed: %v", err)
 	}
 
 	amqpGlobalEnabled := os.Getenv(config_env.AMQP_GLOBAL_ENABLED)
@@ -360,6 +366,18 @@ func Load() *Config {
 		logCompress = true // Default compression enabled
 	}
 
+	// The dashboard aggregations are whole-table scans, so they are cached for a
+	// short while by default. Set DASHBOARD_CACHE_TTL_SECONDS=0 to disable.
+	dashboardCacheTTL := 30 * time.Second
+	if raw := os.Getenv(config_env.DASHBOARD_CACHE_TTL_SECONDS); raw != "" {
+		seconds, err := strconv.Atoi(raw)
+		if err != nil || seconds < 0 {
+			applog.Logger.LogWarn("[CONFIG] invalid %s=%q, using the default of 30s", config_env.DASHBOARD_CACHE_TTL_SECONDS, raw)
+		} else {
+			dashboardCacheTTL = time.Duration(seconds) * time.Second
+		}
+	}
+
 	// Typebot protections. The per-contact limit is on by default (it only
 	// affects senders bursting many messages); the per-instance send ceiling is
 	// off by default (a badly tuned value would delay legitimate replies).
@@ -417,6 +435,7 @@ func Load() *Config {
 		LogMaxAge:                logMaxAge,
 		LogDirectory:             logDirectory,
 		LogCompress:              logCompress,
+		DashboardCacheTTL:        dashboardCacheTTL,
 	}
 
 	minioEnabled := os.Getenv(config_env.MINIO_ENABLED) == "true"
@@ -456,9 +475,9 @@ func loadMinioConfig(config *Config) {
 func panicIfEmpty(key, value string) {
 	if value == "" {
 		if os.Getenv("DEBUG_ENABLED") != "1" {
-			logger.LogInfo("You are NOT on development mode")
+			applog.Logger.LogInfo("You are NOT on development mode")
 		}
-		logger.LogFatal("[CONFIG] required configuration variable is missing. Please check your environment configuration.")
+		applog.Logger.LogFatal("[CONFIG] required configuration variable is missing. Please check your environment configuration.")
 	}
 }
 
@@ -484,7 +503,7 @@ func validateAMQPURL(amqpURL string) error {
 		return fmt.Errorf("AMQP URL must include a host")
 	}
 
-	logger.LogInfo("[CONFIG] AMQP URL validation successful: %s://%s", parsedURL.Scheme, parsedURL.Host)
+	applog.Logger.LogInfo("[CONFIG] AMQP URL validation successful: %s://%s", parsedURL.Scheme, parsedURL.Host)
 	return nil
 }
 
@@ -499,7 +518,7 @@ func envInt(key string, fallback int) int {
 	}
 	value, err := strconv.Atoi(raw)
 	if err != nil || value < 0 {
-		logger.LogWarn("[CONFIG] %s inválido (%q), usando %d", key, raw, fallback)
+		applog.Logger.LogWarn("[CONFIG] %s inválido (%q), usando %d", key, raw, fallback)
 		return fallback
 	}
 	return value

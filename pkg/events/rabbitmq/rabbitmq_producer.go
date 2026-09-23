@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	logger "github.com/evolution-foundation/evolution-go/pkg/applog"
+	applog "github.com/evolution-foundation/evolution-go/pkg/applog"
 	producer_interfaces "github.com/evolution-foundation/evolution-go/pkg/events/interfaces"
 	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -75,10 +75,10 @@ func (p *rabbitMQProducer) handleConnectionClose() {
 
 	closeErr := <-closeChan
 	if closeErr != nil {
-		logger.LogWarn("RabbitMQ connection closed unexpectedly: %v", closeErr)
-		logger.LogInfo("Connection will be re-established on next message send")
+		applog.Logger.LogWarn("RabbitMQ connection closed unexpectedly: %v", closeErr)
+		applog.Logger.LogInfo("Connection will be re-established on next message send")
 	} else {
-		logger.LogInfo("RabbitMQ connection closed gracefully")
+		applog.Logger.LogInfo("RabbitMQ connection closed gracefully")
 	}
 }
 
@@ -87,11 +87,11 @@ func (p *rabbitMQProducer) reconnect() error {
 		return fmt.Errorf("connection string is empty - RabbitMQ URL not configured")
 	}
 
-	logger.LogInfo("Starting RabbitMQ reconnection process with URL: %s", p.maskConnectionString(p.connStr))
+	applog.Logger.LogInfo("Starting RabbitMQ reconnection process with URL: %s", p.maskConnectionString(p.connStr))
 
 	var err error
 	for i := 0; i < 3; i++ {
-		logger.LogInfo("Tentando reconectar ao RabbitMQ (tentativa %d/3)", i+1)
+		applog.Logger.LogInfo("Tentando reconectar ao RabbitMQ (tentativa %d/3)", i+1)
 
 		// Create connection with heartbeat to prevent timeouts
 		config := amqp.Config{
@@ -101,14 +101,14 @@ func (p *rabbitMQProducer) reconnect() error {
 
 		p.conn, err = amqp.DialConfig(p.connStr, config)
 		if err == nil {
-			logger.LogInfo("Reconectado com sucesso ao RabbitMQ com heartbeat de 30s")
+			applog.Logger.LogInfo("Reconectado com sucesso ao RabbitMQ com heartbeat de 30s")
 
 			// Set up connection close notification
 			go p.handleConnectionClose()
 			return nil
 		}
 
-		logger.LogError("Falha na tentativa %d/3 de reconexão: %v", i+1, err)
+		applog.Logger.LogError("Falha na tentativa %d/3 de reconexão: %v", i+1, err)
 		if i < 2 { // Don't sleep on the last attempt
 			time.Sleep(time.Second * 2)
 		}
@@ -146,7 +146,7 @@ func (p *rabbitMQProducer) publishWithRetry(
 			return nil
 		}
 
-		logger.LogWarn("[%s] Falha ao publicar mensagem (tentativa %d/%d): %v",
+		applog.Logger.LogWarn("[%s] Falha ao publicar mensagem (tentativa %d/%d): %v",
 			userID, i+1, p.maxRetries, err)
 
 		// Se o erro for de conexão, tenta reconectar

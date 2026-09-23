@@ -60,4 +60,7 @@ const (
 	LOG_MAX_AGE     = "LOG_MAX_AGE"
 	LOG_DIRECTORY   = "LOG_DIRECTORY"
 	LOG_COMPRESS    = "LOG_COMPRESS"
+
+	// How long the dashboard's message aggregations may be cached (seconds).
+	DASHBOARD_CACHE_TTL_SECONDS = "DASHBOARD_CACHE_TTL_SECONDS"
 )
