@@ -1,6 +1,6 @@
 /**
  * Instance Card Component
- * Displays an Evolution GO instance as a card with status and actions
+ * Displays an instance as a card with status and actions
  */
 
 import { Button, Card, CardContent, Badge } from "@evoapi/design-system";

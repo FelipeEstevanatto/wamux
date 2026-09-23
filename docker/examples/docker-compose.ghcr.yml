@@ -27,7 +27,7 @@ services:
     environment:
       SERVER_PORT: 8080
       CLIENT_NAME: ${CLIENT_NAME:-evolution}
-      OS_NAME: ${OS_NAME:-Evolution GO}
+      OS_NAME: ${OS_NAME:-Evo-GoFork}
 
       GLOBAL_API_KEY: ${GLOBAL_API_KEY:?set GLOBAL_API_KEY in .env}
 

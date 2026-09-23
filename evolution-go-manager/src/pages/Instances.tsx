@@ -474,7 +474,7 @@ export default function Instances() {
           <EmptyState
             icon={Layers}
             title="Nenhuma instância encontrada"
-            description="Crie sua primeira instância para começar a usar o Evolution GO"
+            description="Crie sua primeira instância para começar a usar o Evo-GoFork"
             action={{ label: 'Nova Instância', onClick: handleNewInstance }}
             className="h-full"
           />

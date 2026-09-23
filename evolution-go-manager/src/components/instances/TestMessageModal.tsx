@@ -138,7 +138,7 @@ function buildPayload(
         number,
         title: 'Teste - Reply unico',
         description: 'Um botao do tipo reply.',
-        footer: 'Evolution GO',
+        footer: 'Evo-GoFork',
         buttons: [
           { type: 'reply', displayText: 'Confirmar', id: 'test_reply_1' },
         ],
@@ -148,7 +148,7 @@ function buildPayload(
         number,
         title: 'Teste - 3 Reply (limite)',
         description: 'Tres botoes reply.',
-        footer: 'Evolution GO',
+        footer: 'Evo-GoFork',
         buttons: [
           { type: 'reply', displayText: 'Opcao A', id: 'test_a' },
           { type: 'reply', displayText: 'Opcao B', id: 'test_b' },
@@ -160,7 +160,7 @@ function buildPayload(
         number,
         title: 'Teste - CTA Copy',
         description: 'Botao COPY com codigo a ser copiado.',
-        footer: 'Evolution GO',
+        footer: 'Evo-GoFork',
         buttons: [
           {
             type: 'copy',
@@ -174,7 +174,7 @@ function buildPayload(
         number,
         title: 'Teste - CTA URL',
         description: 'Botao que abre um link.',
-        footer: 'Evolution GO',
+        footer: 'Evo-GoFork',
         buttons: [
           {
             type: 'url',
@@ -188,7 +188,7 @@ function buildPayload(
         number,
         title: 'Teste - CTA Call',
         description: 'Botao que inicia uma ligacao.',
-        footer: 'Evolution GO',
+        footer: 'Evo-GoFork',
         buttons: [
           {
             type: 'call',
@@ -202,7 +202,7 @@ function buildPayload(
         number,
         title: 'Teste - PIX',
         description: 'Botao Pix (envia sozinho).',
-        footer: 'Evolution GO',
+        footer: 'Evo-GoFork',
         buttons: [
           {
             type: 'pix',
@@ -218,7 +218,7 @@ function buildPayload(
         number,
         title: 'Teste - CTAs agrupados',
         description: 'copy + url + call (funciona no WhatsApp Web).',
-        footer: 'Evolution GO',
+        footer: 'Evo-GoFork',
         buttons: [
           {
             type: 'copy',
@@ -243,7 +243,7 @@ function buildPayload(
         title: 'Teste - Lista',
         description: 'Lista interativa com secoes e rows.',
         buttonText: 'Ver opcoes',
-        footerText: 'Evolution GO',
+        footerText: 'Evo-GoFork',
         sections: [
           {
             title: 'Planos',
@@ -281,7 +281,7 @@ function buildPayload(
       return {
         number,
         body: 'Teste - Carrossel com botoes REPLY',
-        footer: 'Evolution GO',
+        footer: 'Evo-GoFork',
         cards: [
           {
             header: {
@@ -332,7 +332,7 @@ function buildPayload(
       return {
         number,
         body: 'Teste - Carrossel com botao URL',
-        footer: 'Evolution GO',
+        footer: 'Evo-GoFork',
         cards: [
           {
             header: {
@@ -396,7 +396,7 @@ function buildPayload(
       return {
         number,
         body: 'Teste - Carrossel com botao CALL',
-        footer: 'Evolution GO',
+        footer: 'Evo-GoFork',
         cards: [
           {
             header: {
@@ -446,7 +446,7 @@ function buildPayload(
       return {
         number,
         body: 'Teste - Carrossel com botao COPY',
-        footer: 'Evolution GO',
+        footer: 'Evo-GoFork',
         cards: [
           {
             header: {

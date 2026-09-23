@@ -2,7 +2,13 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@evoapi/design-system';
 import { ArrowRight, Zap, Shield, Globe } from 'lucide-react';
-import { COPYRIGHT_LINE, FORK_DISCLAIMER } from '@/constants/branding';
+import {
+  COPYRIGHT_LINE,
+  FORK_DISCLAIMER,
+  FORK_OF_NAME,
+  PRODUCT_NAME,
+  PRODUCT_TAGLINE,
+} from '@/constants/branding';
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -15,10 +21,14 @@ export const Home: React.FC = () => {
           {/* Logo/Title */}
           <div className="space-y-4">
             <h1 className="text-6xl font-bold text-primary animate-fadeIn">
-              Evolution GO
+              {PRODUCT_NAME}
             </h1>
             <p className="text-xl text-muted-foreground">
-              Interface moderna para gerenciamento de instâncias WhatsApp
+              {PRODUCT_TAGLINE}
+            </p>
+            <p className="text-sm text-muted-foreground max-w-2xl mx-auto">
+              Fork comunitário não oficial do {FORK_OF_NAME}. Não é afiliado,
+              endossado ou uma release oficial da Evolution Foundation.
             </p>
           </div>
 
@@ -50,7 +60,7 @@ export const Home: React.FC = () => {
               </div>
               <h3 className="text-lg font-semibold">API Completa</h3>
               <p className="text-sm text-muted-foreground">
-                Integração via API REST com Evolution GO
+                Integração via API REST com o {PRODUCT_NAME}
               </p>
             </div>
           </div>
@@ -70,7 +80,8 @@ export const Home: React.FC = () => {
           {/* Footer Info */}
           <div className="mt-16 pt-8 border-t">
             <p className="text-sm text-muted-foreground">
-              Evolution GO Manager - Gerencie suas instâncias WhatsApp de forma simples e eficiente
+              {PRODUCT_NAME} Manager — gerencie suas instâncias WhatsApp de forma
+              simples e eficiente
             </p>
             <p className="text-xs text-muted-foreground mt-2">
               {COPYRIGHT_LINE}
@@ -86,4 +97,3 @@ export const Home: React.FC = () => {
 };
 
 export default Home;
-

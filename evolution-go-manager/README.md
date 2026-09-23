@@ -1,75 +1,88 @@
-<h1 align="center">Evolution Go Manager</h1>
+<h1 align="center">Evo-GoFork Manager</h1>
 
 <div align="center">
 
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript)](https://www.typescriptlang.org/)
-[![Vite](https://img.shields.io/badge/Vite-6-646CFF?logo=vite)](https://vitejs.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?logo=typescript)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite)](https://vitejs.dev/)
 
 </div>
 
+> **Unofficial community fork.** This is the web panel for **Evo-GoFork**, an
+> unofficial community fork of [Evolution Go](https://github.com/evolution-foundation/evolution-go).
+> It is not affiliated with, endorsed by, or an official release of Evolution
+> Foundation. See the repository's `NOTICE` and `TRADEMARKS.md`.
+
 ## About
 
-Web interface for managing WhatsApp instances through [Evolution Go](https://github.com/EvolutionAPI/evolution-go). Handles license activation, instance management, QR code pairing, messaging, and real-time event monitoring.
+Web interface for managing WhatsApp instances through the Evo-GoFork API
+(instance management, QR code / pairing, messaging, webhooks, a system
+dashboard and an API tester).
+
+The source lives here and is built by the backend image (`oven/bun` stage) or
+locally with `make manager-build`, which syncs the build into `manager/dist`.
 
 ## Features
 
-- **License Activation** — Built-in license registration and activation flow
-- **Instance Management** — Create, connect, disconnect, and delete WhatsApp instances
-- **QR Code Pairing** — Real-time QR code authentication
-- **Messaging** — Send text, media, contacts, and location messages
-- **Webhooks** — Per-instance webhook configuration
-- **Event Monitor** — Real-time WebSocket event streaming
-- **Dashboard** — Instance metrics and statistics
+- **Instance management** — create, connect, disconnect, delete
+- **QR code / pairing** — QR and pairing-code authentication
+- **Per-instance overview** — profile picture, contacts, chats, messages, device
+- **Proxy settings** — set / test / reconnect / remove per instance
+- **Messaging** — text, media, buttons, lists, carousels, events, products
+- **Webhooks** — per-instance webhook configuration and event selection
+- **Dashboard** — instances, messages, contacts and host metrics
+- **API tester** — reads the live Swagger spec
+- **About** — the admin-visible "uses Evolution Go" notice (license 1.b)
 
-## Quick Start
+## Quick start
 
 ```bash
-# Install dependencies
-pnpm install
+# Install (pnpm, bun or npm)
+pnpm install        # or: bun install / npm install
 
-# Run in development mode
-pnpm dev
+# Development (Vite dev server)
+pnpm dev            # http://localhost:5174
 
-# Build for production
-pnpm build
+# Production build
+pnpm build          # -> dist/
 ```
 
-Available at `http://localhost:5174`
+`make manager-build` from the repository root builds and copies `dist/` into
+`manager/dist/` (preserving the fork-only `dashboard.html`).
 
-## Authentication & License
+## Authentication
 
-1. Enter your **Evolution Go API URL** (e.g., `http://localhost:8080`)
-2. Enter your **GLOBAL_API_KEY** from the Evolution Go `.env` file
-3. If no license is active, you'll be redirected to complete registration
-4. After activation, the manager grants full access to the dashboard
+1. Enter the **API URL** (e.g. `http://localhost:8080`)
+2. Enter your **GLOBAL_API_KEY** from the `.env`
+3. Credentials are stored in the browser's `localStorage`
 
-Credentials are stored in the browser's localStorage.
+No license activation is involved: this fork removed the gate entirely.
 
-## Project Structure
+## Project structure
 
 ```
 src/
-├── pages/               # Login, Dashboard, Instances, LicenseCallback
+├── pages/               # Home, Login, Dashboard, Instances, InstanceSettings,
+│                        # About, ApiTester, Messages, Events, Settings
 ├── components/
-│   ├── base/            # Layout, Header, Sidebar, ErrorBoundary
-│   └── instances/       # Instance cards, QR code, create modal
-├── services/api/        # Axios client, license API, instances API
-├── store/               # Zustand stores (auth, instances)
-├── hooks/               # useAuth, useDarkMode
-├── contexts/            # Theme context
+│   ├── base/            # Layout, Header, Sidebar, GithubIcon, ErrorBoundary
+│   └── instances/       # Instance cards, QR code, create/send/test modals
+├── constants/branding.ts# Product name, fork/upstream links, disclaimers
+├── services/api/        # Axios client + instances/server APIs
+├── store/               # Zustand stores (auth, instances + overviews)
+├── hooks/               # useAuth, useDarkMode, useServerStats
 └── types/               # TypeScript interfaces
 ```
 
-## Technology Stack
+## Technology stack
 
 | Component | Technology |
 |-----------|-----------|
 | Framework | React 19 |
-| Language | TypeScript 5 |
-| Build | Vite 6 |
+| Language | TypeScript 7 |
+| Build | Vite 8 |
 | Styling | Tailwind CSS 4 |
-| UI Components | @evoapi/design-system |
+| UI components | `@evoapi/design-system` |
 | State | Zustand |
 | HTTP | Axios |
 | Forms | React Hook Form + Zod |
@@ -77,57 +90,17 @@ src/
 | Icons | Lucide React |
 | Notifications | Sonner |
 
-## Integration with Evolution Go
+## Integration with the API
 
-The manager communicates with Evolution Go via:
+- **REST** — every request carries the `apikey` header (global key for admin
+  routes, the instance token for instance-scoped ones)
+- **WebSocket** — real-time events at `/ws?token=<apiKey>&instanceId=<id>`
 
-- **REST API** — All requests include `apikey` header
-- **WebSocket** — Real-time events at `/ws?token=<apiKey>&instanceId=<id>`
-- **License API** — `/license/status`, `/license/register`, `/license/activate`
+## License & attribution
 
-## Docker
+Apache License 2.0 with Evolution Go's additional conditions. The upstream
+project is [Evolution Go](https://github.com/evolution-foundation/evolution-go)
+by Evolution Foundation; its copyright line and trademark notices are kept
+intact.
 
-```bash
-docker build -t evolution-go-manager:latest .
-docker run -p 5174:80 evolution-go-manager:latest
-```
-
-## Documentation & Support
-
-| Resource | Link |
-|----------|------|
-| Website | [evolutionfoundation.com.br](https://evolutionfoundation.com.br/) |
-| Documentation | [docs.evolutionfoundation.com.br](https://docs.evolutionfoundation.com.br/) |
-| Community | [evolutionfoundation.com.br/community](https://evolutionfoundation.com.br/community) |
-| WhatsApp Support | [+55 31 9621-9989](https://wa.me/553196219989) |
-
-## Hosting
-
-| Product | Link |
-|---------|------|
-| Evolution Go VPS | [Hostgator - Evo Go](https://www.hostgator.com.br/52579-144-3-55.html) |
-| Evolution API VPS | [Hostgator - Evo API](https://www.hostgator.com.br/servidor-vps/hospedagem-evo-api/lp-afiliado) |
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/new-feature`)
-3. Commit your changes (`git commit -m 'feat: add new feature'`)
-4. Push to the branch (`git push origin feature/new-feature`)
-5. Open a Pull Request
-
-## License
-
-See [LICENSE](./LICENSE) file.
-
----
-
-<div align="center">
-
-**Evolution Go Manager** — WhatsApp Instance Management
-
-Made with ❤️ by the [Evolution Team](https://evolutionfoundation.com.br/)
-
-© 2025 Evolution Foundation
-
-</div>
+© 2026 Evolution Foundation
