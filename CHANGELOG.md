@@ -12,6 +12,13 @@ Fork-specific fixes on top of `0.7.2` (see `FORK_NOTES.md` for the full list).
   account's own `Store.ID` is a phone number. The filter now normalises both
   sides (`ToNonAD()`) and matches `OwnerJID`/`OwnerPN` against both `Store.ID`
   and `Store.LID`.
+- **Permanent error 463 on cold sends for instances paired before v0.7.2**
+  (#124) — those instances never received the NCT salt (their one-time
+  HistorySync ran under the old fork), and whatsmeow only re-reads app-state
+  categories that are not yet marked synced, so the salt was never backfilled.
+  On `Connected`, when no salt is stored, the fork now forces a `regular_high`
+  full sync once per instance (rate-limited to one try per 6 h), mirroring
+  Baileys' `ensureNctSaltSynced()`.
 
 ### ✨ Features
 - **Typebot integration** — bot CRUD, per-contact sessions, `startChat`/
@@ -35,7 +42,9 @@ Fork-specific fixes on top of `0.7.2` (see `FORK_NOTES.md` for the full list).
   which previously failed on animated WebP and flattened static WebP.
 - **Interactive buttons/Pix** rewritten to the `native_flow` payloads WhatsApp
   actually renders (reply/CTA top-level `interactiveMessage`; Pix via
-  `ViewOnceMessage`).
+  `ViewOnceMessage`). Reply/CTA relay node later completed with the
+  `actual_actors`/`host_storage`/`privacy_mode_ts` attributes, `quality_control`
+  child and `native_flow v="9"`; confirmed rendering on mobile.
 - **Shared sqlstore container** no longer caches a transient database failure.
 
 ### 🐛 Bug Fixes

@@ -168,6 +168,8 @@ type MyClient struct {
 	passkeyCeremony    *ceremony.Store
 	appStateRecoveryMu sync.Mutex
 	appStateRecovery   map[appstate.WAPatchName]appStateRecoveryAttempt
+	nctSaltSyncMu      sync.Mutex
+	nctSaltSyncAt      time.Time
 }
 
 type appStateRecoveryAttempt struct {
@@ -202,6 +204,78 @@ func (mycli *MyClient) reserveAppStateRecovery(name appstate.WAPatchName, recove
 	}
 	mycli.appStateRecovery[name] = attempt
 	return true
+}
+
+// nctSaltSyncCooldown bounds how often the forced regular_high bootstrap below
+// can run for an instance that still has no NCT salt. Long enough not to hammer
+// the server for accounts the server genuinely provisions no salt for, short
+// enough that a transient failure self-heals without a process restart.
+const nctSaltSyncCooldown = 6 * time.Hour
+
+// reserveNctSaltSync reports whether the forced NCT-salt bootstrap may run now.
+// Mirrors reserveAppStateRecovery: the timestamp is written before the attempt so
+// concurrent/repeated Connected events cannot stampede, and it is not cleared on
+// failure so a permanently-unsalted account stays bounded to one try per cooldown.
+func (mycli *MyClient) reserveNctSaltSync() bool {
+	mycli.nctSaltSyncMu.Lock()
+	defer mycli.nctSaltSyncMu.Unlock()
+
+	now := time.Now()
+	if !mycli.nctSaltSyncAt.IsZero() && now.Sub(mycli.nctSaltSyncAt) < nctSaltSyncCooldown {
+		return false
+	}
+	mycli.nctSaltSyncAt = now
+	return true
+}
+
+// ensureNctSaltSynced backfills the NCT salt for instances that never received it.
+//
+// The salt is normally learned from the one-time HistorySync payload sent right
+// after pairing, and thereafter from a regular_high `nct_salt_sync` app-state
+// mutation. Instances paired before this fork switched to upstream whatsmeow
+// (v0.7.2) went through their one-time sync with a fork that had no concept of
+// the salt, so they must learn it from app state — but whatsmeow's
+// handleAppStateSyncKeyShare calls FetchAppState with onlyIfNotSynced=true, which
+// skips categories already marked as synced. Those instances therefore never get
+// a salt and every cold (first-contact) 1:1 send fails with error 463
+// (NackCallerReachoutTimelocked), forever and silently. See issue #124.
+//
+// Forcing fullSync=true, onlyIfNotSynced=false on regular_high re-reads the
+// category from scratch so the salt mutation is applied. It is a no-op when a
+// salt is already stored, and rate-limited per instance (see nctSaltSyncCooldown).
+func (mycli *MyClient) ensureNctSaltSynced() {
+	if mycli == nil || mycli.WAClient == nil || mycli.WAClient.Store == nil || mycli.WAClient.Store.NCTSalt == nil {
+		return
+	}
+
+	// Quick check first: a normal pairing/history sync may already have supplied
+	// the salt, in which case there is nothing to bootstrap.
+	checkCtx, cancelCheck := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelCheck()
+	if salt, err := mycli.WAClient.Store.NCTSalt.GetNCTSalt(checkCtx); err == nil && len(salt) > 0 {
+		return
+	}
+
+	if !mycli.reserveNctSaltSync() {
+		return
+	}
+
+	logger := mycli.loggerWrapper.GetLogger(mycli.userID)
+	logger.LogInfo("[%s] No NCT salt stored; forcing a regular_high app-state sync to backfill it (issue #124)", mycli.userID)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := mycli.WAClient.FetchAppState(ctx, appstate.WAPatchRegularHigh, true, false); err != nil {
+		logger.LogWarn("[%s] Forced regular_high sync for NCT salt failed: %v", mycli.userID, err)
+		return
+	}
+
+	if salt, err := mycli.WAClient.Store.NCTSalt.GetNCTSalt(ctx); err == nil && len(salt) > 0 {
+		logger.LogInfo("[%s] NCT salt backfilled from regular_high", mycli.userID)
+	} else {
+		logger.LogInfo("[%s] regular_high sync completed; no NCT salt is provisioned for this account", mycli.userID)
+	}
 }
 
 func (mycli *MyClient) handleAppStateSyncError(evt *events.AppStateSyncError) {
@@ -1409,6 +1483,10 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		// timelock) in the background so /instance/limits does not have to pay
 		// the slow MEX query per request.
 		mycli.logAccountLimits()
+		// Backfill the NCT salt for instances paired before v0.7.2, otherwise
+		// cold 1:1 sends keep failing with error 463 (issue #124). No-op when a
+		// salt is already stored; rate-limited per instance internally.
+		go mycli.ensureNctSaltSynced()
 		if len(mycli.WAClient.Store.PushName) > 0 {
 			doWebhook = true
 			postMap["event"] = "Connected"
