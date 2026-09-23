@@ -23,7 +23,10 @@ func (f fakeOverview) GetInstanceOverview(string) (*whatsmeow_service.InstanceOv
 }
 
 // fakeMessageRepo implements just enough of MessageRepository for the handler.
-type fakeMessageRepo struct{ byInstance int64 }
+type fakeMessageRepo struct {
+	byInstance int64
+	chats      int64
+}
 
 func (fakeMessageRepo) InsertMessage(message_model.Message) error             { return nil }
 func (fakeMessageRepo) GetMessageByID(string) (*message_model.Message, error) { return nil, nil }
@@ -31,6 +34,7 @@ func (fakeMessageRepo) DeleteAllMessages() (int64, error)                     { 
 func (fakeMessageRepo) GetLatestMessageID(string) (string, string, error)     { return "", "", nil }
 func (fakeMessageRepo) GetStats() (*message_repository.MessageStats, error)   { return nil, nil }
 func (f fakeMessageRepo) CountByInstance(string) (int64, error)               { return f.byInstance, nil }
+func (f fakeMessageRepo) CountChatsByInstance(string) (int64, error)          { return f.chats, nil }
 
 func TestInstanceOverviewHandlerReturnsProviderData(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -41,7 +45,7 @@ func TestInstanceOverviewHandlerReturnsProviderData(t *testing.T) {
 			ProfilePicURL: "https://pps.whatsapp.net/x.jpg",
 			ContactsCount: 346,
 		}},
-		messageRepo: fakeMessageRepo{byInstance: 42},
+		messageRepo: fakeMessageRepo{byInstance: 42, chats: 9},
 	}
 
 	w := httptest.NewRecorder()
@@ -63,6 +67,9 @@ func TestInstanceOverviewHandlerReturnsProviderData(t *testing.T) {
 	}
 	if body.Data.MessagesCount != 42 {
 		t.Fatalf("messagesCount = %d, want 42", body.Data.MessagesCount)
+	}
+	if body.Data.ChatsCount != 9 {
+		t.Fatalf("chatsCount = %d, want 9", body.Data.ChatsCount)
 	}
 }
 

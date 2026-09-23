@@ -1,13 +1,13 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Save, Trash2, Power, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Power, Eye, EyeOff, Copy, Check, Network, RefreshCw } from "lucide-react";
 import { Button } from "@evoapi/design-system";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import * as instancesApi from "@/services/api/instances";
-import type { Instance } from "@/types/instance";
+import type { Instance, ProxyConfig, ProxyTestResult } from "@/types/instance";
 
 const webhookSchema = z.object({
   webhookUrl: z.string().url("URL inválida").optional().or(z.literal("")),
@@ -52,8 +52,16 @@ export default function InstanceSettings() {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [showToken, setShowToken] = useState(false);
+  const [copied, setCopied] = useState(false);
   const isInitialized = useRef(false);
   const hasFetchedOnce = useRef(false);
+
+  // Proxy configuration (admin-key routes: /instance/proxy/:id).
+  const emptyProxy: ProxyConfig = { protocol: "http", host: "", port: "", username: "", password: "" };
+  const [proxy, setProxy] = useState<ProxyConfig | null>(null);
+  const [proxyForm, setProxyForm] = useState<ProxyConfig>(emptyProxy);
+  const [proxyTest, setProxyTest] = useState<ProxyTestResult | null>(null);
+  const [proxyBusy, setProxyBusy] = useState<null | "save" | "test" | "reconnect" | "delete">(null);
 
   const {
     register: registerWebhook,
@@ -83,6 +91,19 @@ export default function InstanceSettings() {
         setIsLoading(true);
         const instanceData = await instancesApi.fetchInstance(instanceId);
         setInstance(instanceData);
+
+        // Proxy config lives on its own admin route; null means "not set".
+        const proxyData = await instancesApi.getProxy(instanceId).catch(() => null);
+        setProxy(proxyData);
+        if (proxyData) {
+          setProxyForm({
+            protocol: proxyData.protocol || "http",
+            host: proxyData.host || "",
+            port: proxyData.port || "",
+            username: proxyData.username || "",
+            password: proxyData.password || "",
+          });
+        }
       } catch (error) {
         console.error("Erro ao buscar instância:", error);
         toast.error("Erro ao carregar dados da instância");
@@ -259,6 +280,90 @@ export default function InstanceSettings() {
     }
   };
 
+  const handleCopyToken = async () => {
+    if (!instance?.apikey) return;
+    try {
+      await navigator.clipboard.writeText(instance.apikey);
+      setCopied(true);
+      toast.success("Token copiado!");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Não foi possível copiar o token");
+    }
+  };
+
+  const proxyErrorMessage = (e: unknown, fallback: string) =>
+    e instanceof Error ? e.message : fallback;
+
+  const handleSaveProxy = async () => {
+    if (!instanceId) return;
+    if (!proxyForm.host.trim() || !proxyForm.port.trim()) {
+      toast.error("Informe host e porta do proxy");
+      return;
+    }
+    setProxyBusy("save");
+    try {
+      await instancesApi.setProxy(instanceId, proxyForm);
+      const saved = await instancesApi.getProxy(instanceId);
+      setProxy(saved);
+      toast.success("Proxy salvo!");
+    } catch (e) {
+      toast.error(proxyErrorMessage(e, "Erro ao salvar proxy"));
+    } finally {
+      setProxyBusy(null);
+    }
+  };
+
+  const handleTestProxy = async () => {
+    if (!instanceId) return;
+    setProxyBusy("test");
+    try {
+      // With a host filled in, test what is in the form; otherwise test what is
+      // already saved for the instance.
+      const result = await instancesApi.testProxy(
+        instanceId,
+        proxyForm.host.trim() ? proxyForm : undefined
+      );
+      setProxyTest(result);
+      if (result.ok) toast.success("Proxy respondeu");
+      else toast.error(result.error || "Proxy não respondeu");
+    } catch (e) {
+      toast.error(proxyErrorMessage(e, "Erro ao testar proxy"));
+    } finally {
+      setProxyBusy(null);
+    }
+  };
+
+  const handleReconnectProxy = async () => {
+    if (!instanceId) return;
+    setProxyBusy("reconnect");
+    try {
+      await instancesApi.reconnectProxy(instanceId);
+      toast.success("Reconectando através do proxy...");
+    } catch (e) {
+      toast.error(proxyErrorMessage(e, "Erro ao reconectar pelo proxy"));
+    } finally {
+      setProxyBusy(null);
+    }
+  };
+
+  const handleDeleteProxy = async () => {
+    if (!instanceId) return;
+    if (!window.confirm("Remover a configuração de proxy desta instância?")) return;
+    setProxyBusy("delete");
+    try {
+      await instancesApi.deleteProxy(instanceId);
+      setProxy(null);
+      setProxyForm(emptyProxy);
+      setProxyTest(null);
+      toast.success("Proxy removido!");
+    } catch (e) {
+      toast.error(proxyErrorMessage(e, "Erro ao remover proxy"));
+    } finally {
+      setProxyBusy(null);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -347,6 +452,18 @@ export default function InstanceSettings() {
                       title={showToken ? "Ocultar token" : "Mostrar token"}
                     >
                       {showToken ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCopyToken}
+                      className="text-muted-foreground hover:text-foreground transition-colors"
+                      title="Copiar token"
+                    >
+                      {copied ? (
+                        <Check size={18} className="text-green-500" />
+                      ) : (
+                        <Copy size={18} />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -534,6 +651,181 @@ export default function InstanceSettings() {
               </div>
             </div>
           </form>
+
+          {/* Proxy Settings Card */}
+          <div className="rounded-lg border border-sidebar-border bg-card p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                <Network className="h-5 w-5" />
+                Proxy
+              </h2>
+              <span
+                className={`rounded-full border px-2 py-0.5 text-xs ${
+                  proxy
+                    ? "border-green-500/40 bg-green-500/10 text-green-500"
+                    : "border-sidebar-border text-muted-foreground"
+                }`}
+              >
+                {proxy ? "Configurado" : "Não configurado"}
+              </span>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-xs text-muted-foreground">
+                Roteia a conexão WhatsApp da instância por um proxy. Salvar
+                aplica no próximo connect/reconnect.
+              </p>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-foreground">
+                    Protocolo
+                  </label>
+                  <select
+                    value={proxyForm.protocol || "http"}
+                    onChange={(e) =>
+                      setProxyForm({ ...proxyForm, protocol: e.target.value })
+                    }
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="http">http</option>
+                    <option value="https">https</option>
+                    <option value="socks5">socks5</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-foreground">
+                    Host
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="127.0.0.1"
+                    value={proxyForm.host}
+                    onChange={(e) =>
+                      setProxyForm({ ...proxyForm, host: e.target.value })
+                    }
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-foreground">
+                    Porta
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="8080"
+                    value={proxyForm.port}
+                    onChange={(e) =>
+                      setProxyForm({ ...proxyForm, port: e.target.value })
+                    }
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-foreground">
+                    Usuário <span className="text-muted-foreground">(opcional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={proxyForm.username}
+                    onChange={(e) =>
+                      setProxyForm({ ...proxyForm, username: e.target.value })
+                    }
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="mb-1 block text-sm font-medium text-foreground">
+                    Senha <span className="text-muted-foreground">(opcional)</span>
+                  </label>
+                  <input
+                    type="password"
+                    value={proxyForm.password}
+                    onChange={(e) =>
+                      setProxyForm({ ...proxyForm, password: e.target.value })
+                    }
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+              </div>
+
+              {proxyTest && (
+                <div
+                  className={`rounded-md border p-3 text-xs ${
+                    proxyTest.ok
+                      ? "border-green-500/40 bg-green-500/10 text-green-400"
+                      : "border-destructive/40 bg-destructive/10 text-destructive"
+                  }`}
+                >
+                  {proxyTest.ok ? (
+                    <div className="space-y-1">
+                      <p className="font-medium">
+                        Proxy funcionando{proxyTest.protocol ? ` (${proxyTest.protocol})` : ""}
+                      </p>
+                      <p>
+                        IP de saída: <span className="font-mono">{proxyTest.ip}</span>{" "}
+                        {proxyTest.anonymous ? "(anônimo)" : "(não anônimo)"}
+                      </p>
+                      <p>
+                        WhatsApp acessível:{" "}
+                        {proxyTest.whatsappReachable ? "sim" : "não"}
+                      </p>
+                      {proxyTest.latencyMs !== undefined && (
+                        <p>Latência: {proxyTest.latencyMs} ms</p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <p className="font-medium">Proxy falhou</p>
+                      {proxyTest.error && <p>{proxyTest.error}</p>}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleDeleteProxy}
+                  disabled={!proxy || proxyBusy !== null}
+                  className="gap-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Remover
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleReconnectProxy}
+                  disabled={!proxy || proxyBusy !== null}
+                  className="gap-2"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Reconectar
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleTestProxy}
+                  disabled={proxyBusy !== null}
+                  className="gap-2"
+                >
+                  <Network className="h-4 w-4" />
+                  {proxyBusy === "test" ? "Testando..." : "Testar"}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleSaveProxy}
+                  disabled={proxyBusy !== null}
+                  className="gap-2"
+                >
+                  <Save className="h-4 w-4" />
+                  {proxyBusy === "save" ? "Salvando..." : "Salvar Proxy"}
+                </Button>
+              </div>
+            </div>
+          </div>
 
           {/* Advanced Settings Card */}
           <form onSubmit={handleSubmitAdvanced(onSubmitAdvanced)}>

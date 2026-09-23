@@ -96,12 +96,34 @@ export interface InstancesResponse {
 }
 
 // Per-instance summary from GET /instance/overview/:instanceId (AuthAdmin):
-// the account's own profile picture/push name, local contact count and the
-// number of messages persisted for that instance.
+// the account's own profile picture/push name, local contact count, number of
+// distinct chats and messages persisted for that instance.
 export interface InstanceOverview {
   connected: boolean;
   profileName?: string;
   profilePicUrl?: string;
   contactsCount: number;
+  chatsCount: number;
   messagesCount: number;
+}
+
+// Proxy configuration (GET/POST /instance/proxy/:instanceId, AuthAdmin).
+export interface ProxyConfig {
+  protocol?: string;
+  host: string;
+  port: string;
+  username?: string;
+  password?: string;
+}
+
+// Result of POST /instance/proxy/:instanceId/test.
+export interface ProxyTestResult {
+  ok: boolean;
+  ip?: string;
+  serverIp?: string;
+  anonymous: boolean;
+  whatsappReachable: boolean;
+  latencyMs?: number;
+  protocol?: string;
+  error?: string;
 }
