@@ -30,7 +30,6 @@ import (
 	"github.com/evolution-foundation/evolution-go/pkg/utils"
 	whatsmeow_service "github.com/evolution-foundation/evolution-go/pkg/whatsmeow/service"
 	"github.com/gabriel-vasile/mimetype"
-	"github.com/google/uuid"
 	"go.mau.fi/whatsmeow"
 	waBinary "go.mau.fi/whatsmeow/binary"
 	"go.mau.fi/whatsmeow/proto/waE2E"
@@ -1926,6 +1925,11 @@ func mapKeyType(keyType string) string {
 	}
 }
 
+// privacyModeTSOffset is subtracted from the current unix time to build the
+// privacy_mode_ts attribute on relay <biz> nodes, matching the value the
+// official WhatsApp clients send.
+const privacyModeTSOffset = 77980457
+
 func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
 	client, err := s.ensureClientConnected(instance.Id)
 	if err != nil {
@@ -2041,48 +2045,42 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 		})
 	}
 
-	// Every button type sends messageParamsJson = {"from":"api","templateId":<uuid>}
-	// (the shape used by the working evolution-api v2 payloads). The previous
-	// {"native_flow_name":...,"version":1} was a guess and matches nothing real.
-	messageParamsJSON := `{"from":"api","templateId":"` + uuid.NewString() + `"}`
-
-	// MessageSecret (32 random bytes) — required for iOS to render interactive messages.
-	btnMsgSecret := make([]byte, 32)
-	_, _ = crypto_rand.Read(btnMsgSecret)
-
 	var msg *waE2E.Message
 	var msgType string
 
 	if hasPix {
-		// Pix: InteractiveMessage/NativeFlowMessage wrapped in ViewOnceMessage. The
-		// client unwraps viewOnce before rendering; without the wrapper the card is
-		// not rendered. (Top-level and DocumentWithCaption wrappers were both wrong.)
+		// PIX (payment_info) goes out as a PLAIN top-level interactiveMessage.
+		//
+		// It must NOT be wrapped in a viewOnceMessage. That wrapper made clients
+		// fail to render it — WhatsApp Web shows "This message couldn't load.
+		// Open the message on your phone to view it." and the phone can drop the
+		// message entirely. The same wrapper was removed upstream in
+		// evolution-api for the same reason.
 		var interactiveBody *waE2E.InteractiveMessage_Body
 		if data.Title != "" {
 			interactiveBody = &waE2E.InteractiveMessage_Body{Text: proto.String(data.Title)}
 		}
+		var interactiveFooter *waE2E.InteractiveMessage_Footer
+		if data.Footer != "" {
+			interactiveFooter = &waE2E.InteractiveMessage_Footer{Text: proto.String(data.Footer)}
+		}
+
+		// messageParamsJson is sent as an empty object for payment messages, the
+		// shape the official clients emit (not the {"from","templateId"} used for
+		// reply/CTA).
+		emptyParams := "{}"
 
 		msg = &waE2E.Message{
-			ViewOnceMessage: &waE2E.FutureProofMessage{
-				Message: &waE2E.Message{
-					MessageContextInfo: &waE2E.MessageContextInfo{
-						DeviceListMetadata:        &waE2E.DeviceListMetadata{},
-						DeviceListMetadataVersion: proto.Int32(2),
-					},
-					InteractiveMessage: &waE2E.InteractiveMessage{
-						Body: interactiveBody,
-						InteractiveMessage: &waE2E.InteractiveMessage_NativeFlowMessage_{
-							NativeFlowMessage: &waE2E.InteractiveMessage_NativeFlowMessage{
-								Buttons:           buttons,
-								MessageParamsJSON: &messageParamsJSON,
-								MessageVersion:    proto.Int32(1),
-							},
-						},
+			InteractiveMessage: &waE2E.InteractiveMessage{
+				Body:   interactiveBody,
+				Footer: interactiveFooter,
+				InteractiveMessage: &waE2E.InteractiveMessage_NativeFlowMessage_{
+					NativeFlowMessage: &waE2E.InteractiveMessage_NativeFlowMessage{
+						Buttons:           buttons,
+						MessageParamsJSON: &emptyParams,
+						MessageVersion:    proto.Int32(1),
 					},
 				},
-			},
-			MessageContextInfo: &waE2E.MessageContextInfo{
-				MessageSecret: btnMsgSecret,
 			},
 		}
 		msgType = "InteractiveMessage"
@@ -2175,29 +2173,51 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 		msgType = "InteractiveMessage"
 	}
 
-	// Inject the <biz> node in the exact shape used by the working Baileys fork:
-	//   pix:   <biz><interactive type="native_flow" v="1"><native_flow name="payment_info"/></interactive></biz>
-	//   other: <biz><interactive type="native_flow" v="1"><native_flow v="2" name="mixed"/></interactive></biz>
-	// The native_flow carries v="2" and name="mixed" (not the button type name), and
-	// no <bot> node is attached.
-	nativeFlowNode := waBinary.Node{
-		Tag:   "native_flow",
-		Attrs: waBinary.Attrs{"v": "2", "name": "mixed"},
-	}
+	// Relay <biz>/<bot> nodes in the shape the official clients emit.
+	//
+	//   interactive buttons: <biz actual_actors="2" host_storage="2" privacy_mode_ts="...">
+	//                          <interactive type="native_flow" v="1"><native_flow v="2" name="mixed"/></interactive>
+	//                        </biz>
+	//   PIX (payment_info):  <biz actual_actors="2" host_storage="2" privacy_mode_ts="..." native_flow_name="payment_info"/>
+	//
+	// Payment flows use a FLAT native_flow_name attribute on <biz>, not a nested
+	// <interactive> child — using the nested form is what made the PIX card fail
+	// to load. Private chats also send <bot biz_bot="1"/> BEFORE the biz node.
+	var bizNodes []waBinary.Node
 	if hasPix {
-		nativeFlowNode = waBinary.Node{
+		bizAttrs := waBinary.Attrs{
+			"actual_actors":    "2",
+			"host_storage":     "2",
+			"privacy_mode_ts":  strconv.FormatInt(time.Now().Unix()-privacyModeTSOffset, 10),
+			"native_flow_name": "payment_info",
+		}
+		if !strings.Contains(data.Number, "@g.us") {
+			bizNodes = append(bizNodes, waBinary.Node{
+				Tag:   "bot",
+				Attrs: waBinary.Attrs{"biz_bot": "1"},
+			})
+		}
+		bizNodes = append(bizNodes, waBinary.Node{Tag: "biz", Attrs: bizAttrs})
+	} else {
+		nativeFlowNode := waBinary.Node{
 			Tag:   "native_flow",
-			Attrs: waBinary.Attrs{"name": "payment_info"},
+			Attrs: waBinary.Attrs{"v": "2", "name": "mixed"},
+		}
+		bizNodes = []waBinary.Node{{
+			Tag: "biz",
+			Content: []waBinary.Node{{
+				Tag:     "interactive",
+				Attrs:   waBinary.Attrs{"type": "native_flow", "v": "1"},
+				Content: []waBinary.Node{nativeFlowNode},
+			}},
+		}}
+		if !strings.Contains(data.Number, "@g.us") {
+			bizNodes = append(bizNodes, waBinary.Node{
+				Tag:   "bot",
+				Attrs: waBinary.Attrs{"biz_bot": "1"},
+			})
 		}
 	}
-	bizNodes := []waBinary.Node{{
-		Tag: "biz",
-		Content: []waBinary.Node{{
-			Tag:     "interactive",
-			Attrs:   waBinary.Attrs{"type": "native_flow", "v": "1"},
-			Content: []waBinary.Node{nativeFlowNode},
-		}},
-	}}
 
 	// Route through centralized SendMessage for ContextInfo, webhooks, quotes, mentions.
 	message, err := s.SendMessage(instance, msg, msgType, &SendDataStruct{
