@@ -590,6 +590,29 @@ The `message_id` unique key makes all three idempotent, and the receipt upsert
 does not touch `instance_id` (it is not in `messageUpdateColumns`), so the
 attribution survives a status change.
 
+## 3k. whatsmeow API audit
+
+Compared our usage against whatsmeow's exported surface (136 `Client` methods;
+45 event types in `types/events`). We call 66 methods and handle the events
+listed in §3g/§3j; no deprecated method is used. Each finding below was
+reproduced before fixing and re-verified after (one commit each).
+
+| Item | Finding | Fix |
+|---|---|---|
+| Media retry | `SendMediaRetryReceipt` was never called and `events.MediaRetry` never handled, so media that 403/404/410s stayed undownloadable forever | `RequestMediaRetry` / `HandleMediaRetry` + a retry cache; `/message/downloadmedia` accepts optional message context (`id`/`chat`/`fromMe`/`isGroup`/`participant`) |
+| `WaitForConnection` | fixed `time.Sleep(2s)` guesses before using a just-started client (a slow connect failed early) | `waitForClient` uses `client.WaitForConnection` (paired devices only; pairing still needs the QR, so its sleeps stay) |
+| Retry-receipt cap | `SetMaxParallelRetryReceiptHandling` defaults to **unlimited** and was never set | capped at 10 before connect |
+| Reactions | hand-built `MessageKey`: trusted the API `fromMe` and set `participant` even for 1:1 | `client.BuildReaction` / `BuildMessageKey` with a unit-tested author derivation |
+| `StreamError` / `KeepAliveTimeout` | unhandled → a hung socket waited for the TCP drop | reconnect via the extracted `scheduleReconnect` (acts on the 2nd consecutive keepalive timeout) |
+| `PairError` | unhandled → only an "Unhandled event" warning; a passkey ceremony stayed stuck | logged + `SetError` on the ceremony + webhook |
+| `NotifyAccountReachoutTimelock` | unhandled (the push side of error 463) | forwarded as `AccountReachoutTimelock` to CONNECTION subscribers |
+| More webhooks | `PrivacySettings`, `Blocklist`, `NewsletterLiveUpdate`, `NewsletterMuteChange` unhandled | forwarded to CONNECTION / NEWSLETTER subscribers |
+
+Deliberately **not** done: `BlocklistChange` and `NewsletterMessageMeta` are not
+dispatched standalone (they are carried inside `Blocklist` / `Message`), and
+`AcceptTOSNotice`, `GetUserDevices`, `GetBusinessProfile`, `SetMediaHTTPClient`,
+`SetDefaultDisappearingTimer` remain unused (niche or low value).
+
 ## 4. Build & run
 
 From the repository root (the `docker-compose.yml` is there):
