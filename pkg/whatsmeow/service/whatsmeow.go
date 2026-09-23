@@ -1135,10 +1135,21 @@ func schedulePresenceUpdates(mycli *MyClient) {
 		select {
 		case <-ticker.C:
 			// Verificar se a instância ainda existe
-			_, err := mycli.instanceRepository.GetInstanceByID(mycli.userID)
+			instance, err := mycli.instanceRepository.GetInstanceByID(mycli.userID)
 			if err != nil {
 				mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Instance no longer exists, stopping presence updates", mycli.userID)
 				return // Encerra a goroutine se a instância não existir mais
+			}
+
+			// This loop is only started for alwaysOnline instances, but the
+			// setting can be turned off while it runs. Going available again
+			// would re-silence the operator's phone, so stop refreshing presence
+			// as soon as the fresh DB row says alwaysOnline is off (issues
+			// #70/#54/#55). Read the row instead of mycli.Instance so a runtime
+			// toggle is honoured without waiting for a reconnect.
+			if !instance.AlwaysOnline {
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] alwaysOnline is off, stopping presence updates", mycli.userID)
+				return
 			}
 
 			processPresenceUpdates(mycli)
@@ -3461,7 +3472,23 @@ func (w whatsmeowService) UpdateInstanceAdvancedSettings(instanceId string) erro
 	}
 
 	// Atualiza a instância no MyClient com as advanced settings atualizadas
+	previousAlwaysOnline := myClient.Instance != nil && myClient.Instance.AlwaysOnline
 	myClient.Instance = instance
+
+	// Turning alwaysOnline off must take effect immediately: otherwise the device
+	// stays "available" until the periodic presence loop next ticks (up to hours
+	// away) and the operator's phone keeps missing notifications. Turning it on
+	// is picked up on the next connect (the presence loop is started there).
+	// Issues #70/#54/#55.
+	if previousAlwaysOnline && !instance.AlwaysOnline {
+		if client := w.clientPointer.Get(instanceId); client != nil && client.IsConnected() {
+			if perr := client.SendPresence(context.Background(), types.PresenceUnavailable); perr != nil {
+				w.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Failed to mark self unavailable after alwaysOnline was turned off (non-fatal): %v", instanceId, perr)
+			} else {
+				w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Marked self as unavailable (alwaysOnline turned off)", instanceId)
+			}
+		}
+	}
 
 	w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Advanced settings updated in runtime successfully", instanceId)
 	return nil

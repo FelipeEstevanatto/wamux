@@ -234,15 +234,34 @@ as a self-contained product feature, not a patch.
 
 Not fixed here — they are larger or need protocol work. Ordered by impact.
 
-1. **Push notifications suppressed after connecting** (#70 23 comments, #54,
-   #55). 0.7.2 already respects `alwaysOnline` on the `Connected` path, but the
-   reports persist — audit every `SendPresence(PresenceAvailable)` call site
-   (typing, subscribe, presence loop) when `alwaysOnline=false`.
-2. **Passkey events / ceremony** (#105, #107, #172, #173). `PASSKEY*` event
+1. **Passkey events / ceremony** (#105, #107, #172, #173). `PASSKEY*` event
    groups are not in `event_types` or the subscription filter, so they can never
    reach a webhook; the ceremony state machine also gets stuck.
 
 ### Resolved from this list
+
+- **Push notifications suppressed after connecting** (#70, #54, #55). The
+  `Connected` path already sent `Unavailable` when `alwaysOnline=false`, but
+  three other call sites could still leave the linked device "available", which
+  makes WhatsApp stop notifying the operator's phone:
+  - `POST /message/presence` (typing) and `POST /message/subscribe` marked the
+    device available and never restored it. Both now return to the instance's
+    configured presence afterwards via `presenceAfterTransientOnline` (available
+    when `alwaysOnline=true`, otherwise unavailable). Presence subscription
+    inherently needs a continuously-online device, so when `alwaysOnline=false`
+    it logs a warning that live `Presence` events require `alwaysOnline=true`.
+  - The periodic presence loop is only started for `alwaysOnline` instances, but
+    the flag can be toggled while it runs. It now re-reads the instance row each
+    tick and stops as soon as `alwaysOnline` is off, instead of going available
+    again.
+  - `PUT /instance/:id/advanced-settings` now applies `Unavailable` immediately
+    on a true→false transition, rather than waiting for the loop's next tick
+    (which can be hours away). (Turning it on still takes effect on the next
+    connect, where the loop is started.)
+  Verified live: both endpoints log *"Restored presence to unavailable"*; a
+  runtime toggle-off logs *"alwaysOnline is off, stopping presence updates"*;
+  the advanced-settings transition logs *"Marked self as unavailable
+  (alwaysOnline turned off)"*; sending still works throughout.
 
 - **Error 463 / NCT tokens** (#124, #50).
   - **#50 (tctoken/cstoken not persisted after inbound messages)** is fixed by

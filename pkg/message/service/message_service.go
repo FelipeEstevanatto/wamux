@@ -1,10 +1,10 @@
 package message_service
 
 import (
-	"github.com/evolution-foundation/evolution-go/pkg/safemap"
 	"context"
 	"errors"
 	"fmt"
+	"github.com/evolution-foundation/evolution-go/pkg/safemap"
 	"net/http"
 	"os"
 	"strings"
@@ -230,6 +230,18 @@ func (m *messageService) React(data *ReactStruct, instance *instance_model.Insta
 	return messageSent, nil
 }
 
+// presenceAfterTransientOnline is the presence an instance must return to after
+// an operation that briefly marked it available (typing indicators, presence
+// subscription). WhatsApp suppresses push notifications on the operator's phone
+// while a linked device is "available", so an instance with alwaysOnline=false
+// must not be left available afterwards. Issues #70 / #54 / #55.
+func presenceAfterTransientOnline(alwaysOnline bool) types.Presence {
+	if alwaysOnline {
+		return types.PresenceAvailable
+	}
+	return types.PresenceUnavailable
+}
+
 func (m *messageService) ChatPresence(data *ChatPresenceStruct, instance *instance_model.Instance) (string, error) {
 	client, err := m.ensureClientConnected(instance.Id)
 	if err != nil {
@@ -264,6 +276,18 @@ func (m *messageService) ChatPresence(data *ChatPresenceStruct, instance *instan
 	if presErr := client.SendPresence(context.Background(), types.PresenceAvailable); presErr != nil {
 		m.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] SendPresence(available) before chatstate failed (non-fatal): %v", instance.Id, presErr)
 	}
+	// Return to the instance's configured presence once the chatstate is done.
+	// With alwaysOnline=false this sends Unavailable so the linked device stops
+	// looking "online" and the operator's phone keeps receiving notifications
+	// (issues #70/#54/#55). Runs after the optional keep-alive loop below.
+	defer func() {
+		state := presenceAfterTransientOnline(instance.AlwaysOnline)
+		if rerr := client.SendPresence(context.Background(), state); rerr != nil {
+			m.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Failed to restore presence %s after chatstate (non-fatal): %v", instance.Id, state, rerr)
+		} else {
+			m.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Restored presence to %s after chatstate", instance.Id, state)
+		}
+	}()
 
 	state := types.ChatPresence(data.State)
 	mediaType := types.ChatPresenceMedia(media)
@@ -334,6 +358,21 @@ func (m *messageService) SubscribePresence(data *SubscribePresenceStruct, instan
 	if presErr := client.SendPresence(context.Background(), types.PresenceAvailable); presErr != nil {
 		m.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] SendPresence(available) before subscribe failed (non-fatal): %v", instance.Id, presErr)
 	}
+	// Presence updates only flow while the device is available, but leaving it
+	// available silences the operator's phone. With alwaysOnline=false we honor
+	// the notification setting: restore Unavailable after subscribing, and warn
+	// that live Presence events will therefore be limited. Issues #70/#54/#55.
+	if !instance.AlwaysOnline {
+		m.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] alwaysOnline=false: restoring unavailable after subscribe; live Presence updates require alwaysOnline=true", instance.Id)
+	}
+	defer func() {
+		state := presenceAfterTransientOnline(instance.AlwaysOnline)
+		if rerr := client.SendPresence(context.Background(), state); rerr != nil {
+			m.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Failed to restore presence %s after subscribe (non-fatal): %v", instance.Id, state, rerr)
+		} else {
+			m.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Restored presence to %s after subscribe", instance.Id, state)
+		}
+	}()
 
 	if err := client.SubscribePresence(context.Background(), recipient); err != nil {
 		return err

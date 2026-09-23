@@ -19,6 +19,13 @@ Fork-specific fixes on top of `0.7.2` (see `FORK_NOTES.md` for the full list).
   On `Connected`, when no salt is stored, the fork now forces a `regular_high`
   full sync once per instance (rate-limited to one try per 6 h), mirroring
   Baileys' `ensureNctSaltSynced()`.
+- **Push notifications suppressed after connecting** (#70/#54/#55) — `POST
+  /message/presence`, `POST /message/subscribe` and the periodic presence loop
+  could leave the linked device "available" even when `alwaysOnline=false`,
+  which makes WhatsApp stop notifying the operator's phone. Those paths now
+  restore `Unavailable` (or stop the loop) after their brief online window, and
+  turning `alwaysOnline` off via `PUT /instance/:id/advanced-settings` applies
+  it immediately.
 
 ### ✨ Features
 - **Typebot integration** — bot CRUD, per-contact sessions, `startChat`/
