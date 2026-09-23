@@ -14,6 +14,8 @@ import {
   Users,
   Mail,
   Smartphone,
+  Link2,
+  Tag,
 } from "lucide-react";
 import type { Instance, InstanceOverview } from "@/types/instance";
 import { deviceLabel } from "@/utils/device";
@@ -127,10 +129,33 @@ export default function InstanceCard({
           {deviceLabel(overview?.platform) && (
             <div className="flex items-center justify-between">
               <span className="inline-flex items-center gap-1">
-                <Smartphone className="h-3 w-3" /> Dispositivo
+                <Smartphone className="h-3 w-3" /> Aparelho
               </span>
               <span className="truncate ml-2 max-w-[150px]">
                 {deviceLabel(overview?.platform)}
+              </span>
+            </div>
+          )}
+          {instance.osName && (
+            <div className="flex items-center justify-between">
+              <span className="inline-flex items-center gap-1">
+                <Link2 className="h-3 w-3" /> Dispositivo vinculado
+              </span>
+              <span
+                className="truncate ml-2 max-w-[150px]"
+                title="Nome exibido como aparelho conectado no WhatsApp"
+              >
+                {instance.osName}
+              </span>
+            </div>
+          )}
+          {instance.clientName && (
+            <div className="flex items-center justify-between">
+              <span className="inline-flex items-center gap-1">
+                <Tag className="h-3 w-3" /> Cliente
+              </span>
+              <span className="truncate ml-2 max-w-[150px]">
+                {instance.clientName}
               </span>
             </div>
           )}

@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Activity,
   Cpu,
+  ExternalLink,
   HardDrive,
   Layers,
   Mail,
   RefreshCw,
   Server,
+  Smartphone,
   Users,
 } from 'lucide-react';
 import useServerStats from '@/hooks/useServerStats';
@@ -134,6 +136,19 @@ export default function Dashboard() {
   const connected = instances.filter((i) => i.connected).length;
   const total = instances.length;
 
+  // The name WhatsApp shows as the linked device (DeviceProps.Os). Only surface
+  // it when every instance agrees, otherwise a single chip would be misleading.
+  const deviceNames = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          instances.map((i) => i.osName).filter((v): v is string => !!v)
+        )
+      ),
+    [instances]
+  );
+  const deviceName = deviceNames.length === 1 ? deviceNames[0] : undefined;
+
   // Sum of the per-instance contact counts we already fetched for the cards.
   const contacts = useMemo(
     () =>
@@ -177,7 +192,7 @@ export default function Dashboard() {
       : undefined;
 
   return (
-    <div className="h-full overflow-y-auto p-6">
+    <div className="h-full overflow-y-auto p-4 sm:p-6">
       <div className="mx-auto max-w-6xl space-y-6">
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -187,7 +202,16 @@ export default function Dashboard() {
               Visão geral do sistema e das instâncias
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {deviceName && (
+              <span
+                className="inline-flex items-center gap-2 rounded-md border border-sidebar-border bg-sidebar px-3 py-2 text-xs text-muted-foreground"
+                title="Nome exibido como aparelho conectado no WhatsApp (OS_NAME)"
+              >
+                <Smartphone className="h-3.5 w-3.5" />
+                {deviceName}
+              </span>
+            )}
             <span className="inline-flex items-center gap-2 rounded-md border border-sidebar-border bg-sidebar px-3 py-2 text-xs text-muted-foreground">
               <Server className="h-3.5 w-3.5" />
               {system.version ? `versão ${system.version}` : 'versão —'}
@@ -379,44 +403,71 @@ export default function Dashboard() {
               Sem dados. Ative DATABASE_SAVE_MESSAGES para registrar mensagens.
             </p>
           ) : (
-            <div className="flex h-40 items-end gap-1">
-              {byDay.map((d) => (
-                <div
-                  key={d.key}
-                  className="flex flex-1 flex-col items-center gap-1"
-                  title={`${d.key}: ${d.count}`}
-                >
-                  {/* The bar's height is a percentage, so its parent must have a
-                      definite height — otherwise the percentage is unresolved and
-                      every bar collapses to 0px (the chart looked empty). */}
-                  <div className="flex h-32 w-full items-end">
-                    <div
-                      className="w-full rounded-t bg-primary/70"
-                      style={{
-                        height: `${Math.max(2, (d.count / maxDay) * 100)}%`,
-                      }}
-                    />
+            <div className="overflow-x-auto">
+              {/* 2.25rem per bar keeps the labels readable on a phone, where the
+                  chart scrolls horizontally instead of squashing. */}
+              <div
+                className="flex h-40 items-end gap-1"
+                style={{ minWidth: `${byDay.length * 2.25}rem` }}
+              >
+                {byDay.map((d) => (
+                  <div
+                    key={d.key}
+                    className="flex flex-1 flex-col items-center gap-1"
+                    title={`${d.key}: ${d.count}`}
+                  >
+                    {/* The bar's height is a percentage, so its parent must have a
+                        definite height — otherwise the percentage is unresolved and
+                        every bar collapses to 0px (the chart looked empty). */}
+                    <div className="flex h-32 w-full items-end">
+                      <div
+                        className="w-full rounded-t bg-primary/70"
+                        style={{
+                          height: `${Math.max(2, (d.count / maxDay) * 100)}%`,
+                        }}
+                      />
+                    </div>
+                    <span className="text-[10px] text-muted-foreground">
+                      {d.key.slice(5)}
+                    </span>
                   </div>
-                  <span className="text-[10px] text-muted-foreground">
-                    {d.key.slice(5)}
-                  </span>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
         </div>
 
         {/* Full self-hosted dashboard (charts, top sources, per-instance logs).
             Embedded instead of duplicated; it hides its own KPI grid when
-            embedded (see dashboard.html). */}
+            embedded (see dashboard.html). On a phone a nested-scrolling iframe
+            is unusable, so small screens get a link to the full page instead. */}
         {embedReady && (
-          <div className="overflow-hidden rounded-xl border border-sidebar-border bg-sidebar">
-            <iframe
-              src={`/dashboard?embed=1&theme=${theme}`}
-              title="Dashboard completo"
-              className="h-[70vh] w-full border-0"
-            />
-          </div>
+          <>
+            <div className="rounded-xl border border-sidebar-border bg-sidebar p-4 md:hidden">
+              <h2 className="text-sm font-semibold text-foreground">
+                Dashboard completo
+              </h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Gráficos, conversas mais ativas, instâncias e logs.
+              </p>
+              <a
+                href={`/dashboard?theme=${theme}`}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="mt-3 inline-flex items-center gap-2 rounded-md border border-sidebar-border px-3 py-2 text-xs text-foreground transition-colors hover:bg-sidebar-accent"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                Abrir dashboard completo
+              </a>
+            </div>
+            <div className="hidden overflow-hidden rounded-xl border border-sidebar-border bg-sidebar md:block">
+              <iframe
+                src={`/dashboard?embed=1&theme=${theme}`}
+                title="Dashboard completo"
+                className="h-[70vh] w-full border-0"
+              />
+            </div>
+          </>
         )}
       </div>
     </div>

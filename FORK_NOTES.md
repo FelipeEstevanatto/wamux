@@ -531,6 +531,16 @@ Beyond the QR fixes above, this fork adds (all under `evolution-go-manager/src/`
 - **Dashboard page** — the upstream placeholder is replaced by a small
   system-wide view: instances (total/connected), messages, contacts, host
   RAM/load/goroutines/uptime and a messages-per-day bar chart.
+- **Navigation** — the sidebar carries Dashboard, Instâncias, **API Tester**,
+  **Sobre** and **Swagger** (Swagger is served by the Go server, so it opens in
+  a new tab). API Tester and Swagger used to live in the top bar; they are pages,
+  so they belong with the rest of the navigation. Below `md` the fixed sidebar is
+  hidden, so `Layout` opens the **same** nav content (`SidebarNav`) in a drawer
+  behind a hamburger — previously there was no way to change pages on a phone.
+- **Device name** — each instance card shows `osName` as *Dispositivo vinculado*
+  (the name WhatsApp lists under Linked Devices; it is `DeviceProps.Os`, set from
+  `OS_NAME`) and `clientName` as *Cliente*. The Dashboard header shows the device
+  name once, when every instance agrees on it.
 
 The per-instance **message and chat counts** needed backend work: the `messages`
 table had no instance attribution (`source` holds the contact number). A
@@ -612,6 +622,14 @@ and sum their counts — `269182931329179` (153) + `5514981170846` (12) became a
 single "Evogo Saved Contact · +5514981170846 · 165". The repository over-fetches
 25 sources so the merged top-8 ranking stays accurate. The phone is shown as a
 second line under the name, since two contacts can share a saved name.
+
+**Mobile layout.** Pages use `p-4 sm:p-6`; the messages-per-day chart scrolls
+horizontally on a phone instead of squashing 14 bars into 360 px; and the
+embedded `/dashboard` gets media queries (KPI grids 4/5 → 2 → 1 column, charts
+stacked, tables scroll). On a phone the iframe is replaced by a link to the full
+dashboard page, because nested scrolling inside an iframe is unusable there. The
+mobile drawer is code-split (`MobileNav`) and prefetched on small screens, so the
+initial JS payload is unchanged (~510 kB) and the drawer still opens instantly.
 
 **The load-average card was unreadable** ("1.81 of CPUs: 16"). Load average is
 the average number of runnable tasks (running or queued), *not* a percentage of

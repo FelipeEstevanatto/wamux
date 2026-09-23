@@ -1,21 +1,49 @@
-import { ReactNode } from 'react';
+import { ReactNode, Suspense, lazy, useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
+
+// The drawer (and with it Radix Dialog) is only needed once the menu is opened,
+// so it is kept out of the initial bundle.
+const MobileNav = lazy(() => import('./MobileNav'));
 
 interface LayoutProps {
   children?: ReactNode;
 }
 
 function Layout({ children }: LayoutProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  // Once opened, keep the drawer mounted so its close animation can play.
+  const [menuMounted, setMenuMounted] = useState(false);
+
+  useEffect(() => {
+    if (menuOpen) setMenuMounted(true);
+  }, [menuOpen]);
+
+  // On phones the drawer is the only navigation, so fetch its chunk up front
+  // (without rendering it) and it opens instantly on the first tap.
+  useEffect(() => {
+    if (window.matchMedia('(max-width: 767px)').matches) {
+      void import('./MobileNav');
+    }
+  }, []);
+
   return (
     <div className="flex h-screen bg-background">
       <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Header />
-        <main className="flex-1 overflow-y-auto">
-          {children || <Outlet />}
-        </main>
+
+      {/* Mobile navigation. The fixed sidebar is hidden below `md`, so without
+          this drawer there would be no way to switch pages on a phone. It reuses
+          SidebarNav so the two can never drift. */}
+      <Suspense fallback={null}>
+        {menuMounted && (
+          <MobileNav open={menuOpen} onOpenChange={setMenuOpen} />
+        )}
+      </Suspense>
+
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <Header onOpenMenu={() => setMenuOpen(true)} />
+        <main className="flex-1 overflow-y-auto">{children || <Outlet />}</main>
       </div>
     </div>
   );

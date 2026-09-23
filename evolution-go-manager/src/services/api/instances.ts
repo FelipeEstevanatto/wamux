@@ -51,6 +51,8 @@ const normalizeInstance = (raw: RawInstance): Instance => {
     events: raw.events || undefined,
     disconnectReason: raw.disconnect_reason || undefined,
     createdAt: raw.createdAt,
+    clientName: raw.client_name || undefined,
+    osName: raw.os_name || undefined,
     alwaysOnline: raw.alwaysOnline,
     rejectCall: raw.rejectCall,
     readMessages: raw.readMessages,
