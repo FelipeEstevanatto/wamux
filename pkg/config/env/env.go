@@ -63,4 +63,7 @@ const (
 
 	// How long the dashboard's message aggregations may be cached (seconds).
 	DASHBOARD_CACHE_TTL_SECONDS = "DASHBOARD_CACHE_TTL_SECONDS"
+
+	// How long persisted messages are kept before the cleanup job removes them.
+	MESSAGE_RETENTION_DAYS = "MESSAGE_RETENTION_DAYS"
 )

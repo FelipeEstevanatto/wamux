@@ -18,6 +18,7 @@ type MessageRepository interface {
 	CountByInstance(instanceId string) (int64, error)
 	CountChatsByInstance(instanceId string) (int64, error)
 	DatabaseSizeBytes() (totalBytes int64, messagesBytes int64, err error)
+	DeleteMessagesOlderThan(cutoff string) (int64, error)
 }
 
 // StatKV is a label/count pair used by the dashboard aggregations.
@@ -269,4 +270,37 @@ func (m *messageRepository) DatabaseSizeBytes() (int64, int64, error) {
 	}
 	m.store(cacheKeyDBSize, dbSize{total: total, table: table})
 	return total, table, nil
+}
+
+// deleteBatchSize bounds one retention delete. Deleting a year of backlog in a
+// single statement would hold locks for a long time and bloat the transaction
+// log; batches keep each statement short and let the sweep be interrupted.
+const deleteBatchSize = 5000
+
+// DeleteMessagesOlderThan removes every message whose timestamp is before cutoff
+// ("YYYY-MM-DD HH:MM:SS", compared lexicographically as Postgres text) and
+// returns how many rows were deleted. It works in batches until nothing is left.
+//
+// The aggregate cache is flushed afterwards: rows disappeared, so a cached count
+// would be wrong rather than merely late.
+func (m *messageRepository) DeleteMessagesOlderThan(cutoff string) (int64, error) {
+	var total int64
+	for {
+		result := m.db.Exec(
+			`DELETE FROM messages WHERE id IN (
+				SELECT id FROM messages WHERE "timestamp" < ? ORDER BY "timestamp" LIMIT ?
+			)`, cutoff, deleteBatchSize)
+		if result.Error != nil {
+			return total, result.Error
+		}
+		total += result.RowsAffected
+		if result.RowsAffected < deleteBatchSize {
+			break
+		}
+	}
+
+	if total > 0 {
+		m.invalidateAggregates()
+	}
+	return total, nil
 }

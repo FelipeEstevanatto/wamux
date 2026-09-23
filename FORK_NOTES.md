@@ -794,9 +794,33 @@ late). Inserts deliberately do **not** invalidate — messages arrive continuous
 so that would defeat the cache; the visible effect is that the dashboard counters
 lag by at most the TTL.
 
-Still open: there is no retention, so the `messages` table grows without bound
-(the storage panel now makes that visible), and a rollup table would remove the
-staleness entirely.
+Still open: a rollup table would remove the cache staleness entirely.
+
+### Message retention
+
+`pkg/message/cleanup` prunes persisted messages past the retention window.
+`MESSAGE_RETENTION_DAYS` (default **365**) sets the window; `0` keeps messages
+forever, in which case the cleaner logs that it is disabled and schedules
+nothing. The first sweep runs a minute after boot (so startup is not competing
+with it) and then every 6 hours.
+
+`MessageRepository.DeleteMessagesOlderThan(cutoff)` deletes in batches of 5 000
+rows, looping until a short batch comes back: one statement deleting a year of
+backlog would hold locks for a long time and bloat the transaction log. The
+cutoff is formatted `YYYY-MM-DD HH:MM:SS`, matching how timestamps are stored,
+so the comparison is a plain lexicographic range — and `Timestamp` now carries a
+btree index (`idx_messages_timestamp`, created by AutoMigrate) so each batch is
+an index range scan instead of a full table scan. The aggregate cache is flushed
+afterwards, because removed rows make a cached count wrong rather than merely
+late.
+
+The cleaner depends on a one-method `MessageDeleter` interface declared at the
+consumer, and its delays are fields (defaulted from constants) so tests do not
+have to wait hours.
+
+Verified end to end: with the default 365-day window, a synthetic row dated 2020
+was removed by the first sweep (`deleted 1 message(s) older than 2025-09-23 …
+in 3ms`) while a 2026 row survived.
 
 ## 4. Build & run
 
