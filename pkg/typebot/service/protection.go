@@ -3,6 +3,7 @@ package typebot_service
 import (
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
@@ -44,6 +45,12 @@ type selfJidCache struct {
 	mu        sync.RWMutex
 	jids      map[string]struct{}
 	refreshed time.Time
+
+	// refreshMu serialises database refreshes so a slow GetAll does not turn
+	// into a thundering herd, and it is never held while mu is held.
+	refreshMu sync.Mutex
+	// refreshing ensures at most one background refresh goroutine is in flight.
+	refreshing atomic.Bool
 }
 
 func newSelfJidCache(repository instance_repository.InstanceRepository) *selfJidCache {
@@ -58,51 +65,78 @@ func newSelfJidCache(repository instance_repository.InstanceRepository) *selfJid
 
 // contains informa se o JID pertence a alguma instância deste servidor.
 //
-// Em caso de falha ao consultar o banco, responde false: bloquear conversas
-// legítimas por causa de uma indisponibilidade momentânea seria pior que perder
-// a proteção por um minuto, e a próxima mensagem tenta de novo.
+// Depois da primeira carga, um cache vencido é servido imediatamente e
+// atualizado em segundo plano: a checagem roda a cada mensagem e não pode
+// esperar uma consulta ao banco. A primeira carga, porém, é síncrona — a
+// proteção de auto-laço não pode deixar passar a primeira mensagem enquanto o
+// cache ainda está vazio.
+//
+// Em caso de falha ao consultar o banco, responde com o último valor conhecido
+// (ou false quando nunca houve carga): bloquear conversas legítimas por causa de
+// uma indisponibilidade momentânea seria pior que perder a proteção por um
+// minuto, e a próxima mensagem tenta de novo.
 func (c *selfJidCache) contains(remoteJid string) bool {
 	if remoteJid == "" {
 		return false
 	}
+	key := normalizeSelfJid(remoteJid)
 
 	c.mu.RLock()
-	fresh := time.Since(c.refreshed) < c.ttl
-	_, found := c.jids[normalizeSelfJid(remoteJid)]
+	_, found := c.jids[key]
+	refreshed := c.refreshed
 	c.mu.RUnlock()
 
-	if fresh {
+	if refreshed.IsZero() {
+		c.refresh()
+		c.mu.RLock()
+		_, found = c.jids[key]
+		c.mu.RUnlock()
 		return found
+	}
+
+	if time.Since(refreshed) >= c.ttl {
+		c.refreshAsync()
+	}
+	return found
+}
+
+// refreshAsync kicks off a background reload unless one is already running.
+func (c *selfJidCache) refreshAsync() {
+	if !c.refreshing.CompareAndSwap(false, true) {
+		return
+	}
+	go func() {
+		defer c.refreshing.Store(false)
+		c.refresh()
+	}()
+}
+
+// refresh reloads the JID set from the repository. The query runs without the
+// data lock held, so readers are never blocked on the database.
+func (c *selfJidCache) refresh() {
+	c.refreshMu.Lock()
+	defer c.refreshMu.Unlock()
+
+	instances, err := c.repository.GetAll("")
+
+	jids := make(map[string]struct{}, len(instances))
+	if err == nil {
+		for _, instance := range instances {
+			if instance == nil || instance.Jid == "" {
+				continue
+			}
+			jids[normalizeSelfJid(instance.Jid)] = struct{}{}
+		}
 	}
 
 	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	// Outra goroutine pode ter recarregado enquanto esperávamos o lock.
-	if time.Since(c.refreshed) < c.ttl {
-		_, found := c.jids[normalizeSelfJid(remoteJid)]
-		return found
+	if err == nil {
+		c.jids = jids
 	}
-
-	instances, err := c.repository.GetAll("")
-	if err != nil {
-		c.refreshed = time.Now()
-		return false
-	}
-
-	jids := make(map[string]struct{}, len(instances))
-	for _, instance := range instances {
-		if instance == nil || instance.Jid == "" {
-			continue
-		}
-		jids[normalizeSelfJid(instance.Jid)] = struct{}{}
-	}
-
-	c.jids = jids
+	// Mark refreshed even on failure so a failing database is retried at most
+	// once per TTL instead of on every message.
 	c.refreshed = time.Now()
-
-	_, found = c.jids[normalizeSelfJid(remoteJid)]
-	return found
+	c.mu.Unlock()
 }
 
 // normalizeSelfJid descarta o sufixo de dispositivo para comparar JIDs.

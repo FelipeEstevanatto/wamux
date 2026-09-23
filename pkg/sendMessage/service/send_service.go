@@ -86,6 +86,11 @@ const userExistsCacheTTL = 10 * time.Minute
 // a membership change shows up quickly, long enough to remove the per-send IQ.
 const groupInfoCacheTTL = 5 * time.Minute
 
+// maxSendDelay caps the caller-supplied delay before sending a message. The
+// field is an unbounded int32: without a ceiling a request with delay=2e9 pins
+// the handler goroutine (and the HTTP connection) for weeks.
+const maxSendDelay = 10 * time.Second
+
 // userExistsResult is what the existence check resolves to for one phone.
 type userExistsResult struct {
 	remoteJID string
@@ -2969,7 +2974,11 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 			return nil, err
 		}
 
-		time.Sleep(time.Duration(data.Delay) * time.Millisecond)
+		delay := time.Duration(data.Delay) * time.Millisecond
+		if delay > maxSendDelay {
+			delay = maxSendDelay
+		}
+		time.Sleep(delay)
 
 		err = s.clientPointer.Get(instance.Id).SendChatPresence(context.Background(), recipient, types.ChatPresence("paused"), types.ChatPresenceMedia(media))
 		if err != nil {

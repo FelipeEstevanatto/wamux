@@ -1,6 +1,7 @@
 package message_repository
 
 import (
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -53,6 +54,11 @@ type messageRepository struct {
 	//
 	// nil when caching is disabled (ttl <= 0).
 	aggCache *cache.Cache
+
+	// statsMu serialises the cold-cache aggregation. The cache Get/Set is not
+	// atomic, so without this a burst of dashboard polls arriving on an expired
+	// cache would each run all four whole-table scans at once.
+	statsMu sync.Mutex
 }
 
 // Option configures the repository at construction time.
@@ -275,6 +281,16 @@ func (m *messageRepository) GetStats() (*MessageStats, error) {
 // statsLive aggregates the messages table directly. It is the fallback when the
 // rollup is unavailable, and is memoized by aggCache because it is expensive.
 func (m *messageRepository) statsLive() (*MessageStats, error) {
+	if v, ok := m.cached(cacheKeyStats); ok {
+		if stats, ok := v.(*MessageStats); ok {
+			return cloneStats(stats), nil
+		}
+	}
+
+	// Serialise cold-cache aggregation so concurrent dashboard polls run the
+	// scans once, then re-check the cache the waiters now hit.
+	m.statsMu.Lock()
+	defer m.statsMu.Unlock()
 	if v, ok := m.cached(cacheKeyStats); ok {
 		if stats, ok := v.(*MessageStats); ok {
 			return cloneStats(stats), nil

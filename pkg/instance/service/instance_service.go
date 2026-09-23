@@ -1,17 +1,17 @@
 package instance_service
 
 import (
-	"bufio"
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/evolution-foundation/evolution-go/pkg/safemap"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
-	"sort"
 	"strings"
 	"time"
 
@@ -1101,47 +1101,79 @@ func (i instances) GetLogs(instanceId string, startDate, endDate time.Time, leve
 	}
 	defer file.Close()
 
-	scanner := bufio.NewScanner(file)
-
-	// Aumenta o buffer do scanner para lidar com linhas grandes
-	const maxCapacity = 1024 * 1024 // 1MB
-	buf := make([]byte, maxCapacity)
-	scanner.Buffer(buf, maxCapacity)
-
-	for scanner.Scan() {
-		var entry logger_wrapper.LogEntry
-		if err := json.Unmarshal(scanner.Bytes(), &entry); err != nil {
-			continue // Ignora linhas inválidas
-		}
-
-		// Ajusta o timestamp da entrada para UTC para comparação correta
-		entry.Timestamp = entry.Timestamp.UTC()
-
-		// Aplica os filtros
-		if entry.Timestamp.Before(startDate) || entry.Timestamp.After(endDate) {
-			continue
-		}
-
-		if !slices.Contains(levelArray, entry.Level) {
-			continue
-		}
-
-		logs = append(logs, entry)
-
-		// Verifica o limite
-		if len(logs) >= limit {
-			break
-		}
+	// Read the newest matching entries from the end of the file. The log file can
+	// grow to hundreds of MB; scanning it from the start to collect the first
+	// `limit` matches both read the whole file and returned the OLDEST entries.
+	size, err := file.Seek(0, io.SeekEnd)
+	if err != nil {
+		return logs, fmt.Errorf("erro ao posicionar no arquivo de log: %v", err)
 	}
 
-	if err := scanner.Err(); err != nil {
-		return logs, fmt.Errorf("erro ao ler arquivo de log: %v", err)
-	}
+	return readLogTail(file, size, startDate, endDate, levelArray, limit)
+}
 
-	// Ordena os logs por timestamp em ordem decrescente
-	sort.Slice(logs, func(i, j int) bool {
-		return logs[i].Timestamp.After(logs[j].Timestamp)
-	})
+// readLogTail reads up to limit entries matching the date/level filters, newest
+// first, by scanning the file backwards in chunks. It returns as soon as it has
+// collected limit entries or reached the start of the file, so a dashboard
+// request for the latest logs never reads the whole file.
+func readLogTail(file *os.File, size int64, startDate, endDate time.Time, levelArray []string, limit int) ([]logger_wrapper.LogEntry, error) {
+	logs := make([]logger_wrapper.LogEntry, 0, limit)
+
+	const chunkSize = 64 * 1024
+	var carry []byte // a partial line carried over from the previously read chunk
+	offset := size
+
+	for offset > 0 && len(logs) < limit {
+		readSize := int64(chunkSize)
+		if offset < readSize {
+			readSize = offset
+		}
+		offset -= readSize
+
+		buf := make([]byte, readSize)
+		if _, err := file.ReadAt(buf, offset); err != nil && err != io.EOF {
+			return logs, err
+		}
+
+		// The carry is the tail of the line that started in this chunk and
+		// continued into the chunk read before it.
+		data := append(buf, carry...)
+		lines := bytes.Split(data, []byte{'\n'})
+
+		if offset > 0 {
+			// The first piece has no leading newline: it is a partial line.
+			carry = append([]byte(nil), lines[0]...)
+			lines = lines[1:]
+		} else {
+			carry = nil
+		}
+
+		// Lines are in file order inside the chunk; walk them backwards.
+		for idx := len(lines) - 1; idx >= 0; idx-- {
+			line := bytes.TrimSpace(lines[idx])
+			if len(line) == 0 {
+				continue
+			}
+
+			var entry logger_wrapper.LogEntry
+			if err := json.Unmarshal(line, &entry); err != nil {
+				continue // Ignora linhas inválidas
+			}
+
+			entry.Timestamp = entry.Timestamp.UTC()
+			if entry.Timestamp.Before(startDate) || entry.Timestamp.After(endDate) {
+				continue
+			}
+			if !slices.Contains(levelArray, entry.Level) {
+				continue
+			}
+
+			logs = append(logs, entry)
+			if len(logs) >= limit {
+				break
+			}
+		}
+	}
 
 	return logs, nil
 }
