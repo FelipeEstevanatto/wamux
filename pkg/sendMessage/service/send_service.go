@@ -2566,6 +2566,93 @@ func makeVideoThumbnail(fileData []byte, maxWidth int) []byte {
 	return out.Bytes()
 }
 
+// contextInfoFor returns the ContextInfo of the message's content type, so
+// contextual fields (expiration, etc.) can be set centrally.
+func contextInfoFor(msg *waE2E.Message, messageType string) *waE2E.ContextInfo {
+	if msg == nil {
+		return nil
+	}
+	switch messageType {
+	case "ExtendedTextMessage":
+		return msg.GetExtendedTextMessage().GetContextInfo()
+	case "ImageMessage":
+		return msg.GetImageMessage().GetContextInfo()
+	case "VideoMessage":
+		return msg.GetVideoMessage().GetContextInfo()
+	case "PtvMessage":
+		return msg.GetPtvMessage().GetContextInfo()
+	case "AudioMessage":
+		return msg.GetAudioMessage().GetContextInfo()
+	case "DocumentMessage":
+		if ctx := msg.GetDocumentMessage().GetContextInfo(); ctx != nil {
+			return ctx
+		}
+		return msg.GetDocumentWithCaptionMessage().GetMessage().GetDocumentMessage().GetContextInfo()
+	case "PollCreationMessage":
+		return msg.GetPollCreationMessage().GetContextInfo()
+	case "StickerMessage":
+		return msg.GetStickerMessage().GetContextInfo()
+	case "LocationMessage":
+		return msg.GetLocationMessage().GetContextInfo()
+	case "ContactMessage":
+		return msg.GetContactMessage().GetContextInfo()
+	case "InteractiveMessage":
+		if ctx := msg.GetInteractiveMessage().GetContextInfo(); ctx != nil {
+			return ctx
+		}
+		return msg.GetViewOnceMessage().GetMessage().GetInteractiveMessage().GetContextInfo()
+	case "ListMessage":
+		return msg.GetListMessage().GetContextInfo()
+	}
+	return nil
+}
+
+// applyChatEphemeral stamps the chat's disappearing-messages timer onto an
+// outgoing message, so the recipient does not warn that it will not disappear.
+// The timer is read from the per-chat cache (populated from timer-change
+// notifications and received ephemeral messages); for groups it is read once
+// from the group metadata when the cache does not know it yet.
+func (s *sendService) applyChatEphemeral(instance *instance_model.Instance, recipient types.JID, msg *waE2E.Message, messageType string) {
+	client := s.clientPointer.Get(instance.Id)
+
+	seconds, known := whatsmeow_service.GetCachedChatEphemeral(instance.Id, recipient)
+
+	// A chat can be addressed by either its phone-number JID or its LID. The
+	// timer may have been recorded under the other form, so try it too.
+	if !known && client != nil && client.Store != nil && client.Store.LIDs != nil {
+		var alt types.JID
+		var err error
+		switch recipient.Server {
+		case types.HiddenUserServer:
+			alt, err = client.Store.LIDs.GetPNForLID(context.Background(), recipient)
+		case types.DefaultUserServer:
+			alt, err = client.Store.LIDs.GetLIDForPN(context.Background(), recipient)
+		}
+		if err == nil && !alt.IsEmpty() {
+			seconds, known = whatsmeow_service.GetCachedChatEphemeral(instance.Id, alt)
+		}
+	}
+
+	// Groups carry the timer in their metadata; read it once and cache it.
+	if !known && recipient.Server == types.GroupServer && client != nil {
+		if info, err := client.GetGroupInfo(context.Background(), recipient); err == nil && info != nil {
+			seconds = info.DisappearingTimer
+			whatsmeow_service.SetCachedChatEphemeral(instance.Id, recipient, seconds)
+			known = true
+		}
+	}
+
+	if !known || seconds == 0 {
+		return
+	}
+	ctx := contextInfoFor(msg, messageType)
+	if ctx == nil {
+		return
+	}
+	ctx.Expiration = proto.Uint32(seconds)
+	ctx.EphemeralSettingTimestamp = proto.Int64(time.Now().Unix())
+}
+
 // applyVideoMeta copies probed dimensions/duration and the preview frame onto a
 // VideoMessage when they are available.
 func applyVideoMeta(vid *waE2E.VideoMessage, meta videoMetadata, ok bool, thumb []byte) {
@@ -3090,6 +3177,11 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 	}
 
 	recipient.User = strings.ReplaceAll(recipient.User, "+", "")
+
+	// Carry the chat's disappearing-messages timer on the outgoing message (after
+	// its ContextInfo has been built) so the recipient does not warn that the
+	// message will not disappear.
+	s.applyChatEphemeral(instance, recipient, msg, messageType)
 
 	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Sending message to %s with ID %s", instance.Id, recipient.String(), message)
 

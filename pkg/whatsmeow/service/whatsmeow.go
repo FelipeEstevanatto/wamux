@@ -605,6 +605,63 @@ type AccountLimitsCacheEntry struct {
 
 var accountLimitsCache sync.Map // instanceID(string) -> *AccountLimitsCacheEntry
 
+// chatEphemeralCache remembers each chat's disappearing-messages timer (seconds)
+// so outgoing messages can carry ContextInfo.Expiration. WhatsApp warns the
+// recipient ("This message will not disappear") on any outgoing message that
+// does not include the chat's timer. The value is learned from the
+// EPHEMERAL_SETTING protocol notification (sent when someone changes the timer)
+// and from received ephemeral messages. Key: "instanceID|chatJID".
+var chatEphemeralCache sync.Map // string -> uint32
+
+// SetCachedChatEphemeral records the disappearing timer for a chat.
+func SetCachedChatEphemeral(instanceID string, chat types.JID, seconds uint32) {
+	chatEphemeralCache.Store(instanceID+"|"+chat.ToNonAD().String(), seconds)
+}
+
+// GetCachedChatEphemeral returns the last known disappearing timer for a chat.
+// known is false when the chat's timer has never been seen.
+func GetCachedChatEphemeral(instanceID string, chat types.JID) (seconds uint32, known bool) {
+	if v, ok := chatEphemeralCache.Load(instanceID + "|" + chat.ToNonAD().String()); ok {
+		return v.(uint32), true
+	}
+	return 0, false
+}
+
+// messageEphemeralExpiration returns the disappearing-messages timer carried by
+// a received message, or 0 when none is present. The timer lives on the
+// ContextInfo of whichever content type the message uses; an EphemeralMessage
+// wrapper carries it on the wrapper's ContextInfo.
+func messageEphemeralExpiration(msg *waE2E.Message) uint32 {
+	if msg == nil {
+		return 0
+	}
+	if pm := msg.GetProtocolMessage(); pm != nil && pm.GetEphemeralExpiration() > 0 {
+		return pm.GetEphemeralExpiration()
+	}
+	if wrapped := msg.GetEphemeralMessage().GetMessage(); wrapped != nil {
+		if exp := messageEphemeralExpiration(wrapped); exp > 0 {
+			return exp
+		}
+	}
+	for _, ctx := range []*waE2E.ContextInfo{
+		msg.GetExtendedTextMessage().GetContextInfo(),
+		msg.GetImageMessage().GetContextInfo(),
+		msg.GetVideoMessage().GetContextInfo(),
+		msg.GetPtvMessage().GetContextInfo(),
+		msg.GetAudioMessage().GetContextInfo(),
+		msg.GetDocumentMessage().GetContextInfo(),
+		msg.GetStickerMessage().GetContextInfo(),
+		msg.GetLocationMessage().GetContextInfo(),
+		msg.GetContactMessage().GetContextInfo(),
+		msg.GetPollCreationMessage().GetContextInfo(),
+	} {
+		if ctx != nil && ctx.GetExpiration() > 0 {
+			return ctx.GetExpiration()
+		}
+	}
+	return 0
+}
+
 // GetCachedAccountLimits returns the last fetched account limits for an instance, if any.
 func GetCachedAccountLimits(instanceID string) (*AccountLimitsCacheEntry, bool) {
 	v, ok := accountLimitsCache.Load(instanceID)
@@ -1612,6 +1669,16 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		doWebhook = true
 		postMap["event"] = "Message"
 		// Message received
+
+		// Learn/refresh the chat's disappearing-messages timer so outgoing
+		// messages to this chat can carry it (see chatEphemeralCache).
+		if msg := evt.Message; msg != nil {
+			if pm := msg.GetProtocolMessage(); pm != nil && pm.GetType() == waE2E.ProtocolMessage_EPHEMERAL_SETTING {
+				SetCachedChatEphemeral(mycli.userID, evt.Info.Chat, pm.GetEphemeralExpiration())
+			} else if exp := messageEphemeralExpiration(msg); exp > 0 {
+				SetCachedChatEphemeral(mycli.userID, evt.Info.Chat, exp)
+			}
+		}
 
 		// Log message arrival with detailed info
 		messageSize := "unknown"

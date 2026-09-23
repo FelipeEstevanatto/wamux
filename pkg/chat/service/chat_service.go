@@ -1,9 +1,9 @@
 package chat_service
 
 import (
-	"github.com/evolution-foundation/evolution-go/pkg/safemap"
 	"context"
 	"errors"
+	"github.com/evolution-foundation/evolution-go/pkg/safemap"
 	"time"
 
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
@@ -22,6 +22,7 @@ type ChatService interface {
 	ChatUnarchive(data *BodyStruct, instance *instance_model.Instance) (string, error)
 	ChatMute(data *BodyStruct, instance *instance_model.Instance) (string, error)
 	ChatUnmute(data *BodyStruct, instance *instance_model.Instance) (string, error)
+	SetEphemeralExpiration(data *EphemeralStruct, instance *instance_model.Instance) error
 	HistorySyncRequest(ctx context.Context, data *HistorySyncRequestStruct, instance *instance_model.Instance) (*whatsmeow.SendResponse, error)
 }
 
@@ -33,6 +34,46 @@ type chatService struct {
 
 type BodyStruct struct {
 	Chat string `json:"chat"`
+}
+
+// EphemeralStruct is the body of POST /chat/ephemeral.
+type EphemeralStruct struct {
+	Chat string `json:"chat"`
+	// Expiration is the disappearing-messages timer in SECONDS (0 disables it).
+	// Official clients use 0, 86400 (24h), 604800 (7d) or 7776000 (90d).
+	Expiration int64 `json:"expiration" example:"86400"`
+}
+
+// SetEphemeralExpiration sets the disappearing-messages timer for a chat and
+// remembers it, so subsequent outgoing messages carry ContextInfo.Expiration
+// and the recipient does not warn that the message will not disappear.
+func (c *chatService) SetEphemeralExpiration(data *EphemeralStruct, instance *instance_model.Instance) error {
+	if data.Expiration < 0 {
+		return errors.New("expiration must be >= 0 seconds")
+	}
+
+	client, err := c.ensureClientConnected(instance.Id)
+	if err != nil {
+		return err
+	}
+
+	chat, ok := utils.ParseJID(data.Chat)
+	if !ok {
+		c.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Invalid chat for ephemeral setting: %s", instance.Id, data.Chat)
+		return errors.New("invalid chat")
+	}
+	chat = utils.CanonicalJID(chat)
+
+	if err := client.SetDisappearingTimer(context.Background(), chat, time.Duration(data.Expiration)*time.Second, time.Now()); err != nil {
+		c.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error setting disappearing timer: %v", instance.Id, err)
+		return err
+	}
+
+	// Remember it locally too: the timer-change notification is not echoed back
+	// to the sending device, so the cache would otherwise stay empty.
+	whatsmeow_service.SetCachedChatEphemeral(instance.Id, chat, uint32(data.Expiration))
+	c.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Disappearing timer set to %ds for %s", instance.Id, data.Expiration, chat.String())
+	return nil
 }
 
 type HistorySyncRequestStruct struct {

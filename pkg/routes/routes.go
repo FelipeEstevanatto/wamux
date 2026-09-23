@@ -194,6 +194,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.POST("/unarchive", r.jidValidationMiddleware.ValidateNumberField(), r.chatHandler.ChatUnarchive)
 			routes.POST("/mute", r.jidValidationMiddleware.ValidateNumberField(), r.chatHandler.ChatMute)
 			routes.POST("/unmute", r.jidValidationMiddleware.ValidateNumberField(), r.chatHandler.ChatUnmute)
+			routes.POST("/ephemeral", r.chatHandler.SetEphemeralExpiration)
 			routes.POST("/history-sync", r.chatHandler.HistorySyncRequest)
 		}
 	}
