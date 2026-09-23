@@ -45,6 +45,7 @@ import (
 	label_repository "github.com/evolution-foundation/evolution-go/pkg/label/repository"
 	label_service "github.com/evolution-foundation/evolution-go/pkg/label/service"
 	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
+	message_cleanup "github.com/evolution-foundation/evolution-go/pkg/message/cleanup"
 	message_handler "github.com/evolution-foundation/evolution-go/pkg/message/handler"
 	message_model "github.com/evolution-foundation/evolution-go/pkg/message/model"
 	message_repository "github.com/evolution-foundation/evolution-go/pkg/message/repository"
@@ -86,7 +87,7 @@ func init() {
 	}
 }
 
-func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.Config, conn *amqp.Connection, exPath string) *gin.Engine {
+func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.Config, conn *amqp.Connection, exPath string, messageRepository message_repository.MessageRepository) *gin.Engine {
 	killChannel := safemap.New[chan bool]()
 	clientPointer := safemap.New[*whatsmeow.Client]()
 
@@ -163,14 +164,13 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	}
 
 	instanceRepository := instance_repository.NewInstanceRepository(db)
-	messageRepository := message_repository.NewMessageRepository(db, message_repository.WithAggregateCacheTTL(config.DashboardCacheTTL))
 	labelRepository := label_repository.NewLabelRepository(db)
 	typebotRepository := typebot_repository.NewTypebotRepository(db)
 
 	whatsmeowService := whatsmeow_service.NewWhatsmeowService(
 		instanceRepository,
 		authDB,
-		message_repository.NewMessageRepository(db, message_repository.WithAggregateCacheTTL(config.DashboardCacheTTL)),
+		messageRepository,
 		labelRepository,
 		config,
 		killChannel,
@@ -449,7 +449,16 @@ func main() {
 		applog.Logger.LogInfo("RabbitMQ URL not configured, skipping RabbitMQ connection")
 	}
 
-	r := setupRouter(db, authDB, sqliteDB, cfg, conn, exPath)
+	// The repository is shared by the HTTP handlers and the retention job.
+	messageRepository := message_repository.NewMessageRepository(db, message_repository.WithAggregateCacheTTL(cfg.DashboardCacheTTL))
+
+	// Background workers. Cancelled on shutdown so they do not outlive the
+	// server; the message cleanup prunes rows past MESSAGE_RETENTION_DAYS.
+	workersCtx, stopWorkers := context.WithCancel(context.Background())
+	defer stopWorkers()
+	message_cleanup.NewCleaner(messageRepository, cfg.MessageRetentionDays).Start(workersCtx)
+
+	r := setupRouter(db, authDB, sqliteDB, cfg, conn, exPath, messageRepository)
 
 	srv := &http.Server{
 		Addr:    ":" + os.Getenv("SERVER_PORT"),

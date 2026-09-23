@@ -268,3 +268,43 @@ func TestCountChatsByInstanceCountsDistinctSources(t *testing.T) {
 		t.Fatalf("unmet expectations: %v", err)
 	}
 }
+
+// The retention delete runs in batches so a year of backlog cannot hold locks
+// for the whole sweep, and it must drop the cached aggregates.
+func TestDeleteMessagesOlderThanBatchesAndInvalidatesCache(t *testing.T) {
+	repo, mock := newMockRepo(t, WithAggregateCacheTTL(time.Minute))
+
+	// Prime the cache so we can prove the delete flushes it.
+	expectStatsQueries(mock, 42)
+	if _, err := repo.GetStats(); err != nil {
+		t.Fatalf("GetStats: %v", err)
+	}
+
+	deleteSQL := `DELETE FROM messages WHERE id IN \(`
+	// A full batch means "there may be more", so the loop runs again.
+	mock.ExpectExec(deleteSQL).
+		WithArgs("2025-09-23 00:00:00", int64(deleteBatchSize)).
+		WillReturnResult(sqlmock.NewResult(0, deleteBatchSize))
+	// A short batch ends the loop.
+	mock.ExpectExec(deleteSQL).
+		WithArgs("2025-09-23 00:00:00", int64(deleteBatchSize)).
+		WillReturnResult(sqlmock.NewResult(0, 12))
+
+	deleted, err := repo.DeleteMessagesOlderThan("2025-09-23 00:00:00")
+	if err != nil {
+		t.Fatalf("DeleteMessagesOlderThan: %v", err)
+	}
+	if want := int64(deleteBatchSize + 12); deleted != want {
+		t.Fatalf("deleted = %d, want %d", deleted, want)
+	}
+
+	// The cache must have been flushed, so this has to query again.
+	expectStatsQueries(mock, 0)
+	if stats, err := repo.GetStats(); err != nil || stats.Total != 0 {
+		t.Fatalf("GetStats after cleanup = %+v, %v; want a fresh query with total 0", stats, err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}

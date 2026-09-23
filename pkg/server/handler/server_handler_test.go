@@ -63,6 +63,7 @@ func (f fakeMessageRepo) CountChatsByInstance(string) (int64, error) { return f.
 func (f fakeMessageRepo) DatabaseSizeBytes() (int64, int64, error) {
 	return f.dbTotal, f.dbMessages, nil
 }
+func (fakeMessageRepo) DeleteMessagesOlderThan(string) (int64, error) { return 0, nil }
 
 func TestInstanceOverviewHandlerReturnsProviderData(t *testing.T) {
 	gin.SetMode(gin.TestMode)

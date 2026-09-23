@@ -85,6 +85,10 @@ type Config struct {
 	// Those queries are whole-table scans, so caching keeps the DB cost
 	// independent of how many dashboards are open. Zero disables the cache.
 	DashboardCacheTTL time.Duration
+
+	// MessageRetentionDays is how long persisted messages are kept. A background
+	// job deletes anything older, in batches; zero keeps them forever.
+	MessageRetentionDays int
 }
 
 // EnsureDBExists connects to postgres (without the target database) and creates it if it doesn't exist.
@@ -378,6 +382,17 @@ func Load() *Config {
 		}
 	}
 
+	// Persisted messages are pruned after this many days; 0 keeps them forever.
+	messageRetentionDays := 365
+	if raw := os.Getenv(config_env.MESSAGE_RETENTION_DAYS); raw != "" {
+		days, err := strconv.Atoi(raw)
+		if err != nil || days < 0 {
+			applog.Logger.LogWarn("[CONFIG] invalid %s=%q, using the default of 365 days", config_env.MESSAGE_RETENTION_DAYS, raw)
+		} else {
+			messageRetentionDays = days
+		}
+	}
+
 	// Typebot protections. The per-contact limit is on by default (it only
 	// affects senders bursting many messages); the per-instance send ceiling is
 	// off by default (a badly tuned value would delay legitimate replies).
@@ -436,6 +451,7 @@ func Load() *Config {
 		LogDirectory:             logDirectory,
 		LogCompress:              logCompress,
 		DashboardCacheTTL:        dashboardCacheTTL,
+		MessageRetentionDays:     messageRetentionDays,
 	}
 
 	minioEnabled := os.Getenv(config_env.MINIO_ENABLED) == "true"
