@@ -3325,19 +3325,11 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 	// Convertendo o MessageSendStruct para map antes de atribuir
 	messageData := make(map[string]interface{})
 	messageData["Info"] = messageSent.Info
-
-	// Convertendo a mensagem para map usando json marshal/unmarshal
-	msgBytes, err := json.Marshal(messageSent.Message)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal message: %v", err)
-	}
-
-	var msgMap map[string]interface{}
-	if err := json.Unmarshal(msgBytes, &msgMap); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal message: %v", err)
-	}
-
-	messageData["Message"] = msgMap
+	// The typed message marshals to exactly the same JSON as a map round trip,
+	// so it is assigned directly and only converted to a map when the media
+	// base64 has to be injected below. This removes a marshal+unmarshal of the
+	// whole message from every non-media send.
+	messageData["Message"] = messageSent.Message
 	messageData["MessageContextInfo"] = messageSent.MessageContextInfo
 
 	postMap["data"] = messageData
@@ -3345,6 +3337,22 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 	if isMedia && s.config.WebhookFiles {
 		var data []byte
 		var err error
+
+		// Convertendo a mensagem para map usando json marshal/unmarshal (só aqui,
+		// porque é preciso injetar a chave base64).
+		msgBytes, err := json.Marshal(messageSent.Message)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal message: %v", err)
+		}
+
+		var msgMap map[string]interface{}
+		if err := json.Unmarshal(msgBytes, &msgMap); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal message: %v", err)
+		}
+		if msgMap == nil {
+			msgMap = make(map[string]interface{})
+		}
+		messageData["Message"] = msgMap
 
 		img := msg.GetImageMessage()
 		audio := msg.GetAudioMessage()
@@ -3375,16 +3383,7 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 		}
 
 		if err == nil {
-			// Acessando o Message do map já convertido
-			messageMap := msgMap
-			if messageMap == nil {
-				messageMap = make(map[string]interface{})
-			}
-
-			encodeData := base64.StdEncoding.EncodeToString(data)
-			messageMap["base64"] = encodeData
-
-			messageData["Message"] = messageMap
+			msgMap["base64"] = base64.StdEncoding.EncodeToString(data)
 		}
 	}
 

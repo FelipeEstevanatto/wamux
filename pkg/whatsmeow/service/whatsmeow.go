@@ -407,6 +407,27 @@ func (mycli *MyClient) getGroupInfoCached(jid types.JID) (*types.GroupInfo, erro
 	return info, nil
 }
 
+// stripMessageThumbnails clears the media thumbnails on an incoming message.
+// The webhook payload deletes them anyway, so clearing them before the event is
+// converted to a map avoids base64-encoding (and then decoding) a potentially
+// large thumbnail only to discard it. Media download uses the media keys, not the
+// thumbnail, so stored media is unaffected. Only the fields the payload already
+// drops are cleared, so the emitted JSON is unchanged.
+func stripMessageThumbnails(m *waE2E.Message) {
+	if m == nil {
+		return
+	}
+	if img := m.GetImageMessage(); img != nil {
+		img.JPEGThumbnail = nil
+	}
+	if vid := m.GetVideoMessage(); vid != nil {
+		vid.JPEGThumbnail = nil
+	}
+	if doc := m.GetDocumentMessage(); doc != nil {
+		doc.JPEGThumbnail = nil
+	}
+}
+
 type ClientData struct {
 	Instance      *instance_model.Instance
 	Subscriptions []string
@@ -2074,6 +2095,10 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			return
 		}
 
+		// Drop thumbnails before the map round trip: the payload discards them
+		// later anyway, so serializing them first is wasted work.
+		stripMessageThumbnails(evt.Message)
+
 		if postMap["data"] != nil {
 			jsonBytes, err := json.Marshal(postMap["data"])
 			if err != nil {
@@ -3009,13 +3034,44 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	}
 }
 
-func (w *whatsmeowService) CallWebhook(instance *instance_model.Instance, queueName string, jsonData []byte) {
-	var data map[string]interface{}
-	if err := json.Unmarshal(jsonData, &data); err != nil {
-		return
+// webhookEventMeta is the minimal view of an event payload CallWebhook needs in
+// order to route it. The payload is already-serialized JSON, and unmarshalling
+// it into a generic map materializes the whole message tree just to read the
+// event name and the chat JID. Every event payload's "data" is a JSON object, so
+// this parses in one pass; a fallback below recovers the event name if that ever
+// stops being true.
+type webhookEventMeta struct {
+	Event string `json:"event"`
+	Data  struct {
+		Info struct {
+			Chat string `json:"Chat"`
+		} `json:"Info"`
+		Chat string `json:"Chat"`
+	} `json:"data"`
+}
+
+// parseWebhookEvent extracts the event name and (best-effort) the chat JIDs used
+// by the group/newsletter fallback routing. It returns ok=false only when the
+// payload is not an object or carries no event name, matching the old behaviour.
+func parseWebhookEvent(jsonData []byte) (eventType, dataChat, infoChat string, ok bool) {
+	var meta webhookEventMeta
+	if err := json.Unmarshal(jsonData, &meta); err == nil && meta.Event != "" {
+		return meta.Event, meta.Data.Chat, meta.Data.Info.Chat, true
 	}
 
-	eventType, ok := data["event"].(string)
+	// The data shape was unexpected: still recover the event name so the event
+	// is not silently dropped.
+	var top struct {
+		Event string `json:"event"`
+	}
+	if err := json.Unmarshal(jsonData, &top); err == nil && top.Event != "" {
+		return top.Event, "", "", true
+	}
+	return "", "", "", false
+}
+
+func (w *whatsmeowService) CallWebhook(instance *instance_model.Instance, queueName string, jsonData []byte) {
+	eventType, dataChat, infoChat, ok := parseWebhookEvent(jsonData)
 	if !ok {
 		return
 	}
@@ -3055,18 +3111,12 @@ func (w *whatsmeowService) CallWebhook(instance *instance_model.Instance, queueN
 			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		} else {
 			// Forward to GROUP/NEWSLETTER subscribers even without MESSAGE subscription
-			if dataMap, ok := data["data"].(map[string]interface{}); ok {
-				if infoMap, ok := dataMap["Info"].(map[string]interface{}); ok {
-					if chat, ok := infoMap["Chat"].(string); ok {
-						if strings.HasSuffix(chat, "@g.us") && contains(subscriptions, "GROUP") {
-							w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s (Group)", instance.Id, eventType)
-							w.sendToQueueOrWebhook(instance, queueName, jsonData)
-						} else if strings.HasSuffix(chat, "@newsletter") && contains(subscriptions, "NEWSLETTER") {
-							w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s (Newsletter)", instance.Id, eventType)
-							w.sendToQueueOrWebhook(instance, queueName, jsonData)
-						}
-					}
-				}
+			if strings.HasSuffix(infoChat, "@g.us") && contains(subscriptions, "GROUP") {
+				w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s (Group)", instance.Id, eventType)
+				w.sendToQueueOrWebhook(instance, queueName, jsonData)
+			} else if strings.HasSuffix(infoChat, "@newsletter") && contains(subscriptions, "NEWSLETTER") {
+				w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s (Newsletter)", instance.Id, eventType)
+				w.sendToQueueOrWebhook(instance, queueName, jsonData)
 			}
 		}
 	case "SendMessage":
@@ -3074,18 +3124,12 @@ func (w *whatsmeowService) CallWebhook(instance *instance_model.Instance, queueN
 			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
 			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		} else {
-			if dataMap, ok := data["data"].(map[string]interface{}); ok {
-				if infoMap, ok := dataMap["Info"].(map[string]interface{}); ok {
-					if chat, ok := infoMap["Chat"].(string); ok {
-						if strings.HasSuffix(chat, "@g.us") && contains(subscriptions, "GROUP") {
-							w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s (Group)", instance.Id, eventType)
-							w.sendToQueueOrWebhook(instance, queueName, jsonData)
-						} else if strings.HasSuffix(chat, "@newsletter") && contains(subscriptions, "NEWSLETTER") {
-							w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s (Newsletter)", instance.Id, eventType)
-							w.sendToQueueOrWebhook(instance, queueName, jsonData)
-						}
-					}
-				}
+			if strings.HasSuffix(infoChat, "@g.us") && contains(subscriptions, "GROUP") {
+				w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s (Group)", instance.Id, eventType)
+				w.sendToQueueOrWebhook(instance, queueName, jsonData)
+			} else if strings.HasSuffix(infoChat, "@newsletter") && contains(subscriptions, "NEWSLETTER") {
+				w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s (Newsletter)", instance.Id, eventType)
+				w.sendToQueueOrWebhook(instance, queueName, jsonData)
 			}
 		}
 	case "Receipt":
@@ -3093,16 +3137,12 @@ func (w *whatsmeowService) CallWebhook(instance *instance_model.Instance, queueN
 			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
 			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		} else {
-			if dataMap, ok := data["data"].(map[string]interface{}); ok {
-				if chat, ok := dataMap["Chat"].(string); ok {
-					if strings.HasSuffix(chat, "@g.us") && contains(subscriptions, "GROUP") {
-						w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s (Group)", instance.Id, eventType)
-						w.sendToQueueOrWebhook(instance, queueName, jsonData)
-					} else if strings.HasSuffix(chat, "@newsletter") && contains(subscriptions, "NEWSLETTER") {
-						w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s (Newsletter)", instance.Id, eventType)
-						w.sendToQueueOrWebhook(instance, queueName, jsonData)
-					}
-				}
+			if strings.HasSuffix(dataChat, "@g.us") && contains(subscriptions, "GROUP") {
+				w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s (Group)", instance.Id, eventType)
+				w.sendToQueueOrWebhook(instance, queueName, jsonData)
+			} else if strings.HasSuffix(dataChat, "@newsletter") && contains(subscriptions, "NEWSLETTER") {
+				w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s (Newsletter)", instance.Id, eventType)
+				w.sendToQueueOrWebhook(instance, queueName, jsonData)
 			}
 		}
 	case "Presence":
