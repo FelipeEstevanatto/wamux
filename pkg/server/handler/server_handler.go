@@ -21,9 +21,11 @@ type ServerHandler interface {
 }
 
 // OverviewProvider is the slice of the whatsmeow service the dashboard needs to
-// show each instance's own profile picture and contact count.
+// show each instance's own profile picture and contact count, and to turn the
+// aggregated message sources into display names.
 type OverviewProvider interface {
 	GetInstanceOverview(instanceId string) (*whatsmeow_service.InstanceOverview, error)
+	ResolveChatNames(users []string) map[string]string
 }
 
 type serverHandler struct {
@@ -91,12 +93,41 @@ func (s *serverHandler) Stats(ctx *gin.Context) {
 				"total":      st.Total,
 				"byStatus":   st.ByStatus,
 				"byDay":      st.ByDay,
-				"topSources": st.TopSources,
+				"topSources": s.resolveTopSources(st.TopSources),
 			}
 		}
 	}
 
 	ctx.JSON(200, gin.H{"system": system, "messages": messages})
+}
+
+// sourceEntry is a top source annotated with a resolved display name.
+type sourceEntry struct {
+	Key   string `json:"key"`
+	Name  string `json:"name,omitempty"`
+	Count int64  `json:"count"`
+}
+
+// resolveTopSources annotates the aggregated sources with a display name. Names
+// come from the whatsmeow contact/LID/group stores and are best-effort: when a
+// source cannot be resolved the frontend falls back to "+<key>".
+func (s *serverHandler) resolveTopSources(sources []message_repository.StatKV) []sourceEntry {
+	out := make([]sourceEntry, 0, len(sources))
+	if len(sources) == 0 {
+		return out
+	}
+	users := make([]string, 0, len(sources))
+	for _, kv := range sources {
+		users = append(users, kv.Key)
+	}
+	var names map[string]string
+	if s.overview != nil {
+		names = s.overview.ResolveChatNames(users)
+	}
+	for _, kv := range sources {
+		out = append(out, sourceEntry{Key: kv.Key, Name: names[kv.Key], Count: kv.Count})
+	}
+	return out
 }
 
 // InstanceOverview returns the per-instance dashboard summary: the account's own

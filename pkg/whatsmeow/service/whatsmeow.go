@@ -96,6 +96,10 @@ type WhatsmeowService interface {
 	// GetInstanceOverview returns the connected instance's own profile picture,
 	// push name and local contact count, for the dashboard.
 	GetInstanceOverview(instanceId string) (*InstanceOverview, error)
+
+	// ResolveChatNames turns bare message sources into display names for the
+	// dashboard's "most active conversations" list.
+	ResolveChatNames(users []string) map[string]string
 }
 
 // InstanceOverview is the per-instance summary the self-hosted dashboard shows
@@ -135,6 +139,7 @@ type whatsmeowService struct {
 	config             *config.Config
 	killChannel        *safemap.Map[chan bool]
 	userInfoCache      *cache.Cache
+	chatNameCache      *cache.Cache
 	clientPointer      *safemap.Map[*whatsmeow.Client]
 	myClientPointer    *safemap.Map[*MyClient]
 	rabbitmqProducer   producer_interfaces.Producer
@@ -3737,6 +3742,7 @@ func NewWhatsmeowService(
 		config:             config,
 		killChannel:        killChannel,
 		userInfoCache:      cache.New(5*time.Minute, 10*time.Minute),
+		chatNameCache:      cache.New(10*time.Minute, 15*time.Minute),
 		clientPointer:      clientPointer,
 		myClientPointer:    safemap.New[*MyClient](),
 		rabbitmqProducer:   rabbitmqProducer,
@@ -3933,6 +3939,113 @@ func (w *whatsmeowService) GetInstanceOverview(instanceId string) (*InstanceOver
 		overview.ContactsCount = len(contacts)
 	}
 	return overview, nil
+}
+
+// ResolveChatNames maps the bare user strings persisted in messages.source to a
+// human-friendly display name: a saved contact's name, the resolved phone number,
+// a group subject, or a label for the special status/broadcast sources.
+//
+// /server/stats is global and the stored source carries no instance id, so each
+// source is tried against every live client until one resolves it. Results are
+// cached (see chatNameCache) because the dashboard polls /server/stats every ~15s
+// and group lookups are network round-trips.
+func (w *whatsmeowService) ResolveChatNames(users []string) map[string]string {
+	out := make(map[string]string, len(users))
+	if len(users) == 0 {
+		return out
+	}
+
+	clients := make([]*whatsmeow.Client, 0, w.clientPointer.Len())
+	for _, c := range w.clientPointer.Snapshot() {
+		if c != nil && c.Store != nil && c.IsConnected() {
+			clients = append(clients, c)
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+
+	for _, user := range users {
+		if w.chatNameCache != nil {
+			if name, ok := w.chatNameCache.Get(user); ok {
+				out[user] = name.(string)
+				continue
+			}
+		}
+		name := resolveChatName(ctx, clients, user)
+		if w.chatNameCache != nil {
+			w.chatNameCache.Set(user, name, cache.DefaultExpiration)
+		}
+		out[user] = name
+	}
+	return out
+}
+
+// resolveChatName resolves a single bare source string. Order matters: a phone
+// number that is a saved contact wins, then a LID mapped back to its phone
+// number (contact or just the number), then a group subject, and finally the raw
+// value as "+<user>".
+func resolveChatName(ctx context.Context, clients []*whatsmeow.Client, user string) string {
+	if user == "" {
+		return ""
+	}
+	switch user {
+	case "status", "0":
+		return "Status"
+	}
+	if strings.Contains(user, "broadcast") {
+		return "Transmissão"
+	}
+
+	var lastPN string
+	for _, cli := range clients {
+		// 1) The source is a phone number.
+		if name := contactDisplayName(ctx, cli, types.NewJID(user, types.DefaultUserServer)); name != "" {
+			return name
+		}
+		// 2) The source is a LID: map it back to the phone number.
+		lid := types.NewJID(user, types.HiddenUserServer)
+		if pn, err := cli.Store.LIDs.GetPNForLID(ctx, lid); err == nil && !pn.IsEmpty() {
+			lastPN = pn.User
+			if name := contactDisplayName(ctx, cli, pn.ToNonAD()); name != "" {
+				return name
+			}
+		}
+	}
+	if lastPN != "" {
+		return "+" + lastPN
+	}
+
+	// 3) The source is a group id (groups store the group's user part).
+	for _, cli := range clients {
+		gctx, cancel := context.WithTimeout(ctx, 4*time.Second)
+		info, err := cli.GetGroupInfo(gctx, types.NewJID(user, types.GroupServer))
+		cancel()
+		if err == nil && info != nil && info.Name != "" {
+			return info.Name
+		}
+	}
+
+	return "+" + user
+}
+
+// contactDisplayName returns the best available name for a contact, or "".
+func contactDisplayName(ctx context.Context, cli *whatsmeow.Client, jid types.JID) string {
+	c, err := cli.Store.Contacts.GetContact(ctx, jid)
+	if err != nil {
+		return ""
+	}
+	switch {
+	case c.FullName != "":
+		return c.FullName
+	case c.BusinessName != "":
+		return c.BusinessName
+	case c.PushName != "":
+		return c.PushName
+	case c.FirstName != "":
+		return c.FirstName
+	}
+	return ""
 }
 
 // PasskeyCeremonyStore exposes the shared ceremony store so the public HTTP
