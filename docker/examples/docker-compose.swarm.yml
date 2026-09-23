@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   evolution_go:
-    image: evoapicloud/evolution-go:latest
+    image: ghcr.io/felipeestevanatto/evolution-go-community:${EVOGO_VERSION:-0.8.0}
     networks:
       - network_public
     environment:

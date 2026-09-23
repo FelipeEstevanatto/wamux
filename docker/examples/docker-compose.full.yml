@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   evolution-go:
-    image: evoapicloud/evolution-go:latest
+    image: ghcr.io/felipeestevanatto/evolution-go-community:${EVOGO_VERSION:-0.8.0}
     container_name: evolution-go
     restart: unless-stopped
     ports:
@@ -80,7 +80,7 @@ services:
       - minio
 
   postgres:
-    image: postgres:15-alpine
+    image: postgres:18-alpine
     container_name: evolution-postgres
     restart: unless-stopped
     environment:
