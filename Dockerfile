@@ -6,8 +6,8 @@
 FROM oven/bun:1-alpine AS manager
 
 WORKDIR /manager
-COPY evolution-go-manager/package.json evolution-go-manager/package-lock.json ./
-RUN bun install --no-save
+COPY evolution-go-manager/package.json evolution-go-manager/bun.lock ./
+RUN bun install --frozen-lockfile
 COPY evolution-go-manager/ ./
 RUN bun run build
 
