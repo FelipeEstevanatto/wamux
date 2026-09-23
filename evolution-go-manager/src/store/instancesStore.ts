@@ -4,16 +4,25 @@
  */
 
 import { create } from 'zustand';
-import type { Instance } from '@/types/instance';
+import type { Instance, InstanceOverview } from '@/types/instance';
 import * as instancesApi from '@/services/api/instances';
+
+// Per-instance overviews (profile picture + counts) change slowly, so they are
+// fetched at most once per minute instead of on every 5s instance poll.
+const OVERVIEW_TTL_MS = 60_000;
 
 interface InstancesStore {
   instances: Instance[];
   isLoading: boolean;
   error: string | null;
 
+  // instanceId -> overview
+  overviews: Record<string, InstanceOverview>;
+  overviewFetchedAt: Record<string, number>;
+
   // Actions
   fetchInstances: () => Promise<void>;
+  fetchOverviews: (instances: Instance[]) => Promise<void>;
   addInstance: (instance: Instance) => void;
   updateInstance: (instanceName: string, updates: Partial<Instance>) => void;
   removeInstance: (instanceName: string) => void;
@@ -22,10 +31,12 @@ interface InstancesStore {
   clearError: () => void;
 }
 
-const useInstancesStore = create<InstancesStore>()((set) => ({
+const useInstancesStore = create<InstancesStore>()((set, get) => ({
   instances: [],
   isLoading: false,
   error: null,
+  overviews: {},
+  overviewFetchedAt: {},
 
   // Fetch all instances from API
   fetchInstances: async () => {
@@ -43,6 +54,40 @@ const useInstancesStore = create<InstancesStore>()((set) => ({
         isLoading: false,
       });
     }
+  },
+
+  // Fetch the per-instance overviews (avatar, contacts, messages) for connected
+  // instances, skipping ones fetched within the TTL. Best-effort: a failure
+  // just leaves the previous value in place.
+  fetchOverviews: async (instances: Instance[]) => {
+    const now = Date.now();
+    const { overviewFetchedAt } = get();
+    const stale = instances.filter(
+      (i) => i.connected && now - (overviewFetchedAt[i.id] ?? 0) > OVERVIEW_TTL_MS
+    );
+    if (stale.length === 0) return;
+
+    const results = await Promise.all(
+      stale.map(async (instance) => {
+        try {
+          const overview = await instancesApi.fetchInstanceOverview(instance.id);
+          return [instance.id, overview] as const;
+        } catch (error) {
+          console.error(`Failed to fetch overview for ${instance.id}:`, error);
+          return null;
+        }
+      })
+    );
+
+    const overviews = { ...get().overviews };
+    const fetchedAt = { ...get().overviewFetchedAt };
+    for (const result of results) {
+      if (result) {
+        overviews[result[0]] = result[1];
+        fetchedAt[result[0]] = now;
+      }
+    }
+    set({ overviews, overviewFetchedAt: fetchedAt });
   },
 
   // Add a new instance to the store

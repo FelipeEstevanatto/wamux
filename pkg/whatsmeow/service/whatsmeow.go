@@ -96,6 +96,7 @@ type InstanceOverview struct {
 	ProfileName   string `json:"profileName,omitempty"`
 	ProfilePicURL string `json:"profilePicUrl,omitempty"`
 	ContactsCount int    `json:"contactsCount"`
+	MessagesCount int64  `json:"messagesCount"`
 }
 
 // TypebotProcessor is the slice of the Typebot service this package consumes.
@@ -2277,11 +2278,12 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 		if mycli.config.DatabaseSaveMessages {
 			message := message_model.Message{
-				MessageID: evt.Info.ID,
-				Timestamp: evt.Info.Timestamp.Format("2006-01-02 15:04:05"),
-				Status:    "Received",
-				Source:    evt.Info.Chat.ToNonAD().User,
-				Referral:  referral,
+				MessageID:  evt.Info.ID,
+				InstanceId: mycli.userID,
+				Timestamp:  evt.Info.Timestamp.Format("2006-01-02 15:04:05"),
+				Status:     "Received",
+				Source:     evt.Info.Chat.ToNonAD().User,
+				Referral:   referral,
 			}
 
 			mycli.persistMessageAsync(message)

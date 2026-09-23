@@ -8,12 +8,13 @@ import (
 )
 
 type Message struct {
-	Id        string          `json:"id" gorm:"type:uuid;primaryKey"`
-	MessageID string          `json:"message_id" gorm:"unique"`
-	Timestamp string          `json:"timestamp"`
-	Status    string          `json:"status"`
-	Source    string          `json:"source"`
-	Referral  json.RawMessage `json:"referral,omitempty" gorm:"type:jsonb"`
+	Id         string          `json:"id" gorm:"type:uuid;primaryKey"`
+	MessageID  string          `json:"message_id" gorm:"unique"`
+	InstanceId string          `json:"instance_id" gorm:"column:instance_id;index"`
+	Timestamp  string          `json:"timestamp"`
+	Status     string          `json:"status"`
+	Source     string          `json:"source"`
+	Referral   json.RawMessage `json:"referral,omitempty" gorm:"type:jsonb"`
 }
 
 func (m *Message) BeforeCreate(tx *gorm.DB) (err error) {

@@ -11,11 +11,14 @@ import {
   PowerOff,
   MessageSquare,
   FlaskConical,
+  Users,
+  Mail,
 } from "lucide-react";
-import type { Instance } from "@/types/instance";
+import type { Instance, InstanceOverview } from "@/types/instance";
 
 type InstanceCardProps = {
   instance: Instance;
+  overview?: InstanceOverview;
   isDeleting?: string | null;
   onSettings: (instance: Instance) => void;
   onDelete: (instance: Instance) => void;
@@ -41,8 +44,22 @@ const getStatusBadge = (status: string) => {
   );
 };
 
+/** Two-letter fallback when the account has no profile picture. */
+const initials = (name?: string) => {
+  const n = (name || "").trim();
+  if (!n) return "?";
+  const parts = n.split(/\s+/);
+  return (
+    (parts[0][0] || "") + (parts.length > 1 ? parts[parts.length - 1][0] : "")
+  ).toUpperCase();
+};
+
+const formatCount = (value?: number) =>
+  value === undefined || value === null ? "—" : value.toLocaleString("pt-BR");
+
 export default function InstanceCard({
   instance,
+  overview,
   isDeleting,
   onSettings,
   onDelete,
@@ -52,31 +69,36 @@ export default function InstanceCard({
   onTestMessage,
 }: InstanceCardProps) {
   const isConnected = instance.status === "open";
+  const displayName =
+    overview?.profileName || instance.profileName || instance.instanceName;
 
   return (
     <Card className="group relative bg-sidebar border-sidebar-border hover:bg-sidebar-accent/30 transition-all duration-300 hover:shadow-lg hover:shadow-black/10 overflow-hidden">
       <CardContent className="p-0">
-        {/* Header with icon, name and status */}
+        {/* Header with avatar, name and status */}
         <div className="flex items-center gap-3 p-4 border-b border-sidebar-border">
-          {instance.profilePicUrl && (
-            <div className="flex-shrink-0 dark">
-              <div className="rounded-lg bg-gray-900 flex items-center justify-center w-14 h-14 overflow-hidden">
+          <div className="flex-shrink-0">
+            <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-sidebar-border bg-sidebar-accent/40 text-sm font-semibold text-sidebar-foreground/70">
+              {overview?.profilePicUrl ? (
                 <img
-                  src={instance.profilePicUrl}
-                  alt={instance.profileName || instance.instanceName}
-                  className="w-12 h-12 object-cover rounded-lg"
+                  src={overview.profilePicUrl}
+                  alt={displayName}
+                  className="h-14 w-14 rounded-full object-cover"
+                  referrerPolicy="no-referrer"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
                     target.style.display = "none";
                   }}
                 />
-              </div>
+              ) : (
+                initials(displayName)
+              )}
             </div>
-          )}
+          </div>
 
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-base truncate text-sidebar-foreground">
-              {instance.profileName || instance.instanceName}
+              {displayName}
             </h3>
             <p className="text-xs text-sidebar-foreground/60 truncate">
               {instance.instanceName}
@@ -92,14 +114,6 @@ export default function InstanceCard({
             <span>Status</span>
             <span className="font-mono">{instance.status}</span>
           </div>
-          {instance.profileStatus && (
-            <div className="flex items-center justify-between">
-              <span>Recado</span>
-              <span className="font-mono truncate ml-2 max-w-[150px]">
-                {instance.profileStatus}
-              </span>
-            </div>
-          )}
           {instance.owner && (
             <div className="flex items-center justify-between">
               <span>Proprietário</span>
@@ -108,6 +122,24 @@ export default function InstanceCard({
               </span>
             </div>
           )}
+
+          {/* Counts from GET /instance/overview/:id (connected instances only) */}
+          <div className="flex items-center justify-between">
+            <span className="inline-flex items-center gap-1">
+              <Users className="h-3 w-3" /> Contatos
+            </span>
+            <span className="font-mono">
+              {isConnected ? formatCount(overview?.contactsCount) : "—"}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="inline-flex items-center gap-1">
+              <Mail className="h-3 w-3" /> Mensagens
+            </span>
+            <span className="font-mono">
+              {isConnected ? formatCount(overview?.messagesCount) : "—"}
+            </span>
+          </div>
         </div>
 
         {/* Action buttons - hover effect */}

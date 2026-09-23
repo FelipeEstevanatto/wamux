@@ -25,7 +25,7 @@ import { useNavigate } from 'react-router-dom';
 
 export default function Instances() {
   const navigate = useNavigate();
-  const { instances, isLoading, fetchInstances, removeInstance } =
+  const { instances, isLoading, fetchInstances, removeInstance, overviews, fetchOverviews } =
     useInstancesStore();
   const [query, setQuery] = useState('');
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -89,6 +89,12 @@ export default function Instances() {
 
     return () => clearInterval(interval);
   }, [fetchInstances]);
+
+  // Per-instance overviews (avatar + contacts/messages counts). fetchOverviews
+  // throttles itself, so calling it on every instances change is cheap.
+  useEffect(() => {
+    fetchOverviews(instances);
+  }, [instances, fetchOverviews]);
 
   const { paginatedInstances, totalCount } = useMemo(() => {
     // First filter by search query
@@ -478,6 +484,7 @@ export default function Instances() {
               <InstanceCard
                 key={instance.instanceName}
                 instance={instance}
+                overview={overviews[instance.id]}
                 isDeleting={isDeleting}
                 onSettings={handleSettings}
                 onDelete={openDeleteModal}
