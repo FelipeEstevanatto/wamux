@@ -1723,6 +1723,12 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		}
 	case *events.StreamReplaced:
 		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Received StreamReplaced event", mycli.userID)
+		// The socket was replaced, so any in-flight passkey ceremony's pairing
+		// context is gone. Clear it rather than leave the extension polling a
+		// dead ceremony (issue #107).
+		if mycli.passkeyCeremony.Clear(mycli.userID) {
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Cleared in-flight passkey ceremony after stream replacement (issue #107)", mycli.userID)
+		}
 		return
 	case *events.TemporaryBan:
 		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] User received temporary ban for %s", mycli.userID, evt.Code.String())
@@ -2624,6 +2630,14 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		doWebhook = true
 		postMap["event"] = "Disconnected"
 
+		// A dropped socket gets a fresh pairing context on reconnect, so an
+		// in-flight passkey ceremony's challenge can never complete. Clear it
+		// instead of leaving the extension polling a dead ceremony until the TTL
+		// expires (issue #107).
+		if mycli.passkeyCeremony.Clear(mycli.userID) {
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Cleared in-flight passkey ceremony after socket disconnect (issue #107)", mycli.userID)
+		}
+
 		// Limpar cache de userInfo para esta instância (mas não para reconexão automática)
 		mycli.userInfoCache.Delete(mycli.Instance.Token)
 		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] UserInfo cache cleared for token: %s", mycli.userID, mycli.Instance.Token)
@@ -2973,6 +2987,16 @@ func (w *whatsmeowService) CallWebhook(instance *instance_model.Instance, queueN
 			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
 			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		}
+	case "PasskeyRequest", "PasskeyConfirmation", "PasskeyError":
+		// Passkey (WebAuthn) events are part of the #wapk pairing flow, so they
+		// are delivered to dedicated PASSKEY subscribers and to QRCODE
+		// subscribers. Previously they hit `default: return` and were silently
+		// dropped, even though myEventHandler logged "DISPATCHING WEBHOOK" before
+		// this filter ran (issue #105).
+		if shouldForwardPasskey(subscriptions) {
+			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
+			w.sendToQueueOrWebhook(instance, queueName, jsonData)
+		}
 	case "ButtonClick":
 		if contains(subscriptions, "BUTTON_CLICK") || contains(subscriptions, "MESSAGE") {
 			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
@@ -2991,6 +3015,14 @@ func contains(subscriptions []string, event string) bool {
 		}
 	}
 	return false
+}
+
+// shouldForwardPasskey reports whether a Passkey* event should be delivered for
+// the given subscription list. Passkey (WebAuthn) events are part of the #wapk
+// pairing flow, so they go to dedicated PASSKEY subscribers and to QRCODE
+// subscribers (issue #105).
+func shouldForwardPasskey(subscriptions []string) bool {
+	return contains(subscriptions, event_types.PASSKEY) || contains(subscriptions, event_types.QRCODE)
 }
 
 // SetTypebotService wires the Typebot processor. Called once at boot, before any

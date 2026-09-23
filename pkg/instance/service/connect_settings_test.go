@@ -1,7 +1,6 @@
 package instance_service
 
 import (
-	"strings"
 	"testing"
 
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
@@ -41,12 +40,21 @@ func TestApplyConnectSettings(t *testing.T) {
 			wantUpdatesKeys: []string{"events"},
 		},
 		{
-			name:     "subscribe ALL expands all event types",
+			name:     "subscribe ALL is persisted literally so the fast-path works",
 			instance: instance_model.Instance{},
 			data: ConnectStruct{
 				Subscribe: []string{"ALL"},
 			},
-			wantEvents:      strings.Join(event_types.AllEventTypes, ","),
+			wantEvents:      event_types.ALL,
+			wantUpdatesKeys: []string{"events"},
+		},
+		{
+			name:     "subscribe ALL is recognised in any position",
+			instance: instance_model.Instance{},
+			data: ConnectStruct{
+				Subscribe: []string{"MESSAGE", "ALL"},
+			},
+			wantEvents:      event_types.ALL,
 			wantUpdatesKeys: []string{"events"},
 		},
 		{

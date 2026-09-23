@@ -26,6 +26,13 @@ Fork-specific fixes on top of `0.7.2` (see `FORK_NOTES.md` for the full list).
   restore `Unavailable` (or stop the loop) after their brief online window, and
   turning `alwaysOnline` off via `PUT /instance/:id/advanced-settings` applies
   it immediately.
+- **Passkey events never reached a webhook, and `ALL` was position-dependent**
+  (#105/#107) — `PasskeyRequest`/`PasskeyConfirmation`/`PasskeyError` had no
+  case in the subscription filter and were silently dropped; a `PASSKEY` event
+  type was added (also delivered to `QRCODE` subscribers). Subscribing with
+  `ALL` first no longer expands to a list that omits `"ALL"`; the literal is
+  persisted so the all-events fast-path works. An in-flight passkey ceremony is
+  now cleared on `Disconnected`/`StreamReplaced` instead of being left stale.
 
 ### ✨ Features
 - **Typebot integration** — bot CRUD, per-contact sessions, `startChat`/

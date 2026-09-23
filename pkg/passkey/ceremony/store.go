@@ -165,16 +165,20 @@ func (s *Store) SetError(instanceID, msg string) {
 	})
 }
 
-// Clear removes the ceremony for an instance (e.g. on PairSuccess). After this,
-// the poll endpoint returns not-found, and the extension treats a cleared state
-// after having started as "pairing concluded".
-func (s *Store) Clear(instanceID string) {
+// Clear removes the ceremony for an instance (e.g. on PairSuccess or a socket
+// drop) and reports whether one was present. After this, the poll endpoint
+// returns not-found, and the extension treats a cleared state after having
+// started as "pairing concluded".
+func (s *Store) Clear(instanceID string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if tok, ok := s.byInst[instanceID]; ok {
-		delete(s.byToken, tok)
-		delete(s.byInst, instanceID)
+	tok, ok := s.byInst[instanceID]
+	if !ok {
+		return false
 	}
+	delete(s.byToken, tok)
+	delete(s.byInst, instanceID)
+	return true
 }
 
 // Lookup resolves a ceremony token to its instance id and current state.
