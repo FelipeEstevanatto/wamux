@@ -257,6 +257,16 @@ Not fixed here — they are larger or need protocol work. Ordered by impact.
    #103 link thumbnail not uploaded).
 8. **Group announcement mode / settings** (#113, #98, #42) — the
    `/group/settings` route exists; the service implementation appears partial.
+9. **Poll votes from a LID/PN-alternating voter fail to decrypt.** Verified live:
+   the first vote from a contact decrypts and is stored, but a later vote from
+   the *same contact* arrives with a phone-number sender instead of a LID and
+   fails with `cipher: message authentication failed`. whatsmeow's
+   `decryptMsgSecret` looks the poll's message secret up by
+   `(chat, origSender, origMessageID)`; the secret was stored under the bot's LID
+   as `origSender`, and its LID↔PN fallback re-derives the GCM additional data
+   for the wrong sender. Net effect: one vote per poll per contact is captured,
+   repeat votes are dropped. Needs normalising the vote's sender JID (LID↔PN)
+   before calling `DecryptPollVote`, or retrying with the stored sender.
 
 ## 4. Build & run
 
