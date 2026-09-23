@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-} from '@evoapi/design-system';
+} from '@/components/ui';
 import { Trash2, Layers } from 'lucide-react';
 import { toast } from 'sonner';
 

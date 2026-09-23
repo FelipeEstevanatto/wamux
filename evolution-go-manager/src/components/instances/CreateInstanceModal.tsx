@@ -17,7 +17,7 @@ import {
   Button,
   Input,
   Label,
-} from '@evoapi/design-system';
+} from '@/components/ui';
 import { Plus, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 import * as instancesApi from '@/services/api/instances';

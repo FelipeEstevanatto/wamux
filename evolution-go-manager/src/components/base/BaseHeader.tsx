@@ -13,7 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   Badge,
-} from '@evoapi/design-system';
+} from '@/components/ui';
 import { Search, Filter, MoreVertical, X, RefreshCw } from 'lucide-react';
 
 export interface HeaderAction {
