@@ -1215,6 +1215,81 @@ func (mycli *MyClient) teardownQR(reason string, forceLogout bool) {
 	}
 }
 
+// handlePollVote decrypts a poll vote and stores it.
+//
+// It MUST be called before myEventHandler's LID/PN JID swap: whatsmeow derives
+// the vote's GCM additional data from msg.Info.Sender and resolves the poll's
+// message secret by (msg.Info.Chat, original sender, poll message id). Rewriting
+// those JIDs first (LID -> phone number) makes a vote cast from a LID-addressed
+// contact fail with "cipher: message authentication failed", so only the poll
+// author's own vote would ever decrypt.
+func (mycli *MyClient) handlePollVote(evt *events.Message) {
+	log := mycli.loggerWrapper.GetLogger(mycli.userID)
+
+	client := mycli.clientPointer.Get(mycli.userID)
+	if client == nil {
+		log.LogWarn("[%s] Poll vote received but no client is available", mycli.userID)
+		return
+	}
+
+	decrypted, err := client.DecryptPollVote(context.Background(), evt)
+	if err != nil {
+		log.LogError("[%s] Failed to decrypt vote: %v", mycli.userID, err)
+		return
+	}
+
+	log.LogInfo("[%s] Decrypted poll vote with %d selected option(s)", mycli.userID, len(decrypted.SelectedOptions))
+
+	if mycli.pollService == nil {
+		return
+	}
+
+	pollKey := evt.Message.GetPollUpdateMessage().GetPollCreationMessageKey()
+	if pollKey == nil {
+		log.LogWarn("[%s] PollCreationMessageKey not found", mycli.userID)
+		return
+	}
+
+	// Snapshot the identifiers we need: the swap later mutates evt.Info, and the
+	// stored vote should keep the sending chat as it arrived.
+	info := evt.Info
+	instanceID := mycli.Instance.Id
+	userID := mycli.userID
+
+	// Saving touches the database, so keep it off the event dispatch path.
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				mycli.loggerWrapper.GetLogger(userID).LogError("[%s] Panic ao salvar voto: %v", userID, r)
+			}
+		}()
+
+		pollInfo := &types.MessageInfo{
+			ID: pollKey.GetID(),
+			MessageSource: types.MessageSource{
+				Chat: info.Chat,
+			},
+		}
+
+		pollVote := poll_service.BuildPollVoteFromEvent(
+			pollInfo,
+			&info,
+			decrypted,
+			"", // CompanyID não disponível no MyClient, será vazio
+			instanceID,
+		)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := mycli.pollService.SavePollVote(ctx, pollVote); err != nil {
+			mycli.loggerWrapper.GetLogger(userID).LogError("[%s] Failed to save poll vote to database: %v", userID, err)
+		} else {
+			mycli.loggerWrapper.GetLogger(userID).LogInfo("[%s] Poll vote saved to database successfully", userID)
+		}
+	}()
+}
+
 func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	userID := mycli.userID
 	postMap := make(map[string]interface{})
@@ -1569,6 +1644,15 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			return
 		}
 
+		// Poll vote decryption must run BEFORE the JID swap below mutates the
+		// event. whatsmeow derives the vote's GCM additional data from
+		// msg.Info.Sender and looks the message secret up by msg.Info.Chat;
+		// inverting those JIDs first makes a vote from a LID-addressed contact
+		// fail with "cipher: message authentication failed".
+		if evt.Message.GetPollUpdateMessage() != nil {
+			mycli.handlePollVote(evt)
+		}
+
 		// Trata o caso especial onde Sender é @lid e SenderAlt é @s.whatsapp.net
 		// Neste caso, devemos inverter: Sender e Chat devem ser @s.whatsapp.net, SenderAlt deve ser @lid
 		senderStr := evt.Info.Sender.String()
@@ -1698,71 +1782,6 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		}
 
 		referral := extractReferralFromMessage(evt.Message)
-
-		if evt.Message.GetPollUpdateMessage() != nil {
-			fmt.Printf("[POLL DEBUG] 🎯 PollUpdateMessage detected!\n")
-			fmt.Printf("[POLL DEBUG] � BEFORE accessing evt.Info - Sender: %s, Server: %s\n", evt.Info.Sender.String(), evt.Info.Sender.Server)
-			fmt.Printf("[POLL DEBUG] 📍 BEFORE accessing evt.Info - SenderAlt: %s\n", evt.Info.SenderAlt.String())
-			fmt.Printf("[POLL DEBUG] �� mycli.WAClient is nil: %v\n", mycli.WAClient == nil)
-			if mycli.WAClient != nil {
-				fmt.Printf("[POLL DEBUG] ✅ mycli.WAClient is initialized: %s\n", mycli.WAClient.Store.ID)
-			}
-
-			decrypted, err := mycli.clientPointer.Get(mycli.userID).DecryptPollVote(context.Background(), evt)
-			if err != nil {
-				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to decrypt vote: %v", mycli.userID, err)
-			} else {
-				mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Selected options in decrypted vote:", mycli.userID)
-				for _, option := range decrypted.SelectedOptions {
-					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("- %X", option)
-
-				}
-
-				// NOVO: Salvar voto no banco de dados de forma NÃO-INVASIVA
-				if mycli.pollService != nil {
-					go func() {
-						defer func() {
-							if r := recover(); r != nil {
-								mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Panic ao salvar voto: %v", mycli.userID, r)
-							}
-						}()
-
-						pollKey := evt.Message.GetPollUpdateMessage().GetPollCreationMessageKey()
-						if pollKey == nil {
-							mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] PollCreationMessageKey not found", mycli.userID)
-							return
-						}
-
-						pollInfo := &types.MessageInfo{
-							ID: pollKey.GetID(),
-							MessageSource: types.MessageSource{
-								Chat: evt.Info.Chat, // Usar o chat do evento atual
-							},
-						}
-
-						// Construir modelo de voto usando helper seguro
-						// evt.Info já passou pelo JID swap, então Sender = número real
-						pollVote := poll_service.BuildPollVoteFromEvent(
-							pollInfo,
-							&evt.Info,
-							decrypted,
-							"", // CompanyID não disponível no MyClient, será vazio
-							mycli.Instance.Id,
-						)
-
-						// Salvar no banco com timeout de segurança
-						ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-						defer cancel()
-
-						if err := mycli.pollService.SavePollVote(ctx, pollVote); err != nil {
-							mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to save poll vote to database: %v", mycli.userID, err)
-						} else {
-							mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Poll vote saved to database successfully", mycli.userID)
-						}
-					}()
-				}
-			}
-		}
 
 		var quotedMessage *waE2E.Message
 		var stanzaID string
