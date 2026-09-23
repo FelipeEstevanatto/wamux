@@ -335,12 +335,24 @@ Each fix/feature from `evolution-api` 2.4.0-rc1/rc2 (the reference Node implemen
 | Carousel: single card without image falls back to `nativeFlowMessage` (2.4.0-rc1) | **Fixed** | A one-card, no-media carousel is now sent as a plain interactive message. Verified: top-level `interactiveMessage`, not a carousel. |
 | List: switched to legacy `listMessage` (2.4.0-rc1) | **Superseded** | The legacy `listMessage` is silently dropped by the current server; we send `interactiveMessage` + `single_select` instead (see §3g). |
 | PIX (`payment_info`) support (2.3.7 / 2.4.0-rc1) | **Fixed** | §3g. |
-| Native GIF / `gifPlayback` (2.4.0-rc2 #2540) | **Not implemented** | `/send/media` accepts only jpeg/png/webp (image) and mp4 (video); animated GIFs are not supported. Feature request, not a regression. |
+| Native GIF / `gifPlayback` (2.4.0-rc2 #2540) | **Fixed** | `type: "gif"` (or `gifPlayback: true` on a GIF) transcodes the animated GIF to a silent MP4 with ffmpeg and sends it as a `VideoMessage` with `gifPlayback=true` — a looping animation without controls. See note below. |
 | Path traversal in `/assets` (2.3.3, CRITICAL) | **Not affected** | We mount assets via gin's `Static` (Go `http.FileServer`), which cleans paths; the vuln was in their custom handler. |
 | Incoming events stop after reconnect (Baileys/rxjs) (2.3.7) | **Not applicable** | Baileys' RxJS subject lifecycle; whatsmeow registers its event handler differently. |
 | License activation required (2.4.0-rc1, breaking) | **N/A** | This fork removed licensing entirely. |
 | History-sync `isLatest`/`progress` in the event payload (2.3.7) | **Already present** | We forward the raw whatsmeow event, whose `HistorySync` already carries `IsLatest` and `Progress`. |
 | mediaKey conversion to avoid bad-decrypt (2.3.3) | **Not applicable** | Baileys-specific key handling; no equivalent path here. |
+
+### Sending GIFs
+
+`POST /send/media` accepts `type: "gif"` (or `type: "video"` with `gifPlayback: true`).
+WhatsApp does not accept a raw GIF as video, so the animated GIF is transcoded to a
+silent H.264 MP4 with ffmpeg (`convertGifToMP4`) and sent as a `VideoMessage` with
+`gifPlayback=true` — the client autoplays it as a looping animation without
+controls. Width/height, duration and a first-frame thumbnail are attached as for
+any video. Two ffmpeg details worth remembering if this is touched again: the MP4
+muxer needs a **seekable output** (a pipe fails with "muxer does not support non
+seekable output"), and the output file must be passed with **`-y`** because the
+temp file already exists.
 
 ## 4. Build & run
 

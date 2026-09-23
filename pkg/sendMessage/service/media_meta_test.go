@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"image"
 	"image/color"
+	"image/gif"
 	"image/png"
 	"net/http"
 	"net/http/httptest"
@@ -99,5 +100,59 @@ func TestProbeVideo(t *testing.T) {
 	// Not real video bytes: the probe must fail cleanly rather than panic.
 	if _, ok := probeVideo([]byte("not a video")); ok {
 		t.Error("garbage must not probe as video")
+	}
+}
+
+func TestIsGIF(t *testing.T) {
+	if !isGIF([]byte("GIF89a....")) {
+		t.Error("GIF89a must be detected")
+	}
+	if !isGIF([]byte("GIF87a....")) {
+		t.Error("GIF87a must be detected")
+	}
+	if isGIF([]byte("not a gif")) {
+		t.Error("non-GIF must not be detected")
+	}
+	if isGIF(nil) {
+		t.Error("nil must not be detected")
+	}
+}
+
+// buildTestGIF returns a tiny two-frame animated GIF.
+func buildTestGIF(t *testing.T) []byte {
+	t.Helper()
+	pal := color.Palette{color.RGBA{0, 0, 0, 255}, color.RGBA{255, 255, 255, 255}, color.RGBA{255, 0, 0, 255}}
+	f1 := image.NewPaletted(image.Rect(0, 0, 4, 4), pal)
+	f2 := image.NewPaletted(image.Rect(0, 0, 4, 4), pal)
+	for i := range f1.Pix {
+		f1.Pix[i] = uint8(i % 3)
+		f2.Pix[i] = uint8((i + 1) % 3)
+	}
+	var buf bytes.Buffer
+	if err := gif.EncodeAll(&buf, &gif.GIF{Image: []*image.Paletted{f1, f2}, Delay: []int{10, 10}}); err != nil {
+		t.Fatalf("gif encode: %v", err)
+	}
+	return buf.Bytes()
+}
+
+func TestConvertGifToMP4(t *testing.T) {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("ffmpeg not installed")
+	}
+	raw := buildTestGIF(t)
+	if !isGIF(raw) {
+		t.Fatal("test fixture is not a GIF")
+	}
+
+	mp4, err := convertGifToMP4(raw)
+	if err != nil {
+		t.Fatalf("convertGifToMP4: %v", err)
+	}
+	if len(mp4) < 12 || string(mp4[4:8]) != "ftyp" {
+		t.Fatalf("output is not an MP4 (first bytes: %q)", mp4[:min(12, len(mp4))])
+	}
+	// The MP4 must probe as a video.
+	if _, ok := probeVideo(mp4); !ok {
+		t.Error("converted MP4 does not probe as video")
 	}
 }

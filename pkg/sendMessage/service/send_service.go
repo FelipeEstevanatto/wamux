@@ -142,6 +142,10 @@ type MediaStruct struct {
 	Quoted          QuotedStruct `json:"quoted"`
 	ForwardingScore *uint32      `json:"forwardingScore,omitempty"`
 	ViewOnce        bool         `json:"viewOnce"`
+	// GifPlayback sends the media as a looping animation (no sound, no video
+	// controls). Set it for GIFs. `type: "gif"` implies it. An animated GIF is
+	// transcoded to a silent MP4 first, since WhatsApp does not accept a raw GIF.
+	GifPlayback bool `json:"gifPlayback,omitempty"`
 }
 
 type PollStruct struct {
@@ -1015,7 +1019,18 @@ func (s *sendService) sendMediaFileWithRetry(data *MediaStruct, fileData []byte,
 				mimeType = "image/jpeg"
 			}
 			uploadType = whatsmeow.MediaImage
-		case "video":
+		case "video", "gif":
+			// An animated GIF is not accepted as video by WhatsApp: transcode it
+			// to a silent MP4 and mark the message gifPlayback so it loops.
+			if gifRequested(data, fileData, mimeType) {
+				converted, cerr := convertGifToMP4(fileData)
+				if cerr != nil {
+					return nil, cerr
+				}
+				fileData = converted
+				mimeType = "video/mp4"
+				data.GifPlayback = true
+			}
 			if mimeType != "video/mp4" {
 				errMsg := fmt.Sprintf("Invalid file format: '%s'. Only 'video/mp4' is accepted", mimeType)
 				return nil, errors.New(errMsg)
@@ -1118,7 +1133,7 @@ func (s *sendService) sendMediaFileWithRetry(data *MediaStruct, fileData []byte,
 				media = &waE2E.Message{ImageMessage: img}
 			}
 			mediaType = "ImageMessage"
-		case "video":
+		case "video", "gif":
 			// Video bubbles likewise use width/height (and seconds) for their
 			// placeholder; without them clients draw a generic box. The first
 			// frame gives a real preview instead of a blank one.
@@ -1269,6 +1284,12 @@ func (s *sendService) sendMediaFileWithRetry(data *MediaStruct, fileData []byte,
 			}
 		}
 
+		// A GIF is delivered as a silent looping video: mark it so clients
+		// autoplay it without controls instead of showing a video player.
+		if data.GifPlayback && media != nil && media.VideoMessage != nil {
+			media.VideoMessage.GifPlayback = proto.Bool(true)
+		}
+
 		message, err := s.SendMessage(instance, media, mediaType, &SendDataStruct{
 			Id:              data.Id,
 			Number:          data.Number,
@@ -1371,7 +1392,18 @@ func (s *sendService) sendMediaUrlWithRetry(data *MediaStruct, instance *instanc
 			}
 			uploadType = whatsmeow.MediaImage
 
-		case "video", "ptv":
+		case "video", "ptv", "gif":
+			// An animated GIF is not accepted as video by WhatsApp: transcode it
+			// to a silent MP4 and mark the message gifPlayback so it loops.
+			if gifRequested(data, fileData, mimeType) {
+				converted, cerr := convertGifToMP4(fileData)
+				if cerr != nil {
+					return nil, cerr
+				}
+				fileData = converted
+				mimeType = "video/mp4"
+				data.GifPlayback = true
+			}
 			if mimeType != "video/mp4" {
 				errMsg := fmt.Sprintf("Invalid file format: '%s'. Only 'video/mp4' are accepted", mimeType)
 				return nil, errors.New(errMsg)
@@ -1473,7 +1505,7 @@ func (s *sendService) sendMediaUrlWithRetry(data *MediaStruct, instance *instanc
 				media = &waE2E.Message{ImageMessage: img}
 			}
 			mediaType = "ImageMessage"
-		case "video":
+		case "video", "gif":
 			// Video bubbles likewise use width/height (and seconds) for their
 			// placeholder; without them clients draw a generic box. The first
 			// frame gives a real preview instead of a blank one.
@@ -1629,6 +1661,12 @@ func (s *sendService) sendMediaUrlWithRetry(data *MediaStruct, instance *instanc
 		}
 
 		messageStart := time.Now()
+		// A GIF is delivered as a silent looping video: mark it so clients
+		// autoplay it without controls instead of showing a video player.
+		if data.GifPlayback && media != nil && media.VideoMessage != nil {
+			media.VideoMessage.GifPlayback = proto.Bool(true)
+		}
+
 		message, err := s.SendMessage(instance, media, mediaType, &SendDataStruct{
 			Id:              data.Id,
 			Number:          data.Number,
@@ -2346,6 +2384,74 @@ func imageDimensions(fileData []byte) (uint32, uint32, bool) {
 		return 0, 0, false
 	}
 	return uint32(cfg.Width), uint32(cfg.Height), true
+}
+
+// isGIF reports whether the bytes start with a GIF87a/GIF89a signature.
+func isGIF(data []byte) bool {
+	if len(data) < 6 {
+		return false
+	}
+	return string(data[:6]) == "GIF87a" || string(data[:6]) == "GIF89a"
+}
+
+// gifRequested reports whether the caller wants the media treated as a GIF
+// (`type: "gif"`, the gifPlayback flag, a GIF mime, or GIF magic bytes).
+func gifRequested(data *MediaStruct, fileData []byte, mimeType string) bool {
+	return data.Type == "gif" || data.GifPlayback || mimeType == "image/gif" || isGIF(fileData)
+}
+
+// convertGifToMP4 transcodes an animated GIF into a silent H.264 MP4 so it can
+// be sent as a WhatsApp VideoMessage with gifPlayback=true (an autoplaying,
+// looping animation without controls). WhatsApp does not accept a raw GIF as
+// video. Returns an error when ffmpeg is unavailable or the file is unusable.
+func convertGifToMP4(fileData []byte) ([]byte, error) {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		return nil, fmt.Errorf("ffmpeg is required to convert GIF but was not found")
+	}
+
+	// The MP4 muxer needs a seekable output, so write to a temp file rather than
+	// piping to stdout ("muxer does not support non seekable output").
+	in, err := os.CreateTemp("", "evogo-gif-in-*")
+	if err != nil {
+		return nil, err
+	}
+	defer os.Remove(in.Name())
+	if _, err := in.Write(fileData); err != nil {
+		in.Close()
+		return nil, err
+	}
+	in.Close()
+
+	out, err := os.CreateTemp("", "evogo-gif-out-*.mp4")
+	if err != nil {
+		return nil, err
+	}
+	outName := out.Name()
+	out.Close()
+	defer os.Remove(outName)
+
+	// yuv420p + even dimensions keep every decoder happy; -an drops audio.
+	// -y is required because the output temp file already exists (ffmpeg would
+	// otherwise refuse to overwrite it non-interactively and exit without output).
+	cmd := exec.Command("ffmpeg",
+		"-v", "error",
+		"-y",
+		"-i", in.Name(),
+		"-movflags", "+faststart",
+		"-pix_fmt", "yuv420p",
+		"-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
+		"-an",
+		outName,
+	)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("failed to transcode GIF to video: %s", strings.TrimSpace(string(out)))
+	}
+
+	mp4, err := os.ReadFile(outName)
+	if err != nil || len(mp4) == 0 {
+		return nil, fmt.Errorf("failed to transcode GIF to video")
+	}
+	return mp4, nil
 }
 
 // applyImageDims copies decoded pixel dimensions onto an ImageMessage so the
