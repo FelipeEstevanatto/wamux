@@ -36,6 +36,7 @@ import (
 	waBinary "go.mau.fi/whatsmeow/binary"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/types"
+	"golang.org/x/image/draw"
 	"golang.org/x/net/html"
 	"google.golang.org/protobuf/proto"
 )
@@ -108,6 +109,10 @@ type SendDataStruct struct {
 	MediaHandle     string
 	AdditionalNodes *[]waBinary.Node
 	ForwardingScore *uint32
+	// MediaData carries the exact bytes that were uploaded, so the webhook
+	// payload does not have to download the media back from WhatsApp. Only set
+	// for plain media (not stickers, whose payload is re-encoded to PNG).
+	MediaData []byte
 }
 
 type QuotedStruct struct {
@@ -134,6 +139,40 @@ func quotedMessageContent(text string) *waE2E.Message {
 // link previews, thumbnails). A bounded client stops a slow/hanging remote host
 // from pinning a send request or one of its goroutines forever.
 var mediaHTTPClient = &http.Client{Timeout: 60 * time.Second}
+
+// maxRemoteMediaBytes caps a single outbound fetch (URL media, link preview,
+// button/carousel headers). A malicious or broken remote host must not be able
+// to stream unbounded data into memory and OOM the process that hosts every
+// instance.
+const maxRemoteMediaBytes = 64 << 20 // 64 MiB
+
+// readAllLimited reads r, rejecting a body larger than maxRemoteMediaBytes.
+func readAllLimited(r io.Reader) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(r, maxRemoteMediaBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > maxRemoteMediaBytes {
+		return nil, fmt.Errorf("remote body exceeds %d bytes", maxRemoteMediaBytes)
+	}
+	return data, nil
+}
+
+// External tool paths are resolved once at startup instead of scanning PATH on
+// every media send (which happened for ffmpeg, ffprobe and pdftoppm).
+var (
+	ffmpegBin   = lookPathOrEmpty("ffmpeg")
+	ffprobeBin  = lookPathOrEmpty("ffprobe")
+	pdftoppmBin = lookPathOrEmpty("pdftoppm")
+)
+
+func lookPathOrEmpty(name string) string {
+	path, err := exec.LookPath(name)
+	if err != nil {
+		return ""
+	}
+	return path
+}
 
 type TextStruct struct {
 	Number          string       `json:"number"`
@@ -746,7 +785,9 @@ func fetchLinkMetadata(url string) (string, string, string, error) {
 	}
 	defer resp.Body.Close()
 
-	doc, err := html.Parse(resp.Body)
+	// Cap the HTML read: a link preview only needs the document head, and a
+	// misbehaving host must not be able to stream a huge page into the parser.
+	doc, err := html.Parse(io.LimitReader(resp.Body, 4<<20))
 	if err != nil {
 		return "", "", "", err
 	}
@@ -944,7 +985,7 @@ func convertAudioWithApi(apiUrl string, apiKey string, convertData ConvertAudio)
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := readAllLimited(resp.Body)
 	if err != nil {
 		return nil, 0, fmt.Errorf("erro ao ler a resposta: %v", err)
 	}
@@ -968,7 +1009,7 @@ func convertAudioWithApi(apiUrl string, apiKey string, convertData ConvertAudio)
 }
 
 func convertAudioToOpusWithDuration(inputData []byte) ([]byte, int, error) {
-	cmd := exec.Command("ffmpeg", "-i", "pipe:0",
+	cmd := exec.Command(ffmpegBin, "-i", "pipe:0",
 		"-f",
 		"ogg",
 		"-vn",
@@ -1355,6 +1396,7 @@ func (s *sendService) sendMediaFileWithRetry(data *MediaStruct, fileData []byte,
 			FormatJid:       data.FormatJid,
 			MediaHandle:     uploaded.Handle,
 			ForwardingScore: data.ForwardingScore,
+			MediaData:       fileData,
 		})
 
 		if err != nil {
@@ -1401,7 +1443,6 @@ func (s *sendService) sendMediaUrlWithRetry(data *MediaStruct, instance *instanc
 		if err != nil {
 			return nil, err
 		}
-		defer resp.Body.Close()
 
 		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Download concluído em %v. Lendo dados...", instance.Id, time.Since(startTime))
 
@@ -1410,11 +1451,15 @@ func (s *sendService) sendMediaUrlWithRetry(data *MediaStruct, instance *instanc
 		// error page was uploaded and delivered as the requested message, which
 		// the recipient could not play.
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			resp.Body.Close()
 			return nil, fmt.Errorf("failed to download media: HTTP %s", resp.Status)
 		}
 
 		downloadStart := time.Now()
-		fileData, err := io.ReadAll(resp.Body)
+		fileData, err := readAllLimited(resp.Body)
+		// Close per attempt: this is inside a retry loop, so a deferred close
+		// would hold every attempt's connection open until the function returns.
+		resp.Body.Close()
 		if err != nil {
 			return nil, err
 		}
@@ -1732,6 +1777,7 @@ func (s *sendService) sendMediaUrlWithRetry(data *MediaStruct, instance *instanc
 			FormatJid:       data.FormatJid,
 			MediaHandle:     uploaded.Handle,
 			ForwardingScore: data.ForwardingScore,
+			MediaData:       fileData,
 		})
 
 		if err != nil {
@@ -2219,7 +2265,7 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 		// Optional media header (equivalent to evolution-api's `thumbnailUrl`).
 		if data.ImageUrl != "" {
 			if resp, err := mediaHTTPClient.Get(data.ImageUrl); err == nil {
-				fileData, readErr := io.ReadAll(resp.Body)
+				fileData, readErr := readAllLimited(resp.Body)
 				resp.Body.Close()
 				if readErr == nil {
 					if uploaded, upErr := client.Upload(context.Background(), fileData, whatsmeow.MediaImage); upErr == nil {
@@ -2245,7 +2291,7 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 			}
 		} else if data.VideoUrl != "" {
 			if resp, err := mediaHTTPClient.Get(data.VideoUrl); err == nil {
-				fileData, readErr := io.ReadAll(resp.Body)
+				fileData, readErr := readAllLimited(resp.Body)
 				resp.Body.Close()
 				if readErr == nil {
 					if uploaded, upErr := client.Upload(context.Background(), fileData, whatsmeow.MediaVideo); upErr == nil {
@@ -2385,13 +2431,9 @@ func makeJPEGThumbnail(fileData []byte, maxWidth int) []byte {
 	}
 
 	thumbImg := image.NewRGBA(image.Rect(0, 0, thumbWidth, thumbHeight))
-	for y := 0; y < thumbHeight; y++ {
-		for x := 0; x < thumbWidth; x++ {
-			srcX := x * srcWidth / thumbWidth
-			srcY := y * srcHeight / thumbHeight
-			thumbImg.Set(x, y, img.At(srcX+bounds.Min.X, srcY+bounds.Min.Y))
-		}
-	}
+	// ApproxBiLinear is a resampling scaler from x/image/draw: it is both much
+	// faster than At()/Set() per pixel and gives a better-looking thumbnail.
+	draw.ApproxBiLinear.Scale(thumbImg, thumbImg.Bounds(), img, bounds, draw.Over, nil)
 
 	var thumbBuf bytes.Buffer
 	if err := jpeg.Encode(&thumbBuf, thumbImg, &jpeg.Options{Quality: 50}); err != nil {
@@ -2405,7 +2447,7 @@ func makeJPEGThumbnail(fileData []byte, maxWidth int) []byte {
 // pdftoppm is not installed or rasterization fails, so callers can gracefully
 // send the document without a preview instead of failing the request.
 func makePDFThumbnail(fileData []byte, maxWidth int) []byte {
-	if _, err := exec.LookPath("pdftoppm"); err != nil {
+	if pdftoppmBin == "" {
 		return nil
 	}
 
@@ -2416,7 +2458,7 @@ func makePDFThumbnail(fileData []byte, maxWidth int) []byte {
 
 	// Render only the first page to a PNG on stdout, scaled to scaleWidth.
 	// "-scale-to-y -1" keeps the original aspect ratio.
-	cmd := exec.Command("pdftoppm",
+	cmd := exec.Command(pdftoppmBin,
 		"-png",
 		"-f", "1",
 		"-l", "1",
@@ -2471,7 +2513,7 @@ func gifRequested(data *MediaStruct, fileData []byte, mimeType string) bool {
 // looping animation without controls). WhatsApp does not accept a raw GIF as
 // video. Returns an error when ffmpeg is unavailable or the file is unusable.
 func convertGifToMP4(fileData []byte) ([]byte, error) {
-	if _, err := exec.LookPath("ffmpeg"); err != nil {
+	if ffmpegBin == "" {
 		return nil, fmt.Errorf("ffmpeg is required to convert GIF but was not found")
 	}
 
@@ -2499,7 +2541,7 @@ func convertGifToMP4(fileData []byte) ([]byte, error) {
 	// yuv420p + even dimensions keep every decoder happy; -an drops audio.
 	// -y is required because the output temp file already exists (ffmpeg would
 	// otherwise refuse to overwrite it non-interactively and exit without output).
-	cmd := exec.Command("ffmpeg",
+	cmd := exec.Command(ffmpegBin,
 		"-v", "error",
 		"-y",
 		"-i", in.Name(),
@@ -2540,7 +2582,7 @@ type videoMetadata struct {
 }
 
 func probeVideo(fileData []byte) (videoMetadata, bool) {
-	if _, err := exec.LookPath("ffprobe"); err != nil {
+	if ffprobeBin == "" {
 		return videoMetadata{}, false
 	}
 
@@ -2557,7 +2599,7 @@ func probeVideo(fileData []byte) (videoMetadata, bool) {
 	}
 	tmp.Close()
 
-	cmd := exec.Command("ffprobe",
+	cmd := exec.Command(ffprobeBin,
 		"-v", "error",
 		"-select_streams", "v:0",
 		"-show_entries", "stream=width,height:format=duration",
@@ -2595,7 +2637,7 @@ func probeVideo(fileData []byte) (videoMetadata, bool) {
 // makeVideoThumbnail extracts the first frame of a video as a small JPEG. It
 // returns nil when ffmpeg is missing or extraction fails.
 func makeVideoThumbnail(fileData []byte, maxWidth int) []byte {
-	if _, err := exec.LookPath("ffmpeg"); err != nil {
+	if ffmpegBin == "" {
 		return nil
 	}
 	if maxWidth < 1 {
@@ -2615,7 +2657,7 @@ func makeVideoThumbnail(fileData []byte, maxWidth int) []byte {
 	tmp.Close()
 
 	// -frames:v 1 grabs a single frame; scale keeps the aspect ratio.
-	cmd := exec.Command("ffmpeg",
+	cmd := exec.Command(ffmpegBin,
 		"-v", "error",
 		"-i", tmp.Name(),
 		"-frames:v", "1",
@@ -3344,9 +3386,6 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 	postMap["data"] = messageData
 
 	if isMedia && s.config.WebhookFiles {
-		var data []byte
-		var err error
-
 		// Convertendo a mensagem para map usando json marshal/unmarshal (só aqui,
 		// porque é preciso injetar a chave base64).
 		msgBytes, err := json.Marshal(messageSent.Message)
@@ -3369,30 +3408,35 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 		video := msg.GetVideoMessage()
 		sticker := msg.GetStickerMessage()
 
-		if img != nil {
-			data, err = s.clientPointer.Get(instance.Id).Download(context.Background(), img)
+		// Reuse the bytes the caller already uploaded instead of downloading the
+		// media back from WhatsApp (a full round trip plus a second in-memory
+		// copy). Stickers are excluded: the payload re-encodes them to PNG below.
+		var mediaBytes []byte
+		if data.MediaData != nil && sticker == nil {
+			mediaBytes = data.MediaData
+		} else if img != nil {
+			mediaBytes, err = s.clientPointer.Get(instance.Id).Download(context.Background(), img)
 		} else if audio != nil {
-			data, err = s.clientPointer.Get(instance.Id).Download(context.Background(), audio)
+			mediaBytes, err = s.clientPointer.Get(instance.Id).Download(context.Background(), audio)
 		} else if document != nil {
-			data, err = s.clientPointer.Get(instance.Id).Download(context.Background(), document)
+			mediaBytes, err = s.clientPointer.Get(instance.Id).Download(context.Background(), document)
 		} else if video != nil {
-			data, err = s.clientPointer.Get(instance.Id).Download(context.Background(), video)
+			mediaBytes, err = s.clientPointer.Get(instance.Id).Download(context.Background(), video)
 		} else if sticker != nil {
-			data, err = s.clientPointer.Get(instance.Id).Download(context.Background(), sticker)
+			mediaBytes, err = s.clientPointer.Get(instance.Id).Download(context.Background(), sticker)
 
-			webpReader := bytes.NewReader(data)
-			img, err := webp.Decode(webpReader)
-			if err == nil {
+			webpReader := bytes.NewReader(mediaBytes)
+			decoded, decErr := webp.Decode(webpReader)
+			if decErr == nil {
 				var pngBuffer bytes.Buffer
-				err = png.Encode(&pngBuffer, img)
-				if err == nil {
-					data = pngBuffer.Bytes()
+				if encErr := png.Encode(&pngBuffer, decoded); encErr == nil {
+					mediaBytes = pngBuffer.Bytes()
 				}
 			}
 		}
 
 		if err == nil {
-			msgMap["base64"] = base64.StdEncoding.EncodeToString(data)
+			msgMap["base64"] = base64.StdEncoding.EncodeToString(mediaBytes)
 		}
 	}
 
@@ -3474,9 +3518,11 @@ func (s *sendService) SendCarousel(data *CarouselStruct, instance *instance_mode
 				// Download image
 				resp, err := mediaHTTPClient.Get(card.Header.ImageUrl)
 				if err == nil {
-					defer resp.Body.Close()
-					fileData, err := io.ReadAll(resp.Body)
-					if err == nil {
+					fileData, readErr := readAllLimited(resp.Body)
+					// Close per card: deferring here would hold every card's
+					// connection open until the whole carousel is built.
+					resp.Body.Close()
+					if readErr == nil {
 						uploaded, err := client.Upload(context.Background(), fileData, whatsmeow.MediaImage)
 						if err == nil {
 							// Generate JPEG thumbnail for iOS compatibility
@@ -3502,9 +3548,9 @@ func (s *sendService) SendCarousel(data *CarouselStruct, instance *instance_mode
 				// Download and upload video
 				resp, err := mediaHTTPClient.Get(card.Header.VideoUrl)
 				if err == nil {
-					defer resp.Body.Close()
-					fileData, err := io.ReadAll(resp.Body)
-					if err == nil {
+					fileData, readErr := readAllLimited(resp.Body)
+					resp.Body.Close()
+					if readErr == nil {
 						uploaded, err := client.Upload(context.Background(), fileData, whatsmeow.MediaVideo)
 						if err == nil {
 							header.HasMediaAttachment = proto.Bool(true)
@@ -3767,7 +3813,7 @@ func (s *sendService) SendStatusMediaUrl(data *StatusMediaStruct, instance *inst
 		return nil, fmt.Errorf("failed to download file: HTTP status %d", resp.StatusCode)
 	}
 
-	fileData, err := io.ReadAll(resp.Body)
+	fileData, err := readAllLimited(resp.Body)
 	if err != nil {
 		return nil, err
 	}

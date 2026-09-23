@@ -2,6 +2,7 @@ package send_handler
 
 import (
 	"encoding/base64"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -31,6 +32,23 @@ type SendHandler interface {
 
 type sendHandler struct {
 	sendMessageService send_service.SendService
+}
+
+// maxUploadBytes caps a single multipart upload. The handler reads the whole
+// file into memory before sending it, so an unbounded upload is an OOM vector
+// for the process that hosts every instance.
+const maxUploadBytes = 64 << 20 // 64 MiB
+
+// readUpload reads a multipart file, rejecting anything over maxUploadBytes.
+func readUpload(r io.Reader) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(r, maxUploadBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > maxUploadBytes {
+		return nil, fmt.Errorf("file exceeds %d bytes", maxUploadBytes)
+	}
+	return data, nil
 }
 
 // Send a text message
@@ -210,7 +228,7 @@ func (s *sendHandler) SendMedia(ctx *gin.Context) {
 			return
 		}
 		defer fileData.Close()
-		fileBytes, err := io.ReadAll(fileData)
+		fileBytes, err := readUpload(fileData)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "cannot read file"})
 			return
@@ -787,7 +805,7 @@ func (s *sendHandler) SendStatusMedia(ctx *gin.Context) {
 			return
 		}
 		defer fileData.Close()
-		fileBytes, err := io.ReadAll(fileData)
+		fileBytes, err := readUpload(fileData)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "cannot read file"})
 			return
