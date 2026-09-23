@@ -1,9 +1,17 @@
 package typebot_repository
 
 import (
+	"time"
+
 	typebot_model "github.com/evolution-foundation/evolution-go/pkg/typebot/model"
+	"github.com/patrickmn/go-cache"
 	"gorm.io/gorm"
 )
+
+// activeBotCacheTTL is a backstop only: every write through this repository
+// invalidates the entry immediately, so the TTL just bounds staleness if the
+// table is changed out of band.
+const activeBotCacheTTL = 30 * time.Second
 
 type TypebotRepository interface {
 	CreateBot(bot *typebot_model.Typebot) error
@@ -30,21 +38,36 @@ type TypebotRepository interface {
 
 type typebotRepository struct {
 	db *gorm.DB
+
+	// activeBotCache memoizes GetActiveBot per instance. ProcessMessage calls it
+	// for every inbound message, but the active bot changes only when a bot is
+	// created, updated or deleted — all of which go through this repository and
+	// invalidate the entry. A nil value is cached too, so instances without a bot
+	// stop re-querying on every message.
+	activeBotCache *cache.Cache
 }
 
 func (t *typebotRepository) CreateBot(bot *typebot_model.Typebot) error {
-	return t.db.Create(bot).Error
+	err := t.db.Create(bot).Error
+	if err == nil {
+		t.invalidateActiveBot(bot.InstanceID)
+	}
+	return err
 }
 
 func (t *typebotRepository) UpdateBot(bot *typebot_model.Typebot) error {
-	return t.db.Save(bot).Error
+	err := t.db.Save(bot).Error
+	if err == nil {
+		t.invalidateActiveBot(bot.InstanceID)
+	}
+	return err
 }
 
 func (t *typebotRepository) DeleteBot(instanceID, id string) error {
 	// As sessões são removidas junto: sem o bot elas não têm para onde
 	// continuar, e deixá-las faria a próxima mensagem tentar um continueChat
 	// contra um fluxo que não existe mais.
-	return t.db.Transaction(func(tx *gorm.DB) error {
+	err := t.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("instance_id = ? AND typebot_id = ?", instanceID, id).
 			Delete(&typebot_model.TypebotSession{}).Error; err != nil {
 			return err
@@ -52,6 +75,16 @@ func (t *typebotRepository) DeleteBot(instanceID, id string) error {
 		return tx.Where("instance_id = ? AND id = ?", instanceID, id).
 			Delete(&typebot_model.Typebot{}).Error
 	})
+	if err == nil {
+		t.invalidateActiveBot(instanceID)
+	}
+	return err
+}
+
+func (t *typebotRepository) invalidateActiveBot(instanceID string) {
+	if t.activeBotCache != nil {
+		t.activeBotCache.Delete(instanceID)
+	}
 }
 
 func (t *typebotRepository) GetBotByID(instanceID, id string) (*typebot_model.Typebot, error) {
@@ -76,14 +109,36 @@ func (t *typebotRepository) GetBotsByInstanceID(instanceID string) ([]typebot_mo
 }
 
 func (t *typebotRepository) GetActiveBot(instanceID string) (*typebot_model.Typebot, error) {
+	if t.activeBotCache != nil {
+		if v, ok := t.activeBotCache.Get(instanceID); ok {
+			if cachedBot, ok := v.(*typebot_model.Typebot); ok && cachedBot != nil {
+				// Return a copy: the cached bot is shared across messages.
+				cached := *cachedBot
+				return &cached, nil
+			}
+			return nil, nil
+		}
+	}
+
 	var bot typebot_model.Typebot
 	err := t.db.Where("instance_id = ? AND enabled = ?", instanceID, true).
 		Order("created_at asc").First(&bot).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
+			// Cache the negative result so an instance without a bot does not
+			// query on every message.
+			if t.activeBotCache != nil {
+				t.activeBotCache.Set(instanceID, (*typebot_model.Typebot)(nil), cache.DefaultExpiration)
+			}
 			return nil, nil
 		}
 		return nil, err
+	}
+	if t.activeBotCache != nil {
+		// Store a copy, distinct from the one returned below, so a caller that
+		// mutates its result cannot corrupt the cache.
+		cached := bot
+		t.activeBotCache.Set(instanceID, &cached, cache.DefaultExpiration)
 	}
 	return &bot, nil
 }
@@ -141,5 +196,8 @@ func (t *typebotRepository) SetSessionStatusByRemoteJid(instanceID, remoteJid, s
 }
 
 func NewTypebotRepository(db *gorm.DB) TypebotRepository {
-	return &typebotRepository{db: db}
+	return &typebotRepository{
+		db:             db,
+		activeBotCache: cache.New(activeBotCacheTTL, 2*activeBotCacheTTL),
+	}
 }

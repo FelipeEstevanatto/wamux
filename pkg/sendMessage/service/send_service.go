@@ -31,6 +31,7 @@ import (
 	"github.com/evolution-foundation/evolution-go/pkg/utils"
 	whatsmeow_service "github.com/evolution-foundation/evolution-go/pkg/whatsmeow/service"
 	"github.com/gabriel-vasile/mimetype"
+	"github.com/patrickmn/go-cache"
 	"go.mau.fi/whatsmeow"
 	waBinary "go.mau.fi/whatsmeow/binary"
 	"go.mau.fi/whatsmeow/proto/waE2E"
@@ -64,6 +65,31 @@ type sendService struct {
 	config            *config.Config
 	loggerWrapper     *logger_wrapper.LoggerManager
 	messageRepository message_repository.MessageRepository
+
+	// userExistsCache memoizes phone -> WhatsApp resolution (remoteJID / not on
+	// WhatsApp). Without it every send to a non-group recipient pays a usync
+	// round trip, which dominates the latency of a text send. Keyed by the raw
+	// phone string; a short TTL bounds how long a newly registered (or banned)
+	// number stays stale.
+	userExistsCache *cache.Cache
+
+	// groupInfoCache memoizes group metadata per (instance, group). A group
+	// MentionAll send fetches it twice (disappearing timer + participants) and
+	// every send to the same group paid the round trip again.
+	groupInfoCache *cache.Cache
+}
+
+// userExistsCacheTTL bounds how long a resolved phone is trusted.
+const userExistsCacheTTL = 10 * time.Minute
+
+// groupInfoCacheTTL bounds how long group metadata is reused. Short enough that
+// a membership change shows up quickly, long enough to remove the per-send IQ.
+const groupInfoCacheTTL = 5 * time.Minute
+
+// userExistsResult is what the existence check resolves to for one phone.
+type userExistsResult struct {
+	remoteJID string
+	found     bool
 }
 
 type SendDataStruct struct {
@@ -556,6 +582,20 @@ func (s *sendService) validateAndCheckUserExists(phone string, formatJid *bool, 
 		return validateMessageFields(phone, formatJid, messageID, participant)
 	}
 
+	// A resolved phone is reused: the same contact is often messaged repeatedly
+	// and a usync round trip per send is pure added latency.
+	if s.userExistsCache != nil {
+		if v, ok := s.userExistsCache.Get(phone); ok {
+			if res, ok := v.(userExistsResult); ok {
+				if !res.found {
+					return types.NewJID("", types.DefaultUserServer), fmt.Errorf("number %s is not registered on WhatsApp", phone)
+				}
+				formatJidFalse := false
+				return validateMessageFields(res.remoteJID, &formatJidFalse, messageID, participant)
+			}
+		}
+	}
+
 	// Get the client to check if user exists on WhatsApp
 	client, err := s.ensureClientConnected(instance.Id)
 	if err != nil {
@@ -584,7 +624,14 @@ func (s *sendService) validateAndCheckUserExists(phone string, formatJid *bool, 
 	}
 
 	if !found {
+		if s.userExistsCache != nil {
+			s.userExistsCache.Set(phone, userExistsResult{found: false}, cache.DefaultExpiration)
+		}
 		return types.NewJID("", types.DefaultUserServer), fmt.Errorf("number %s is not registered on WhatsApp", phone)
+	}
+
+	if s.userExistsCache != nil {
+		s.userExistsCache.Set(phone, userExistsResult{remoteJID: remoteJID, found: true}, cache.DefaultExpiration)
 	}
 
 	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Number %s verified as valid WhatsApp user, using remoteJID: %s", instance.Id, phone, remoteJID)
@@ -2621,6 +2668,34 @@ func contextInfoFor(msg *waE2E.Message, messageType string) *waE2E.ContextInfo {
 	return nil
 }
 
+// getGroupInfoCached resolves group metadata for a send, reusing a recent
+// result. A group MentionAll send used to fetch it twice (once for the
+// disappearing timer, once for participants) and every send to the same group
+// paid the round trip again.
+func (s *sendService) getGroupInfoCached(instanceId string, recipient types.JID) (*types.GroupInfo, error) {
+	key := instanceId + "|" + recipient.String()
+	if s.groupInfoCache != nil {
+		if v, ok := s.groupInfoCache.Get(key); ok {
+			if info, ok := v.(*types.GroupInfo); ok {
+				return info, nil
+			}
+		}
+	}
+
+	client := s.clientPointer.Get(instanceId)
+	if client == nil {
+		return nil, fmt.Errorf("client not found for instance %s", instanceId)
+	}
+	info, err := client.GetGroupInfo(context.Background(), recipient)
+	if err != nil {
+		return nil, err
+	}
+	if s.groupInfoCache != nil {
+		s.groupInfoCache.Set(key, info, cache.DefaultExpiration)
+	}
+	return info, nil
+}
+
 // applyChatEphemeral stamps the chat's disappearing-messages timer onto an
 // outgoing message, so the recipient does not warn that it will not disappear.
 // The timer is read from the per-chat cache (populated from timer-change
@@ -2649,7 +2724,7 @@ func (s *sendService) applyChatEphemeral(instance *instance_model.Instance, reci
 
 	// Groups carry the timer in their metadata; read it once and cache it.
 	if !known && recipient.Server == types.GroupServer && client != nil {
-		if info, err := client.GetGroupInfo(context.Background(), recipient); err == nil && info != nil {
+		if info, err := s.getGroupInfoCached(instance.Id, recipient); err == nil && info != nil {
 			seconds = info.DisappearingTimer
 			whatsmeow_service.SetCachedChatEphemeral(instance.Id, recipient, seconds)
 			known = true
@@ -3173,7 +3248,7 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 	// Only try to get participants for actual groups, not newsletters
 	if isGroup && !isNewsletter {
 		if data.MentionAll {
-			groupInfo, err := s.clientPointer.Get(instance.Id).GetGroupInfo(context.Background(), recipient)
+			groupInfo, err := s.getGroupInfoCached(instance.Id, recipient)
 			if err != nil {
 				return nil, err
 			}
@@ -3863,6 +3938,8 @@ func NewSendService(
 		config:            config,
 		loggerWrapper:     loggerWrapper,
 		messageRepository: messageRepository,
+		userExistsCache:   cache.New(userExistsCacheTTL, 2*userExistsCacheTTL),
+		groupInfoCache:    cache.New(groupInfoCacheTTL, 2*groupInfoCacheTTL),
 	}
 }
 

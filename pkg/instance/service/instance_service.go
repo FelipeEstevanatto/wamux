@@ -20,6 +20,7 @@ import (
 	instance_repository "github.com/evolution-foundation/evolution-go/pkg/instance/repository"
 	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
 	"github.com/evolution-foundation/evolution-go/pkg/utils"
+	"github.com/patrickmn/go-cache"
 	"github.com/evolution-foundation/evolution-go/pkg/walimits"
 	whatsmeow_service "github.com/evolution-foundation/evolution-go/pkg/whatsmeow/service"
 	"github.com/google/uuid"
@@ -61,7 +62,18 @@ type instances struct {
 	clientPointer      *safemap.Map[*whatsmeow.Client]
 	whatsmeowService   whatsmeow_service.WhatsmeowService
 	loggerWrapper      *logger_wrapper.LoggerManager
+
+	// authCache memoizes token -> instance for the auth middleware, which runs
+	// on every authenticated request. The lookup is indexed and cheap, but it is
+	// still a Postgres round trip on the hottest path, so a short TTL removes
+	// almost all of them. Every write that can change an instance row flushes it
+	// (see invalidateAuthCache), so the only staleness is a sub-second window on
+	// a concurrent write, never a deleted token.
+	authCache *cache.Cache
 }
+
+// authCacheTTL bounds how long a token lookup may be served from memory.
+const authCacheTTL = 10 * time.Second
 
 // ReachoutTimelockStruct reports whether the account is barred from messaging new
 // contacts, and until when. Behind WhatsApp error 463.
@@ -249,6 +261,7 @@ func (i instances) Create(data *CreateStruct) (*instance_model.Instance, error) 
 		return nil, err
 	}
 
+	i.invalidateAuthCache()
 	return createdInstance, nil
 }
 
@@ -273,6 +286,8 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 			i.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error updating instance: %s", instance.Id, err)
 			return nil, "", "", err
 		}
+		// events/rabbitmq/nats changed: the auth-cached row is now stale.
+		i.invalidateAuthCache()
 	}
 
 	subscribedEvents := splitSubscribedEvents(instance.Events)
@@ -354,6 +369,7 @@ func (i instances) Disconnect(instance *instance_model.Instance) (*instance_mode
 			if err := i.instanceRepository.UpdateConnected(instance.Id, false, instance.DisconnectReason); err != nil {
 				return instance, err
 			}
+			i.invalidateAuthCache()
 
 			return instance, nil
 		}
@@ -380,6 +396,7 @@ func (i instances) Logout(instance *instance_model.Instance) (*instance_model.In
 		if err != nil {
 			return instance, err
 		}
+		i.invalidateAuthCache()
 
 		select {
 		case i.killChannel.Get(instance.Id) <- true:
@@ -631,6 +648,7 @@ func (i instances) Rename(instanceId string, name string) (*instance_model.Insta
 		return nil, err
 	}
 	instance.Name = name
+	i.invalidateAuthCache()
 
 	if err := i.whatsmeowService.UpdateInstanceSettings(instance.Id); err != nil {
 		// A disconnected instance has no runtime to update; do not fail the rename.
@@ -679,6 +697,8 @@ func (i instances) Delete(id string) error {
 		return err
 	}
 
+	// The token must stop authenticating immediately, not after authCacheTTL.
+	i.invalidateAuthCache()
 	return nil
 }
 
@@ -843,6 +863,8 @@ func (i instances) SetProxy(id string, proxyConfig *ProxyConfig) error {
 
 	i.loggerWrapper.GetLogger(id).LogInfo("[%s] Proxy configuration updated: %s://%s:%s", id, proxyConfig.Protocol, proxyConfig.Host, proxyConfig.Port)
 
+	i.invalidateAuthCache()
+
 	// Reconnect to apply proxy changes
 	go i.Reconnect(instance)
 
@@ -879,6 +901,8 @@ func (i instances) RemoveProxy(id string) error {
 	}
 
 	i.loggerWrapper.GetLogger(id).LogInfo("[%s] Proxy configuration removed", id)
+
+	i.invalidateAuthCache()
 
 	go i.Reconnect(instance)
 
@@ -973,7 +997,36 @@ func (i instances) waitForClient(instanceId string, timeout time.Duration) *what
 }
 
 func (i instances) GetInstanceByToken(token string) (*instance_model.Instance, error) {
-	return i.instanceRepository.GetInstanceByToken(token)
+	if token != "" && i.authCache != nil {
+		if v, ok := i.authCache.Get(token); ok {
+			if cached, ok := v.(instance_model.Instance); ok {
+				// Hand back a copy: the cached value is shared across requests and
+				// handlers must not be able to mutate it.
+				instance := cached
+				return &instance, nil
+			}
+		}
+	}
+
+	instance, err := i.instanceRepository.GetInstanceByToken(token)
+	if err != nil {
+		return nil, err
+	}
+
+	if token != "" && i.authCache != nil && instance != nil {
+		i.authCache.Set(token, *instance, cache.DefaultExpiration)
+	}
+
+	return instance, nil
+}
+
+// invalidateAuthCache drops every cached token lookup. Called after any write
+// that can change an instance row, so a rename, settings change or delete is
+// visible to the very next request rather than after authCacheTTL.
+func (i instances) invalidateAuthCache() {
+	if i.authCache != nil {
+		i.authCache.Flush()
+	}
 }
 
 func (i instances) GetLogs(instanceId string, startDate, endDate time.Time, level string, limit int) ([]logger_wrapper.LogEntry, error) {
@@ -1113,6 +1166,7 @@ func (i instances) UpdateAdvancedSettings(instanceId string, settings *instance_
 		i.loggerWrapper.GetLogger(instanceId).LogError("[%s] Error updating advanced settings: %v", instanceId, err)
 		return err
 	}
+	i.invalidateAuthCache()
 
 	// Sincroniza as configurações na instância em execução
 	err = i.whatsmeowService.UpdateInstanceAdvancedSettings(instanceId)
@@ -1140,5 +1194,6 @@ func NewInstanceService(
 		whatsmeowService:   whatsmeowService,
 		config:             config,
 		loggerWrapper:      loggerWrapper,
+		authCache:          cache.New(authCacheTTL, 2*authCacheTTL),
 	}
 }
