@@ -98,6 +98,11 @@ Fork-specific fixes on top of `0.7.2` (see `FORK_NOTES.md` for the full list).
   alias) and app-state desync recovery.
 
 ### 🔧 Improvements
+- **Reactions use `BuildReaction`/`BuildMessageKey`** — the message key's
+  `FromMe` is now derived from the author (comparing against both our phone
+  number and our LID) and the group participant is set only for group messages,
+  instead of trusting the API's `fromMe`/`participant` verbatim. The
+  author-derivation is a unit-tested helper.
 - **Bound retry-receipt concurrency** — `SetMaxParallelRetryReceiptHandling(10)`
   before connect. whatsmeow's default is unlimited, so a burst of
   undecryptable messages (each triggering a retry receipt) could spawn

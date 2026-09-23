@@ -18,7 +18,6 @@ import (
 	whatsmeow_service "github.com/evolution-foundation/evolution-go/pkg/whatsmeow/service"
 	"github.com/vincent-petithory/dataurl"
 	"go.mau.fi/whatsmeow"
-	"go.mau.fi/whatsmeow/proto/waCommon"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/types"
 	"google.golang.org/protobuf/proto"
@@ -147,6 +146,27 @@ func (m *messageService) ensureClientConnected(instanceId string) (*whatsmeow.Cl
 	return client, nil
 }
 
+// reactionAuthor derives the author JID that whatsmeow's BuildMessageKey needs
+// for a reaction: empty for our own messages (so FromMe=true), the participant
+// for a group message from someone else, the chat for a 1:1 from someone else.
+// authorKnown is false for a group message with no participant, where the caller
+// keeps the explicit FromMe=false it was given.
+func reactionAuthor(fromMe, isGroup bool, participant string, chat types.JID) (types.JID, bool) {
+	switch {
+	case fromMe:
+		return types.EmptyJID, true
+	case isGroup && participant != "":
+		if participantJID, ok := utils.ParseJID(participant); ok {
+			return utils.CanonicalJID(participantJID), true
+		}
+		return types.EmptyJID, false
+	case !isGroup:
+		return chat, true
+	default:
+		return types.EmptyJID, false
+	}
+}
+
 func (m *messageService) React(data *ReactStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
 	client, err := m.ensureClientConnected(instance.Id)
 	if err != nil {
@@ -181,28 +201,29 @@ func (m *messageService) React(data *ReactStruct, instance *instance_model.Insta
 		reaction = ""
 	}
 
-	// Create MessageKey — msgId is the ID of the message being reacted to,
-	// NOT the ID of the reaction envelope itself.
-	messageKey := &waCommon.MessageKey{
-		RemoteJID: proto.String(recipient.String()),
-		FromMe:    proto.Bool(fromMe),
-		ID:        proto.String(msgId),
+	isGroup := strings.Contains(data.Number, "@g.us")
+
+	// Build the reaction with whatsmeow's BuildReaction/BuildMessageKey: it
+	// derives the key's FromMe from the author (comparing against both our phone
+	// number and our LID) and sets the group participant only when the author is
+	// someone else — instead of trusting the API's fromMe flag and participant
+	// verbatim. msgId is the ID of the message being reacted to, not the reaction
+	// envelope (so it must not be reused as the envelope ID).
+	author, authorKnown := reactionAuthor(fromMe, isGroup, data.Participant, recipient)
+	if !authorKnown {
+		m.loggerWrapper.GetLogger(instance.Id).LogWarn(
+			"[%s] Reaction to a group message without `participant`; the reaction may be dropped", instance.Id)
 	}
 
-	// Add participant if provided (for group messages)
-	if data.Participant != "" {
-		participantJID, ok := utils.ParseJID(data.Participant)
-		if ok {
-			messageKey.Participant = proto.String(utils.CanonicalJID(participantJID).String())
+	msg := client.BuildReaction(recipient, author, msgId, reaction)
+
+	// A group message with no participant leaves the author unknown, so
+	// BuildMessageKey would mark the key FromMe; keep the explicit FromMe=false
+	// the API asked for (and no participant), as before.
+	if !fromMe {
+		if key := msg.GetReactionMessage().GetKey(); key != nil && key.GetFromMe() {
+			key.FromMe = proto.Bool(false)
 		}
-	}
-
-	msg := &waE2E.Message{
-		ReactionMessage: &waE2E.ReactionMessage{
-			Key:               messageKey,
-			Text:              proto.String(reaction),
-			SenderTimestampMS: proto.Int64(time.Now().UnixMilli()),
-		},
 	}
 
 	// Do NOT pass ID: msgId in SendRequestExtra. Doing so would reuse the
@@ -214,7 +235,6 @@ func (m *messageService) React(data *ReactStruct, instance *instance_model.Insta
 		return nil, err
 	}
 
-	isGroup := strings.Contains(data.Number, "@g.us")
 	messageType := "ReactionMessage"
 
 	messageInfo := types.MessageInfo{
