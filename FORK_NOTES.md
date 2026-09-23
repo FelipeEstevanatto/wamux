@@ -514,20 +514,29 @@ store a chat list, so this is the closest available metric. The instance delete
 path now also cleans up by `instance_id` (it previously filtered on `source`,
 which never matched). Rows written before the column existed are not counted.
 
-### Per-instance overview (profile picture + contacts + chats + messages)
+### Per-instance overview (profile picture + device + contacts + chats + messages)
 
 `GET /instance/overview/:instanceId` (AuthAdmin) returns the connected
-account's own profile picture, push name, local contact count, chat count and
-the number of messages persisted for that instance:
+account's own profile picture, push name, the **platform of the phone that
+paired**, local contact count, chat count and the number of messages persisted
+for that instance:
 
 ```json
-{"data":{"connected":true,"profileName":"…","profilePicUrl":"https://pps.whatsapp.net/…","contactsCount":346,"chatsCount":12,"messagesCount":40}}
+{"data":{"connected":true,"platform":"android","businessName":"…","profileName":"…","profilePicUrl":"https://pps.whatsapp.net/…","contactsCount":346,"chatsCount":12,"messagesCount":40}}
 ```
 
 Backed by `whatsmeowService.GetInstanceOverview` (a preview profile-picture IQ,
 time-bounded to 15 s, plus `Store.Contacts.GetAllContacts`) and
 `MessageRepository.CountByInstance` / `CountChatsByInstance`. `GET /server/stats`
 also reports `system.version` (the `-X main.version=` / `VERSION` value).
+
+**Device info is the platform, not a model.** whatsmeow captures the phone's
+`<platform name="…">` from the pair-success node into `store.Device.Platform`
+(persisted as `whatsmeow_device.platform`, e.g. `android`, `ios`,
+`smb_android`). It is read from the device store, so it is available even while
+the instance is disconnected. WhatsApp does **not** send a phone model string
+(and the older Evolution API/Baileys did not expose one either), so the UI shows
+the platform — the closest obtainable value.
 
 To add more widgets, edit `manager/dist/dashboard.html` (fork's own page) or
 `evolution-go-manager/src/` (the SPA); if a value is missing from the API, add

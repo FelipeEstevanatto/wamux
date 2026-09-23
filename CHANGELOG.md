@@ -48,6 +48,10 @@ Fork-specific fixes on top of `0.7.2` (see `FORK_NOTES.md` for the full list).
   now cleared on `Disconnected`/`StreamReplaced` instead of being left stale.
 
 ### ✨ Features
+- **Device platform in the instance info** — `GET /instance/overview/:id` now
+  also returns `platform`/`businessName` from the whatsmeow device store (the
+  phone that scanned the QR, e.g. `android`/`ios`), shown as "Dispositivo" on
+  the instance cards and settings. whatsmeow has no phone *model* string.
 - **Manager UI additions** — the Instances page now shows each connected
   account's profile picture, contact count, chat count and message count (from
   `GET /instance/overview/:instanceId`); instance settings gain a token **copy**

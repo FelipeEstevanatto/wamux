@@ -96,6 +96,8 @@ type WhatsmeowService interface {
 // local whatsmeow store and the picture is a preview fetch, both best-effort.
 type InstanceOverview struct {
 	Connected     bool   `json:"connected"`
+	Platform      string `json:"platform,omitempty"`
+	BusinessName  string `json:"businessName,omitempty"`
 	ProfileName   string `json:"profileName,omitempty"`
 	ProfilePicURL string `json:"profilePicUrl,omitempty"`
 	ContactsCount int    `json:"contactsCount"`
@@ -3689,6 +3691,13 @@ func (w *whatsmeowService) GetInstanceOverview(instanceId string) (*InstanceOver
 	}
 
 	overview := &InstanceOverview{Connected: client.IsConnected()}
+	if client.Store != nil {
+		// Platform (android/ios/...) and business name come from the persisted
+		// device row, so they are available even while disconnected. This is the
+		// phone that scanned the QR — whatsmeow has no model string.
+		overview.Platform = client.Store.Platform
+		overview.BusinessName = client.Store.BusinessName
+	}
 	if !overview.Connected || client.Store == nil {
 		return overview, nil
 	}
