@@ -450,7 +450,17 @@ func main() {
 	}
 
 	// The repository is shared by the HTTP handlers and the retention job.
-	messageRepository := message_repository.NewMessageRepository(db, message_repository.WithAggregateCacheTTL(cfg.DashboardCacheTTL))
+	//
+	// The dashboard aggregates come from the message_counters rollup when it
+	// installed successfully, and from a (cached) scan of `messages` otherwise.
+	rollupReady := true
+	if err := message_repository.EnsureMessageCounters(db); err != nil {
+		applog.Logger.LogError("[stats] message counter rollup unavailable, the dashboard will aggregate live: %v", err)
+		rollupReady = false
+	}
+	messageRepository := message_repository.NewMessageRepository(db,
+		message_repository.WithRollup(rollupReady),
+		message_repository.WithAggregateCacheTTL(cfg.DashboardCacheTTL))
 
 	// Background workers. Cancelled on shutdown so they do not outlive the
 	// server; the message cleanup prunes rows past MESSAGE_RETENTION_DAYS.
