@@ -110,3 +110,35 @@ func TestCountByInstanceScopesToTheInstance(t *testing.T) {
 		t.Fatalf("unmet expectations: %v", err)
 	}
 }
+
+func TestCountChatsByInstanceCountsDistinctSources(t *testing.T) {
+	sqlDB, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("open sqlmock db: %v", err)
+	}
+	defer sqlDB.Close()
+
+	gormDB, err := gorm.Open(postgres.New(postgres.Config{Conn: sqlDB}), &gorm.Config{
+		SkipDefaultTransaction: true,
+	})
+	if err != nil {
+		t.Fatalf("open gorm db: %v", err)
+	}
+
+	repo := NewMessageRepository(gormDB)
+
+	mock.ExpectQuery(`SELECT COUNT\(DISTINCT source\) FROM "messages" WHERE instance_id = \$1`).
+		WithArgs("inst-1").
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(4))
+
+	total, err := repo.CountChatsByInstance("inst-1")
+	if err != nil {
+		t.Fatalf("CountChatsByInstance: %v", err)
+	}
+	if total != 4 {
+		t.Fatalf("CountChatsByInstance = %d, want 4", total)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}

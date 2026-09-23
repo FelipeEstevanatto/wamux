@@ -134,6 +134,14 @@ export default function InstanceCard({
           </div>
           <div className="flex items-center justify-between">
             <span className="inline-flex items-center gap-1">
+              <MessageSquare className="h-3 w-3" /> Conversas
+            </span>
+            <span className="font-mono">
+              {isConnected ? formatCount(overview?.chatsCount) : "—"}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="inline-flex items-center gap-1">
               <Mail className="h-3 w-3" /> Mensagens
             </span>
             <span className="font-mono">

@@ -96,6 +96,7 @@ type InstanceOverview struct {
 	ProfileName   string `json:"profileName,omitempty"`
 	ProfilePicURL string `json:"profilePicUrl,omitempty"`
 	ContactsCount int    `json:"contactsCount"`
+	ChatsCount    int64  `json:"chatsCount"`
 	MessagesCount int64  `json:"messagesCount"`
 }
 

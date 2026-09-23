@@ -7,6 +7,8 @@ import apiClient from './client';
 import type {
   Instance,
   InstanceOverview,
+  ProxyConfig,
+  ProxyTestResult,
   RawInstance,
   InstancesResponse,
   CreateInstancePayload,
@@ -36,7 +38,9 @@ const normalizeInstance = (raw: RawInstance): Instance => {
     instanceName: raw.name,
     status,
     apikey: raw.token,
-    owner: raw.jid ? raw.jid.split('@')[0] : '',
+    // jid is "5514991421911:5@s.whatsapp.net": drop the "@server" and the
+    // ":device" agent suffix, so the UI shows the plain phone number.
+    owner: raw.jid ? raw.jid.split('@')[0].split(':')[0] : '',
     profileName: raw.name,
     connected: raw.connected,
     qrcode,
@@ -268,6 +272,47 @@ export const getQrCode = async (
 };
 
 /**
+ * Proxy configuration for an instance (admin apikey).
+ * GET/POST/DELETE /instance/proxy/:instanceId, POST .../test and .../reconnect
+ */
+export const getProxy = async (
+  instanceId: string
+): Promise<ProxyConfig | null> => {
+  const response = await apiClient.get<{
+    message: string;
+    data: ProxyConfig | null;
+  }>(`/instance/proxy/${instanceId}`);
+  return response.data.data;
+};
+
+export const setProxy = async (
+  instanceId: string,
+  config: ProxyConfig
+): Promise<void> => {
+  await apiClient.post(`/instance/proxy/${instanceId}`, config);
+};
+
+/** Tests a proxy. Omit `config` (or pass an empty host) to test the saved one. */
+export const testProxy = async (
+  instanceId: string,
+  config?: ProxyConfig
+): Promise<ProxyTestResult> => {
+  const response = await apiClient.post<ProxyTestResult>(
+    `/instance/proxy/${instanceId}/test`,
+    config ?? {}
+  );
+  return response.data;
+};
+
+export const reconnectProxy = async (instanceId: string): Promise<void> => {
+  await apiClient.post(`/instance/proxy/${instanceId}/reconnect`);
+};
+
+export const deleteProxy = async (instanceId: string): Promise<void> => {
+  await apiClient.delete(`/instance/proxy/${instanceId}`);
+};
+
+/**
  * Get connection status of an instance
  * GET /instance/status
  */
@@ -386,6 +431,11 @@ export default {
   getAdvancedSettings,
   updateAdvancedSettings,
   getQrCode,
+  getProxy,
+  setProxy,
+  testProxy,
+  reconnectProxy,
+  deleteProxy,
   getConnectionState,
   logoutInstance,
   deleteInstance,

@@ -487,38 +487,47 @@ Two caveats, both inherited from upstream:
 Beyond the QR fixes above, this fork adds (all under `evolution-go-manager/src/`):
 
 - **Instances page** — each card shows the connected account's **profile picture**
-  (falling back to initials), its **contact count** and its **message count**.
-  These come from `GET /instance/overview/:instanceId` (below), fetched once per
-  instance per minute by `instancesStore.fetchOverviews`, so the 5 s instance
-  poll stays cheap.
+  (falling back to initials), its **contact count**, **chat count** and **message
+  count**. These come from `GET /instance/overview/:instanceId` (below), fetched
+  once per instance per minute by `instancesStore.fetchOverviews`, so the 5 s
+  instance poll stays cheap.
+- **Instance settings** — the token has a **copy button** next to the
+  reveal/hide eye (works while hidden or visible), and a **Proxy** card to
+  set/get/test/reconnect/delete the instance proxy
+  (`/instance/proxy/:instanceId*`, admin key).
+- **Phone number display** — `normalizeInstance` strips the WhatsApp `:device`
+  agent suffix from `jid` (`5514991421911:5@s.whatsapp.net` →
+  `5514991421911`), so the "Número"/"Proprietário" fields no longer show `:5`.
 - **Sidebar** — the running **version** (from `GET /server/stats` →
   `system.version`) and a **GitHub** link in the footer.
 - **Dashboard page** — the upstream placeholder is replaced by a small
   system-wide view: instances (total/connected), messages, contacts, host
   RAM/load/goroutines/uptime and a messages-per-day bar chart.
 
-The per-instance **message count** needed backend work: the `messages` table had
-no instance attribution (`source` holds the contact number). A nullable
-`instance_id` column was added (GORM AutoMigrate creates it), filled on insert
-(`whatsmeow` event handler), and exposed as `messagesCount` in
-`/instance/overview/:instanceId`. The instance delete path now also cleans up by
-`instance_id` (it previously filtered on `source`, which never matched). Rows
-written before the column existed are not counted.
+The per-instance **message and chat counts** needed backend work: the `messages`
+table had no instance attribution (`source` holds the contact number). A
+nullable `instance_id` column was added (GORM AutoMigrate creates it), filled on
+insert (`whatsmeow` event handler), and exposed as `messagesCount` /
+`chatsCount` in `/instance/overview/:instanceId`. **Chats** is the number of
+distinct contacts with at least one persisted message — the Go fork does not
+store a chat list, so this is the closest available metric. The instance delete
+path now also cleans up by `instance_id` (it previously filtered on `source`,
+which never matched). Rows written before the column existed are not counted.
 
-### Per-instance overview (profile picture + contacts + messages)
+### Per-instance overview (profile picture + contacts + chats + messages)
 
 `GET /instance/overview/:instanceId` (AuthAdmin) returns the connected
-account's own profile picture, push name, local contact count and the number of
-messages persisted for that instance:
+account's own profile picture, push name, local contact count, chat count and
+the number of messages persisted for that instance:
 
 ```json
-{"data":{"connected":true,"profileName":"…","profilePicUrl":"https://pps.whatsapp.net/…","contactsCount":346,"messagesCount":12}}
+{"data":{"connected":true,"profileName":"…","profilePicUrl":"https://pps.whatsapp.net/…","contactsCount":346,"chatsCount":12,"messagesCount":40}}
 ```
 
 Backed by `whatsmeowService.GetInstanceOverview` (a preview profile-picture IQ,
 time-bounded to 15 s, plus `Store.Contacts.GetAllContacts`) and
-`MessageRepository.CountByInstance`. `GET /server/stats` also reports
-`system.version` (the `-X main.version=` / `VERSION` value).
+`MessageRepository.CountByInstance` / `CountChatsByInstance`. `GET /server/stats`
+also reports `system.version` (the `-X main.version=` / `VERSION` value).
 
 To add more widgets, edit `manager/dist/dashboard.html` (fork's own page) or
 `evolution-go-manager/src/` (the SPA); if a value is missing from the API, add

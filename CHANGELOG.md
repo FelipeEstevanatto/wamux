@@ -36,14 +36,17 @@ Fork-specific fixes on top of `0.7.2` (see `FORK_NOTES.md` for the full list).
 
 ### ✨ Features
 - **Manager UI additions** — the Instances page now shows each connected
-  account's profile picture, contact count and message count (from
-  `GET /instance/overview/:instanceId`); the sidebar shows the running version
-  and a GitHub link; and the Dashboard placeholder is replaced by a small
-  system-wide view (instances, messages, contacts, host metrics, messages/day).
-- **Per-instance message count** — the `messages` table gained a nullable
-  `instance_id` column, filled on insert and exposed as `messagesCount` in
-  `/instance/overview/:instanceId`; deleting an instance now cleans up its
-  messages by `instance_id`.
+  account's profile picture, contact count, chat count and message count (from
+  `GET /instance/overview/:instanceId`); instance settings gain a token **copy**
+  button and a **Proxy** card (set/test/reconnect/delete); the phone number no
+  longer shows the WhatsApp `:device` suffix; the sidebar shows the running
+  version and a GitHub link; and the Dashboard placeholder is replaced by a
+  small system-wide view (instances, messages, contacts, host metrics,
+  messages/day).
+- **Per-instance message and chat counts** — the `messages` table gained a
+  nullable `instance_id` column, filled on insert and exposed as `messagesCount`
+  / `chatsCount` in `/instance/overview/:instanceId`; deleting an instance now
+  cleans up its messages by `instance_id`.
 - **Swagger docs regenerated** — `docs/` now reflects the fork's routes
   (`/chat/ephemeral`, `/send/event`, `/send/product`, `/typebot/*`,
   `/instance/overview/:id`, `/server/stats`, `/instance/limits/:id`, …) and no

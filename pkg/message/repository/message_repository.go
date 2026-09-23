@@ -13,6 +13,7 @@ type MessageRepository interface {
 	GetLatestMessageID(source string) (string, string, error)
 	GetStats() (*MessageStats, error)
 	CountByInstance(instanceId string) (int64, error)
+	CountChatsByInstance(instanceId string) (int64, error)
 }
 
 // StatKV is a label/count pair used by the dashboard aggregations.
@@ -93,6 +94,21 @@ func (m *messageRepository) CountByInstance(instanceId string) (int64, error) {
 		Where("instance_id = ?", instanceId).
 		Count(&total).Error
 	return total, err
+}
+
+// CountChatsByInstance counts distinct conversations for an instance. The Go
+// fork does not persist a chat list, so "chats" is the number of distinct
+// contacts that have at least one persisted message with this instance.
+func (m *messageRepository) CountChatsByInstance(instanceId string) (int64, error) {
+	var total int64
+	row := m.db.Model(&message_model.Message{}).
+		Where("instance_id = ?", instanceId).
+		Select("COUNT(DISTINCT source)").
+		Row()
+	if err := row.Scan(&total); err != nil {
+		return 0, err
+	}
+	return total, nil
 }
 
 // GetStats aggregates the messages table: total, breakdown by status, by day
