@@ -1,4 +1,5 @@
 import { LogOut, Menu, Moon, Sun } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import useAuth from '@/hooks/useAuth';
 import { useDarkMode } from '@/hooks/useDarkMode';
 import { PRODUCT_NAME } from '@/constants/branding';
@@ -24,9 +25,13 @@ function Header({ onOpenMenu }: { onOpenMenu?: () => void }) {
         >
           <Menu className="h-5 w-5" />
         </button>
-        <span className="truncate text-base font-bold text-primary">
+        <Link
+          to="/manager"
+          className="truncate text-base font-bold text-primary transition-colors hover:text-primary/80"
+          title="Ir para o Dashboard"
+        >
           {PRODUCT_NAME}
-        </span>
+        </Link>
       </div>
 
       {/* Right */}
