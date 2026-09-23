@@ -127,6 +127,9 @@ Reviewed independently against [ecosb2b/evo-go-v2](https://github.com/ecosb2b/ev
 | Typebot integration (bot CRUD, sessions, startChat/continueChat, flood/loop protections, `TypebotAutoPaused` alert) + `TYPEBOT_*` config. | large feature ported |
 | `POST /user/savecontact` route aligned and app-state desync recovery added (force full sync on 409/LTHash, fall back to fatal recovery); BR/MX number normalisation via `ParseJID`+`CanonicalJID`. | evo-go-v2 alignment |
 | Shared sqlstore container no longer caches a transient init failure (`sync.Once` → mutex + memoize success). | evo-go-v2 edge case; our shared-pool approach kept |
+| Webhook delivery: a dotless queue name (e.g. `sendstatus`) silently dropped the event before any HTTP call; delivery now uses exponential backoff, skips retrying 4xx (except 408/429), caps the read body at 8 KiB, and bounds concurrent deliveries. | NathanAshford; supersedes our earlier webhook timeout-only change |
+| Proxy tooling: `GET /instance/proxy/:id`, `POST .../test`, `POST .../reconnect` — checks reachability, the exit IP vs the server IP, and whether WhatsApp is reachable through it. | NathanAshford |
+| Account limits: `GET /instance/limits/:instanceId` — WhatsApp reachout timelock and new-chat messaging quota (the limits behind error 463), cached on connect with a live fallback. | NathanAshford (`pkg/walimits`) |
 
 **Kept our implementation over evo-go-v2's** (ours handles an edge case theirs does not): `/group/myall` owner filter (ours is strictly owner via `Store.ID`+`Store.LID`; theirs broadens to admin/superadmin); shared Postgres pool (reuses the existing `authDB`; theirs opens a second pool); `pkg/safemap` generic wrapper (vs their global mutex at ~103 call sites); conservative reconnect backoff (vs their `runtime_lifecycle` supervisor); WebSocket multi-subscriber (theirs replaces the previous connection); startup restore of paired instances; unbounded-HTTP hardening; and a newer whatsmeow.
 
@@ -191,6 +194,38 @@ normally — `/server/ok`, `/dashboard`, `/swagger`, `/manager`, `/instance/all`
 all behave as before, with zero Typebot log lines or errors. The inbound hook is a
 no-op in that state (`ProcessMessage` returns right after `GetActiveBot` finds
 nothing; no HTTP call is made) and the two Typebot tables are simply empty.
+
+## 3e. VoIP / call history — not implemented here (pointer for future work)
+
+The fork does **not** implement WhatsApp voice calls beyond `POST /call/reject`
+(upstream's only call feature). If that becomes a requirement, there is a working
+reference implementation to study rather than start from zero:
+
+**[NathanAshford/evolution-go-custom](https://github.com/NathanAshford/evolution-go-custom)** —
+`pkg/voip/**` (~25k lines) plus `pkg/call/{handler,service}` routes:
+
+```
+POST /call/offer        ring a number, returns a callId
+POST /call/accept       answer an incoming call
+POST /call/terminate    end
+POST /call/hangup       end
+GET  /call/audio/:callId  bidirectional call audio (16 kHz mono PCM) over a WebSocket
+GET  /call/list         active calls
+GET  /call/history      past calls
+GET  /call/status/:callId
+```
+
+What it actually contains: a WaCalls-based signalling stack, MLow/CELP codec
+(encoders/decoders, LPC/LSF/FFT/range coder), SRTP, STUN, an SCTP relay, RTP
+handling, and an in-memory call manager/state machine.
+
+**Important framing:** `/call/list`, `/call/history` and `/call/status` are **not**
+standalone features — they read from that call manager, so there is nothing to
+list without porting the VoIP stack. This is the same territory as upstream PR
+**#141** ("answer/control WhatsApp calls over WebSocket"), which this fork
+deliberately excluded (§3): a feature, not a stability fix, with a large
+dependency surface and real-time media that needs live-call validation. Treat it
+as a self-contained product feature, not a patch.
 
 ## 3c. Known remaining issues worth tackling next
 

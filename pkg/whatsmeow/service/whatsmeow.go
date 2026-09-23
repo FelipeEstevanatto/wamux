@@ -49,6 +49,7 @@ import (
 	poll_service "github.com/evolution-foundation/evolution-go/pkg/poll/service"
 	storage_interfaces "github.com/evolution-foundation/evolution-go/pkg/storage/interfaces"
 	"github.com/evolution-foundation/evolution-go/pkg/utils"
+	"github.com/evolution-foundation/evolution-go/pkg/walimits"
 )
 
 type WhatsmeowService interface {
@@ -577,6 +578,87 @@ func reconnectSucceeded(instanceID string) {
 	reconnectMu.Lock()
 	delete(reconnectTrack, instanceID)
 	reconnectMu.Unlock()
+}
+
+// ClearReconnectBackoff forgets an instance's reconnect history so the next
+// reconnect gets a fresh, unthrottled budget. Used when a human explicitly asks
+// for a reconnect (for example after changing the proxy), which is exactly the
+// signal that the automatic counter no longer describes the situation.
+func ClearReconnectBackoff(instanceID string) {
+	reconnectSucceeded(instanceID)
+}
+
+// AccountLimitsCacheEntry holds the last successfully fetched WhatsApp account
+// limits for an instance. The MEX queries can be slow/rate-limited, so they are
+// fetched once on connect and cached here for GET /instance/limits to serve
+// instantly.
+type AccountLimitsCacheEntry struct {
+	ReachoutActive bool
+	ReachoutEnds   int64 // unix seconds
+	ReachoutType   string
+	CappingStatus  string
+	TotalQuota     int
+	UsedQuota      int
+	CycleEnds      int64 // unix seconds
+	FetchedAt      time.Time
+}
+
+var accountLimitsCache sync.Map // instanceID(string) -> *AccountLimitsCacheEntry
+
+// GetCachedAccountLimits returns the last fetched account limits for an instance, if any.
+func GetCachedAccountLimits(instanceID string) (*AccountLimitsCacheEntry, bool) {
+	v, ok := accountLimitsCache.Load(instanceID)
+	if !ok {
+		return nil, false
+	}
+	return v.(*AccountLimitsCacheEntry), true
+}
+
+// logAccountLimits queries WhatsApp's MEX endpoints for the account's new-chat
+// message capping and reachout timelock state, logs them, and caches the result.
+// Error 463 on sends to NEW contacts is caused by these account-level limits, not
+// by local code.
+func (mycli *MyClient) logAccountLimits() {
+	client := mycli.WAClient
+	if client == nil {
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+
+		entry := &AccountLimitsCacheEntry{FetchedAt: time.Now()}
+		got := false
+
+		if capInfo, err := walimits.GetNewChatMessageCappingInfo(ctx, client); err != nil {
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Failed to fetch new-chat message capping info: %v", mycli.userID, err)
+		} else if capInfo != nil {
+			entry.CappingStatus = string(capInfo.CappingStatus)
+			entry.TotalQuota = capInfo.TotalQuota
+			entry.UsedQuota = capInfo.UsedQuota
+			entry.CycleEnds = capInfo.CycleEndTimestamp.Unix()
+			got = true
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] NEW-CHAT CAPPING: status=%s used=%d/%d cycleEnds=%s",
+				mycli.userID, capInfo.CappingStatus, capInfo.UsedQuota, capInfo.TotalQuota, capInfo.CycleEndTimestamp.Time)
+		}
+
+		if tl, err := walimits.GetAccountReachoutTimelock(ctx, client); err != nil {
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Failed to fetch reachout timelock: %v", mycli.userID, err)
+		} else if tl != nil {
+			entry.ReachoutActive = tl.IsActive
+			if tl.IsActive {
+				entry.ReachoutEnds = tl.TimeEnforcementEnds.Unix()
+			}
+			entry.ReachoutType = string(tl.EnforcementType)
+			got = true
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] REACHOUT TIMELOCK: active=%t ends=%s type=%s",
+				mycli.userID, tl.IsActive, tl.TimeEnforcementEnds.Time, tl.EnforcementType)
+		}
+
+		if got {
+			accountLimitsCache.Store(mycli.userID, entry)
+		}
+	}()
 }
 
 // History-sync depth requested from the phone when a device links (DeviceProps.HistorySyncConfig).
@@ -1168,6 +1250,10 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		// Without this, a drop tomorrow would inherit today's restarts.
 		reconnectSucceeded(mycli.userID)
 		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] events.Connected to Whatsapp for user '%s'", mycli.userID, mycli.WAClient.Store.PushName)
+		// Refresh the account-level limits cache (new-chat quota / reachout
+		// timelock) in the background so /instance/limits does not have to pay
+		// the slow MEX query per request.
+		mycli.logAccountLimits()
 		if len(mycli.WAClient.Store.PushName) > 0 {
 			doWebhook = true
 			postMap["event"] = "Connected"

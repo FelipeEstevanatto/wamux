@@ -20,6 +20,7 @@ import (
 	instance_repository "github.com/evolution-foundation/evolution-go/pkg/instance/repository"
 	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
 	"github.com/evolution-foundation/evolution-go/pkg/utils"
+	"github.com/evolution-foundation/evolution-go/pkg/walimits"
 	whatsmeow_service "github.com/evolution-foundation/evolution-go/pkg/whatsmeow/service"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types"
@@ -40,7 +41,11 @@ type InstanceService interface {
 	Delete(id string) error
 	SetProxy(id string, proxyConfig *ProxyConfig) error
 	SetProxyFromStruct(id string, data *SetProxyStruct) error
+	GetProxy(id string) (*ProxyConfig, error)
+	TestProxy(cfg *ProxyConfig) (*ProxyTestResult, error)
+	ReconnectProxy(id string) error
 	RemoveProxy(id string) error
+	GetLimits(instanceId string) (*LimitsStruct, error)
 	ForceReconnect(instanceId string, number string) error
 	GetInstanceByToken(token string) (*instance_model.Instance, error)
 	GetLogs(instanceId string, startDate, endDate time.Time, level string, limit int) ([]logger_wrapper.LogEntry, error)
@@ -55,6 +60,28 @@ type instances struct {
 	clientPointer      *safemap.Map[*whatsmeow.Client]
 	whatsmeowService   whatsmeow_service.WhatsmeowService
 	loggerWrapper      *logger_wrapper.LoggerManager
+}
+
+// ReachoutTimelockStruct reports whether the account is barred from messaging new
+// contacts, and until when. Behind WhatsApp error 463.
+type ReachoutTimelockStruct struct {
+	IsActive            bool   `json:"isActive"`
+	TimeEnforcementEnds int64  `json:"timeEnforcementEnds"` // unix seconds
+	EnforcementType     string `json:"enforcementType"`
+}
+
+// NewChatCappingStruct is the account's quota for starting brand-new chats.
+type NewChatCappingStruct struct {
+	CappingStatus string `json:"cappingStatus"`
+	TotalQuota    int    `json:"totalQuota"`
+	UsedQuota     int    `json:"usedQuota"`
+	CycleEnds     int64  `json:"cycleEnds"` // unix seconds
+}
+
+// LimitsStruct aggregates WhatsApp's account-level messaging limits for an instance.
+type LimitsStruct struct {
+	ReachoutTimelock *ReachoutTimelockStruct `json:"reachoutTimelock"`
+	NewChatCapping   *NewChatCappingStruct   `json:"newChatCapping"`
 }
 
 type ProxyConfig struct {
@@ -639,6 +666,119 @@ func (i instances) Delete(id string) error {
 	}
 
 	return nil
+}
+
+// GetProxy returns the proxy configuration saved for an instance, or nil when
+// none is set. Admin-only route — credentials are included so the manager can
+// pre-fill the form.
+func (i instances) GetProxy(id string) (*ProxyConfig, error) {
+	instance, err := i.instanceRepository.GetInstanceByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	if instance.Proxy == "" {
+		return nil, nil
+	}
+
+	var proxyConfig ProxyConfig
+	if err := json.Unmarshal([]byte(instance.Proxy), &proxyConfig); err != nil {
+		i.loggerWrapper.GetLogger(id).LogError("[%s] Failed to unmarshal stored proxy config: %v", id, err)
+		return nil, fmt.Errorf("stored proxy configuration is invalid: %w", err)
+	}
+
+	// Older rows may hold the literal "null" or an object without a host, which
+	// unmarshals into a zero struct. Report those as "no proxy configured".
+	if proxyConfig.Host == "" {
+		return nil, nil
+	}
+
+	return &proxyConfig, nil
+}
+
+// ReconnectProxy re-establishes the WhatsApp connection using the proxy already
+// saved for the instance, without changing the stored configuration. Useful when
+// the proxy dropped and the socket needs to be rebuilt through it.
+func (i instances) ReconnectProxy(id string) error {
+	proxyConfig, err := i.GetProxy(id)
+	if err != nil {
+		return err
+	}
+
+	if proxyConfig == nil || proxyConfig.Host == "" {
+		return fmt.Errorf("no proxy configured for this instance")
+	}
+
+	i.loggerWrapper.GetLogger(id).LogInfo(
+		"[%s] Reconnecting through proxy %s://%s:%s",
+		id, proxyConfig.Protocol, proxyConfig.Host, proxyConfig.Port,
+	)
+
+	// Operator-triggered — give the instance a fresh automatic retry budget.
+	whatsmeow_service.ClearReconnectBackoff(id)
+
+	return i.whatsmeowService.ReconnectClient(id)
+}
+
+// GetLimits returns WhatsApp's reachout timelock and new-chat messaging quota for
+// an instance — the account-level limits behind error 463. It serves the value
+// cached on connect (the MEX queries are slow/rate-limited); on a cache miss it
+// does a live query with a short timeout so the HTTP request never hangs.
+func (i instances) GetLimits(instanceId string) (*LimitsStruct, error) {
+	if e, ok := whatsmeow_service.GetCachedAccountLimits(instanceId); ok {
+		result := &LimitsStruct{
+			ReachoutTimelock: &ReachoutTimelockStruct{
+				IsActive:            e.ReachoutActive,
+				TimeEnforcementEnds: e.ReachoutEnds,
+				EnforcementType:     e.ReachoutType,
+			},
+		}
+		if e.CappingStatus != "" {
+			result.NewChatCapping = &NewChatCappingStruct{
+				CappingStatus: e.CappingStatus,
+				TotalQuota:    e.TotalQuota,
+				UsedQuota:     e.UsedQuota,
+				CycleEnds:     e.CycleEnds,
+			}
+		}
+		return result, nil
+	}
+
+	client, err := i.ensureClientConnected(instanceId)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
+	defer cancel()
+	result := &LimitsStruct{}
+
+	if tl, err := walimits.GetAccountReachoutTimelock(ctx, client); err != nil {
+		i.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Failed to fetch reachout timelock: %v", instanceId, err)
+	} else if tl != nil {
+		var ends int64
+		if tl.IsActive {
+			ends = tl.TimeEnforcementEnds.Unix()
+		}
+		result.ReachoutTimelock = &ReachoutTimelockStruct{
+			IsActive:            tl.IsActive,
+			TimeEnforcementEnds: ends,
+			EnforcementType:     string(tl.EnforcementType),
+		}
+	}
+
+	if capping, err := walimits.GetNewChatMessageCappingInfo(ctx, client); err != nil {
+		i.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Failed to fetch new-chat capping info: %v", instanceId, err)
+	} else if capping != nil {
+		result.NewChatCapping = &NewChatCappingStruct{
+			CappingStatus: string(capping.CappingStatus),
+			TotalQuota:    capping.TotalQuota,
+			UsedQuota:     capping.UsedQuota,
+			CycleEnds:     capping.CycleEndTimestamp.Unix(),
+		}
+	}
+
+	return result, nil
 }
 
 func (i instances) SetProxy(id string, proxyConfig *ProxyConfig) error {
