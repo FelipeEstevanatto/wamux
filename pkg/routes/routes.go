@@ -11,6 +11,7 @@ import (
 	call_handler "github.com/evolution-foundation/evolution-go/pkg/call/handler"
 	chat_handler "github.com/evolution-foundation/evolution-go/pkg/chat/handler"
 	community_handler "github.com/evolution-foundation/evolution-go/pkg/community/handler"
+	config "github.com/evolution-foundation/evolution-go/pkg/config"
 	group_handler "github.com/evolution-foundation/evolution-go/pkg/group/handler"
 	instance_handler "github.com/evolution-foundation/evolution-go/pkg/instance/handler"
 	label_handler "github.com/evolution-foundation/evolution-go/pkg/label/handler"
@@ -25,6 +26,7 @@ import (
 )
 
 type Routes struct {
+	config                  *config.Config
 	authMiddleware          auth_middleware.Middleware
 	jidValidationMiddleware *auth_middleware.JIDValidationMiddleware
 	instanceHandler         instance_handler.InstanceHandler
@@ -59,7 +61,11 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 		c.Next()
 	})
 
-	eng.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	// Swagger docs. Public (no apikey); enabled by default, disable with
+	// SWAGGER_ENABLED=false to avoid exposing the API surface on a public host.
+	if r.config == nil || r.config.SwaggerEnabled {
+		eng.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	}
 
 	eng.GET("/favicon.ico", func(c *gin.Context) {
 		c.Status(http.StatusNoContent)
@@ -289,6 +295,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 }
 
 func NewRouter(
+	config *config.Config,
 	authMiddleware auth_middleware.Middleware,
 	instanceHandler instance_handler.InstanceHandler,
 	userHandler user_handler.UserHandler,
@@ -305,6 +312,7 @@ func NewRouter(
 	typebotHandler typebot_handler.TypebotHandler,
 ) *Routes {
 	return &Routes{
+		config:                  config,
 		authMiddleware:          authMiddleware,
 		jidValidationMiddleware: auth_middleware.NewJIDValidationMiddleware(),
 		instanceHandler:         instanceHandler,

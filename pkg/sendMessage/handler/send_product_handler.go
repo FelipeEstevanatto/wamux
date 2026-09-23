@@ -14,6 +14,10 @@ import (
 // @Description Products are created in the official app / Meta Commerce Manager; here you
 // @Description provide the `productId` and the data shown on the card. `price` is in
 // @Description thousandths of the currency unit (R$ 10,00 = 10000).
+// @Description NOTE: the card body renders on any account, but tapping "View" asks WhatsApp
+// @Description for the catalog product (businessOwnerJid + productId). That requires the
+// @Description sending account to be a WhatsApp Business account with a catalog and a real
+// @Description productId; otherwise the card is delivered but "View" opens a broken page.
 // @Tags Send Message
 // @Accept json
 // @Produce json

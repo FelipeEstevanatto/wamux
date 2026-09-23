@@ -257,6 +257,7 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	r.GET("/license/activate", licenseStatus)
 
 	routes.NewRouter(
+		config,
 		auth_middleware.NewMiddleware(config, instanceService),
 		instance_handler.NewInstanceHandler(instanceService, config),
 		user_handler.NewUserHandler(userService),

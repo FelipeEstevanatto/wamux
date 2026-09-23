@@ -69,6 +69,10 @@ type Config struct {
 	TypebotSendRateLimit     int
 	TypebotSendRateBurst     int
 
+	// SwaggerEnabled controls whether the public /swagger documentation routes
+	// are registered. Defaults to true.
+	SwaggerEnabled bool
+
 	// Logger configurations
 	LogMaxSize    int
 	LogMaxBackups int
@@ -287,6 +291,11 @@ func Load() *Config {
 		checkUserExists = "true"
 	}
 
+	// Swagger is served by default; set SWAGGER_ENABLED=false to disable it. The
+	// docs are public (no apikey), so this is the switch for locking down /swagger
+	// on an internet-facing deployment.
+	swaggerEnabled := os.Getenv(config_env.SWAGGER_ENABLED) != "false"
+
 	rerequestFromPhone := os.Getenv(config_env.REREQUEST_FROM_PHONE)
 
 	// Convertendo para int com valores padrão caso estejam vazios
@@ -392,6 +401,7 @@ func Load() *Config {
 		EventIgnoreStatus:        eventIgnoreStatus == "true",
 		QrcodeMaxCount:           qrMaxCount,
 		CheckUserExists:          checkUserExists != "false", // Default true, set to false to disable
+		SwaggerEnabled:           swaggerEnabled,
 		TypebotContactRateLimit:  typebotContactRateLimit,
 		TypebotContactRateWindow: typebotContactRateWindow,
 		TypebotSendRateLimit:     typebotSendRateLimit,

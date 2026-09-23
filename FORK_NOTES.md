@@ -251,6 +251,40 @@ Not fixed here — they are larger or need protocol work. Ordered by impact.
 5. **Passkey events / ceremony** (#105, #107, #172, #173). `PASSKEY*` event
    groups are not in `event_types` or the subscription filter, so they can never
    reach a webhook; the ceremony state machine also gets stuck.
+## 3f. Media processing: ffmpeg dependency and running outside Docker
+
+Some media features shell out to external binaries that live in the **runtime
+image**, not in the Go binary:
+
+| Tool | Version in this image | Used for |
+|---|---|---|
+| `ffprobe` | **ffmpeg-6.1.1-r0** (Alpine) | video duration/width/height (issue #104) |
+| `ffmpeg` | **ffmpeg-6.1.1-r0** (Alpine) | first-frame JPEG thumbnail; audio → Opus conversion |
+| `pdftoppm` | Alpine `poppler-utils` (3.19.1) | PDF document thumbnails |
+
+On Alpine the `ffmpeg` package provides **both** `ffmpeg` and `ffprobe`
+(`/usr/bin/ffmpeg`, `/usr/bin/ffprobe`). The Dockerfile runtime stage installs
+`tzdata ffmpeg libjpeg-turbo libwebp poppler-utils`; that line is **upstream
+0.7.2** — this fork only changed the Go base image.
+
+**Caveat for a non-Docker deployment.** If the compiled binary is run directly on
+a host (not in this image), those tools are not present and the affected features
+degrade silently rather than failing:
+
+- video messages ship **without** dimensions/duration/first-frame thumbnail (the
+  bubble shows a generic placeholder);
+- audio conversion to Opus, PDF thumbnails and other shell-outs fail the same
+  way (the request may error where the container would have succeeded).
+
+Install `ffmpeg` and `poppler-utils` on the host to restore parity, or run the
+container. The helpers check `exec.LookPath` first, so a missing tool only drops
+the enhancement; `go test ./pkg/sendMessage/...` skips the video test when
+`ffprobe` is unavailable locally.
+
+The exact version moves with the Alpine base tag and is not pinned in the
+Dockerfile; `docker exec <container> apk info --who-owns /usr/bin/ffprobe`
+reports it.
+
 ## 4. Build & run
 
 From the repository root (the `docker-compose.yml` is there):
