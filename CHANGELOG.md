@@ -1,5 +1,15 @@
 # Evolution GO - Changelog
 
+## 0.8.1 — `fork/community-stable`
+
+Rebrand do painel para **Evo-GoFork** (fork comunitário, não oficial), remoção
+completa do fluxo de licença no manager, code-splitting das páginas e o
+dashboard self-hosted embutido na aba Dashboard. Fluxo de publicação separado:
+`main` gera release versionada, `develop` publica uma tag `dev` única.
+
+> **Build comunitário não oficial.** Não é afiliado, endossado ou uma release
+> oficial da Evolution Foundation. Veja `README.md` e `NOTICE`.
+
 ## 0.8.0 — `fork/community-stable`
 
 Community fork release on top of `0.7.2` (see `FORK_NOTES.md` for the full
