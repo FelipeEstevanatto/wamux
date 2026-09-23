@@ -740,12 +740,17 @@ export default function InstanceSettings() {
                   </label>
                   <input
                     type="password"
+                    placeholder={proxy?.hasPassword ? "•••••• (inalterada)" : "opcional"}
                     value={proxyForm.password}
                     onChange={(e) =>
                       setProxyForm({ ...proxyForm, password: e.target.value })
                     }
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    A senha salva nunca é exibida. Deixe em branco para manter a
+                    atual.
+                  </p>
                 </div>
               </div>
 

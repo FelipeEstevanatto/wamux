@@ -22,6 +22,7 @@ import (
 	"github.com/evolution-foundation/evolution-go/pkg/utils"
 	"github.com/evolution-foundation/evolution-go/pkg/walimits"
 	whatsmeow_service "github.com/evolution-foundation/evolution-go/pkg/whatsmeow/service"
+	"github.com/google/uuid"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types"
 )
@@ -668,6 +669,12 @@ func (i instances) Delete(id string) error {
 		i.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Failed to clear instance cache: %v", instance.Id, err)
 	}
 
+	// Remove the device (sessions, keys, contacts) from the whatsmeow store, so
+	// deleting an instance does not leave credentials behind.
+	if err := i.whatsmeowService.DeleteInstanceDevice(instance.Id, instance.Jid); err != nil {
+		i.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Failed to delete device store: %v", instance.Id, err)
+	}
+
 	err = i.instanceRepository.Delete(id)
 	if err != nil {
 		return err
@@ -810,6 +817,15 @@ func (i instances) SetProxy(id string, proxyConfig *ProxyConfig) error {
 
 	proxyConfig.Protocol = utils.NormalizeProxyProtocol(proxyConfig.Protocol, proxyConfig.Port)
 
+	// An empty password means "keep the current one": GET /instance/proxy no
+	// longer returns the stored password, so the UI cannot resend it.
+	if proxyConfig.Password == "" && instance.Proxy != "" {
+		var existing ProxyConfig
+		if err := json.Unmarshal([]byte(instance.Proxy), &existing); err == nil && existing.Host != "" {
+			proxyConfig.Password = existing.Password
+		}
+	}
+
 	// Convert proxy config to JSON
 	proxyJSON, err := json.Marshal(proxyConfig)
 	if err != nil {
@@ -948,6 +964,12 @@ func (i instances) GetInstanceByToken(token string) (*instance_model.Instance, e
 func (i instances) GetLogs(instanceId string, startDate, endDate time.Time, level string, limit int) ([]logger_wrapper.LogEntry, error) {
 	// Inicializa o slice vazio para garantir que nunca retorne null
 	logs := make([]logger_wrapper.LogEntry, 0)
+
+	// The id is used as a path segment below, so reject anything that is not a
+	// UUID: without this, "../.." would escape the log directory.
+	if _, err := uuid.Parse(instanceId); err != nil {
+		return logs, fmt.Errorf("invalid instance id")
+	}
 
 	// Define valores padrão
 	if limit <= 0 {

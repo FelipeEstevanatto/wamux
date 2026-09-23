@@ -70,6 +70,9 @@ type WhatsmeowService interface {
 
 	ReconnectClient(instanceId string) error
 	ClearInstanceCache(instanceId string, token string) error
+	// DeleteInstanceDevice removes the instance's device (and, by cascade, its
+	// sessions/keys/contacts) from the whatsmeow store.
+	DeleteInstanceDevice(instanceId, jid string) error
 	CallWebhook(instance *instance_model.Instance, queueName string, jsonData []byte)
 	SendToGlobalQueues(event string, jsonData []byte, userId string)
 	ForceUpdateJid(instanceId string, number string) error
@@ -463,8 +466,10 @@ func (w whatsmeowService) ForceUpdateJid(instanceId string, number string) error
 	}
 
 	if instance.Jid == "" && number != "" {
-		sqlDeviceSearch := fmt.Sprintf("SELECT jid FROM whatsmeow_device WHERE jid LIKE '%%%s%%'", number)
-		rows, err := w.authDB.Query(sqlDeviceSearch)
+		// Parameterised: `number` comes from the API body, so it must never be
+		// interpolated into SQL (it previously was, which allowed injection).
+		const sqlDeviceSearch = `SELECT jid FROM whatsmeow_device WHERE jid LIKE '%' || $1 || '%'`
+		rows, err := w.authDB.Query(sqlDeviceSearch, number)
 		if err != nil {
 			w.loggerWrapper.GetLogger(instanceId).LogError("[%s] Error getting device: %v", instanceId, err)
 			return err
@@ -2278,11 +2283,17 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		postMap["data"] = dataMap
 
 		if mycli.config.DatabaseSaveMessages {
+			// Messages sent from another own device arrive here with IsFromMe;
+			// only genuinely inbound ones are "Received".
+			status := "Received"
+			if evt.Info.IsFromMe {
+				status = "Sent"
+			}
 			message := message_model.Message{
 				MessageID:  evt.Info.ID,
 				InstanceId: mycli.userID,
 				Timestamp:  evt.Info.Timestamp.Format("2006-01-02 15:04:05"),
-				Status:     "Received",
+				Status:     status,
 				Source:     evt.Info.Chat.ToNonAD().User,
 				Referral:   referral,
 			}
@@ -2414,6 +2425,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 					var message message_model.Message
 
 					message.MessageID = v
+					message.InstanceId = mycli.userID
 					message.Timestamp = evt.Timestamp.Format("2006-01-02 15:04:05")
 					message.Status = "Read"
 					message.Source = evt.Chat.ToNonAD().User
@@ -2431,6 +2443,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			var message message_model.Message
 
 			message.MessageID = evt.MessageIDs[0]
+			message.InstanceId = mycli.userID
 			message.Timestamp = evt.Timestamp.Format("2006-01-02 15:04:05")
 			message.Status = "Delivered"
 			message.Source = evt.Chat.ToNonAD().User
@@ -3626,6 +3639,43 @@ func NewWhatsmeowService(
 // GetPollService retorna o serviço de polls (evita dupla inicialização)
 func (w *whatsmeowService) GetPollService() poll_service.PollService {
 	return w.pollService
+}
+
+// DeleteInstanceDevice removes the instance's device from the whatsmeow store.
+// Deleting an instance used to leave its whatsmeow_device row (and, through it,
+// the sessions, identity keys, pre-keys and contacts that cascade from it)
+// orphaned in the auth database forever. A never-paired instance has no JID, so
+// this is a no-op for it.
+func (w *whatsmeowService) DeleteInstanceDevice(instanceId, jid string) error {
+	if jid == "" {
+		return nil
+	}
+	parsed, ok := utils.ParseJID(jid)
+	if !ok || parsed.IsEmpty() {
+		return nil
+	}
+
+	container, err := w.getSharedSQLStoreContainer()
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	device, err := container.GetDevice(ctx, parsed)
+	if err != nil {
+		return err
+	}
+	if device == nil {
+		return nil
+	}
+
+	if err := device.Delete(ctx); err != nil {
+		return err
+	}
+	w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Deleted whatsmeow device store for %s", instanceId, parsed.String())
+	return nil
 }
 
 // GetInstanceOverview returns the instance's own profile picture, push name and

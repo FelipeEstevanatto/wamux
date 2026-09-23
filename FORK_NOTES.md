@@ -534,6 +534,53 @@ To add more widgets, edit `manager/dist/dashboard.html` (fork's own page) or
 it to `/server/stats` or `/instance/overview/:instanceId`.
 
 
+## 3j. Security audit & hardening
+
+An audit (static review + `govulncheck` / `bun audit` + live runtime checks)
+found the following. Each was reproduced against the running stack before being
+fixed.
+
+| # | Finding | Reproduced how | Status |
+|---|---|---|---|
+| S1 | SQL injection in `ForceUpdateJid` (`number` interpolated into `LIKE`) | `POST /instance/forcereconnect/:id` with `{"number":"zzz' UNION SELECT '1234567890:7@s.whatsapp.net' --"}` set the instance JID to the injected value (an escaped `LIKE '%zzz%'` matches 0 rows) | **Fixed** — parameterised: `LIKE '%' \|\| $1 \|\| '%'` |
+| S2 | 5 reachable CVEs (`x/image` 2021 pin, `pgx/v5` 5.5.5, `amqp091-go` 1.10.0) | `govulncheck ./...` | **Fixed** — `x/image v0.46.0`, `pgx/v5 v5.11.0`, `amqp091-go v1.15.0`; `govulncheck` now reports **0** |
+| S4 | Path traversal in `GetLogs` (`instanceId` joined into a path) | **not reachable over HTTP** — gin 404s on both `%2F` and a raw `..` (the `:instanceId` param never contains `/`) | **Fixed defensively** — UUID validation before `filepath.Join` |
+| S5 | Instance delete left the whatsmeow device (sessions/keys/contacts) orphaned | cloned a device row, deleted the instance, the row survived | **Fixed** — `DeleteInstanceDevice` purges the device (FK cascade removes the rest); live device untouched |
+| S7 | Admin key compared with `!=` | code review (a timing exploit was not demonstrated) | **Fixed** — `subtle.ConstantTimeCompare` |
+| S11 | (a) `/instance/all` returns instance tokens; (b) `/swagger` public; (c) proxy password returned in cleartext | `curl` on each | (a)/(b) **documented trade-offs** (admin-only; Swagger is gateable with `SWAGGER_ENABLED=false`); (c) **fixed** — GET no longer returns the password (`hasPassword` instead), and an empty password on save keeps the stored one |
+
+Not fixed here (lower priority, tracked for later): CORS `*` together with
+credentials, the container running as root, no API rate limiting, SSRF on
+user-supplied media/webhook/typebot URLs, and the proxy password stored in
+plaintext at rest.
+
+### `golang.org/x/image` pin
+
+It was pinned at `v0.0.0-20211028202545-6944b10bf410` (a 2021 commit) and is a
+**direct** import (`webp.Decode` in `pkg/whatsmeow/service/whatsmeow.go`).
+`go mod graph` shows the version was inherited from
+`github.com/chai2010/webp v1.1.1` (also a direct dependency, used in
+`pkg/sendMessage/service/send_service.go`), which requires exactly that
+pseudo-version; MVS takes the maximum and nothing required anything higher.
+There was no functional reason for it — the `x/image/webp` API is stable — so it
+is now `v0.46.0`.
+
+### Message persistence (parity with Evolution API)
+
+Only *received* messages used to be stored (`Status="Received"`), so the
+per-instance counts and `/server/stats` ignored everything the instance sent.
+Now:
+
+- the central `SendMessage` persists outgoing messages as `Status="Sent"`
+  (`sendService.persistSentMessage`, best-effort and asynchronous);
+- the inbound event handler records `IsFromMe` echoes as `Sent` and true inbound
+  as `Received`;
+- the Read/Delivered receipt upserts carry `instance_id` too.
+
+The `message_id` unique key makes all three idempotent, and the receipt upsert
+does not touch `instance_id` (it is not in `messageUpdateColumns`), so the
+attribution survives a status change.
+
 ## 4. Build & run
 
 From the repository root (the `docker-compose.yml` is there):

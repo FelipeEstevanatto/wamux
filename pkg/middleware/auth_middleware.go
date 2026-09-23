@@ -1,6 +1,7 @@
 package auth_middleware
 
 import (
+	"crypto/subtle"
 	"net/http"
 
 	"github.com/evolution-foundation/evolution-go/pkg/config"
@@ -43,7 +44,9 @@ func (m middleware) AuthAdmin(ctx *gin.Context) {
 		return
 	}
 
-	if token != m.config.GlobalApiKey {
+	// Constant-time comparison so the admin key cannot be recovered byte by
+	// byte through response-timing differences.
+	if subtle.ConstantTimeCompare([]byte(token), []byte(m.config.GlobalApiKey)) != 1 {
 		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "not authorized"})
 		return
 	}
