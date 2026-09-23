@@ -144,7 +144,8 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.POST("/check", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.userHandler.CheckUser)
 			routes.POST("/avatar", r.jidValidationMiddleware.ValidateNumberField(), r.userHandler.GetAvatar)
 			routes.GET("/contacts", r.userHandler.GetContacts)
-			routes.POST("/contacts", r.userHandler.SaveContact)
+			routes.POST("/savecontact", r.jidValidationMiddleware.ValidateNumberField(), r.userHandler.SaveContact)
+			routes.POST("/contacts", r.userHandler.SaveContact) // legacy alias for /savecontact
 			routes.GET("/privacy", r.userHandler.GetPrivacy)
 			routes.POST("/privacy", r.userHandler.SetPrivacy)
 			routes.POST("/block", r.jidValidationMiddleware.ValidateNumberField(), r.userHandler.BlockContact)

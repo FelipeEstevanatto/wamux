@@ -22,7 +22,7 @@ import (
 // @Success 200 {object} gin.H "success"
 // @Failure 400 {object} gin.H "Error on validation"
 // @Failure 500 {object} gin.H "Internal server error"
-// @Router /user/contacts [post]
+// @Router /user/savecontact [post]
 func (u *userHandler) SaveContact(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -39,8 +39,8 @@ func (u *userHandler) SaveContact(ctx *gin.Context) {
 		return
 	}
 
-	if len(data.Number) < 1 || len(data.FullName) < 1 {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone and fullName are required"})
+	if data.Number == "" || data.FullName == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "number and fullName are required"})
 		return
 	}
 
