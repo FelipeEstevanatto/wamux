@@ -109,5 +109,13 @@ func setMessageMentionedJIDs(msg *waE2E.Message, messageType string, mentionedJI
 			msg.ContactMessage.ContextInfo = &waE2E.ContextInfo{}
 		}
 		msg.ContactMessage.ContextInfo.MentionedJID = mentionedJIDs
+	case "EventMessage":
+		if msg.EventMessage == nil {
+			return
+		}
+		if msg.EventMessage.ContextInfo == nil {
+			msg.EventMessage.ContextInfo = &waE2E.ContextInfo{}
+		}
+		msg.EventMessage.ContextInfo.MentionedJID = mentionedJIDs
 	}
 }
