@@ -21,10 +21,10 @@
 > - Attribution & brand terms: [`NOTICE`](./NOTICE) and [`TRADEMARKS.md`](./TRADEMARKS.md)
 
 <p align="center">
-  <a href="https://github.com/FelipeEstevanatto/evolution-go/releases/latest"><img src="https://img.shields.io/github/v/release/FelipeEstevanatto/evolution-go?include_prereleases&label=version&color=00ffa7" alt="Latest version" /></a>
+  <a href="https://github.com/FelipeEstevanatto/evo-gofork/releases/latest"><img src="https://img.shields.io/github/v/release/FelipeEstevanatto/evo-gofork?include_prereleases&label=version&color=00ffa7" alt="Latest version" /></a>
   <a href="https://opensource.org/licenses/Apache-2.0"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License: Apache 2.0" /></a>
   <a href="https://docs.evolutionfoundation.com.br"><img src="https://img.shields.io/badge/Docs-upstream-00ffa7" alt="Documentation (upstream)" /></a>
-  <a href="https://github.com/FelipeEstevanatto/evolution-go/pkgs/container/evolution-go-community"><img src="https://img.shields.io/badge/Container-ghcr.io-blue" alt="Container image (this fork)" /></a>
+  <a href="https://github.com/FelipeEstevanatto/evo-gofork/pkgs/container/evolution-go-community"><img src="https://img.shields.io/badge/Container-ghcr.io-blue" alt="Container image (this fork)" /></a>
 </p>
 
 <p align="center">
@@ -75,7 +75,7 @@ docker compose up -d
 Or build from source:
 
 ```bash
-git clone https://github.com/FelipeEstevanatto/evolution-go.git
+git clone https://github.com/FelipeEstevanatto/evo-gofork.git
 cd evolution-go
 git checkout fork/community-stable
 make docker-build
@@ -85,7 +85,7 @@ make docker-run
 ### Local development
 
 ```bash
-git clone https://github.com/FelipeEstevanatto/evolution-go.git
+git clone https://github.com/FelipeEstevanatto/evo-gofork.git
 cd evolution-go
 git checkout fork/community-stable
 
@@ -212,8 +212,8 @@ evolution-go/
 
 | Resource | Link |
 |---|---|
-| This fork (source) | [FelipeEstevanatto/evolution-go](https://github.com/FelipeEstevanatto/evolution-go) |
-| This fork (container) | [ghcr.io/felipeestevanatto/evolution-go-community](https://github.com/FelipeEstevanatto/evolution-go/pkgs/container/evolution-go-community) |
+| This fork (source) | [FelipeEstevanatto/evo-gofork](https://github.com/FelipeEstevanatto/evo-gofork) |
+| This fork (container) | [ghcr.io/felipeestevanatto/evolution-go-community](https://github.com/FelipeEstevanatto/evo-gofork/pkgs/container/evolution-go-community) |
 | What this fork changed | [FORK_NOTES.md](./FORK_NOTES.md) · [CHANGELOG.md](./CHANGELOG.md) |
 | Upstream project | [evolution-foundation/evolution-go](https://github.com/evolution-foundation/evolution-go) |
 | Upstream docs | [docs.evolutionfoundation.com.br](https://docs.evolutionfoundation.com.br) |
