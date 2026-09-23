@@ -5,6 +5,11 @@
 Fork-specific fixes on top of `0.7.2` (see `FORK_NOTES.md` for the full list).
 
 ### 🐛 Bug Fixes
+- **`PairError` is handled** — pairing failures after pair-success (e.g. the
+  device identity could not be stored) were only visible as an "Unhandled
+  event" warning, and a passkey ceremony stayed stuck until its TTL. Now the
+  error is logged, surfaced on the passkey ceremony (`SetError`) and forwarded
+  as a `PairError` webhook to PASSKEY/QRCODE subscribers.
 - **Media retry for expired media** — `/message/downloadmedia` now accepts
   optional message context (`id`/`chat`/`fromMe`/`isGroup`/`participant`). When a
   download fails with 403/404/410, the server asks the sender's phone to
