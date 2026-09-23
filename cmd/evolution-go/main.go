@@ -256,6 +256,21 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	r.GET("/license/register", licenseStatus)
 	r.GET("/license/activate", licenseStatus)
 
+	// The dashboard's storage panel reports the size of the app's data directory
+	// (the parent of LOG_DIRECTORY, i.e. the mounted volume) and of the disk that
+	// holds it. Fall back to the executable's directory when the logs path is
+	// relative, so the numbers stay meaningful outside Docker.
+	dataDir := exPath
+	if config.LogDirectory != "" {
+		if parent := filepath.Dir(config.LogDirectory); parent != "" && parent != "." {
+			dataDir = parent
+		}
+	}
+	mediaBackend := ""
+	if config.MinioEnabled {
+		mediaBackend = "minio:" + config.MinioBucket
+	}
+
 	routes.NewRouter(
 		config,
 		auth_middleware.NewMiddleware(config, instanceService),
@@ -270,7 +285,7 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		label_handler.NewLabelHandler(labelService),
 		newsletter_handler.NewNewsletterHandler(newsletterService),
 		pollHandler,
-		server_handler.NewServerHandler(messageRepository, version, whatsmeowService),
+		server_handler.NewServerHandler(messageRepository, version, whatsmeowService, dataDir, mediaBackend),
 		typebot_handler.NewTypebotHandler(typebotRepository, loggerWrapper),
 	).AssignRoutes(r)
 
