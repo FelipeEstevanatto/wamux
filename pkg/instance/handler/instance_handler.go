@@ -27,7 +27,11 @@ type InstanceHandler interface {
 	Rename(ctx *gin.Context)
 	Pair(ctx *gin.Context)
 	SetProxy(ctx *gin.Context)
+	GetProxy(ctx *gin.Context)
+	TestProxy(ctx *gin.Context)
+	ReconnectProxy(ctx *gin.Context)
 	DeleteProxy(ctx *gin.Context)
+	Limits(ctx *gin.Context)
 	ForceReconnect(ctx *gin.Context)
 	GetLogs(ctx *gin.Context)
 	GetAdvancedSettings(ctx *gin.Context)
@@ -501,6 +505,139 @@ func (i *instanceHandler) SetProxy(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+}
+
+// Get proxy configuration
+// @Summary Get proxy configuration
+// @Description Returns the proxy configuration saved for an instance, or null when none is set
+// @Tags Instance
+// @Accept json
+// @Produce json
+// @Param instanceId path string true "Instance id"
+// @Success 200 {object} gin.H "Proxy configuration"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /instance/proxy/{instanceId} [get]
+func (i *instanceHandler) GetProxy(ctx *gin.Context) {
+	instanceId := ctx.Param("instanceId")
+
+	if instanceId == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "instanceId is required"})
+		return
+	}
+
+	proxyConfig, err := i.instanceService.GetProxy(instanceId)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// data is null when the instance has no proxy configured.
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": proxyConfig})
+}
+
+// Test proxy connectivity
+// @Summary Test proxy connectivity
+// @Description Checks whether a proxy works, which IP it exits from, and whether
+// @Description WhatsApp is reachable through it. An empty body tests the proxy already
+// @Description saved for the instance.
+// @Tags Instance
+// @Accept json
+// @Produce json
+// @Param instanceId path string true "Instance id"
+// @Param proxy body instance_service.ProxyConfig false "Proxy to test (defaults to the saved one)"
+// @Success 200 {object} instance_service.ProxyTestResult "Proxy test result"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /instance/proxy/{instanceId}/test [post]
+func (i *instanceHandler) TestProxy(ctx *gin.Context) {
+	instanceId := ctx.Param("instanceId")
+	if instanceId == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "instanceId is required"})
+		return
+	}
+
+	// An empty body means "test what is saved", which is what the Reconnect
+	// button next to it acts on. A body means "test what I just typed", so the
+	// operator can check a proxy before committing to it.
+	var cfg *instance_service.ProxyConfig
+	if err := ctx.ShouldBindJSON(&cfg); err != nil || cfg == nil || cfg.Host == "" {
+		saved, err := i.instanceService.GetProxy(instanceId)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if saved == nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "no proxy configured for this instance"})
+			return
+		}
+		cfg = saved
+	}
+
+	result, err := i.instanceService.TestProxy(cfg)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, result)
+}
+
+// Reconnect through the configured proxy
+// @Summary Reconnect through the configured proxy
+// @Description Rebuilds the WhatsApp connection using the saved proxy, without
+// @Description changing the stored configuration
+// @Tags Instance
+// @Accept json
+// @Produce json
+// @Param instanceId path string true "Instance id"
+// @Success 200 {object} gin.H "success"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /instance/proxy/{instanceId}/reconnect [post]
+func (i *instanceHandler) ReconnectProxy(ctx *gin.Context) {
+	instanceId := ctx.Param("instanceId")
+
+	if instanceId == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "instanceId is required"})
+		return
+	}
+
+	if err := i.instanceService.ReconnectProxy(instanceId); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success"})
+}
+
+// Get account limits
+// @Summary Get account messaging limits
+// @Description Returns WhatsApp's reachout timelock and new-chat messaging quota for the
+// @Description instance — the account-level limits behind error 463
+// @Tags Instance
+// @Accept json
+// @Produce json
+// @Param instanceId path string true "Instance id"
+// @Success 200 {object} instance_service.LimitsStruct "Account limits"
+// @Failure 400 {object} gin.H "Error on validation"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /instance/limits/{instanceId} [get]
+func (i *instanceHandler) Limits(ctx *gin.Context) {
+	instanceId := ctx.Param("instanceId")
+
+	if instanceId == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "instanceId is required"})
+		return
+	}
+
+	limits, err := i.instanceService.GetLimits(instanceId)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": limits})
 }
 
 // Delete proxy
