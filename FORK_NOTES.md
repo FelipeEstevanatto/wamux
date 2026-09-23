@@ -434,13 +434,53 @@ Two different UIs are served from the same origin:
 
 | Route | Source | Editable here? |
 |---|---|---|
-| `/manager` (+ `/manager/*`) | **Prebuilt** React SPA: `manager/dist/index.html` + `manager/dist/assets/index-*.js`/`.css`. | **No** — only the compiled bundle is committed; there is no `src/`, `package.json` or `vite.config` in this repo. The SPA's Dashboard/Messages/Events/Settings tabs are placeholders ("…will be implemented here…") baked into the minified bundle. Changing it needs the upstream Manager source and a rebuild (which also renames the hashed assets `index.html` points at). |
+| `/manager` (+ `/manager/*`) | React SPA. Source is **vendored** at `evolution-go-manager/`; the served build is `manager/dist/index.html` + `manager/dist/assets/index-*.js`/`.css`. | **Yes** — edit `evolution-go-manager/src/`, then `make manager-build` (or let Docker rebuild it, below). |
 | `/dashboard` | **Hand-written** static page `manager/dist/dashboard.html` (plain HTML + vanilla JS + Chart.js from CDN), added by this fork. | **Yes** — no build step; edit the file and reload. |
 
-`/dashboard` is the fork's own operational view. It already shows instance
-KPIs, a connection donut, messages/day, host RAM/load/goroutines/uptime, top
-conversations, an instance table and per-instance logs, and it supports
-`?embed=1` so it can be iframed inside the Manager's Dashboard tab.
+`/dashboard` is the fork's own operational view. It shows instance KPIs, a
+connection donut, messages/day, host RAM/load/goroutines/uptime, top
+conversations, an instance table (avatar + contact count) and per-instance logs,
+and it supports `?embed=1` so it can be iframed inside the Manager's Dashboard
+tab.
+
+### Manager source (`evolution-go-manager/`)
+
+The manager source is **not** on upstream `main` (only the compiled `manager/dist`
+is). It lives on upstream's **`develop`** branch under `evolution-go-manager/`,
+and is vendored here from there (commit `706c9a4`, 2026-05-06). Keeping the same
+path upstream uses means a future `develop`→`main` merge sees identical files.
+
+Build it with:
+
+```bash
+make manager-install   # pnpm, bun or npm — whichever is installed
+make manager-build     # builds and syncs into manager/dist (keeps dashboard.html)
+```
+
+`make manager-build` copies `evolution-go-manager/dist/{index.html,assets}` over
+`manager/dist/` and leaves `manager/dist/dashboard.html` untouched (Vite does not
+produce it). The Dockerfile does the same in a dedicated **`oven/bun`** stage, so
+`docker compose up -d --build` rebuilds the SPA automatically; `bun install`
+reads the committed `package-lock.json`, which pins `@evoapi/design-system` to
+`0.0.5` (the root import is used; `0.0.6` changed the export layout).
+
+Two caveats, both inherited from upstream:
+
+- **`develop` is older than the bundle `main` shipped.** The previous committed
+  `manager/dist` was `main`'s (688 KB JS); building `develop` gives ~682 KB. This
+  fork ships the rebuilt `develop` output **plus two bug fixes** taken from the
+  `ecosb2b/evo-go-v2` fork:
+  - `services/api/instances.ts` read the QR fields capitalised (`data.Qrcode` /
+    `data.Code`) while the API returns lowercase, so the QR modal opened blank
+    with no error; both spellings are now accepted.
+  - `components/instances/QRCodeModal.tsx` had `onRefresh` (and `instance`) in
+    the auto-refresh effect's dependency list; both change on every refresh, so
+    the interval was cleared and restarted before it ever fired — automatic QR
+    refresh never ran. `onRefresh` now lives in a ref and the effect keys on
+    `isConnected`.
+- The manager still carries the vendor **license screen**; the local `/license/*`
+  stub (see §1) keeps it satisfied, so nothing here talks to any Evolution
+  server.
 
 ### Per-instance overview (profile picture + contacts)
 
@@ -458,8 +498,10 @@ stays cheap. `GET /server/stats` now also reports `system.version` (the
 `-X main.version=` / `VERSION` value), shown as a header badge next to a static
 GitHub link.
 
-To add more widgets, edit `manager/dist/dashboard.html`; if a value is missing
-from the API, add it to `/server/stats` or `/instance/overview/:instanceId`.
+To add more widgets, edit `manager/dist/dashboard.html` (fork's own page) or
+`evolution-go-manager/src/` (the SPA); if a value is missing from the API, add
+it to `/server/stats` or `/instance/overview/:instanceId`.
+
 
 ## 4. Build & run
 
@@ -475,6 +517,10 @@ docker compose up -d --build
 - Manager: <http://localhost:8081/manager> (log in with `GLOBAL_API_KEY`)
 - Dashboard (fork's own, editable): <http://localhost:8081/dashboard> (same key; see §3i)
 - Postgres is bundled and databases are auto-created.
+
+`docker compose up --build` also builds the manager SPA from
+`evolution-go-manager/` (bun stage), so frontend edits are picked up by the same
+command. To build it locally instead, use `make manager-build` (§3i).
 
 Optional brokers/storage, not started by default:
 
@@ -508,10 +554,11 @@ go vet ./...
 
 ## 6. Known limitations
 
-- The prebuilt Manager SPA (`/manager`) has no source in this repo — only the
-  compiled bundle under `manager/dist/` (and its license-screen code, which the
-  local stub keeps satisfied). Rebuilding it from source is out of scope; use
-  the fork's editable `/dashboard` page instead (see §3i).
+- The Manager SPA source is vendored at `evolution-go-manager/`, taken from
+  upstream's `develop` branch (the only place it exists — `main` ships only the
+  compiled `manager/dist`). `develop` is an older revision than the bundle
+  `main` previously shipped, so the rebuilt `manager/dist` differs slightly; see
+  §3i for the two bug fixes applied and how to rebuild.
 - `docs/docs.go` / `swagger.json` still contain generated annotations for the
   removed `/license/*` routes. They are inert documentation, not code.
 - The upstream LICENSE still applies (Apache 2.0 plus its brand-protection and

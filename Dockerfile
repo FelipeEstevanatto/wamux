@@ -1,3 +1,16 @@
+# ---- Manager (React frontend) ----
+# Builds the SPA from the vendored source in evolution-go-manager/, using the
+# committed package-lock.json (which pins @evoapi/design-system to 0.0.5).
+# Bun is used because it installs straight from package-lock.json and is far
+# faster than npm; the toolchain only exists in this stage.
+FROM oven/bun:1-alpine AS manager
+
+WORKDIR /manager
+COPY evolution-go-manager/package.json evolution-go-manager/package-lock.json ./
+RUN bun install --no-save
+COPY evolution-go-manager/ ./
+RUN bun run build
+
 FROM golang:1.26-alpine AS build
 
 RUN apk update && apk add --no-cache git build-base libjpeg-turbo-dev libwebp-dev
@@ -13,6 +26,13 @@ RUN go mod download
 
 # Copiar o restante do código
 COPY . .
+
+# Use the freshly built manager assets instead of the committed ones. Fork-only
+# files under manager/dist (e.g. dashboard.html) are not produced by the Vite
+# build, so they come from the repo copy above and are preserved.
+RUN rm -rf manager/dist/assets manager/dist/index.html
+COPY --from=manager /manager/dist/assets ./manager/dist/assets
+COPY --from=manager /manager/dist/index.html ./manager/dist/index.html
 
 ARG VERSION=dev
 RUN CGO_ENABLED=1 go build -ldflags "-X main.version=${VERSION}" -o server ./cmd/evolution-go

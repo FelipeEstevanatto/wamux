@@ -56,6 +56,14 @@ Fork-specific fixes on top of `0.7.2` (see `FORK_NOTES.md` for the full list).
   alias) and app-state desync recovery.
 
 ### 🔧 Improvements
+- **Manager frontend source is now vendored and built in-repo** — the React SPA
+  source lives at `evolution-go-manager/` (taken from upstream's `develop`
+  branch, the only place it exists) and is built into `manager/dist` by
+  `make manager-build` or the Dockerfile's `oven/bun` stage. Two QR bugs from the
+  `ecosb2b/evo-go-v2` fork are fixed: the QR modal read the fields capitalised
+  (`data.Qrcode`/`data.Code`) while the API returns lowercase, and the
+  auto-refresh effect had `onRefresh`/`instance` in its deps, so the interval
+  reset before it ever fired. See `FORK_NOTES.md` §3i.
 - **Animated WebP stickers** are uploaded untouched instead of being re-encoded,
   which previously failed on animated WebP and flattened static WebP.
 - **Interactive buttons/Pix** rewritten to the `native_flow` payloads WhatsApp

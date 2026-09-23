@@ -37,6 +37,11 @@ Makefile
 *_test.go
 *.test
 
+# Manager source is built in its own Dockerfile stage. Exclude local
+# install/build artifacts from the context (keep the source files themselves).
+evolution-go-manager/node_modules
+evolution-go-manager/dist
+
 # Manager/dist é necessário - serve arquivos estáticos do frontend React
 # Não excluir - precisa estar na imagem final para ser acessado via /manager
 

@@ -1,4 +1,4 @@
-.PHONY: help dev run build test clean swagger deps docker-build docker-run install setup migrate-up migrate-down logs
+.PHONY: help dev run build test clean swagger deps docker-build docker-run install setup migrate-up migrate-down logs manager-install manager-build
 
 # Configurações
 APP_NAME=evolution-go
@@ -63,6 +63,26 @@ build-windows: ## Compila para Windows
 
 build-all: build build-linux build-windows ## Compila para todas as plataformas
 	@echo "$(GREEN)✅ Todos os builds completos$(NC)"
+
+##@ Manager (frontend React)
+
+manager-install: ## Instala as dependências do manager (pnpm, bun ou npm)
+	@echo "$(GREEN)📦 Instalando dependências do manager...$(NC)"
+	@cd evolution-go-manager && \
+	if command -v pnpm >/dev/null 2>&1; then pnpm install; \
+	elif command -v bun >/dev/null 2>&1; then bun install; \
+	else npm install; fi
+
+manager-build: ## Compila o manager e sincroniza com manager/dist (preserva dashboard.html)
+	@echo "$(GREEN)🔨 Compilando manager...$(NC)"
+	@cd evolution-go-manager && \
+	if command -v pnpm >/dev/null 2>&1; then pnpm build; \
+	elif command -v bun >/dev/null 2>&1; then bun run build; \
+	else npm run build; fi
+	rm -rf manager/dist/assets manager/dist/index.html
+	cp -r evolution-go-manager/dist/assets manager/dist/assets
+	cp evolution-go-manager/dist/index.html manager/dist/index.html
+	@echo "$(GREEN)✅ manager/dist atualizado (a partir de evolution-go-manager/) $(NC)"
 
 install: build ## Compila e instala no GOPATH
 	@echo "$(GREEN)📦 Instalando $(APP_NAME)...$(NC)"
