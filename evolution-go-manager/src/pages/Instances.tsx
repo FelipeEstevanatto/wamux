@@ -10,7 +10,7 @@ import {
   DialogTitle,
   Input,
 } from '@/components/ui';
-import { Trash2, Layers } from 'lucide-react';
+import { Trash2, Layers, PowerOff } from 'lucide-react';
 import { toast } from 'sonner';
 
 import useInstancesStore from '@/store/instancesStore';
@@ -50,6 +50,14 @@ export default function Instances() {
     instance: null,
     confirmationText: '',
   });
+  const [disconnectModal, setDisconnectModal] = useState<{
+    isOpen: boolean;
+    instance: Instance | null;
+  }>({
+    isOpen: false,
+    instance: null,
+  });
+  const [isDisconnecting, setIsDisconnecting] = useState<string | null>(null);
   const [sendMessageModal, setSendMessageModal] = useState<{
     isOpen: boolean;
     instance: Instance | null;
@@ -284,16 +292,32 @@ export default function Instances() {
     }
   }, [fetchInstances, instances]);
 
-  const handleDisconnect = useCallback(async (instance: Instance) => {
+  // The card's button only opens the confirmation; the actual logout runs from
+  // the modal, so disconnecting is never a single stray click.
+  const openDisconnectModal = useCallback((instance: Instance) => {
+    setDisconnectModal({ isOpen: true, instance });
+  }, []);
+
+  const closeDisconnectModal = () => {
+    setDisconnectModal({ isOpen: false, instance: null });
+  };
+
+  const handleConfirmDisconnect = useCallback(async () => {
+    const instance = disconnectModal.instance;
+    if (!instance) return;
+
+    if (!instance.apikey) {
+      toast.error('Token da instância não encontrado');
+      return;
+    }
+
+    setIsDisconnecting(instance.instanceName);
     try {
-      if (!instance.apikey) {
-        toast.error('Token da instância não encontrado');
-        return;
-      }
       toast.info(`Desconectando ${instance.instanceName}...`);
       await instancesApi.logoutInstance(instance.apikey);
       await fetchInstances();
       toast.success(`${instance.instanceName} desconectada!`);
+      closeDisconnectModal();
     } catch (error) {
       console.error('Erro ao desconectar instância:', error);
       toast.error(
@@ -301,8 +325,10 @@ export default function Instances() {
           ? error.message
           : 'Erro ao desconectar instância'
       );
+    } finally {
+      setIsDisconnecting(null);
     }
-  }, [fetchInstances]);
+  }, [disconnectModal.instance, fetchInstances]);
 
   const openDeleteModal = (instance: Instance) => {
     setDeleteModal({
@@ -493,7 +519,7 @@ export default function Instances() {
                 onSettings={handleSettings}
                 onDelete={openDeleteModal}
                 onConnect={handleConnect}
-                onDisconnect={handleDisconnect}
+                onDisconnect={openDisconnectModal}
                 onSendMessage={openSendMessageModal}
                 onTestMessage={openTestMessageModal}
               />
@@ -537,6 +563,49 @@ export default function Instances() {
         open={testMessageModal.isOpen}
         onClose={closeTestMessageModal}
       />
+
+      {/* Disconnect Confirmation Modal */}
+      <Dialog
+        open={disconnectModal.isOpen}
+        onOpenChange={(open) => {
+          if (!open) closeDisconnectModal();
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-yellow-500 dark:text-yellow-400">
+              <PowerOff className="h-5 w-5" />
+              Desconectar Instância
+            </DialogTitle>
+            <DialogDescription className="text-sidebar-foreground/70 dark:text-gray-400">
+              Você está prestes a desconectar a instância{' '}
+              <strong>{disconnectModal.instance?.instanceName}</strong>. Ela
+              deixará de enviar e receber mensagens até ser reconectada pelo QR
+              Code.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={closeDisconnectModal}
+              className="bg-sidebar border-sidebar-border text-sidebar-foreground hover:bg-sidebar-accent dark:text-gray-400 dark:hover:bg-sidebar-accent"
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDisconnect}
+              disabled={isDisconnecting === disconnectModal.instance?.instanceName}
+              className="bg-yellow-600 hover:bg-yellow-700 text-white dark:bg-yellow-600 dark:hover:bg-yellow-700"
+            >
+              {isDisconnecting === disconnectModal.instance?.instanceName
+                ? 'Desconectando...'
+                : 'Desconectar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Modal */}
       <Dialog open={deleteModal.isOpen} onOpenChange={closeDeleteModal}>
