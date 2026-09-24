@@ -18,6 +18,8 @@ const Events = lazy(() => import('@/pages/Events'));
 const Settings = lazy(() => import('@/pages/Settings'));
 const ApiTester = lazy(() => import('@/pages/ApiTester'));
 const About = lazy(() => import('@/pages/About'));
+const Terms = lazy(() => import('@/pages/Terms'));
+const Privacy = lazy(() => import('@/pages/Privacy'));
 
 function PageFallback() {
   return (
@@ -46,6 +48,11 @@ function App() {
                 path="/manager/login"
                 element={!isAuthenticated ? <Login /> : <Navigate to="/manager" replace />}
               />
+
+              {/* Public legal pages, linked from the login screen. Kept under
+                  /manager so the Go server's /manager/*any route serves the SPA. */}
+              <Route path="/manager/terms" element={<Terms />} />
+              <Route path="/manager/privacy" element={<Privacy />} />
 
               {/* Manager Protected Routes - require a valid API key */}
               {isAuthenticated ? (
