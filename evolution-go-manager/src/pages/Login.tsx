@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Button,
   Input,
@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 import useAuth from '@/hooks/useAuth';
 import { COPYRIGHT_LINE, FORK_DISCLAIMER, FORK_OF_NAME, PRODUCT_NAME } from '@/constants/branding';
@@ -23,6 +23,7 @@ export const Login: React.FC = () => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [loginError, setLoginError] = useState('');
+  const [showApiKey, setShowApiKey] = useState(false);
 
   // If already authenticated, go straight to the dashboard.
   useEffect(() => {
@@ -134,13 +135,29 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
             <div className="space-y-2">
               <Label htmlFor="login-apiKey">API Key (GLOBAL_API_KEY)</Label>
-              <Input
-                id="login-apiKey"
-                type="password"
-                placeholder="Sua chave de API"
-                disabled={isLoading}
-                {...loginForm.register('apiKey')}
-              />
+              <div className="relative">
+                <Input
+                  id="login-apiKey"
+                  type={showApiKey ? 'text' : 'password'}
+                  placeholder="Sua chave de API"
+                  disabled={isLoading}
+                  className="pr-10"
+                  {...loginForm.register('apiKey')}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowApiKey((value) => !value)}
+                  aria-label={showApiKey ? 'Ocultar API Key' : 'Mostrar API Key'}
+                  title={showApiKey ? 'Ocultar API Key' : 'Mostrar API Key'}
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none"
+                >
+                  {showApiKey ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
               {loginForm.formState.errors.apiKey && (
                 <p className="text-destructive text-sm">
                   {loginForm.formState.errors.apiKey.message}
@@ -168,13 +185,13 @@ type LoginFormData = z.infer<typeof loginSchema>;
         <div className="text-center text-xs text-muted-foreground">
           <p>
             Ao continuar, você concorda com nossos{' '}
-            <a href="#" className="underline hover:text-primary">
+            <Link to="/manager/terms" className="underline hover:text-primary">
               Termos de Serviço
-            </a>{' '}
+            </Link>{' '}
             e{' '}
-            <a href="#" className="underline hover:text-primary">
+            <Link to="/manager/privacy" className="underline hover:text-primary">
               Política de Privacidade
-            </a>
+            </Link>
             .
           </p>
           <p className="mt-3">{COPYRIGHT_LINE}</p>
