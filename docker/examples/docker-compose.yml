@@ -1,96 +1,70 @@
-version: '3.8'
+# =============================================================================
+# Evolution Go (community fork) — minimal pull-only stack
+#
+# Same as docker-compose.ghcr.yml but with everything on one hard-coded
+# container port (4000) and no .env indirection, for a quick local run:
+#
+#   docker compose -f docker-compose.yml up -d
+#
+# Then set GLOBAL_API_KEY below and open http://localhost:4000/manager
+# =============================================================================
 
 services:
   evolution-go:
-    image: ghcr.io/felipeestevanatto/evo-gofork:${EVOGO_VERSION:-0.8.0}
-    container_name: evolution-go
+    image: ghcr.io/felipeestevanatto/evo-gofork:${EVOGO_VERSION:-dev}
     restart: unless-stopped
+    init: true
     ports:
       - "4000:4000"
     environment:
-      # Servidor
       SERVER_PORT: 4000
-      CLIENT_NAME: "evolution"
+      CLIENT_NAME: evolution
+      OS_NAME: Evo-GoFork
 
-      # Segurança (OBRIGATÓRIO)
-      GLOBAL_API_KEY: "sua-chave-api-segura-aqui"
+      # REQUIRED: change this.
+      GLOBAL_API_KEY: change-me-to-a-long-random-key
 
-      # Banco de Dados PostgreSQL (RECOMENDADO)
-      POSTGRES_AUTH_DB: "postgresql://postgres:postgres@postgres:5432/evogo_auth?sslmode=disable"
-      POSTGRES_USERS_DB: "postgresql://postgres:postgres@postgres:5432/evogo_users?sslmode=disable"
-      DATABASE_SAVE_MESSAGES: "false"
+      POSTGRES_AUTH_DB: postgresql://evolution_user:evolution_pass@evolution-database:5432/evogo_auth?sslmode=disable
+      POSTGRES_USERS_DB: postgresql://evolution_user:evolution_pass@evolution-database:5432/evogo_users?sslmode=disable
+      DATABASE_SAVE_MESSAGES: "true"
 
-      # Logs e Debug
-      WADEBUG: "INFO"
-      LOGTYPE: "console"
-      LOG_DIRECTORY: "/app/logs"
-      LOG_MAX_SIZE: "100"
-      LOG_MAX_BACKUPS: "5"
-      LOG_MAX_AGE: "30"
-      LOG_COMPRESS: "true"
-
-      # Conexão
-      CONNECT_ON_STARTUP: "false"
+      CONNECT_ON_STARTUP: "true"
       WEBHOOK_FILES: "true"
-
-      # Sistema
-      OS_NAME: "Linux"
-
-      # Eventos (Opcionais)
-      WEBHOOK_URL: ""
-      AMQP_URL: ""
-      AMQP_GLOBAL_ENABLED: "false"
-      NATS_URL: ""
-      NATS_GLOBAL_ENABLED: "false"
-
-      # Armazenamento de Mídia (Opcional)
-      MINIO_ENABLED: "false"
-
-      # Proxy (Opcional)
-      PROXY_HOST: ""
-      PROXY_PORT: ""
-      PROXY_USERNAME: ""
-      PROXY_PASSWORD: ""
-
-      # Eventos
-      EVENT_IGNORE_GROUP: "false"
-      EVENT_IGNORE_STATUS: "true"
-
-      # QR Code
-      QRCODE_MAX_COUNT: "5"
+      LOG_DIRECTORY: /app/data/logs
+      DEBUG_ENABLED: "0"
+      LOG_TYPE: console
+      SWAGGER_ENABLED: "true"
 
     volumes:
-      - evolution_data:/app/dbdata
-      - evolution_logs:/app/logs
-    networks:
-      - evolution_network
+      - evolution_go_data:/app/data
     depends_on:
-      - postgres
+      evolution-database:
+        condition: service_healthy
+    networks:
+      - evolution_go_network
 
-  postgres:
+  evolution-database:
     image: postgres:18-alpine
-    container_name: evolution-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: postgres
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: evolution_user
+      POSTGRES_PASSWORD: evolution_pass
+      POSTGRES_DB: evogo_auth
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+      # PostgreSQL 18 volume path (not /var/lib/postgresql/data).
+      - evolution_go_database:/var/lib/postgresql
     networks:
-      - evolution_network
+      - evolution_go_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U evolution_user -d evogo_auth"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
 volumes:
-  evolution_data:
-    driver: local
-  evolution_logs:
-    driver: local
-  postgres_data:
-    driver: local
+  evolution_go_data:
+  evolution_go_database:
 
 networks:
-  evolution_network:
+  evolution_go_network:
     driver: bridge

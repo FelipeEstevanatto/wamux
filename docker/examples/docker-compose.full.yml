@@ -1,119 +1,128 @@
-version: '3.8'
+# =============================================================================
+# Evolution Go (community fork) — full stack
+#
+# App + Postgres + RabbitMQ + MinIO + NATS, all wired together. Use this as a
+# starting point for production; trim the services you do not need.
+#
+#   docker compose -f docker-compose.full.yml up -d
+#
+# Then open http://localhost:4000/manager (set GLOBAL_API_KEY below first).
+# =============================================================================
 
 services:
   evolution-go:
-    image: ghcr.io/felipeestevanatto/evo-gofork:${EVOGO_VERSION:-0.8.0}
-    container_name: evolution-go
+    image: ghcr.io/felipeestevanatto/evo-gofork:${EVOGO_VERSION:-dev}
     restart: unless-stopped
+    init: true
     ports:
       - "4000:4000"
     environment:
-      # Servidor
       SERVER_PORT: 4000
-      CLIENT_NAME: "evolution"
+      CLIENT_NAME: evolution
+      OS_NAME: Evo-GoFork
 
-      # Segurança
-      GLOBAL_API_KEY: "sua-chave-api-segura-aqui"
+      # REQUIRED: change this.
+      GLOBAL_API_KEY: change-me-to-a-long-random-key
 
-      # Banco de Dados PostgreSQL
-      POSTGRES_AUTH_DB: "postgresql://postgres:postgres@postgres:5432/evogo_auth?sslmode=disable"
-      POSTGRES_USERS_DB: "postgresql://postgres:postgres@postgres:5432/evogo_users?sslmode=disable"
+      POSTGRES_AUTH_DB: postgresql://evolution_user:evolution_pass@evolution-database:5432/evogo_auth?sslmode=disable
+      POSTGRES_USERS_DB: postgresql://evolution_user:evolution_pass@evolution-database:5432/evogo_users?sslmode=disable
       DATABASE_SAVE_MESSAGES: "true"
+      MESSAGE_RETENTION_DAYS: "365"
 
-      # Logs e Debug
-      WADEBUG: "DEBUG"
-      LOGTYPE: "console"
-      LOG_DIRECTORY: "/app/logs"
-      LOG_MAX_SIZE: "100"
-      LOG_MAX_BACKUPS: "5"
-      LOG_MAX_AGE: "30"
-      LOG_COMPRESS: "true"
-
-      # Conexão
-      CONNECT_ON_STARTUP: "false"
+      CONNECT_ON_STARTUP: "true"
       WEBHOOK_FILES: "true"
-
-      # Sistema
-      OS_NAME: "Linux"
+      LOG_DIRECTORY: /app/data/logs
+      DEBUG_ENABLED: "0"
+      LOG_TYPE: console
+      SWAGGER_ENABLED: "true"
 
       # Webhook
-      WEBHOOK_URL: "https://seu-webhook.com/endpoint"
+      WEBHOOK_URL: "https://your-webhook.example.com/endpoint"
 
-      # RabbitMQ
-      AMQP_URL: "amqp://admin:admin@rabbitmq:5672/default"
+      # RabbitMQ (server accepts AMQP_URL; the credentials live in the broker)
+      AMQP_URL: "amqp://admin:admin@evolution-rabbitmq:5672/default"
       AMQP_GLOBAL_ENABLED: "true"
-      AMQP_GLOBAL_EVENTS: "messages.upsert,messages.update,connection.update"
+      # Event groups published globally: MESSAGE, SEND_MESSAGE, READ_RECEIPT,
+      # PRESENCE, HISTORY_SYNC, CHAT_PRESENCE, CALL, CONNECTION, LABEL, CONTACT,
+      # GROUP, NEWSLETTER, QRCODE. Empty means no global queues are created.
+      AMQP_GLOBAL_EVENTS: "MESSAGE,CONNECTION"
       AMQP_SPECIFIC_EVENTS: ""
 
       # NATS
-      NATS_URL: "nats://nats:4222"
+      NATS_URL: "nats://evolution-nats:4222"
       NATS_GLOBAL_ENABLED: "false"
       NATS_GLOBAL_EVENTS: ""
 
-      # MinIO
+      # MinIO media storage
       MINIO_ENABLED: "true"
-      MINIO_ENDPOINT: "minio:9000"
+      MINIO_ENDPOINT: "evolution-minio:9000"
       MINIO_ACCESS_KEY: "minioadmin"
       MINIO_SECRET_KEY: "minioadmin"
       MINIO_BUCKET: "evolution-media"
       MINIO_USE_SSL: "false"
       MINIO_REGION: "us-east-1"
 
-      # Eventos
-      EVENT_IGNORE_GROUP: "false"
-      EVENT_IGNORE_STATUS: "true"
-
-      # QR Code
-      QRCODE_MAX_COUNT: "5"
-
-      # Verificação de Usuário
-      CHECK_USER_EXISTS: "true"
-
     volumes:
-      - evolution_data:/app/dbdata
-      - evolution_logs:/app/logs
-    networks:
-      - evolution_network
+      - evolution_go_data:/app/data
     depends_on:
-      - postgres
-      - rabbitmq
-      - minio
+      evolution-database:
+        condition: service_healthy
+      evolution-rabbitmq:
+        condition: service_healthy
+    networks:
+      - evolution_go_network
 
-  postgres:
+  evolution-database:
     image: postgres:18-alpine
-    container_name: evolution-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: postgres
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: evolution_user
+      POSTGRES_PASSWORD: evolution_pass
+      POSTGRES_DB: evogo_auth
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+      # PostgreSQL 18 volume path (not /var/lib/postgresql/data).
+      - evolution_go_database:/var/lib/postgresql
     networks:
-      - evolution_network
+      - evolution_go_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U evolution_user -d evogo_auth"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
-  rabbitmq:
-    image: rabbitmq:3-management-alpine
-    container_name: evolution-rabbitmq
+  evolution-rabbitmq:
+    # 3.13 is end-of-life; 4.x is the current supported line.
+    image: rabbitmq:4.3-management-alpine
     restart: unless-stopped
     environment:
       RABBITMQ_DEFAULT_USER: admin
       RABBITMQ_DEFAULT_PASS: admin
       RABBITMQ_DEFAULT_VHOST: default
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "15672:15672"   # management UI (http://localhost:15672)
     volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
+      - evolution_rabbitmq_data:/var/lib/rabbitmq
     networks:
-      - evolution_network
+      - evolution_go_network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
 
-  minio:
+  evolution-nats:
+    image: nats:2.15-alpine
+    restart: unless-stopped
+    command: ["-js", "-m", "8222"]
+    ports:
+      - "8222:8222"     # monitoring (http://localhost:8222)
+    volumes:
+      - evolution_nats_data:/data
+    networks:
+      - evolution_go_network
+
+  evolution-minio:
     image: minio/minio:latest
-    container_name: evolution-minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -121,24 +130,19 @@ services:
       MINIO_ROOT_PASSWORD: minioadmin
     ports:
       - "9000:9000"
-      - "9001:9001"
+      - "9001:9001"     # console (http://localhost:9001)
     volumes:
-      - minio_data:/data
+      - evolution_minio_data:/data
     networks:
-      - evolution_network
+      - evolution_go_network
 
 volumes:
-  evolution_data:
-    driver: local
-  evolution_logs:
-    driver: local
-  postgres_data:
-    driver: local
-  rabbitmq_data:
-    driver: local
-  minio_data:
-    driver: local
+  evolution_go_data:
+  evolution_go_database:
+  evolution_rabbitmq_data:
+  evolution_nats_data:
+  evolution_minio_data:
 
 networks:
-  evolution_network:
+  evolution_go_network:
     driver: bridge

@@ -1,61 +1,80 @@
 # =============================================================================
 # Evolution Go (community fork) — pull-only stack
 #
-# Runs the published image from GHCR, so you do NOT need to clone or build the
-# project. Pin a tag; `latest` is rewritten on every release.
+# Runs the published image from GHCR. Nothing to clone or build.
 #
 #   mkdir evogo && cd evogo
-#   cp docker-compose.ghcr.yml docker-compose.yml
+#   curl -O https://raw.githubusercontent.com/FelipeEstevanatto/evo-gofork/develop/docker/examples/docker-compose.ghcr.yml
+#   mv docker-compose.ghcr.yml docker-compose.yml
+#   curl -O https://raw.githubusercontent.com/FelipeEstevanatto/evo-gofork/develop/docker/examples/.env.example
 #   cp .env.example .env        # then set GLOBAL_API_KEY
-#   docker compose pull && docker compose up -d
+#   docker compose up -d
 #
 # API:      http://localhost:8081
 # Swagger:  http://localhost:8081/swagger/index.html
 # Manager:  http://localhost:8081/manager
 #
-# This is an UNOFFICIAL community build. See the README/NOTICE for attribution
-# and the usage-notification requirement.
+# Tags: `dev` = develop branch (newest), `0.8.1` = current release, `latest`
+# follows releases. Override with EVOGO_VERSION in .env.
+#
+# This is an UNOFFICIAL community build. See NOTICE/TRADEMARKS.md.
 # =============================================================================
+
 services:
   evolution-go:
-    container_name: evolution_go
-    image: ghcr.io/felipeestevanatto/evo-gofork:${EVOGO_VERSION:-0.8.0}
+    image: ghcr.io/felipeestevanatto/evo-gofork:${EVOGO_VERSION:-dev}
     restart: unless-stopped
     init: true
     ports:
+      # Host port : container port. The app always listens on 8080 inside.
       - "${EVOGO_PORT:-8081}:8080"
     environment:
       SERVER_PORT: 8080
       CLIENT_NAME: ${CLIENT_NAME:-evolution}
       OS_NAME: ${OS_NAME:-Evo-GoFork}
 
+      # REQUIRED. Admin key for /instance/all, /server/stats, the Manager, etc.
       GLOBAL_API_KEY: ${GLOBAL_API_KEY:?set GLOBAL_API_KEY in .env}
 
+      # Databases (created automatically on first boot if missing).
       POSTGRES_AUTH_DB: postgresql://${POSTGRES_USER:-evolution_user}:${POSTGRES_PASSWORD:-evolution_pass}@evolution-database:5432/evogo_auth?sslmode=disable
       POSTGRES_USERS_DB: postgresql://${POSTGRES_USER:-evolution_user}:${POSTGRES_PASSWORD:-evolution_pass}@evolution-database:5432/evogo_users?sslmode=disable
-      DATABASE_SAVE_MESSAGES: ${DATABASE_SAVE_MESSAGES:-true}
 
-      WADEBUG: ${WADEBUG:-INFO}
-      LOGTYPE: ${LOGTYPE:-console}
-      WEBHOOK_FILES: ${WEBHOOK_FILES:-true}
+      # Runtime / logging.
+      DATABASE_SAVE_MESSAGES: ${DATABASE_SAVE_MESSAGES:-true}
+      MESSAGE_RETENTION_DAYS: ${MESSAGE_RETENTION_DAYS:-365}
+      DASHBOARD_CACHE_TTL_SECONDS: ${DASHBOARD_CACHE_TTL_SECONDS:-30}
       CONNECT_ON_STARTUP: ${CONNECT_ON_STARTUP:-true}
+      WEBHOOK_FILES: ${WEBHOOK_FILES:-true}
+      DEBUG_ENABLED: ${DEBUG_ENABLED:-0}
+      LOG_TYPE: ${LOG_TYPE:-console}
       LOG_DIRECTORY: /app/data/logs
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
 
+      # Optional integrations (leave empty to disable).
       WEBHOOK_URL: ${WEBHOOK_URL:-}
       PASSKEY_PUBLIC_URL: ${PASSKEY_PUBLIC_URL:-}
+      AMQP_URL: ${AMQP_URL:-}
+      AMQP_GLOBAL_ENABLED: ${AMQP_GLOBAL_ENABLED:-false}
+      AMQP_GLOBAL_EVENTS: ${AMQP_GLOBAL_EVENTS:-}
+      AMQP_SPECIFIC_EVENTS: ${AMQP_SPECIFIC_EVENTS:-}
+      NATS_URL: ${NATS_URL:-}
+      NATS_GLOBAL_ENABLED: ${NATS_GLOBAL_ENABLED:-false}
+      NATS_GLOBAL_EVENTS: ${NATS_GLOBAL_EVENTS:-}
+      MINIO_ENABLED: ${MINIO_ENABLED:-false}
     depends_on:
       evolution-database:
         condition: service_healthy
     volumes:
+      # Single data volume: logs live under /app/data/logs.
       - evolution_go_data:/app/data
     networks:
       - evolution_go_network
 
   evolution-database:
-    container_name: evolution_go_postgres
-    # PostgreSQL 18. The 18 image declares /var/lib/postgresql as the volume
-    # (not .../data as in 15), so the mount point below differs.
+    # PostgreSQL 18. NOTE: the 18 image declares /var/lib/postgresql as the data
+    # volume (15 used /var/lib/postgresql/data). Mounting the old path would put
+    # the cluster OUTSIDE the volume and lose data on the next recreate.
     image: postgres:18-alpine
     restart: unless-stopped
     environment:

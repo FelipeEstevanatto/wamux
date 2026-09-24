@@ -65,14 +65,14 @@ mkdir evogo && cd evogo
 
 # Compose that runs the published image
 curl -fsSL -o docker-compose.yml \
-  https://raw.githubusercontent.com/FelipeEstevanatto/evo-gofork/fork/community-stable/docker/examples/docker-compose.ghcr.yml
+  https://raw.githubusercontent.com/FelipeEstevanatto/evo-gofork/develop/docker/examples/docker-compose.ghcr.yml
 
 # Environment (set GLOBAL_API_KEY!)
 curl -fsSL -o .env \
-  https://raw.githubusercontent.com/FelipeEstevanatto/evo-gofork/fork/community-stable/docker/examples/.env.example
+  https://raw.githubusercontent.com/FelipeEstevanatto/evo-gofork/develop/docker/examples/.env.example
 
-# Pin the version (never `latest` in production)
-echo 'EVOGO_VERSION=0.8.0' >> .env
+# Image tag: `dev` (default), `0.8.1` (release) or `latest`
+sed -i "s/^EVOGO_VERSION=.*/EVOGO_VERSION=dev/" .env
 
 docker compose pull && docker compose up -d
 ```
@@ -85,7 +85,8 @@ docker run -d --name evolution_go -p 8081:8080 \
   -e POSTGRES_AUTH_DB='postgresql://user:pass@host:5432/evogo_auth?sslmode=disable' \
   -e POSTGRES_USERS_DB='postgresql://user:pass@host:5432/evogo_users?sslmode=disable' \
   -v evolution_go_data:/app/data \
-  ghcr.io/felipeestevanatto/evo-gofork:0.8.0
+  -e LOG_DIRECTORY=/app/data/logs \
+  ghcr.io/felipeestevanatto/evo-gofork:dev
 ```
 
 Then open:
@@ -102,7 +103,7 @@ Then open:
 ```bash
 git clone https://github.com/FelipeEstevanatto/evo-gofork.git
 cd evo-gofork
-git checkout fork/community-stable
+git checkout develop
 
 cp .env.example .env        # set GLOBAL_API_KEY
 docker compose up -d --build
@@ -116,7 +117,7 @@ so frontend edits are picked up by the same command.
 ```bash
 git clone https://github.com/FelipeEstevanatto/evo-gofork.git
 cd evo-gofork
-git checkout fork/community-stable
+git checkout develop
 
 make setup
 cp .env.example .env        # set GLOBAL_API_KEY
@@ -147,8 +148,8 @@ POSTGRES_USERS_DB=postgresql://user:pass@localhost:5432/evogo_users?sslmode=disa
 DATABASE_SAVE_MESSAGES=true
 
 # Logging / runtime
-WADEBUG=INFO
-LOGTYPE=console
+DEBUG_ENABLED=0
+LOG_TYPE=console
 CONNECT_ON_STARTUP=true
 SWAGGER_ENABLED=true        # set false to hide /swagger
 
@@ -169,7 +170,8 @@ SWAGGER_ENABLED=true        # set false to hide /swagger
 | `DATABASE_SAVE_MESSAGES` | Persist messages (feeds the counts and `/server/stats`) | `true` in compose |
 | `CONNECT_ON_STARTUP` | Reconnect instances that were `connected=true` on boot | `false` |
 | `SWAGGER_ENABLED` | Serve `/swagger` publicly | `true` |
-| `WADEBUG` | whatsmeow log level | `INFO` |
+| `DEBUG_ENABLED` | `1` enables debug logging | `0` |
+| `LOG_TYPE` | `console` or `file` | `console` |
 
 ---
 
@@ -217,9 +219,10 @@ Full list: `GET /swagger/doc.json`.
 ## Manager
 
 The React panel is served at `/manager` and its **source lives in this repo** at
-`evolution-go-manager/` (React 19, Vite, Tailwind, `@evoapi/design-system`).
-`docker compose up --build` builds it automatically; locally use
-`make manager-build` (it syncs into `manager/dist`).
+`evolution-go-manager/` (React 19, Vite, Tailwind; the UI primitives are vendored
+under `evolution-go-manager/src/components/ui/`). `docker compose up --build`
+builds it automatically; locally use `make manager-build` (it syncs into
+`manager/dist`).
 
 It shows each instance's profile picture, counts and paired-device platform,
 offers proxy settings and a token copy button, a system-wide dashboard, an API
