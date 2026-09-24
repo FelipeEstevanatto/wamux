@@ -827,7 +827,19 @@ type AccountLimitsCacheEntry struct {
 	FetchedAt      time.Time
 }
 
-var accountLimitsCache sync.Map // instanceID(string) -> *AccountLimitsCacheEntry
+// accountLimitsCache holds the last fetched account limits per instance.
+//
+// It is a go-cache rather than a plain sync.Map so entries expire: instances are
+// created and deleted over a server's life, and a map that only ever grows would
+// retain one entry per instance forever. Purged explicitly on instance teardown
+// (see PurgeInstanceCaches) so a deleted instance frees its memory immediately.
+var accountLimitsCache = cache.New(30*time.Minute, 60*time.Minute)
+
+// mediaRetryMaxCacheBytes caps how large a re-downloaded media file may be before
+// mediaRetryBytes refuses to hold it in memory. The cache keeps whole blobs for
+// 30 minutes; without a cap a burst of retries on large videos could retain
+// hundreds of MB. Callers that miss simply re-download.
+const mediaRetryMaxCacheBytes = 8 << 20 // 8 MiB
 
 // chatEphemeralCache remembers each chat's disappearing-messages timer (seconds)
 // so outgoing messages can carry ContextInfo.Expiration. WhatsApp warns the
@@ -835,20 +847,45 @@ var accountLimitsCache sync.Map // instanceID(string) -> *AccountLimitsCacheEntr
 // does not include the chat's timer. The value is learned from the
 // EPHEMERAL_SETTING protocol notification (sent when someone changes the timer)
 // and from received ephemeral messages. Key: "instanceID|chatJID".
-var chatEphemeralCache sync.Map // string -> uint32
+//
+// A go-cache with a generous TTL rather than a sync.Map: this is written for
+// every chat that ever had a timer, so a plain map would grow without bound on a
+// long-lived server (one entry per contact/group). The TTL is long because a
+// stale timer only costs a one-time warning to the recipient; correctness does
+// not depend on it. Purged explicitly on instance teardown.
+var chatEphemeralCache = cache.New(24*time.Hour, 48*time.Hour)
 
 // SetCachedChatEphemeral records the disappearing timer for a chat.
 func SetCachedChatEphemeral(instanceID string, chat types.JID, seconds uint32) {
-	chatEphemeralCache.Store(instanceID+"|"+chat.ToNonAD().String(), seconds)
+	chatEphemeralCache.Set(instanceID+"|"+chat.ToNonAD().String(), seconds, cache.DefaultExpiration)
 }
 
 // GetCachedChatEphemeral returns the last known disappearing timer for a chat.
 // known is false when the chat's timer has never been seen.
 func GetCachedChatEphemeral(instanceID string, chat types.JID) (seconds uint32, known bool) {
-	if v, ok := chatEphemeralCache.Load(instanceID + "|" + chat.ToNonAD().String()); ok {
-		return v.(uint32), true
+	if v, ok := chatEphemeralCache.Get(instanceID + "|" + chat.ToNonAD().String()); ok {
+		if s, ok := v.(uint32); ok {
+			return s, true
+		}
 	}
 	return 0, false
+}
+
+// PurgeInstanceCaches drops the package-level cache entries that belong to one
+// instance. Called when an instance is deleted so a long-lived process does not
+// retain a deleted instance's chats and account limits. Keys are prefixed with
+// the instance id ("instanceID|...") or are the id itself.
+func PurgeInstanceCaches(instanceID string) {
+	if instanceID == "" {
+		return
+	}
+	prefix := instanceID + "|"
+	for k := range chatEphemeralCache.Items() {
+		if k == prefix || len(k) >= len(prefix) && k[:len(prefix)] == prefix {
+			chatEphemeralCache.Delete(k)
+		}
+	}
+	accountLimitsCache.Delete(instanceID)
 }
 
 // messageEphemeralExpiration returns the disappearing-messages timer carried by
@@ -888,11 +925,15 @@ func messageEphemeralExpiration(msg *waE2E.Message) uint32 {
 
 // GetCachedAccountLimits returns the last fetched account limits for an instance, if any.
 func GetCachedAccountLimits(instanceID string) (*AccountLimitsCacheEntry, bool) {
-	v, ok := accountLimitsCache.Load(instanceID)
+	v, ok := accountLimitsCache.Get(instanceID)
 	if !ok {
 		return nil, false
 	}
-	return v.(*AccountLimitsCacheEntry), true
+	entry, ok := v.(*AccountLimitsCacheEntry)
+	if !ok {
+		return nil, false
+	}
+	return entry, true
 }
 
 // logAccountLimits queries WhatsApp's MEX endpoints for the account's new-chat
@@ -937,7 +978,7 @@ func (mycli *MyClient) logAccountLimits() {
 		}
 
 		if got {
-			accountLimitsCache.Store(mycli.userID, entry)
+			accountLimitsCache.Set(mycli.userID, entry, cache.DefaultExpiration)
 		}
 	}()
 }
@@ -1316,9 +1357,9 @@ func schedulePresenceUpdates(mycli *MyClient) {
 
 			processPresenceUpdates(mycli)
 
-			ticker.Stop()
-			randomInterval := time.Duration(1+rand.Intn(3)) * time.Hour
-			ticker = time.NewTicker(randomInterval)
+			// Reset the existing ticker rather than Stop + NewTicker each cycle:
+			// Reset reuses the runtime timer and allocates nothing.
+			ticker.Reset(time.Duration(1+rand.Intn(3)) * time.Hour)
 
 		case <-mycli.killChannel.Get(mycli.userID):
 			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Received kill signal, stopping presence updates", mycli.userID)
@@ -1795,26 +1836,27 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	case *events.PairSuccess:
 		doWebhook = true
 		postMap["event"] = "PairSuccess"
-		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("QR Pair Success for user '%s' with JID '%s' - '%s'", mycli.userID, evt.ID.String(), mycli.WAClient.Store.ID.String())
+		jid := mycli.WAClient.Store.ID.String()
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("QR Pair Success for user '%s' with JID '%s' - '%s'", mycli.userID, evt.ID.String(), jid)
 
-		instance, err := mycli.instanceRepository.GetInstanceByID(mycli.userID)
+		// Targeted update of only the columns that change on pairing. This used
+		// to be a GetInstanceByID + full-row Save, which rewrote every column
+		// (including large text fields) to set four of them.
+		mycli.Instance.Qrcode = ""
+		mycli.Instance.Connected = true
+		mycli.Instance.DisconnectReason = ""
+		mycli.Instance.Jid = jid
+
+		err := mycli.instanceRepository.UpdateConnectSettings(mycli.userID, map[string]interface{}{
+			"qrcode":            "",
+			"connected":         true,
+			"disconnect_reason": "",
+			"jid":               jid,
+		})
 		if err != nil {
-			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Error getting instance: %s", mycli.userID, err)
-		}
-
-		instance.Qrcode = ""
-		instance.Connected = true
-		instance.DisconnectReason = ""
-		instance.Jid = mycli.WAClient.Store.ID.String()
-
-		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Updating JID: %s in Instance: %s", mycli.userID, mycli.WAClient.Store.ID.String(), instance.Jid)
-
-		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Attempting to update instance in DB: %+v", mycli.userID, instance)
-		err = mycli.instanceRepository.Update(instance)
-		if err != nil {
-			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Error updating instance: %s", mycli.userID, err)
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Error updating instance on pair: %s", mycli.userID, err)
 		} else {
-			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Instance successfully updated", mycli.userID)
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Instance successfully updated on pair", mycli.userID)
 		}
 
 		myUserInfo, found := mycli.userInfoCache.Get(mycli.token)
@@ -3888,6 +3930,12 @@ func (w whatsmeowService) ClearInstanceCache(instanceId string, token string) er
 	}
 
 	w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Instance cache completely cleared", instanceId)
+
+	// Drop the package-level per-instance caches (chat disappearing timers and
+	// account limits). Without this, a deleted instance's entries would linger
+	// until their TTL.
+	PurgeInstanceCaches(instanceId)
+
 	return nil
 }
 
@@ -4020,6 +4068,15 @@ func (w *whatsmeowService) HandleMediaRetry(instanceId string, evt *events.Media
 	data, err := client.Download(context.Background(), entry.media)
 	if err != nil {
 		logger.LogWarn("[%s] media re-download after retry failed for %s: %v", instanceId, evt.MessageID, err)
+		return
+	}
+	// Leave the pending entry in place when the media is too large to cache: a
+	// later GetRetriedMedia will simply miss and the caller re-downloads, rather
+	// than holding a large blob in RAM for 30 minutes (see mediaRetryMaxCacheBytes).
+	if len(data) > mediaRetryMaxCacheBytes {
+		logger.LogInfo("[%s] media retry for %s is %d bytes, over the cache cap; not caching",
+			instanceId, evt.MessageID, len(data))
+		w.mediaRetryPending.Delete(key)
 		return
 	}
 	w.mediaRetryBytes.Set(key, data, cache.DefaultExpiration)

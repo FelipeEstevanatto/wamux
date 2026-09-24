@@ -89,6 +89,14 @@ type Config struct {
 	// MessageRetentionDays is how long persisted messages are kept. A background
 	// job deletes anything older, in batches; zero keeps them forever.
 	MessageRetentionDays int
+
+	// DatabaseMaxOpenConns / DatabaseMaxIdleConns size the Postgres connection
+	// pools (users DB, auth DB and the whatsmeow store). The default of 25/5 is
+	// shared across every instance and the dashboard; a busy server with many
+	// instances should raise MaxOpenConns (and may need Postgres
+	// max_connections / a pooler to match).
+	DatabaseMaxOpenConns int
+	DatabaseMaxIdleConns int
 }
 
 // EnsureDBExists connects to postgres (without the target database) and creates it if it doesn't exist.
@@ -190,8 +198,8 @@ func (c *Config) CreateUsersDB() (*gorm.DB, error) {
 	}
 
 	// Configurar pool de conexões para evitar conexões ociosas não fechadas
-	sqlDB.SetMaxOpenConns(25)                 // Máximo de 25 conexões abertas simultaneamente
-	sqlDB.SetMaxIdleConns(5)                  // Máximo de 5 conexões ociosas no pool
+	sqlDB.SetMaxOpenConns(c.DatabaseMaxOpenConns)
+	sqlDB.SetMaxIdleConns(c.DatabaseMaxIdleConns)
 	sqlDB.SetConnMaxLifetime(5 * time.Minute) // Reconectar após 5 minutos para evitar timeouts
 	sqlDB.SetConnMaxIdleTime(1 * time.Minute) // Fechar conexões ociosas após 1 minuto
 
@@ -215,8 +223,8 @@ func (c *Config) CreateAuthDB() (*sql.DB, error) {
 	}
 
 	// Configurar pool de conexões para evitar conexões ociosas não fechadas
-	db.SetMaxOpenConns(25)                 // Máximo de 25 conexões abertas simultaneamente
-	db.SetMaxIdleConns(5)                  // Máximo de 5 conexões ociosas no pool
+	db.SetMaxOpenConns(c.DatabaseMaxOpenConns)
+	db.SetMaxIdleConns(c.DatabaseMaxIdleConns)
 	db.SetConnMaxLifetime(5 * time.Minute) // Reconectar após 5 minutos para evitar timeouts
 	db.SetConnMaxIdleTime(1 * time.Minute) // Fechar conexões ociosas após 1 minuto
 
@@ -402,6 +410,13 @@ func Load() *Config {
 		}
 	}
 
+	// Postgres pool sizing. 25/5 is a conservative default shared by every
+	// instance and the dashboard; raise MaxOpenConns on a busier server.
+	dbMaxOpen, dbMaxIdle := parseDBPoolConfig(
+		os.Getenv(config_env.DB_MAX_OPEN_CONNS),
+		os.Getenv(config_env.DB_MAX_IDLE_CONNS),
+	)
+
 	// Typebot protections. The per-contact limit is on by default (it only
 	// affects senders bursting many messages); the per-instance send ceiling is
 	// off by default (a badly tuned value would delay legitimate replies).
@@ -461,6 +476,8 @@ func Load() *Config {
 		LogCompress:              logCompress,
 		DashboardCacheTTL:        dashboardCacheTTL,
 		MessageRetentionDays:     messageRetentionDays,
+		DatabaseMaxOpenConns:     dbMaxOpen,
+		DatabaseMaxIdleConns:     dbMaxIdle,
 	}
 
 	minioEnabled := os.Getenv(config_env.MINIO_ENABLED) == "true"
@@ -495,6 +512,38 @@ func loadMinioConfig(config *Config) {
 	config.MinioBucket = minioBucket
 	config.MinioUseSSL = minioUseSSL
 	config.MinioRegion = minioRegion
+}
+
+// parseDBPoolConfig turns the DB_MAX_OPEN_CONNS/DB_MAX_IDLE_CONNS strings into
+// pool sizes. It defaults to 25/5, clamps invalid values back to the defaults,
+// and never lets idle exceed open.
+func parseDBPoolConfig(openRaw, idleRaw string) (int, int) {
+	const defOpen, defIdle = 25, 5
+
+	open := defOpen
+	if openRaw != "" {
+		n, err := strconv.Atoi(openRaw)
+		if err != nil || n < 1 {
+			applog.Logger.LogWarn("[CONFIG] invalid DB_MAX_OPEN_CONNS=%q, using the default of %d", openRaw, defOpen)
+		} else {
+			open = n
+		}
+	}
+
+	idle := defIdle
+	if idleRaw != "" {
+		n, err := strconv.Atoi(idleRaw)
+		if err != nil || n < 0 {
+			applog.Logger.LogWarn("[CONFIG] invalid DB_MAX_IDLE_CONNS=%q, using the default of %d", idleRaw, defIdle)
+		} else {
+			idle = n
+		}
+	}
+
+	if idle > open {
+		idle = open
+	}
+	return open, idle
 }
 
 func panicIfEmpty(key, value string) {
