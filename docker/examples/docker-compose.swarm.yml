@@ -1,73 +1,67 @@
-version: '3.8'
+# =============================================================================
+# Evolution Go (community fork) — Docker Swarm stack
+#
+# For a Traefik-fronted Swarm deployment. The volumes/network are declared
+# external, so create them first:
+#
+#   docker network create --driver overlay network_public
+#   docker volume create evolution_go_data
+#
+# The app talks to a Postgres you provide (set the POSTGRES_*_DB URLs below).
+# Adjust the Traefik host to your domain, then:
+#
+#   docker stack deploy -c docker-compose.swarm.yml evolution_go
+# =============================================================================
+
 
 services:
   evolution_go:
-    image: ghcr.io/felipeestevanatto/evo-gofork:${EVOGO_VERSION:-0.8.0}
+    image: ghcr.io/felipeestevanatto/evo-gofork:${EVOGO_VERSION:-dev}
     networks:
       - network_public
     environment:
-      # Servidor
       SERVER_PORT: 4000
-      CLIENT_NAME: "evolution"
+      CLIENT_NAME: evolution
+      OS_NAME: Evo-GoFork
 
-      # Segurança (OBRIGATÓRIO)
-      GLOBAL_API_KEY: "sua-chave-api-segura-aqui"
+      # REQUIRED: change this.
+      GLOBAL_API_KEY: change-me-to-a-long-random-key
 
-      # Banco de Dados PostgreSQL (RECOMENDADO)
-      POSTGRES_AUTH_DB: "postgresql://postgres:senha@postgres:5432/evogo_auth?sslmode=disable"
-      POSTGRES_USERS_DB: "postgresql://postgres:senha@postgres:5432/evogo_users?sslmode=disable"
-      DATABASE_SAVE_MESSAGES: "false"
+      # Point these at your managed Postgres.
+      POSTGRES_AUTH_DB: postgresql://evolution_user:evolution_pass@postgres:5432/evogo_auth?sslmode=disable
+      POSTGRES_USERS_DB: postgresql://evolution_user:evolution_pass@postgres:5432/evogo_users?sslmode=disable
+      DATABASE_SAVE_MESSAGES: "true"
+      MESSAGE_RETENTION_DAYS: "365"
 
-      # Logs e Debug
-      WADEBUG: "INFO"
-      LOGTYPE: "console"
-      LOG_DIRECTORY: "/app/logs"
-      LOG_MAX_SIZE: "100"
-      LOG_MAX_BACKUPS: "5"
-      LOG_MAX_AGE: "30"
-      LOG_COMPRESS: "true"
-
-      # Conexão
       CONNECT_ON_STARTUP: "true"
       WEBHOOK_FILES: "true"
+      LOG_DIRECTORY: /app/data/logs
+      DEBUG_ENABLED: "0"
+      LOG_TYPE: console
+      SWAGGER_ENABLED: "true"
 
-      # Sistema
-      OS_NAME: "Linux"
-
-      # Conversor de Áudio (Opcional)
-      API_AUDIO_CONVERTER: ""
-      API_AUDIO_CONVERTER_KEY: ""
-
-      # Proxy (Opcional)
-      PROXY_HOST: ""
-      PROXY_PORT: ""
-      PROXY_USERNAME: ""
-      PROXY_PASSWORD: ""
-
-      # RabbitMQ (Opcional)
+      # Optional integrations.
+      WEBHOOK_URL: ""
       AMQP_URL: ""
       AMQP_GLOBAL_ENABLED: "false"
       AMQP_GLOBAL_EVENTS: ""
-
-      # NATS (Opcional)
       NATS_URL: ""
       NATS_GLOBAL_ENABLED: "false"
-
-      # Eventos
-      EVENT_IGNORE_GROUP: "false"
-      EVENT_IGNORE_STATUS: "true"
-
-      # MinIO/S3 (Opcional)
       MINIO_ENABLED: "false"
       MINIO_ENDPOINT: ""
       MINIO_ACCESS_KEY: ""
       MINIO_SECRET_KEY: ""
       MINIO_BUCKET: ""
       MINIO_USE_SSL: "false"
+      PROXY_HOST: ""
+      PROXY_PORT: ""
+      PROXY_USERNAME: ""
+      PROXY_PASSWORD: ""
+      API_AUDIO_CONVERTER: ""
+      API_AUDIO_CONVERTER_KEY: ""
 
     volumes:
-      - evolution_go_data:/app/dbdata
-      - evolution_go_logs:/app/logs
+      - evolution_go_data:/app/data
 
     deploy:
       replicas: 1
@@ -79,9 +73,8 @@ services:
         delay: 5s
         max_attempts: 3
       labels:
-        # Traefik Labels (ajuste conforme necessário)
         - traefik.enable=true
-        - traefik.http.routers.evolution_go.rule=Host(`evolution.seudominio.com`)
+        - traefik.http.routers.evolution_go.rule=Host(`evolution.example.com`)
         - traefik.http.routers.evolution_go.entrypoints=websecure
         - traefik.http.routers.evolution_go.tls.certresolver=letsencryptresolver
         - traefik.http.routers.evolution_go.service=evolution_go
@@ -92,9 +85,6 @@ volumes:
   evolution_go_data:
     external: true
     name: evolution_go_data
-  evolution_go_logs:
-    external: true
-    name: evolution_go_logs
 
 networks:
   network_public:
