@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Save, Trash2, Power, Eye, EyeOff, Copy, Check, Network, RefreshCw, Pencil, X } from "lucide-react";
 import { Button } from "@/components/ui";
@@ -30,6 +30,15 @@ const advancedSchema = z.object({
 type WebhookFormData = z.infer<typeof webhookSchema>;
 type AdvancedFormData = z.infer<typeof advancedSchema>;
 
+// Parse the events string ("MESSAGE,QRCODE,CONNECTION") into an array. Declared
+// outside the component so the parse is a pure function of the string.
+function parseEvents(events: string): string[] {
+  return events
+    .split(",")
+    .map((e) => e.trim())
+    .filter(Boolean);
+}
+
 const availableEvents = [
   "ALL",
   "MESSAGE",
@@ -51,7 +60,7 @@ export default function InstanceSettings() {
   const navigate = useNavigate();
   const [instance, setInstance] = useState<Instance | null>(null);
   const [overview, setOverview] = useState<InstanceOverview | null>(null);
-  const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
+  const [editedEvents, setEditedEvents] = useState<string[] | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [showToken, setShowToken] = useState(false);
@@ -148,37 +157,36 @@ export default function InstanceSettings() {
       ignoreStatus: instance.ignoreStatus || false,
     });
 
-    // Parse events string to array (e.g., "MESSAGE,QRCODE,CONNECTION" -> ["MESSAGE", "QRCODE", "CONNECTION"])
-    if (instance.events) {
-      const eventsArray = instance.events
-        .split(",")
-        .map((e) => e.trim())
-        .filter(Boolean);
-      setSelectedEvents(eventsArray);
-    } else {
-      setSelectedEvents([]);
-    }
-
     isInitialized.current = true;
   }, [instance, resetWebhook, resetAdvanced]);
 
+  // Derive the event checkboxes from the instance. parseEvents returns a new
+  // array each render, so it is memoized; setEditedEvents still records the
+  // user's edits. This avoids setting state in an effect.
+  const parsedEvents = useMemo(
+    () => (instance?.events ? parseEvents(instance.events) : []),
+    [instance]
+  );
+  const selectedEvents = editedEvents ?? parsedEvents;
+
   const toggleEvent = (event: string) => {
-    setSelectedEvents((prev) => {
+    setEditedEvents((prev) => {
+      const current = prev ?? parsedEvents;
       if (event === "ALL") {
-        if (prev.includes("ALL")) {
+        if (current.includes("ALL")) {
           return [];
         }
         return ["ALL"];
       }
 
-      if (prev.includes("ALL")) {
+      if (current.includes("ALL")) {
         return [event];
       }
 
-      if (prev.includes(event)) {
-        return prev.filter((e) => e !== event);
+      if (current.includes(event)) {
+        return current.filter((e) => e !== event);
       }
-      return [...prev, event];
+      return [...current, event];
     });
   };
 

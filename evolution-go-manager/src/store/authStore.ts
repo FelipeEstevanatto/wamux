@@ -54,11 +54,15 @@ const useAuthStore = create<AuthStore>()(
           set({ isAuthenticated: false });
 
           if (status === 401 || status === 403) {
-            throw new Error('API Key invalida. Verifique a chave informada.');
+            const err = new Error('API Key invalida. Verifique a chave informada.');
+            err.cause = error;
+            throw err;
           }
-          throw new Error(
+          const err = new Error(
             'Nao foi possivel conectar. Verifique a URL e a API Key.'
           );
+          err.cause = error;
+          throw err;
         }
       },
 
