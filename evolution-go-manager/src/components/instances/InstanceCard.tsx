@@ -187,16 +187,22 @@ export default function InstanceCard({
           </div>
         </div>
 
-        {/* Action buttons - hover effect */}
-        <div className="flex border-t border-sidebar-border opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        {/* Action buttons. On desktop the destructive/secondary icons fade in
+            on hover to keep the card calm; on touch they are always visible
+            (there is no hover on a phone). Desconectar is a compact labelled
+            button, not a stretched one, so the icon buttons to its right are
+            never pushed out of the card. */}
+        {/* w-full + min-w-0 lets the labelled button shrink before the icons. */}
+        <div className="flex w-full items-stretch border-t border-sidebar-border transition-opacity duration-200 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
           {/* Connect/Disconnect Button */}
           {!isConnected && (
             <Button
               variant="ghost"
-              className="flex-1 rounded-none h-12 text-green-500 hover:text-green-400 hover:bg-green-500/10"
+              className="h-12 shrink-0 rounded-none px-3 text-green-500 hover:bg-green-500/10 hover:text-green-400 sm:px-4"
               onClick={() => onConnect(instance)}
+              title="Conectar instância"
             >
-              <Power className="h-4 w-4 mr-2" />
+              <Power className="mr-2 h-4 w-4 shrink-0" />
               Conectar
             </Button>
           )}
@@ -204,28 +210,29 @@ export default function InstanceCard({
           {isConnected && (
             <Button
               variant="ghost"
-              className="flex-1 rounded-none h-12 text-yellow-500 hover:text-yellow-400 hover:bg-yellow-500/10"
+              className="h-12 shrink-0 rounded-none px-3 text-yellow-500 hover:bg-yellow-500/10 hover:text-yellow-400 sm:px-4"
               onClick={() => onDisconnect(instance)}
+              title="Desconectar instância"
             >
-              <PowerOff className="h-4 w-4 mr-2" />
+              <PowerOff className="mr-2 h-4 w-4 shrink-0" />
               Desconectar
             </Button>
           )}
 
-          <div className="w-px bg-sidebar-border" />
+          <div className="w-px shrink-0 bg-sidebar-border" />
 
           {/* Send Message Button - only show if connected */}
           {isConnected && onSendMessage && (
             <>
               <Button
                 variant="ghost"
-                className="rounded-none h-12 px-4 text-blue-500 hover:text-blue-400 hover:bg-blue-500/10"
+                className="h-12 shrink-0 rounded-none px-3 text-blue-500 hover:bg-blue-500/10 hover:text-blue-400"
                 onClick={() => onSendMessage(instance)}
                 title="Enviar mensagem de texto"
               >
                 <MessageSquare className="h-4 w-4" />
               </Button>
-              <div className="w-px bg-sidebar-border" />
+              <div className="w-px shrink-0 bg-sidebar-border" />
             </>
           )}
 
@@ -234,33 +241,38 @@ export default function InstanceCard({
             <>
               <Button
                 variant="ghost"
-                className="rounded-none h-12 px-4 text-purple-500 hover:text-purple-400 hover:bg-purple-500/10"
+                className="h-12 shrink-0 rounded-none px-3 text-purple-500 hover:bg-purple-500/10 hover:text-purple-400"
                 onClick={() => onTestMessage(instance)}
-                title="Testar botoes, lista e carrossel"
+                title="Testar botões, lista e carrossel"
               >
                 <FlaskConical className="h-4 w-4" />
               </Button>
-              <div className="w-px bg-sidebar-border" />
+              <div className="w-px shrink-0 bg-sidebar-border" />
             </>
           )}
 
           {/* Settings Button */}
           <Button
             variant="ghost"
-            className="rounded-none h-12 px-4 text-gray-500 hover:text-gray-300 hover:bg-gray-500/10"
+            className="h-12 shrink-0 rounded-none px-3 text-gray-500 hover:bg-gray-500/10 hover:text-gray-300"
             onClick={() => onSettings(instance)}
+            title="Configurações da instância"
           >
             <Settings className="h-4 w-4" />
           </Button>
 
-          <div className="w-px bg-sidebar-border" />
+          <div className="w-px shrink-0 bg-sidebar-border" />
+
+          {/* Spacer keeps the delete action pinned to the right edge. */}
+          <div className="flex-1" />
 
           {/* Delete Button */}
           <Button
             variant="ghost"
-            className="rounded-none h-12 px-4 text-red-500 hover:text-red-400 hover:bg-red-500/10"
+            className="h-12 shrink-0 rounded-none px-3 text-red-500 hover:bg-red-500/10 hover:text-red-400"
             disabled={isDeleting === instance.instanceName}
             onClick={() => onDelete(instance)}
+            title="Excluir instância"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
