@@ -472,6 +472,8 @@ export default function InstanceSettings() {
               variant="ghost"
               size="icon"
               onClick={() => navigate("/manager/instances")}
+              title="Voltar para Instâncias"
+              aria-label="Voltar para Instâncias"
               className="text-sidebar-foreground hover:bg-sidebar-accent"
             >
               <ArrowLeft className="h-5 w-5" />
