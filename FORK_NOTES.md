@@ -921,6 +921,16 @@ go vet ./...
 
 ## 6. Known limitations
 
+- **Multiple images in one message (album/gallery)** is not supported. `/send/media`
+  sends exactly one media per request (`MediaStruct` is singular; multipart reads a
+  single `file`), so N images require N calls — each becomes a separate WhatsApp
+  message, and the official WABA/Cloud API has the same one-media-per-message rule.
+  The native album bubble is technically reachable through whatsmeow's raw
+  `waE2E.AlbumMessage` proto (field 83 on `Message`, with `expectedImageCount` /
+  `expectedVideoCount`), but whatsmeow ships **no high-level helper** for it and the
+  fork does not implement the multi-message assembly it needs. `/send/carousel`
+  (interactive cards with image headers) is the closest supported feature but is not
+  a gallery. See `docs/wiki/guias-api/api-messages.md` for the workaround.
 - The Manager SPA source is vendored at `evolution-go-manager/`, taken from
   upstream's `develop` branch (the only place it exists — `main` ships only the
   compiled `manager/dist`). `develop` is an older revision than the bundle

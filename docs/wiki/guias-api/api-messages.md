@@ -261,6 +261,34 @@ curl -X POST http://localhost:4000/send/media \
 
 ---
 
+#### Várias imagens de uma vez (galeria / álbum) — não suportado
+
+`POST /send/media` envia **uma mídia por requisição** (`MediaStruct` tem `url`,
+`type`, `caption` e `filename` no singular, e o multipart lê um único campo
+`file`). Não existe um campo do tipo `images: [...]`/`urls: [...]`.
+
+Para enviar 2+ imagens, faça **uma chamada por imagem** — cada uma vira uma
+mensagem separada no WhatsApp (o destinatário as vê em sequência). A ordem de
+entrega entre requisições não é garantida; para preservá-la, espere o status
+`delivered` antes de enviar a próxima.
+
+- **Álbum nativo** (a grade/bubble de várias fotos que o app moderno mostra):
+  o protobuf do `whatsmeow` define `AlbumMessage`
+  (`proto/waE2E`, campo 83 de `Message`, com `expectedImageCount`/
+  `expectedVideoCount`), mas o `whatsmeow` **não expõe helper de alto nível**
+  para montá-lo/enviá-lo, e este projeto não o implementa. Fazer isso exigiria
+  montar o `AlbumMessage` + as mensagens filhas na ordem que o WhatsApp espera
+  (não documentado) — tratado como spike de pesquisa, não como recurso pronto.
+- **WABA / Cloud API oficial**: também **não** envia várias imagens numa única
+  mensagem — a doc da Meta descreve "uma imagem e uma legenda opcional", e a
+  orientação oficial é enviar uma requisição por imagem. Ou seja, a limitação de
+  "uma mídia por mensagem" vale para o canal não-oficial e para o oficial.
+- **Alternativa suportada** para algo parecido com "uma mensagem, várias
+  imagens": `POST /send/carousel` (cards interativos, cada um com um header de
+  imagem). Não é uma galeria — é um widget de catálogo/oferta.
+
+---
+
 ### Enviar Enquete
 
 Cria uma enquete (poll) com múltiplas opções.
