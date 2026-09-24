@@ -66,4 +66,8 @@ const (
 
 	// How long persisted messages are kept before the cleanup job removes them.
 	MESSAGE_RETENTION_DAYS = "MESSAGE_RETENTION_DAYS"
+
+	// Postgres connection-pool sizing.
+	DB_MAX_OPEN_CONNS = "DB_MAX_OPEN_CONNS"
+	DB_MAX_IDLE_CONNS = "DB_MAX_IDLE_CONNS"
 )
