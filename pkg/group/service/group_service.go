@@ -23,6 +23,10 @@ import (
 // groupImageHTTPClient bounds downloads of user-supplied group photo URLs.
 var groupImageHTTPClient = &http.Client{Timeout: 30 * time.Second}
 
+// maxGroupPhotoBytes caps a single group-photo download. The bytes are held in
+// memory and re-uploaded, so an unbounded fetch is a DoS vector.
+const maxGroupPhotoBytes = 16 << 20 // 16 MiB
+
 type GroupService interface {
 	ListGroups(instance *instance_model.Instance) ([]*types.GroupInfo, error)
 	GetGroupInfo(data *GetGroupInfoStruct, instance *instance_model.Instance) (*types.GroupInfo, error)
@@ -247,10 +251,19 @@ func (g *groupService) SetGroupPhoto(data *SetGroupPhotoStruct, instance *instan
 		}
 		defer resp.Body.Close()
 
-		fileData, err = io.ReadAll(resp.Body)
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Group photo URL returned HTTP %s", instance.Id, resp.Status)
+			return "", fmt.Errorf("failed to fetch image: HTTP %s", resp.Status)
+		}
+
+		fileData, err = io.ReadAll(io.LimitReader(resp.Body, maxGroupPhotoBytes+1))
 		if err != nil {
 			g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Could not read image data from URL", instance.Id)
 			return "", fmt.Errorf("failed to read image data: %v", err)
+		}
+		if len(fileData) > maxGroupPhotoBytes {
+			g.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Group photo exceeds %d bytes", instance.Id, maxGroupPhotoBytes)
+			return "", fmt.Errorf("image exceeds %d bytes", maxGroupPhotoBytes)
 		}
 
 	} else if strings.HasPrefix(data.Image, "data:image/jpeg;base64,") || strings.HasPrefix(data.Image, "data:image/png;base64,") {

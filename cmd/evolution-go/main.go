@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/subtle"
 	"database/sql"
 	"flag"
 	"fmt"
@@ -297,8 +298,10 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		token := c.Query("token")
 		instanceId := c.Query("instanceId")
 
-		if token != config.GlobalApiKey {
-			applog.Logger.LogError("Token inválido: %s", token)
+		// Constant-time compare so the global key cannot be recovered byte by
+		// byte through response-timing differences (matches AuthAdmin).
+		if subtle.ConstantTimeCompare([]byte(token), []byte(config.GlobalApiKey)) != 1 {
+			applog.Logger.LogError("WebSocket connection rejected: invalid token")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token inválido"})
 			return
 		}
@@ -473,6 +476,14 @@ func main() {
 	srv := &http.Server{
 		Addr:    ":" + os.Getenv("SERVER_PORT"),
 		Handler: r,
+		// Bounds so a slow/idle client cannot pin a connection (Slowloris) or
+		// hold workers open indefinitely. WriteTimeout is generous because some
+		// endpoints (media download/upload, group info) can legitimately take a
+		// while; ReadHeaderTimeout is the important anti-Slowloris one.
+		ReadHeaderTimeout: 20 * time.Second,
+		ReadTimeout:       5 * time.Minute,
+		WriteTimeout:      10 * time.Minute,
+		IdleTimeout:       2 * time.Minute,
 	}
 
 	quit := make(chan os.Signal, 1)

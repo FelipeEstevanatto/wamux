@@ -324,7 +324,16 @@ func Load() *Config {
 
 	qrMaxCount := 5 // Valor padrão
 	if qrcodeMaxCount != "" {
-		qrMaxCount, _ = strconv.Atoi(qrcodeMaxCount)
+		// A malformed value must not silently disable the QR limit (0 means
+		// "unlimited" downstream), so keep the default on parse failure.
+		parsed, err := strconv.Atoi(qrcodeMaxCount)
+		if err != nil {
+			fmt.Printf("invalid QRCODE_MAX_COUNT %q, using default %d: %v\n", qrcodeMaxCount, qrMaxCount, err)
+		} else if parsed < 0 {
+			fmt.Printf("invalid QRCODE_MAX_COUNT %d (negative), using default %d\n", parsed, qrMaxCount)
+		} else {
+			qrMaxCount = parsed
+		}
 	}
 
 	amqpGlobalEvents := strings.Split(os.Getenv(config_env.AMQP_GLOBAL_EVENTS), ",")

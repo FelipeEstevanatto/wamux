@@ -563,7 +563,7 @@ func (w whatsmeowService) ReconnectClient(instanceId string) error {
 	// Limpar cache de userInfo para esta instância
 	if instance, err := w.instanceRepository.GetInstanceByID(instanceId); err == nil {
 		w.userInfoCache.Delete(instance.Token)
-		w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] UserInfo cache cleared for token: %s", instanceId, instance.Token)
+		w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] UserInfo cache cleared", instanceId)
 	}
 
 	// Passo 3: Atualizar status no banco
@@ -1238,7 +1238,7 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 
 			// Limpar cache de userInfo para esta instância
 			w.userInfoCache.Delete(cd.Instance.Token)
-			w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] UserInfo cache cleared for token: %s", cd.Instance.Id, cd.Instance.Token)
+			w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] UserInfo cache cleared", cd.Instance.Id)
 
 			cd.Instance.Connected = false
 
@@ -2629,6 +2629,13 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			return
 		}
 
+		// A receipt can arrive with no message IDs; indexing [0] below would
+		// panic the dispatch goroutine (and take the whole instance with it).
+		if len(evt.MessageIDs) == 0 {
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Receipt with no message IDs ignored (type %s)", mycli.userID, evt.Type)
+			return
+		}
+
 		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Receipt received with ID: %s from %s with type %s", mycli.userID, evt.MessageIDs[0], evt.SourceString(), evt.Type)
 
 		if evt.Type == types.ReceiptTypeRead || evt.Type == types.ReceiptTypeReadSelf {
@@ -2752,7 +2759,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 		// Limpar cache de userInfo para esta instância
 		mycli.userInfoCache.Delete(mycli.Instance.Token)
-		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] UserInfo cache cleared for token: %s", mycli.userID, mycli.Instance.Token)
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] UserInfo cache cleared", mycli.userID)
 
 		mycli.Instance.DisconnectReason = evt.Reason.String()
 		mycli.Instance.Connected = false
@@ -2933,7 +2940,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 		// Limpar cache de userInfo para esta instância
 		mycli.userInfoCache.Delete(mycli.Instance.Token)
-		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] UserInfo cache cleared for token: %s", mycli.userID, mycli.Instance.Token)
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] UserInfo cache cleared", mycli.userID)
 
 		mycli.Instance.DisconnectReason = evt.Reason.String()
 		mycli.Instance.Connected = false
@@ -2972,7 +2979,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 		// Limpar cache de userInfo para esta instância (mas não para reconexão automática)
 		mycli.userInfoCache.Delete(mycli.Instance.Token)
-		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] UserInfo cache cleared for token: %s", mycli.userID, mycli.Instance.Token)
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] UserInfo cache cleared", mycli.userID)
 
 		mycli.Instance.DisconnectReason = "Disconnected emitted because the websocket is closed by the server."
 		mycli.Instance.Connected = false
@@ -3353,40 +3360,42 @@ func (w *whatsmeowService) SendOperationalEvent(instance *instance_model.Instanc
 }
 
 func (w *whatsmeowService) sendToQueueOrWebhook(instance *instance_model.Instance, queueName string, jsonData []byte) {
+	// Each sink is independent: a transient failure in one (e.g. RabbitMQ down)
+	// must not skip delivery to the others, so errors are logged and we continue.
 	if instance.RabbitmqEnable == "enabled" || instance.RabbitmqEnable == "true" {
 		err := w.rabbitmqProducer.Produce(queueName, jsonData, instance.RabbitmqEnable, instance.Id)
 		if err != nil {
 			w.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to send message to rabbitmq: %s", instance.Id, err)
-			return
+		} else {
+			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Message sent to rabbitmq successfully", instance.Id)
 		}
-		w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Message sent to rabbitmq successfully", instance.Id)
 	}
 
 	if instance.NatsEnable == "enabled" || instance.NatsEnable == "true" {
 		err := w.natsProducer.Produce(queueName, jsonData, instance.NatsEnable, instance.Id)
 		if err != nil {
 			w.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to send message to nats: %s", instance.Id, err)
-			return
+		} else {
+			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Message sent to nats successfully", instance.Id)
 		}
-		w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Message sent to nats successfully", instance.Id)
 	}
 
 	if instance.WebSocketEnable == "enabled" || instance.WebSocketEnable == "true" {
 		err := w.websocketProducer.Produce(queueName, jsonData, instance.Id, instance.Token)
 		if err != nil {
 			w.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to send message to websocket: %s", instance.Id, err)
-			return
+		} else {
+			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Message sent to websocket successfully", instance.Id)
 		}
-		w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Message sent to websocket successfully", instance.Id)
 	}
 
 	if instance.Webhook != "" && instance.Webhook != "disabled" {
 		err := w.webhookProducer.Produce(queueName, jsonData, instance.Webhook, instance.Id)
 		if err != nil {
 			w.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to send message to webhook: %s", instance.Id, err)
-			return
+		} else {
+			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Message sent to webhook successfully", instance.Id)
 		}
-		w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Message sent to webhook successfully", instance.Id)
 	}
 }
 
@@ -3848,7 +3857,7 @@ func (w whatsmeowService) UpdateInstanceAdvancedSettings(instanceId string) erro
 }
 
 func (w whatsmeowService) ClearInstanceCache(instanceId string, token string) error {
-	w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Clearing instance cache - Token: %s", instanceId, token)
+	w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Clearing instance cache", instanceId)
 
 	// Limpar userInfoCache
 	w.userInfoCache.Delete(token)
