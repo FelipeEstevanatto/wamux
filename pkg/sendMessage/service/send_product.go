@@ -27,34 +27,34 @@ import (
 
 // ProductStruct is the body of POST /send/product.
 type ProductStruct struct {
-	Number string `json:"number"`
-	Id     string `json:"id,omitempty"`
+	Number string `json:"number" example:"5511999999999"`
+	Id     string `json:"id,omitempty" example:"3EB0A1B2C3D4E5F6A7B8C9"`
 
 	// Product data shown on the card. ProductId must be the product's ID in your
 	// catalog -- get it from the official app / Commerce Manager.
-	ProductId   string `json:"productId"`
-	Title       string `json:"title"`
-	Description string `json:"description,omitempty"`
+	ProductId   string `json:"productId" example:"1234567890123456"`
+	Title       string `json:"title" example:"Camiseta Evolution GO"`
+	Description string `json:"description,omitempty" example:"Camiseta oficial 100% algodao"`
 	// Price in thousandths of the currency unit: R$ 10,00 => 10000.
-	Price      int64  `json:"price"`
+	Price      int64  `json:"price" example:"10000"`
 	Currency   string `json:"currency" example:"BRL"`
-	RetailerId string `json:"retailerId,omitempty"`
-	Url        string `json:"url,omitempty"`
+	RetailerId string `json:"retailerId,omitempty" example:"SKU-001"`
+	Url        string `json:"url,omitempty" example:"https://loja.example.com/produto/1234567890123456"`
 
 	// Product image: base64 or an external URL (downloaded and re-uploaded).
-	ImageBase64 string `json:"imageBase64,omitempty"`
-	ImageURL    string `json:"imageUrl,omitempty"`
+	ImageBase64 string `json:"imageBase64,omitempty" example:"data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ..."`
+	ImageURL    string `json:"imageUrl,omitempty" example:"https://loja.example.com/imagens/camiseta.jpg"`
 
 	// Catalog owner JID. When empty, the instance's own JID is used.
-	BusinessOwnerJid string `json:"businessOwnerJid,omitempty"`
+	BusinessOwnerJid string `json:"businessOwnerJid,omitempty" example:"5511999999999@s.whatsapp.net"`
 
-	Body   string `json:"body,omitempty"`
-	Footer string `json:"footer,omitempty"`
+	Body   string `json:"body,omitempty" example:"Aproveite esta oferta!"`
+	Footer string `json:"footer,omitempty" example:"Evolution GO"`
 
-	Delay        int32        `json:"delay"`
-	MentionedJID []string     `json:"mentionedJid"`
-	MentionAll   bool         `json:"mentionAll"`
-	FormatJid    *bool        `json:"formatJid,omitempty"`
+	Delay        int32        `json:"delay" example:"1200"`
+	MentionedJID []string     `json:"mentionedJid" example:"5511999999999@s.whatsapp.net"`
+	MentionAll   bool         `json:"mentionAll" example:"false"`
+	FormatJid    *bool        `json:"formatJid,omitempty" example:"true"`
 	Quoted       QuotedStruct `json:"quoted"`
 }
 

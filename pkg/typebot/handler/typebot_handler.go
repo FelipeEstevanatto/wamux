@@ -5,11 +5,16 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	docmodels "github.com/evolution-foundation/evolution-go/pkg/docmodels"
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
 	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
 	typebot_model "github.com/evolution-foundation/evolution-go/pkg/typebot/model"
 	typebot_repository "github.com/evolution-foundation/evolution-go/pkg/typebot/repository"
 )
+
+// Keep docmodels referenced so the import is not dropped: swag reads the Go
+// source (not pre-processed) and needs the alias to be in scope.
+var _ = docmodels.Envelope{}
 
 type TypebotHandler interface {
 	CreateBot(ctx *gin.Context)
@@ -53,8 +58,8 @@ func instanceFromContext(ctx *gin.Context) (*instance_model.Instance, bool) {
 // @Produce json
 // @Param data body typebot_model.TypebotRequest true "Typebot configuration"
 // @Success 201 {object} typebot_model.Typebot
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /typebot [post]
 func (t *typebotHandler) CreateBot(ctx *gin.Context) {
 	instance, ok := instanceFromContext(ctx)
@@ -100,7 +105,7 @@ func (t *typebotHandler) CreateBot(ctx *gin.Context) {
 // @Tags Typebot
 // @Produce json
 // @Success 200 {array} typebot_model.Typebot
-// @Failure 500 {object} gin.H "Internal server error"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /typebot [get]
 func (t *typebotHandler) ListBots(ctx *gin.Context) {
 	instance, ok := instanceFromContext(ctx)
@@ -128,8 +133,8 @@ func (t *typebotHandler) ListBots(ctx *gin.Context) {
 // @Param id path string true "Typebot id"
 // @Param data body typebot_model.TypebotRequest true "Fields to update"
 // @Success 200 {object} typebot_model.Typebot
-// @Failure 404 {object} gin.H "Not found"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Failure 404 {object} docmodels.ErrorResponse "Not found"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /typebot/{id} [put]
 func (t *typebotHandler) UpdateBot(ctx *gin.Context) {
 	instance, ok := instanceFromContext(ctx)
@@ -205,8 +210,8 @@ func applyRequest(bot *typebot_model.Typebot, data *typebot_model.TypebotRequest
 // @Tags Typebot
 // @Produce json
 // @Param id path string true "Typebot id"
-// @Success 200 {object} gin.H "success"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.TypebotSuccess "success"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /typebot/{id} [delete]
 func (t *typebotHandler) DeleteBot(ctx *gin.Context) {
 	instance, ok := instanceFromContext(ctx)
@@ -227,7 +232,7 @@ func (t *typebotHandler) DeleteBot(ctx *gin.Context) {
 // @Tags Typebot
 // @Produce json
 // @Success 200 {array} typebot_model.TypebotSession
-// @Failure 500 {object} gin.H "Internal server error"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /typebot/sessions [get]
 func (t *typebotHandler) ListSessions(ctx *gin.Context) {
 	instance, ok := instanceFromContext(ctx)
@@ -254,9 +259,9 @@ func (t *typebotHandler) ListSessions(ctx *gin.Context) {
 // @Produce json
 // @Param id path string true "Session id"
 // @Param data body object{status=string} true "opened, paused or closed"
-// @Success 200 {object} gin.H "success"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.TypebotSuccess "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /typebot/sessions/{id}/status [put]
 func (t *typebotHandler) UpdateSessionStatus(ctx *gin.Context) {
 	instance, ok := instanceFromContext(ctx)
@@ -296,10 +301,10 @@ func (t *typebotHandler) UpdateSessionStatus(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param data body object{remoteJid=string,status=string} true "Contact JID and target status"
-// @Success 200 {object} gin.H "success"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 404 {object} gin.H "No session for that contact"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.TypebotStatusChange "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 404 {object} docmodels.ErrorResponse "No session for that contact"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /typebot/changeStatus [post]
 func (t *typebotHandler) ChangeSessionStatus(ctx *gin.Context) {
 	instance, ok := instanceFromContext(ctx)
@@ -353,8 +358,8 @@ func (t *typebotHandler) ChangeSessionStatus(ctx *gin.Context) {
 // @Tags Typebot
 // @Produce json
 // @Param id path string true "Session id"
-// @Success 200 {object} gin.H "success"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.TypebotSuccess "success"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /typebot/sessions/{id} [delete]
 func (t *typebotHandler) DeleteSession(ctx *gin.Context) {
 	instance, ok := instanceFromContext(ctx)

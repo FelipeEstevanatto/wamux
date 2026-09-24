@@ -1,10 +1,10 @@
 package group_service
 
 import (
-	"github.com/evolution-foundation/evolution-go/pkg/safemap"
 	"context"
 	"errors"
 	"fmt"
+	"github.com/evolution-foundation/evolution-go/pkg/safemap"
 	"io"
 	"net/http"
 	"strings"
@@ -56,42 +56,42 @@ type GroupCollection struct {
 }
 
 type GetGroupInfoStruct struct {
-	GroupJID string `json:"groupJid"`
+	GroupJID string `json:"groupJid" example:"120363000000000000@g.us"`
 }
 
 type GetGroupInviteLinkStruct struct {
-	GroupJID string `json:"groupJid"`
-	Reset    bool   `json:"reset"`
+	GroupJID string `json:"groupJid" example:"120363000000000000@g.us"`
+	Reset    bool   `json:"reset" example:"false"`
 }
 
 type SetGroupPhotoStruct struct {
-	GroupJID string `json:"groupJid"`
-	Image    string `json:"image"`
+	GroupJID string `json:"groupJid" example:"120363000000000000@g.us"`
+	Image    string `json:"image" example:"data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ..."`
 }
 
 type SetGroupNameStruct struct {
-	GroupJID string `json:"groupJid"`
-	Name     string `json:"name"`
+	GroupJID string `json:"groupJid" example:"120363000000000000@g.us"`
+	Name     string `json:"name" example:"Equipe Vendas"`
 }
 
 type SetGroupDescriptionStruct struct {
-	GroupJID    string `json:"groupJid"`
-	Description string `json:"description"`
+	GroupJID    string `json:"groupJid" example:"120363000000000000@g.us"`
+	Description string `json:"description" example:"Grupo de atendimento da loja"`
 }
 
 type CreateGroupStruct struct {
-	GroupName    string   `json:"groupName"`
-	Participants []string `json:"participants"`
+	GroupName    string   `json:"groupName" example:"Equipe Vendas"`
+	Participants []string `json:"participants" example:"5511999999999,5511888888888"`
 }
 
 type AddParticipantStruct struct {
 	GroupJID     types.JID                   `json:"groupJid"`
-	Participants []string                    `json:"participants"`
-	Action       whatsmeow.ParticipantChange `json:"action"`
+	Participants []string                    `json:"participants" example:"5511999999999"`
+	Action       whatsmeow.ParticipantChange `json:"action" example:"add"`
 }
 
 type JoinGroupStruct struct {
-	Code string `json:"code"`
+	Code string `json:"code" example:"AbCdEfGhIjKlMnOpQrStUv"`
 }
 
 type LeaveGroupStruct struct {
@@ -99,8 +99,8 @@ type LeaveGroupStruct struct {
 }
 
 type UpdateGroupSettingsStruct struct {
-	GroupJID string `json:"groupJid"`
-	Action   string `json:"action"` // announcement, not_announcement, locked, unlocked
+	GroupJID string `json:"groupJid" example:"120363000000000000@g.us"`
+	Action   string `json:"action" example:"announcement"` // announcement, not_announcement, locked, unlocked
 }
 
 type GetGroupRequestParticipantsStruct struct {

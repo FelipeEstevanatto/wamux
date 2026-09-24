@@ -3,10 +3,15 @@ package newsletter_handler
 import (
 	"net/http"
 
+	docmodels "github.com/evolution-foundation/evolution-go/pkg/docmodels"
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
 	newsletter_service "github.com/evolution-foundation/evolution-go/pkg/newsletter/service"
 	"github.com/gin-gonic/gin"
 )
+
+// Keep docmodels referenced so the import is not dropped: swag reads the Go
+// source (not pre-processed) and needs the alias to be in scope.
+var _ = docmodels.Envelope{}
 
 type NewsletterHandler interface {
 	CreateNewsletter(ctx *gin.Context)
@@ -28,9 +33,9 @@ type newsletterHandler struct {
 // @Accept json
 // @Produce json
 // @Param message body newsletter_service.CreateNewsletterStruct true "Newsletter data"
-// @Success 200 {object} gin.H "success"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.Newsletter} "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /newsletter/create [post]
 func (n *newsletterHandler) CreateNewsletter(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -68,8 +73,8 @@ func (n *newsletterHandler) CreateNewsletter(ctx *gin.Context) {
 // @Tags Newsletter
 // @Accept json
 // @Produce json
-// @Success 200 {object} gin.H "success"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=[]docmodels.Newsletter} "success"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /newsletter/list [get]
 func (n *newsletterHandler) ListNewsletter(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -96,9 +101,9 @@ func (n *newsletterHandler) ListNewsletter(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param message body newsletter_service.GetNewsletterStruct true "Newsletter data"
-// @Success 200 {object} gin.H "success"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.Newsletter} "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /newsletter/info [post]
 func (n *newsletterHandler) GetNewsletter(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -137,9 +142,9 @@ func (n *newsletterHandler) GetNewsletter(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param message body newsletter_service.GetNewsletterInviteStruct true "Newsletter data"
-// @Success 200 {object} gin.H "success"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.Newsletter} "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /newsletter/link [post]
 func (n *newsletterHandler) GetNewsletterInvite(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -178,9 +183,9 @@ func (n *newsletterHandler) GetNewsletterInvite(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param message body newsletter_service.GetNewsletterStruct true "Newsletter data"
-// @Success 200 {object} gin.H "success"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /newsletter/subscribe [post]
 func (n *newsletterHandler) SubscribeNewsletter(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -219,9 +224,9 @@ func (n *newsletterHandler) SubscribeNewsletter(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param message body newsletter_service.GetNewsletterMessagesStruct true "Newsletter data"
-// @Success 200 {object} gin.H "success"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=[]docmodels.NewsletterMessage} "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /newsletter/messages [post]
 func (n *newsletterHandler) GetNewsletterMessages(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")

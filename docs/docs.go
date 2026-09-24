@@ -43,13 +43,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                        }
+                    },
+                    "400": {
+                        "description": "Error on validation",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -83,19 +89,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ChatActionResult"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -129,19 +147,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -175,19 +193,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.HistorySyncResult"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -221,19 +251,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ChatActionResult"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -267,19 +309,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ChatActionResult"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -313,19 +367,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ChatActionResult"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -359,19 +425,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ChatActionResult"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -405,19 +483,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ChatActionResult"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -451,19 +541,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.CommunityMutation"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -497,19 +599,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Community"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -543,19 +657,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.CommunityMutation"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -589,19 +715,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.GroupCreateResult"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -635,19 +773,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -681,19 +819,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Group"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -727,19 +877,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -773,19 +935,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -819,19 +981,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -854,13 +1016,28 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Group"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -883,13 +1060,28 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Group"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -923,19 +1115,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -969,19 +1161,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1015,19 +1207,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1061,19 +1265,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1096,13 +1300,28 @@ const docTemplate = `{
                     "200": {
                         "description": "All instances",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Instance"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1136,19 +1355,31 @@ const docTemplate = `{
                     "200": {
                         "description": "Instance connected successfully",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.QRCode"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1182,19 +1413,31 @@ const docTemplate = `{
                     "200": {
                         "description": "Instance created successfully",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Instance"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1226,19 +1469,19 @@ const docTemplate = `{
                     "200": {
                         "description": "Instance deleted successfully",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1261,13 +1504,13 @@ const docTemplate = `{
                     "200": {
                         "description": "Instance disconnected successfully",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1308,19 +1551,19 @@ const docTemplate = `{
                     "200": {
                         "description": "Instance force reconnected successfully",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1352,19 +1595,31 @@ const docTemplate = `{
                     "200": {
                         "description": "Instance",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Instance"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1396,19 +1651,31 @@ const docTemplate = `{
                     "200": {
                         "description": "Account limits",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_instance_service.LimitsStruct"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Limits"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1431,13 +1698,13 @@ const docTemplate = `{
                     "200": {
                         "description": "Instance logged out successfully",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1490,19 +1757,22 @@ const docTemplate = `{
                     "200": {
                         "description": "Logs",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.LogEntry"
+                            }
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1543,19 +1813,31 @@ const docTemplate = `{
                     "200": {
                         "description": "Instance renamed successfully",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Instance"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1584,19 +1866,31 @@ const docTemplate = `{
                     "200": {
                         "description": "overview",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.InstanceOverview"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1630,19 +1924,31 @@ const docTemplate = `{
                     "200": {
                         "description": "Pairing code",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.PairResult"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1674,19 +1980,31 @@ const docTemplate = `{
                     "200": {
                         "description": "Proxy configuration",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ProxyGet"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1725,19 +2043,31 @@ const docTemplate = `{
                     "200": {
                         "description": "Proxy set successfully",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ProxySet"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1767,19 +2097,19 @@ const docTemplate = `{
                     "200": {
                         "description": "Proxy deleted successfully",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1809,21 +2139,21 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "success",
+                        "description": "Proxy reconnected successfully",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1869,13 +2199,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1898,13 +2228,25 @@ const docTemplate = `{
                     "200": {
                         "description": "Instance QR code",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.QRCode"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1927,13 +2269,13 @@ const docTemplate = `{
                     "200": {
                         "description": "Instance reconnected successfully",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1956,13 +2298,25 @@ const docTemplate = `{
                     "200": {
                         "description": "Instance status",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ConnectionStatus"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1997,19 +2351,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid instance ID",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2048,25 +2402,25 @@ const docTemplate = `{
                     "200": {
                         "description": "Advanced settings updated successfully",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_instance_model.AdvancedSettings"
                         }
                     },
                     "400": {
                         "description": "Invalid request data",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2100,19 +2454,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2146,19 +2500,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2179,15 +2533,18 @@ const docTemplate = `{
                 "summary": "Get all labels",
                 "responses": {
                     "200": {
-                        "description": "success",
+                        "description": "All labels",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Label"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2221,19 +2578,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2267,19 +2624,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageMutationResult"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2313,19 +2682,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.DownloadMedia"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2359,19 +2740,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageMutationResult"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2405,19 +2798,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageActionResult"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2451,19 +2856,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageActionResult"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2497,19 +2914,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageActionResult"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2543,19 +2972,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2589,19 +3030,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageStatus"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2635,19 +3088,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2681,19 +3134,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Newsletter"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2727,19 +3192,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Newsletter"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2773,19 +3250,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Newsletter"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2808,13 +3297,28 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Newsletter"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2848,19 +3352,34 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterMessage"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2894,19 +3413,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2935,25 +3454,25 @@ const docTemplate = `{
                     "200": {
                         "description": "Ceremony state ({stage, skipHandoffUX, publicKey?, code?, error?})",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.PasskeyCeremony"
                         }
                     },
                     "400": {
                         "description": "token is required",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "ceremony not found or expired",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "503": {
                         "description": "passkey ceremony unavailable",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2982,31 +3501,31 @@ const docTemplate = `{
                     "200": {
                         "description": "ok",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.PasskeyOK"
                         }
                     },
                     "400": {
                         "description": "token is required",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "ceremony not found or expired",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "503": {
                         "description": "passkey ceremony unavailable",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3047,31 +3566,31 @@ const docTemplate = `{
                     "200": {
                         "description": "ok",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.PasskeyOK"
                         }
                     },
                     "400": {
                         "description": "token is required / invalid body",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "ceremony not found or expired",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "503": {
                         "description": "passkey ceremony unavailable",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3107,21 +3626,21 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "pollMessageId is required",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "No votes found for this poll",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Failed to fetch poll results",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3155,19 +3674,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3201,19 +3732,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3247,19 +3790,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3293,19 +3848,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3339,19 +3906,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3385,19 +3964,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3431,19 +4022,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3477,19 +4080,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3523,19 +4138,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3569,19 +4196,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3638,19 +4277,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3684,19 +4335,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3730,19 +4393,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3776,19 +4451,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3808,7 +4495,7 @@ const docTemplate = `{
                     "200": {
                         "description": "status",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ServerOK"
                         }
                     }
                 }
@@ -3828,7 +4515,7 @@ const docTemplate = `{
                     "200": {
                         "description": "system and messages",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ServerStats"
                         }
                     }
                 }
@@ -3856,7 +4543,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3893,13 +4580,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3941,25 +4628,25 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.TypebotStatusChange"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "No session for that contact",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3987,7 +4674,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4015,13 +4702,13 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.TypebotSuccess"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4066,19 +4753,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.TypebotSuccess"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4124,13 +4811,13 @@ const docTemplate = `{
                     "404": {
                         "description": "Not found",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4156,13 +4843,13 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.TypebotSuccess"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4196,19 +4883,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4242,19 +4929,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4288,31 +4975,43 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Avatar"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "429": {
                         "description": "WhatsApp rate limit",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "504": {
                         "description": "WhatsApp query timeout",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4346,19 +5045,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Blocklist"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4381,13 +5092,25 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Blocklist"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4421,19 +5144,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.CheckUserCollection"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4456,13 +5191,28 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Contact"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4496,31 +5246,43 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.UserCollection"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "429": {
                         "description": "WhatsApp rate limit",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "504": {
                         "description": "WhatsApp query timeout",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4554,19 +5316,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ResolveLid"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4589,13 +5363,25 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Privacy"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4627,13 +5413,25 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Privacy"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4659,7 +5457,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_user_service.SetProfilePictureStruct"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_user_service.SetProfileNameStruct"
                         }
                     }
                 ],
@@ -4667,19 +5465,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ProfileName"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4713,19 +5523,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ProfilePicture"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4751,7 +5573,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_user_service.SetProfilePictureStruct"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_user_service.SetProfileStatusStruct"
                         }
                     }
                 ],
@@ -4759,19 +5581,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ProfileStatus"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4805,19 +5639,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4851,19 +5685,31 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Blocklist"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4871,10 +5717,6 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "gin.H": {
-            "type": "object",
-            "additionalProperties": {}
-        },
         "github_com_evolution-foundation_evolution-go_pkg_call_service.RejectCallStruct": {
             "type": "object",
             "properties": {
@@ -4882,7 +5724,8 @@ const docTemplate = `{
                     "$ref": "#/definitions/types.JID"
                 },
                 "callId": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "3EB0A1B2C3D4E5F6A7B8C9"
                 }
             }
         },
@@ -4890,7 +5733,8 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "chat": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "5511999999999@s.whatsapp.net"
                 }
             }
         },
@@ -4898,7 +5742,8 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "chat": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "5511999999999@s.whatsapp.net"
                 },
                 "expiration": {
                     "description": "Expiration is the disappearing-messages timer in SECONDS (0 disables it).\nOfficial clients use 0, 86400 (24h), 604800 (7d) or 7776000 (90d).",
@@ -4911,7 +5756,8 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "count": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 50
                 },
                 "messageInfo": {
                     "$ref": "#/definitions/types.MessageInfo"
@@ -4922,13 +5768,17 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "communityJid": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "120363000000000000@g.us"
                 },
                 "groupJid": {
                     "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "example": [
+                        "120363000000000001@g.us"
+                    ]
                 }
             }
         },
@@ -4936,15 +5786,1387 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "communityName": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Minha Comunidade"
                 }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.Avatar": {
+            "type": "object",
+            "properties": {
+                "direct_path": {
+                    "type": "string",
+                    "example": "/v/t61.24694-24/example.jpg"
+                },
+                "hash": {
+                    "type": "string",
+                    "example": "mprE5+0w7jtC7PY4NhW3O2qZpvyOo9T+n8kgPbY7L9s="
+                },
+                "id": {
+                    "type": "string",
+                    "example": "1062917621"
+                },
+                "type": {
+                    "type": "string",
+                    "example": "image"
+                },
+                "url": {
+                    "type": "string",
+                    "example": "https://pps.whatsapp.net/v/t61.24694-24/example.jpg"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.Blocklist": {
+            "type": "object",
+            "properties": {
+                "DHash": {
+                    "type": "string",
+                    "example": ""
+                },
+                "JIDs": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "5511999999999@s.whatsapp.net"
+                    ]
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.ChatActionResult": {
+            "type": "object",
+            "properties": {
+                "timestamp": {
+                    "type": "string",
+                    "example": "0001-01-01 00:00:00 +0000 UTC"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.CheckUser": {
+            "type": "object",
+            "properties": {
+                "IsInWhatsapp": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "JID": {
+                    "type": "string",
+                    "example": "1234567890@lid"
+                },
+                "LID": {},
+                "Query": {
+                    "type": "string",
+                    "example": "+5511999999999@s.whatsapp.net"
+                },
+                "RemoteJID": {
+                    "type": "string",
+                    "example": "1234567890@lid"
+                },
+                "VerifiedName": {
+                    "type": "string",
+                    "example": ""
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.CheckUserCollection": {
+            "type": "object",
+            "properties": {
+                "Users": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.CheckUser"
+                    }
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.Community": {
+            "type": "object",
+            "properties": {
+                "JID": {
+                    "type": "string",
+                    "example": "120363000000000000@g.us"
+                },
+                "Name": {
+                    "type": "string",
+                    "example": "Minha Comunidade"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.CommunityMutation": {
+            "type": "object",
+            "properties": {
+                "JID": {
+                    "type": "string",
+                    "example": "120363000000000000@g.us"
+                },
+                "Participants": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "Error": {
+                                "type": "integer",
+                                "example": 0
+                            },
+                            "JID": {
+                                "type": "string",
+                                "example": "120363000000000001@g.us"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.ConnectionStatus": {
+            "type": "object",
+            "properties": {
+                "Connected": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "LoggedIn": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "Name": {
+                    "type": "string",
+                    "example": "Minha Instancia"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.Contact": {
+            "type": "object",
+            "properties": {
+                "BusinessName": {
+                    "type": "string",
+                    "example": ""
+                },
+                "FirstName": {
+                    "type": "string",
+                    "example": "Alice"
+                },
+                "Found": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "FullName": {
+                    "type": "string",
+                    "example": "Alice Souza"
+                },
+                "Jid": {
+                    "type": "string",
+                    "example": "5511999999999@s.whatsapp.net"
+                },
+                "PushName": {
+                    "type": "string",
+                    "example": "Alice"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.DownloadMedia": {
+            "type": "object",
+            "properties": {
+                "base64": {
+                    "type": "string",
+                    "example": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ..."
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "message": {
+                    "type": "string",
+                    "example": "success"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "phone number is required"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.Group": {
+            "type": "object",
+            "properties": {
+                "AddressingMode": {
+                    "type": "string",
+                    "example": "lid"
+                },
+                "AnnounceVersionID": {
+                    "type": "string",
+                    "example": "1790119298733550"
+                },
+                "CreatorCountryCode": {
+                    "type": "string",
+                    "example": "BR"
+                },
+                "DefaultMembershipApprovalMode": {
+                    "type": "string",
+                    "example": ""
+                },
+                "DisappearingTimer": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "GroupCreated": {
+                    "type": "string",
+                    "example": "2026-01-10T20:21:38-03:00"
+                },
+                "IsAnnounce": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "IsDefaultSubGroup": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "IsEphemeral": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "IsIncognito": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "IsJoinApprovalRequired": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "IsLocked": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "IsParent": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "JID": {
+                    "type": "string",
+                    "example": "120363000000000000@g.us"
+                },
+                "LinkedParentJID": {
+                    "type": "string",
+                    "example": ""
+                },
+                "MemberAddMode": {
+                    "type": "string",
+                    "example": "all_member_add"
+                },
+                "Name": {
+                    "type": "string",
+                    "example": "Equipe Vendas"
+                },
+                "NameSetAt": {
+                    "type": "string",
+                    "example": "2026-01-10T20:21:38-03:00"
+                },
+                "NameSetBy": {
+                    "type": "string",
+                    "example": "1234567890@lid"
+                },
+                "NameSetByPN": {
+                    "type": "string",
+                    "example": "5511999999999@s.whatsapp.net"
+                },
+                "OwnerJID": {
+                    "type": "string",
+                    "example": "1234567890@lid"
+                },
+                "OwnerPN": {
+                    "type": "string",
+                    "example": "5511999999999@s.whatsapp.net"
+                },
+                "ParticipantCount": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "ParticipantVersionID": {
+                    "type": "string",
+                    "example": "1790119298733550"
+                },
+                "Participants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.GroupParticipant"
+                    }
+                },
+                "Suspended": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "Topic": {
+                    "type": "string",
+                    "example": ""
+                },
+                "TopicDeleted": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "TopicID": {
+                    "type": "string",
+                    "example": ""
+                },
+                "TopicSetAt": {
+                    "type": "string",
+                    "example": "0001-01-01T00:00:00Z"
+                },
+                "TopicSetBy": {
+                    "type": "string",
+                    "example": ""
+                },
+                "TopicSetByPN": {
+                    "type": "string",
+                    "example": ""
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.GroupCreateResult": {
+            "type": "object",
+            "properties": {
+                "added": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "5511999999999@s.whatsapp.net",
+                        "5511888888888@s.whatsapp.net"
+                    ]
+                },
+                "failed": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        ""
+                    ]
+                },
+                "jid": {
+                    "type": "string",
+                    "example": "120363000000000000@g.us"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Equipe Vendas"
+                },
+                "owner": {
+                    "type": "string",
+                    "example": "5511999999999@s.whatsapp.net"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.GroupParticipant": {
+            "type": "object",
+            "properties": {
+                "AddRequest": {},
+                "DisplayName": {
+                    "type": "string",
+                    "example": ""
+                },
+                "Error": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "IsAdmin": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "IsSuperAdmin": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "JID": {
+                    "type": "string",
+                    "example": "1234567890@lid"
+                },
+                "LID": {
+                    "type": "string",
+                    "example": "1234567890@lid"
+                },
+                "PhoneNumber": {
+                    "type": "string",
+                    "example": "5511999999999@s.whatsapp.net"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.HistorySyncResult": {
+            "type": "object",
+            "properties": {
+                "ID": {
+                    "type": "string",
+                    "example": "3EB0A1B2C3D4E5F6A7B8C9"
+                },
+                "Timestamp": {
+                    "type": "string",
+                    "example": "2026-01-15T10:30:00-03:00"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.Instance": {
+            "type": "object",
+            "properties": {
+                "alwaysOnline": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "client_name": {
+                    "type": "string",
+                    "example": "evolution"
+                },
+                "connected": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "createdAt": {
+                    "type": "string",
+                    "example": "2026-01-15T10:30:00.000000-03:00"
+                },
+                "disconnect_reason": {
+                    "type": "string",
+                    "example": ""
+                },
+                "events": {
+                    "type": "string",
+                    "example": "MESSAGE"
+                },
+                "expiration": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "id": {
+                    "type": "string",
+                    "example": "11111111-2222-3333-4444-555555555555"
+                },
+                "ignoreGroups": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "ignoreStatus": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "jid": {
+                    "type": "string",
+                    "example": "5511999999999:7@s.whatsapp.net"
+                },
+                "msgRejectCall": {
+                    "type": "string",
+                    "example": ""
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Minha Instancia"
+                },
+                "natsEnable": {
+                    "type": "string",
+                    "example": ""
+                },
+                "os_name": {
+                    "type": "string",
+                    "example": "Evolution GO"
+                },
+                "proxy": {
+                    "type": "string",
+                    "example": ""
+                },
+                "qrcode": {
+                    "type": "string",
+                    "example": ""
+                },
+                "rabbitmqEnable": {
+                    "type": "string",
+                    "example": ""
+                },
+                "readMessages": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "rejectCall": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "token": {
+                    "type": "string",
+                    "example": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+                },
+                "webhook": {
+                    "type": "string",
+                    "example": "https://webhook.example.com/evolution"
+                },
+                "websocketEnable": {
+                    "type": "string",
+                    "example": ""
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.InstanceOverview": {
+            "type": "object",
+            "properties": {
+                "chatsCount": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "connected": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "contactsCount": {
+                    "type": "integer",
+                    "example": 344
+                },
+                "messagesCount": {
+                    "type": "integer",
+                    "example": 19
+                },
+                "platform": {
+                    "type": "string",
+                    "example": "android"
+                },
+                "profileName": {
+                    "type": "string",
+                    "example": "Minha Instancia"
+                },
+                "profilePicUrl": {
+                    "type": "string",
+                    "example": "https://pps.whatsapp.net/v/t61.24694-24/example.jpg"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.Label": {
+            "type": "object",
+            "properties": {
+                "color": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "deleted": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "id": {
+                    "type": "string",
+                    "example": "1"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Cliente VIP"
+                },
+                "predefinedId": {
+                    "type": "string",
+                    "example": ""
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.Limits": {
+            "type": "object",
+            "properties": {
+                "newChatCapping": {
+                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.NewChatCapping"
+                },
+                "reachoutTimelock": {
+                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ReachoutTimelock"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.LogEntry": {
+            "type": "object",
+            "properties": {
+                "instance_id": {
+                    "type": "string",
+                    "example": "11111111-2222-3333-4444-555555555555"
+                },
+                "level": {
+                    "type": "string",
+                    "example": "INFO"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Client successfully validated - Connected: true"
+                },
+                "timestamp": {
+                    "type": "string",
+                    "example": "2026-01-15T10:30:00.676Z"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageActionResult": {
+            "type": "object",
+            "properties": {
+                "timestamp": {
+                    "type": "string",
+                    "example": "0001-01-01 00:00:00 +0000 UTC"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageBody": {
+            "type": "object",
+            "properties": {
+                "conversation": {
+                    "type": "string",
+                    "example": "Ola, tudo bem?"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageInfo": {
+            "type": "object",
+            "properties": {
+                "Chat": {
+                    "type": "string",
+                    "example": "5511999999999@s.whatsapp.net"
+                },
+                "ID": {
+                    "type": "string",
+                    "example": "3EB0A1B2C3D4E5F6A7B8C9"
+                },
+                "IsFromMe": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "IsGroup": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "Sender": {
+                    "type": "string",
+                    "example": "5511999999999@s.whatsapp.net"
+                },
+                "Timestamp": {
+                    "type": "string",
+                    "example": "2026-01-15T10:30:00Z"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageMutationResult": {
+            "type": "object",
+            "properties": {
+                "messageId": {
+                    "type": "string",
+                    "example": "3EB0A1B2C3D4E5F6A7B8C9"
+                },
+                "timestamp": {
+                    "type": "string",
+                    "example": "2026-01-15 10:31:00 -0300 -03"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend": {
+            "type": "object",
+            "properties": {
+                "Info": {
+                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageInfo"
+                },
+                "Message": {
+                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageBody"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageStats": {
+            "type": "object",
+            "properties": {
+                "byDay": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "count": {
+                                "type": "integer",
+                                "example": 169
+                            },
+                            "key": {
+                                "type": "string",
+                                "example": "2026-01-15"
+                            }
+                        }
+                    }
+                },
+                "byStatus": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "count": {
+                                "type": "integer",
+                                "example": 127
+                            },
+                            "key": {
+                                "type": "string",
+                                "example": "Read"
+                            }
+                        }
+                    }
+                },
+                "topSources": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "count": {
+                                "type": "integer",
+                                "example": 171
+                            },
+                            "key": {
+                                "type": "string",
+                                "example": "5511999999999"
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "Alice Souza"
+                            },
+                            "phone": {
+                                "type": "string",
+                                "example": "5511999999999"
+                            }
+                        }
+                    }
+                },
+                "total": {
+                    "type": "integer",
+                    "example": 184
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageStatus": {
+            "type": "object",
+            "properties": {
+                "result": {
+                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageStatusRow"
+                },
+                "timestamp": {
+                    "type": "string",
+                    "example": "0001-01-01 00:00:00 +0000 UTC"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageStatusRow": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "example": "57c59a33-33f3-4e30-9b0d-07536b5f8e4b"
+                },
+                "instance_id": {
+                    "type": "string",
+                    "example": "11111111-2222-3333-4444-555555555555"
+                },
+                "message_id": {
+                    "type": "string",
+                    "example": "3EB0A1B2C3D4E5F6A7B8C9"
+                },
+                "source": {
+                    "type": "string",
+                    "example": "1234567890"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "Sent"
+                },
+                "timestamp": {
+                    "type": "string",
+                    "example": "2026-01-15 10:30:00"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.NewChatCapping": {
+            "type": "object",
+            "properties": {
+                "cappingStatus": {
+                    "type": "string",
+                    "example": "NONE"
+                },
+                "cycleEnds": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "totalQuota": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "usedQuota": {
+                    "type": "integer",
+                    "example": 0
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.Newsletter": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "example": "120363000000000000@newsletter"
+                },
+                "state": {
+                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterState"
+                },
+                "thread_metadata": {
+                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterThreadMetadata"
+                },
+                "viewer_metadata": {
+                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterViewerMetadata"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterMedia": {
+            "type": "object",
+            "properties": {
+                "direct_path": {
+                    "type": "string",
+                    "example": ""
+                },
+                "hash": {},
+                "id": {
+                    "type": "string",
+                    "example": "1790227157396014"
+                },
+                "type": {
+                    "type": "string",
+                    "example": "IMAGE"
+                },
+                "url": {
+                    "type": "string",
+                    "example": ""
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterMessage": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "example": "3EB0A1B2C3D4E5F6A7B8C9"
+                },
+                "message": {
+                    "type": "object",
+                    "properties": {
+                        "conversation": {
+                            "type": "string",
+                            "example": "Confira nossa promocao de hoje!"
+                        }
+                    }
+                },
+                "serverId": {
+                    "type": "integer",
+                    "example": 123456789
+                },
+                "timestamp": {
+                    "type": "string",
+                    "example": "2026-01-15T10:30:00-03:00"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterSettings": {
+            "type": "object",
+            "properties": {
+                "reaction_codes": {
+                    "type": "object",
+                    "properties": {
+                        "value": {
+                            "type": "string",
+                            "example": "ALL"
+                        }
+                    }
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterState": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "example": "active"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterTextField": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "example": "1790227149344380"
+                },
+                "text": {
+                    "type": "string",
+                    "example": "Novidades da Loja"
+                },
+                "update_time": {
+                    "type": "string",
+                    "example": "1790227149344380"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterThreadMetadata": {
+            "type": "object",
+            "properties": {
+                "creation_time": {
+                    "type": "string",
+                    "example": "1790227149"
+                },
+                "description": {
+                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterTextField"
+                },
+                "invite": {
+                    "type": "string",
+                    "example": "0029Vb8UfYvBadmcTuuhZC28"
+                },
+                "name": {
+                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterTextField"
+                },
+                "picture": {
+                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterMedia"
+                },
+                "preview": {
+                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterMedia"
+                },
+                "settings": {
+                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterSettings"
+                },
+                "subscribers_count": {
+                    "type": "string",
+                    "example": "0"
+                },
+                "verification": {
+                    "type": "string",
+                    "example": "unverified"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterViewerMetadata": {
+            "type": "object",
+            "properties": {
+                "mute": {
+                    "type": "string",
+                    "example": "on"
+                },
+                "role": {
+                    "type": "string",
+                    "example": "owner"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.PairResult": {
+            "type": "object",
+            "properties": {
+                "pairingCode": {
+                    "type": "string",
+                    "example": "ABCD-EFGH"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.PasskeyCeremony": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "ABCD-EFGH"
+                },
+                "error": {
+                    "type": "string",
+                    "example": ""
+                },
+                "publicKey": {},
+                "skipHandoffUX": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "stage": {
+                    "type": "string",
+                    "example": "awaiting-response"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.PasskeyOK": {
+            "type": "object",
+            "properties": {
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.Privacy": {
+            "type": "object",
+            "properties": {
+                "CallAdd": {
+                    "type": "string",
+                    "example": "all"
+                },
+                "Defense": {
+                    "type": "string",
+                    "example": "off"
+                },
+                "GroupAdd": {
+                    "type": "string",
+                    "example": "all"
+                },
+                "LastSeen": {
+                    "type": "string",
+                    "example": "contacts"
+                },
+                "Messages": {
+                    "type": "string",
+                    "example": "all"
+                },
+                "Online": {
+                    "type": "string",
+                    "example": "all"
+                },
+                "Profile": {
+                    "type": "string",
+                    "example": "all"
+                },
+                "ReadReceipts": {
+                    "type": "string",
+                    "example": "all"
+                },
+                "Status": {
+                    "type": "string",
+                    "example": "contacts"
+                },
+                "Stickers": {
+                    "type": "string",
+                    "example": "contacts"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.ProfileName": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "example": "Minha Loja"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.ProfilePicture": {
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "string",
+                    "example": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ..."
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.ProfileStatus": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "example": "Disponivel para atendimento"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.ProxyGet": {
+            "type": "object",
+            "properties": {
+                "hasPassword": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "host": {
+                    "type": "string",
+                    "example": "proxy.example.com"
+                },
+                "port": {
+                    "type": "string",
+                    "example": "8080"
+                },
+                "protocol": {
+                    "type": "string",
+                    "example": "http"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "proxyuser"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.ProxySet": {
+            "type": "object",
+            "properties": {
+                "hasAuth": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "host": {
+                    "type": "string",
+                    "example": "proxy.example.com"
+                },
+                "port": {
+                    "type": "string",
+                    "example": "8080"
+                },
+                "protocol": {
+                    "type": "string",
+                    "example": "http"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.QRCode": {
+            "type": "object",
+            "properties": {
+                "qrcode": {
+                    "type": "string",
+                    "example": "2@AbCdEfGhIjKlMnOpQrStUvWxYz0123456789+/=,AbCdEfGhIjKlMnOpQrStUvWxYz0123456789+/=,AbCdEfGhIjKlMnOpQrStUvWxYz0123456789+/=,AbCdEfGhIjKlMnOpQrStUvWxYz0123456789+/="
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.ReachoutTimelock": {
+            "type": "object",
+            "properties": {
+                "enforcementType": {
+                    "type": "string",
+                    "example": ""
+                },
+                "isActive": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "timeEnforcementEnds": {
+                    "type": "integer",
+                    "example": 0
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.ResolveLid": {
+            "type": "object",
+            "properties": {
+                "jid": {
+                    "type": "string",
+                    "example": "5511999999999@s.whatsapp.net"
+                },
+                "lid": {
+                    "type": "string",
+                    "example": "1234567890@lid"
+                },
+                "phoneNumber": {
+                    "type": "string",
+                    "example": "5511999999999"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.ServerOK": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "example": "ok"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.ServerStats": {
+            "type": "object",
+            "properties": {
+                "messages": {
+                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageStats"
+                },
+                "storage": {
+                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.StorageStats"
+                },
+                "system": {
+                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.SystemStats"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.StorageStats": {
+            "type": "object",
+            "properties": {
+                "dataDir": {
+                    "type": "string",
+                    "example": "/app/data"
+                },
+                "dataFiles": {
+                    "type": "integer",
+                    "example": 14
+                },
+                "dataUsedMB": {
+                    "type": "number",
+                    "example": 1.57
+                },
+                "dbMessagesMB": {
+                    "type": "number",
+                    "example": 0.11
+                },
+                "dbTotalMB": {
+                    "type": "number",
+                    "example": 8.05
+                },
+                "diskAvailableMB": {
+                    "type": "number",
+                    "example": 884839.43
+                },
+                "diskPath": {
+                    "type": "string",
+                    "example": "/app/data"
+                },
+                "diskTotalMB": {
+                    "type": "number",
+                    "example": 1031018.42
+                },
+                "diskUsedMB": {
+                    "type": "number",
+                    "example": 93734.19
+                },
+                "diskUsedPct": {
+                    "type": "number",
+                    "example": 9.09
+                },
+                "mediaEnabled": {
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.SystemStats": {
+            "type": "object",
+            "properties": {
+                "goVersion": {
+                    "type": "string",
+                    "example": "go1.26.8"
+                },
+                "goroutines": {
+                    "type": "integer",
+                    "example": 43
+                },
+                "heapInuseMB": {
+                    "type": "number",
+                    "example": 17.85
+                },
+                "hostMemAvailableMB": {
+                    "type": "number",
+                    "example": 12475.51
+                },
+                "hostMemTotalMB": {
+                    "type": "number",
+                    "example": 15954.18
+                },
+                "hostMemUsedPct": {
+                    "type": "number",
+                    "example": 21.8
+                },
+                "loadAvg1": {
+                    "type": "number",
+                    "example": 4.47
+                },
+                "loadAvg15": {
+                    "type": "number",
+                    "example": 1.49
+                },
+                "loadAvg5": {
+                    "type": "number",
+                    "example": 2.22
+                },
+                "memAllocMB": {
+                    "type": "number",
+                    "example": 14.92
+                },
+                "memSysMB": {
+                    "type": "number",
+                    "example": 35.45
+                },
+                "numCpu": {
+                    "type": "integer",
+                    "example": 16
+                },
+                "numGC": {
+                    "type": "integer",
+                    "example": 60
+                },
+                "uptimeSeconds": {
+                    "type": "integer",
+                    "example": 6789
+                },
+                "version": {
+                    "type": "string",
+                    "example": "0.8.1"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.TypebotStatusChange": {
+            "type": "object",
+            "properties": {
+                "remoteJid": {
+                    "type": "string",
+                    "example": "5511999999999@s.whatsapp.net"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "paused"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.TypebotSuccess": {
+            "type": "object",
+            "properties": {
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.UserCollection": {
+            "type": "object",
+            "properties": {
+                "Users": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.UserInfo"
+                    }
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.UserInfo": {
+            "type": "object",
+            "properties": {
+                "Devices": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "5511999999999@s.whatsapp.net",
+                        "5511999999999:38@s.whatsapp.net"
+                    ]
+                },
+                "LID": {
+                    "type": "string",
+                    "example": "1234567890@lid"
+                },
+                "PictureID": {
+                    "type": "string",
+                    "example": "1062917621"
+                },
+                "PictureURL": {
+                    "type": "string",
+                    "example": "https://pps.whatsapp.net/v/t61.24694-24/example.jpg"
+                },
+                "Status": {
+                    "type": "string",
+                    "example": "Disponivel"
+                },
+                "VerifiedName": {}
             }
         },
         "github_com_evolution-foundation_evolution-go_pkg_group_service.AddParticipantStruct": {
             "type": "object",
             "properties": {
                 "action": {
-                    "$ref": "#/definitions/whatsmeow.ParticipantChange"
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/whatsmeow.ParticipantChange"
+                        }
+                    ],
+                    "example": "add"
                 },
                 "groupJid": {
                     "$ref": "#/definitions/types.JID"
@@ -4953,7 +7175,10 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "example": [
+                        "5511999999999"
+                    ]
                 }
             }
         },
@@ -4961,13 +7186,18 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "groupName": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Equipe Vendas"
                 },
                 "participants": {
                     "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "example": [
+                        "5511999999999",
+                        "5511888888888"
+                    ]
                 }
             }
         },
@@ -4975,7 +7205,8 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "groupJid": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "120363000000000000@g.us"
                 }
             }
         },
@@ -4983,10 +7214,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "groupJid": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "120363000000000000@g.us"
                 },
                 "reset": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": false
                 }
             }
         },
@@ -4994,7 +7227,8 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "code": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "AbCdEfGhIjKlMnOpQrStUv"
                 }
             }
         },
@@ -5010,10 +7244,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "description": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Grupo de atendimento da loja"
                 },
                 "groupJid": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "120363000000000000@g.us"
                 }
             }
         },
@@ -5021,10 +7257,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "groupJid": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "120363000000000000@g.us"
                 },
                 "name": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Equipe Vendas"
                 }
             }
         },
@@ -5032,10 +7270,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "groupJid": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "120363000000000000@g.us"
                 },
                 "image": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ..."
                 }
             }
         },
@@ -5044,10 +7284,12 @@ const docTemplate = `{
             "properties": {
                 "action": {
                     "description": "announcement, not_announcement, locked, unlocked",
-                    "type": "string"
+                    "type": "string",
+                    "example": "announcement"
                 },
                 "groupJid": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "120363000000000000@g.us"
                 }
             }
         },
@@ -5055,22 +7297,28 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "alwaysOnline": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": false
                 },
                 "ignoreGroups": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": false
                 },
                 "ignoreStatus": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": false
                 },
                 "msgRejectCall": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Chamada recusada, envie uma mensagem."
                 },
                 "readMessages": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": false
                 },
                 "rejectCall": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": false
                 }
             }
         },
@@ -5131,35 +7379,6 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_instance_service.LimitsStruct": {
-            "type": "object",
-            "properties": {
-                "newChatCapping": {
-                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_instance_service.NewChatCappingStruct"
-                },
-                "reachoutTimelock": {
-                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_instance_service.ReachoutTimelockStruct"
-                }
-            }
-        },
-        "github_com_evolution-foundation_evolution-go_pkg_instance_service.NewChatCappingStruct": {
-            "type": "object",
-            "properties": {
-                "cappingStatus": {
-                    "type": "string"
-                },
-                "cycleEnds": {
-                    "description": "unix seconds",
-                    "type": "integer"
-                },
-                "totalQuota": {
-                    "type": "integer"
-                },
-                "usedQuota": {
-                    "type": "integer"
-                }
-            }
-        },
         "github_com_evolution-foundation_evolution-go_pkg_instance_service.PairStruct": {
             "type": "object",
             "properties": {
@@ -5199,46 +7418,39 @@ const docTemplate = `{
             "properties": {
                 "anonymous": {
                     "description": "Anonymous is true when IP differs from ServerIP — the point of a proxy.",
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 },
                 "error": {
-                    "type": "string"
+                    "type": "string",
+                    "example": ""
                 },
                 "ip": {
                     "description": "IP is the address the outside world sees when this proxy is used.",
-                    "type": "string"
+                    "type": "string",
+                    "example": "203.0.113.10"
                 },
                 "latencyMs": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 142
                 },
                 "ok": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 },
                 "protocol": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "http"
                 },
                 "serverIp": {
                     "description": "ServerIP is what the outside world sees without the proxy, so the caller\ncan tell a working proxy from one that silently passes traffic through.",
-                    "type": "string"
+                    "type": "string",
+                    "example": "198.51.100.4"
                 },
                 "whatsappReachable": {
                     "description": "WhatsAppReachable reports whether web.whatsapp.com answered through the\nproxy. A proxy can reach the open internet and still be blocked by\nWhatsApp, and that distinction is the useful one here.",
-                    "type": "boolean"
-                }
-            }
-        },
-        "github_com_evolution-foundation_evolution-go_pkg_instance_service.ReachoutTimelockStruct": {
-            "type": "object",
-            "properties": {
-                "enforcementType": {
-                    "type": "string"
-                },
-                "isActive": {
-                    "type": "boolean"
-                },
-                "timeEnforcementEnds": {
-                    "description": "unix seconds",
-                    "type": "integer"
+                    "type": "boolean",
+                    "example": true
                 }
             }
         },
@@ -5278,10 +7490,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "jid": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "5511999999999@s.whatsapp.net"
                 },
                 "labelId": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "1"
                 }
             }
         },
@@ -5289,16 +7503,20 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "color": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 1
                 },
                 "deleted": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": false
                 },
                 "labelId": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "1"
                 },
                 "name": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Cliente VIP"
                 }
             }
         },
@@ -5306,13 +7524,16 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "jid": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "5511999999999@s.whatsapp.net"
                 },
                 "labelId": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "1"
                 },
                 "messageId": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "3EB0A1B2C3D4E5F6A7B8C9"
                 }
             }
         },
@@ -5321,24 +7542,49 @@ const docTemplate = `{
             "properties": {
                 "delay": {
                     "description": "Delay, in milliseconds, keeps the \"composing\"/\"recording\" indicator alive\nfor the given duration (re-sending it periodically) and then sends \"paused\".\nOnly applies when State is \"composing\". 0 = single fire (legacy behaviour).",
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 5000
                 },
                 "isAudio": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": false
                 },
                 "number": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "5511999999999"
                 },
                 "state": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "composing"
                 }
             }
         },
         "github_com_evolution-foundation_evolution-go_pkg_message_service.DownloadMediaStruct": {
             "type": "object",
             "properties": {
+                "chat": {
+                    "type": "string",
+                    "example": "5511999999999@s.whatsapp.net"
+                },
+                "fromMe": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "id": {
+                    "description": "Optional message context. When the media is gone (403/404/410) and this is\nprovided, the server asks the sender's phone to re-upload it (media retry)\nand the next request with the same ` + "`" + `id` + "`" + ` returns the refreshed bytes.",
+                    "type": "string",
+                    "example": "3EB0A1B2C3D4E5F6A7B8C9"
+                },
+                "isGroup": {
+                    "type": "boolean",
+                    "example": false
+                },
                 "message": {
                     "$ref": "#/definitions/waE2E.Message"
+                },
+                "participant": {
+                    "type": "string",
+                    "example": "5511999999999@s.whatsapp.net"
                 }
             }
         },
@@ -5346,13 +7592,16 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "chat": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "5511999999999@s.whatsapp.net"
                 },
                 "message": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Mensagem editada"
                 },
                 "messageId": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "3EB0A1B2C3D4E5F6A7B8C9"
                 }
             }
         },
@@ -5363,10 +7612,14 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "example": [
+                        "3EB0A1B2C3D4E5F6A7B8C9"
+                    ]
                 },
                 "number": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "5511999999999"
                 }
             }
         },
@@ -5377,10 +7630,14 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "example": [
+                        "3EB0A1B2C3D4E5F6A7B8C9"
+                    ]
                 },
                 "number": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "5511999999999"
                 }
             }
         },
@@ -5388,7 +7645,8 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "id": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "3EB0A1B2C3D4E5F6A7B8C9"
                 }
             }
         },
@@ -5396,10 +7654,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "chat": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "5511999999999@s.whatsapp.net"
                 },
                 "messageId": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "3EB0A1B2C3D4E5F6A7B8C9"
                 }
             }
         },
@@ -5407,19 +7667,24 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "fromMe": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": false
                 },
                 "id": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "3EB0A1B2C3D4E5F6A7B8C9"
                 },
                 "number": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "5511999999999"
                 },
                 "participant": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "5511999999999@s.whatsapp.net"
                 },
                 "reaction": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "👍"
                 }
             }
         },
@@ -5427,7 +7692,8 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "number": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "5511999999999"
                 }
             }
         },
@@ -5435,10 +7701,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "description": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Ofertas e lancamentos"
                 },
                 "name": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Novidades da Loja"
                 }
             }
         },
@@ -5446,7 +7714,8 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "key": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "AbCdEfGhIjKlMnOpQrStUv"
                 }
             }
         },
@@ -5454,10 +7723,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "before_id": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 0
                 },
                 "count": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 20
                 },
                 "jid": {
                     "$ref": "#/definitions/types.JID"
@@ -5480,16 +7751,22 @@ const docTemplate = `{
                     "type": "object",
                     "additionalProperties": {
                         "type": "integer"
+                    },
+                    "example": {
+                        "a1b2c3d4e5f6": 2
                     }
                 },
                 "pollChatJid": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "120363000000000000@g.us"
                 },
                 "pollMessageId": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "3EB0A1B2C3D4E5F6A7B8C9"
                 },
                 "totalVotes": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 3
                 },
                 "voters": {
                     "type": "array",
@@ -5509,44 +7786,58 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "companyId": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
                 },
                 "id": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "11111111-2222-3333-4444-555555555555"
                 },
                 "instanceId": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
                 },
                 "pollChatJid": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "120363000000000000@g.us"
                 },
                 "pollMessageId": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "3EB0A1B2C3D4E5F6A7B8C9"
                 },
                 "receivedAt": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "2026-01-15T10:30:01Z"
                 },
                 "selectedOptions": {
                     "description": "SHA-256 hashes",
                     "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "example": [
+                        "a1b2c3d4e5f6"
+                    ]
                 },
                 "voteMessageId": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "3EB0B2C3D4E5F6A7B8C9D0"
                 },
                 "votedAt": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "2026-01-15T10:30:00Z"
                 },
                 "voterJid": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "5511999999999@s.whatsapp.net"
                 },
                 "voterName": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Alice Souza"
                 },
                 "voterPhone": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "5511999999999"
                 }
             }
         },
@@ -5554,22 +7845,29 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "jid": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "5511999999999@s.whatsapp.net"
                 },
                 "name": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Alice Souza"
                 },
                 "phone": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "5511999999999"
                 },
                 "selectedOptions": {
                     "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "example": [
+                        "a1b2c3d4e5f6"
+                    ]
                 },
                 "votedAt": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "2026-01-15T10:30:00Z"
                 }
             }
         },
@@ -5669,22 +7967,28 @@ const docTemplate = `{
                 },
                 "formatJid": {
                     "description": "If false, skips automatic formatting/validation of ` + "`" + `number` + "`" + ` into a JID.",
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 },
                 "imageUrl": {
                     "description": "Optional image URL used as header for reply-only buttons.",
-                    "type": "string"
+                    "type": "string",
+                    "example": "https://example.com/header.jpg"
                 },
                 "mentionAll": {
                     "description": "Mention every participant (groups only).",
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": false
                 },
                 "mentionedJid": {
                     "description": "JIDs to mention inside the body text.",
                     "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "example": [
+                        "5511999999999@s.whatsapp.net"
+                    ]
                 },
                 "number": {
                     "description": "Destination phone number.",
@@ -5706,7 +8010,8 @@ const docTemplate = `{
                 },
                 "videoUrl": {
                     "description": "Optional video URL used as header for reply-only buttons.",
-                    "type": "string"
+                    "type": "string",
+                    "example": "https://example.com/header.mp4"
                 }
             }
         },
@@ -5775,7 +8080,8 @@ const docTemplate = `{
                 },
                 "videoUrl": {
                     "description": "Public URL to a video. Used only when ` + "`" + `imageUrl` + "`" + ` is empty.",
-                    "type": "string"
+                    "type": "string",
+                    "example": "https://example.com/video.mp4"
                 }
             }
         },
@@ -5839,7 +8145,8 @@ const docTemplate = `{
                 },
                 "formatJid": {
                     "description": "If false, skips automatic formatting/validation of ` + "`" + `number` + "`" + ` into a JID.",
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 },
                 "number": {
                     "description": "Destination phone number.",
@@ -5860,25 +8167,33 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "delay": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 1200
                 },
                 "formatJid": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 },
                 "id": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "3EB0A1B2C3D4E5F6A7B8C9"
                 },
                 "mentionAll": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": false
                 },
                 "mentionedJid": {
                     "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "example": [
+                        "5511999999999@s.whatsapp.net"
+                    ]
                 },
                 "number": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "5511999999999"
                 },
                 "quoted": {
                     "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.QuotedStruct"
@@ -5913,47 +8228,61 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "delay": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 1200
                 },
                 "description": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Reuniao trimestral de vendas"
                 },
                 "endTime": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "2026-06-25T21:00:00-03:00"
                 },
                 "extraGuestsAllowed": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 },
                 "formatJid": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 },
                 "hasReminder": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 },
                 "id": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "3EB0A1B2C3D4E5F6A7B8C9"
                 },
                 "isCanceled": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": false
                 },
                 "isScheduleCall": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": false
                 },
                 "joinLink": {
                     "description": "Call link (only call.whatsapp.com; external links go in description).",
-                    "type": "string"
+                    "type": "string",
+                    "example": "https://call.whatsapp.com/video/AbCdEf123456"
                 },
                 "location": {
                     "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.EventLocationStruct"
                 },
                 "mentionAll": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": false
                 },
                 "mentionedJid": {
                     "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "example": [
+                        "5511999999999@s.whatsapp.net"
+                    ]
                 },
                 "name": {
                     "type": "string",
@@ -5967,7 +8296,8 @@ const docTemplate = `{
                     "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.QuotedStruct"
                 },
                 "reminderOffsetSec": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 900
                 },
                 "startTime": {
                     "type": "string",
@@ -5975,7 +8305,8 @@ const docTemplate = `{
                 },
                 "text": {
                     "description": "Optional text sent BEFORE the event card (the event itself has no caption).\nRespects mentionAll/mentionedJid/delay.",
-                    "type": "string"
+                    "type": "string",
+                    "example": "Segue o convite da reuniao"
                 }
             }
         },
@@ -5983,43 +8314,56 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "delay": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 1200
                 },
                 "description": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Aproveite os descontos desta semana"
                 },
                 "formatJid": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 },
                 "id": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "3EB0A1B2C3D4E5F6A7B8C9"
                 },
                 "imgUrl": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "https://example.com/preview.jpg"
                 },
                 "mentionAll": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": false
                 },
                 "mentionedJid": {
                     "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "example": [
+                        "5511999999999@s.whatsapp.net"
+                    ]
                 },
                 "number": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "5511999999999"
                 },
                 "quoted": {
                     "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.QuotedStruct"
                 },
                 "text": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Confira nossa loja: https://example.com"
                 },
                 "title": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Promocao da semana"
                 },
                 "url": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "https://example.com/promocao"
                 }
             }
         },
@@ -6048,18 +8392,23 @@ const docTemplate = `{
                 },
                 "formatJid": {
                     "description": "If false, skips automatic formatting/validation of ` + "`" + `number` + "`" + ` into a JID.",
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 },
                 "mentionAll": {
                     "description": "Mention every participant (groups only).",
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": false
                 },
                 "mentionedJid": {
                     "description": "JIDs to mention inside the body text.",
                     "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "example": [
+                        "5511999999999@s.whatsapp.net"
+                    ]
                 },
                 "number": {
                     "description": "Destination phone number.",
@@ -6092,37 +8441,49 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "address": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Av. Paulista, 1000 - Sao Paulo"
                 },
                 "delay": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 1200
                 },
                 "formatJid": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 },
                 "id": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "3EB0A1B2C3D4E5F6A7B8C9"
                 },
                 "latitude": {
-                    "type": "number"
+                    "type": "number",
+                    "example": -16.6869
                 },
                 "longitude": {
-                    "type": "number"
+                    "type": "number",
+                    "example": -49.2648
                 },
                 "mentionAll": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": false
                 },
                 "mentionedJid": {
                     "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "example": [
+                        "5511999999999@s.whatsapp.net"
+                    ]
                 },
                 "name": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Escritorio Central"
                 },
                 "number": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "5511999999999"
                 },
                 "quoted": {
                     "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.QuotedStruct"
@@ -6133,50 +8494,65 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "caption": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Veja esta foto"
                 },
                 "delay": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 1200
                 },
                 "filename": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "foto.jpg"
                 },
                 "formatJid": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 },
                 "forwardingScore": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 1
                 },
                 "gifPlayback": {
                     "description": "GifPlayback sends the media as a looping animation (no sound, no video\ncontrols). Set it for GIFs. ` + "`" + `type: \"gif\"` + "`" + ` implies it. An animated GIF is\ntranscoded to a silent MP4 first, since WhatsApp does not accept a raw GIF.",
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": false
                 },
                 "id": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "3EB0A1B2C3D4E5F6A7B8C9"
                 },
                 "mentionAll": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": false
                 },
                 "mentionedJid": {
                     "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "example": [
+                        "5511999999999@s.whatsapp.net"
+                    ]
                 },
                 "number": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "5511999999999"
                 },
                 "quoted": {
                     "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.QuotedStruct"
                 },
                 "type": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "image"
                 },
                 "url": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "https://example.com/imagem.jpg"
                 },
                 "viewOnce": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": false
                 }
             }
         },
@@ -6184,37 +8560,52 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "delay": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 1200
                 },
                 "formatJid": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 },
                 "id": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "3EB0A1B2C3D4E5F6A7B8C9"
                 },
                 "maxAnswer": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 1
                 },
                 "mentionAll": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": false
                 },
                 "mentionedJid": {
                     "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "example": [
+                        "5511999999999@s.whatsapp.net"
+                    ]
                 },
                 "number": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "5511999999999"
                 },
                 "options": {
                     "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "example": [
+                        "Sim",
+                        "Nao",
+                        "Talvez"
+                    ]
                 },
                 "question": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Vamos confirmar a reuniao?"
                 },
                 "quoted": {
                     "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.QuotedStruct"
@@ -6225,69 +8616,88 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "body": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Aproveite esta oferta!"
                 },
                 "businessOwnerJid": {
                     "description": "Catalog owner JID. When empty, the instance's own JID is used.",
-                    "type": "string"
+                    "type": "string",
+                    "example": "5511999999999@s.whatsapp.net"
                 },
                 "currency": {
                     "type": "string",
                     "example": "BRL"
                 },
                 "delay": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 1200
                 },
                 "description": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Camiseta oficial 100% algodao"
                 },
                 "footer": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Evolution GO"
                 },
                 "formatJid": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 },
                 "id": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "3EB0A1B2C3D4E5F6A7B8C9"
                 },
                 "imageBase64": {
                     "description": "Product image: base64 or an external URL (downloaded and re-uploaded).",
-                    "type": "string"
+                    "type": "string",
+                    "example": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ..."
                 },
                 "imageUrl": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "https://loja.example.com/imagens/camiseta.jpg"
                 },
                 "mentionAll": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": false
                 },
                 "mentionedJid": {
                     "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "example": [
+                        "5511999999999@s.whatsapp.net"
+                    ]
                 },
                 "number": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "5511999999999"
                 },
                 "price": {
                     "description": "Price in thousandths of the currency unit: R$ 10,00 =\u003e 10000.",
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 10000
                 },
                 "productId": {
                     "description": "Product data shown on the card. ProductId must be the product's ID in your\ncatalog -- get it from the official app / Commerce Manager.",
-                    "type": "string"
+                    "type": "string",
+                    "example": "1234567890123456"
                 },
                 "quoted": {
                     "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.QuotedStruct"
                 },
                 "retailerId": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "SKU-001"
                 },
                 "title": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Camiseta Evolution GO"
                 },
                 "url": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "https://loja.example.com/produto/1234567890123456"
                 }
             }
         },
@@ -6296,13 +8706,16 @@ const docTemplate = `{
             "properties": {
                 "message": {
                     "description": "Message is the optional quoted content. When provided it is placed in the\nreply's ContextInfo.QuotedMessage so contacts see a real, tappable quote\ncard (issue #189). When omitted the key alone is sent.",
-                    "type": "string"
+                    "type": "string",
+                    "example": "Mensagem original"
                 },
                 "messageId": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "3EB0A1B2C3D4E5F6A7B8C9"
                 },
                 "participant": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "5511999999999@s.whatsapp.net"
                 }
             }
         },
@@ -6347,10 +8760,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "id": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "3EB0A1B2C3D4E5F6A7B8C9"
                 },
                 "text": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Bom dia a todos!"
                 }
             }
         },
@@ -6358,31 +8773,40 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "delay": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 1200
                 },
                 "formatJid": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 },
                 "id": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "3EB0A1B2C3D4E5F6A7B8C9"
                 },
                 "mentionAll": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": false
                 },
                 "mentionedJid": {
                     "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "example": [
+                        "5511999999999@s.whatsapp.net"
+                    ]
                 },
                 "number": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "5511999999999"
                 },
                 "quoted": {
                     "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.QuotedStruct"
                 },
                 "sticker": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "https://example.com/figurinha.webp"
                 }
             }
         },
@@ -6390,34 +8814,44 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "delay": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 1200
                 },
                 "formatJid": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 },
                 "forwardingScore": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 1
                 },
                 "id": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "3EB0A1B2C3D4E5F6A7B8C9"
                 },
                 "mentionAll": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": false
                 },
                 "mentionedJid": {
                     "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "example": [
+                        "5511999999999@s.whatsapp.net"
+                    ]
                 },
                 "number": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "5511999999999"
                 },
                 "quoted": {
                     "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.QuotedStruct"
                 },
                 "text": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Ola, tudo bem?"
                 }
             }
         },
@@ -6425,52 +8859,66 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "createdAt": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "2026-01-15T10:30:00Z"
                 },
                 "delayMessage": {
                     "description": "DelayMessage é a pausa em milissegundos antes de cada mensagem enviada,\npara a resposta não parecer instantânea demais.",
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 0
                 },
                 "description": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Bot de atendimento"
                 },
                 "enabled": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 },
                 "expire": {
                     "description": "Expire é o tempo em minutos sem interação após o qual a sessão é\nencerrada e a próxima mensagem começa um fluxo novo. Zero desliga a\nexpiração.",
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 0
                 },
                 "id": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "11111111-2222-3333-4444-555555555555"
                 },
                 "instanceId": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
                 },
                 "keywordFinish": {
                     "description": "KeywordFinish é a palavra que o contato manda para encerrar (ex.: \"#sair\").",
-                    "type": "string"
+                    "type": "string",
+                    "example": "#sair"
                 },
                 "listeningFromMe": {
                     "description": "ListeningFromMe faz o bot reagir também às mensagens enviadas pela própria\ninstância. StopBotFromMe encerra a sessão quando o operador escreve\nmanualmente na conversa — é o que permite assumir um atendimento.",
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": false
                 },
                 "stopBotFromMe": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 },
                 "typebot": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "meu-fluxo"
                 },
                 "unknownMessage": {
                     "description": "UnknownMessage é enviado quando o Typebot responde sem nenhum texto.",
-                    "type": "string"
+                    "type": "string",
+                    "example": "Desculpe, nao entendi."
                 },
                 "updatedAt": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "2026-01-15T10:30:00Z"
                 },
                 "url": {
                     "description": "URL base do Typebot (ex.: https://viewer.exemplo.net) e o nome público do\nfluxo, que é o {typebot} da rota /api/v1/typebots/{typebot}/startChat.",
-                    "type": "string"
+                    "type": "string",
+                    "example": "https://viewer.typebot.io"
                 }
             }
         },
@@ -6478,34 +8926,44 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "delayMessage": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 0
                 },
                 "description": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Bot de atendimento"
                 },
                 "enabled": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 },
                 "expire": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 0
                 },
                 "keywordFinish": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "#sair"
                 },
                 "listeningFromMe": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": false
                 },
                 "stopBotFromMe": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 },
                 "typebot": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "meu-fluxo"
                 },
                 "unknownMessage": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Desculpe, nao entendi."
                 },
                 "url": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "https://viewer.typebot.io"
                 }
             }
         },
@@ -6514,46 +8972,59 @@ const docTemplate = `{
             "properties": {
                 "awaitUser": {
                     "description": "AwaitUser indica que a última mensagem foi do bot e estamos esperando o\ncontato responder.",
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 },
                 "createdAt": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "2026-01-15T10:30:00Z"
                 },
                 "id": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "66666666-7777-8888-9999-000000000000"
                 },
                 "instanceId": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
                 },
                 "msgCount": {
                     "description": "Contagem para o limite por contato. Fica na sessão, e não em memória,\nporque a sessão já é gravada a cada mensagem — o custo é praticamente\nzero e o estado sobrevive a um restart, que é justamente quando um\ncontato em flood não deveria ganhar contador zerado.",
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 3
                 },
                 "pausedReason": {
                     "description": "PausedReason registra por que uma pausa automática aconteceu, para que a\norigem continue visível depois — o webhook de alerta é entregue uma vez\nsó e pode se perder.",
-                    "type": "string"
+                    "type": "string",
+                    "example": ""
                 },
                 "pushName": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Alice Souza"
                 },
                 "remoteJid": {
                     "description": "RemoteJid identifica o contato (ex.: 5588999999999@s.whatsapp.net).",
-                    "type": "string"
+                    "type": "string",
+                    "example": "5511999999999@s.whatsapp.net"
                 },
                 "sessionId": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "clx1a2b3c4d5e6f7g8h9i0j"
                 },
                 "status": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "opened"
                 },
                 "typebotId": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "11111111-2222-3333-4444-555555555555"
                 },
                 "updatedAt": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "2026-01-15T10:35:00Z"
                 },
                 "windowStart": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "2026-01-15T10:30:00Z"
                 }
             }
         },
@@ -6561,7 +9032,8 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "number": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "5511999999999"
                 }
             }
         },
@@ -6569,13 +9041,17 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "formatJid": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": false
                 },
                 "number": {
                     "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "example": [
+                        "5511999999999"
+                    ]
                 }
             }
         },
@@ -6583,10 +9059,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "number": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "5511999999999"
                 },
                 "preview": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": false
                 }
             }
         },
@@ -6594,25 +9072,60 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "callAdd": {
-                    "$ref": "#/definitions/types.PrivacySetting"
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/types.PrivacySetting"
+                        }
+                    ],
+                    "example": "all"
                 },
                 "groupAdd": {
-                    "$ref": "#/definitions/types.PrivacySetting"
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/types.PrivacySetting"
+                        }
+                    ],
+                    "example": "all"
                 },
                 "lastSeen": {
-                    "$ref": "#/definitions/types.PrivacySetting"
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/types.PrivacySetting"
+                        }
+                    ],
+                    "example": "contacts"
                 },
                 "online": {
-                    "$ref": "#/definitions/types.PrivacySetting"
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/types.PrivacySetting"
+                        }
+                    ],
+                    "example": "all"
                 },
                 "profile": {
-                    "$ref": "#/definitions/types.PrivacySetting"
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/types.PrivacySetting"
+                        }
+                    ],
+                    "example": "all"
                 },
                 "readReceipts": {
-                    "$ref": "#/definitions/types.PrivacySetting"
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/types.PrivacySetting"
+                        }
+                    ],
+                    "example": "all"
                 },
                 "status": {
-                    "$ref": "#/definitions/types.PrivacySetting"
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/types.PrivacySetting"
+                        }
+                    ],
+                    "example": "contacts"
                 }
             }
         },
@@ -6620,10 +9133,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "groupJid": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "120363000000000000@g.us"
                 },
                 "lid": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "1234567890@lid"
                 }
             }
         },
@@ -6651,11 +9166,30 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_evolution-foundation_evolution-go_pkg_user_service.SetProfileNameStruct": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "example": "Minha Loja"
+                }
+            }
+        },
         "github_com_evolution-foundation_evolution-go_pkg_user_service.SetProfilePictureStruct": {
             "type": "object",
             "properties": {
                 "image": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ..."
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_user_service.SetProfileStatusStruct": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "example": "Disponivel para atendimento"
                 }
             }
         },
@@ -6663,13 +9197,16 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "fullName": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Alice Souza"
                 },
                 "organization": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Minha Empresa LTDA"
                 },
                 "phone": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "5511999999999"
                 }
             }
         },
@@ -6689,12 +9226,14 @@ const docTemplate = `{
             "enum": [
                 "first",
                 "inner",
-                "last"
+                "last",
+                "full"
             ],
             "x-enum-varnames": [
                 "EditTypeFirst",
                 "EditTypeInner",
-                "EditTypeLast"
+                "EditTypeLast",
+                "EditTypeFull"
             ]
         },
         "types.BroadcastRecipient": {
@@ -6879,6 +9418,10 @@ const docTemplate = `{
         "types.MsgBotInfo": {
             "type": "object",
             "properties": {
+                "clientThreadID": {
+                    "description": "For messages sent to bots",
+                    "type": "string"
+                },
                 "editSenderTimestampMS": {
                     "type": "string"
                 },
@@ -7303,7 +9846,8 @@ const docTemplate = `{
                 67,
                 68,
                 69,
-                70
+                70,
+                71
             ],
             "x-enum-varnames": [
                 "BotCapabilityMetadata_UNKNOWN",
@@ -7376,7 +9920,8 @@ const docTemplate = `{
                 "BotCapabilityMetadata_AI_RICH_RESPONSE_ARTIFACTS_ENABLED",
                 "BotCapabilityMetadata_AI_RICH_RESPONSE_EMAIL_CALENDAR_ENABLED",
                 "BotCapabilityMetadata_AI_RICH_RESPONSE_REMINDERS_ENABLED",
-                "BotCapabilityMetadata_AI_STOP_GENERATION_ENABLED"
+                "BotCapabilityMetadata_AI_STOP_GENERATION_ENABLED",
+                "BotCapabilityMetadata_AI_RICH_RESPONSE_3P_LINKING_CARD_ENABLED"
             ]
         },
         "waAICommon.BotCommandMetadata": {
@@ -9373,6 +11918,23 @@ const docTemplate = `{
                 "NonE2EEAttestation_NON_E2EE"
             ]
         },
+        "waCommon.ACP2Setting": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "initiatedByMe": {
+                    "type": "boolean"
+                },
+                "settingTimestamp": {
+                    "type": "integer"
+                },
+                "trigger": {
+                    "$ref": "#/definitions/waCommon.LimitSharing_Trigger"
+                }
+            }
+        },
         "waCommon.LimitSharing": {
             "type": "object",
             "properties": {
@@ -10050,7 +12612,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "wallpaper": {
-                    "description": "Types that are valid to be assigned to Wallpaper:\n\n\t*ChatThemeSetting_DefaultWallpaper\n\t*ChatThemeSetting_SolidColor\n\t*ChatThemeSetting_StockImage\n\t*ChatThemeSetting_CustomImage"
+                    "description": "Types that are valid to be assigned to Wallpaper:\n\n\t*ChatThemeSetting_DefaultWallpaper\n\t*ChatThemeSetting_SolidColor\n\t*ChatThemeSetting_StockImage\n\t*ChatThemeSetting_CustomImage\n\t*ChatThemeSetting_AnimatedWallpaper"
                 }
             }
         },
@@ -10339,6 +12901,9 @@ const docTemplate = `{
                     "$ref": "#/definitions/waE2E.ContextInfo_PartiallySelectedContent"
                 },
                 "participant": {
+                    "type": "string"
+                },
+                "partnerDeepLinkToken": {
                     "type": "string"
                 },
                 "placeholderKey": {
@@ -10643,6 +13208,9 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "containsAutoReply": {
+                    "type": "boolean"
+                },
+                "containsCtwaFlowsAutoLabel": {
                     "type": "boolean"
                 },
                 "containsCtwaFlowsAutoReply": {
@@ -12654,6 +15222,9 @@ const docTemplate = `{
         "waE2E.Message": {
             "type": "object",
             "properties": {
+                "acp2SettingMessage": {
+                    "$ref": "#/definitions/waE2E.FutureProofMessage"
+                },
                 "albumMessage": {
                     "$ref": "#/definitions/waE2E.AlbumMessage"
                 },
@@ -12662,6 +15233,9 @@ const docTemplate = `{
                 },
                 "audioMessage": {
                     "$ref": "#/definitions/waE2E.AudioMessage"
+                },
+                "audioStickerMessage": {
+                    "$ref": "#/definitions/waE2E.FutureProofMessage"
                 },
                 "bcallMessage": {
                     "$ref": "#/definitions/waE2E.BCallMessage"
@@ -13058,6 +15632,9 @@ const docTemplate = `{
                 "accountEncryptionAttestation": {
                     "$ref": "#/definitions/waAea.NonE2EEAttestation"
                 },
+                "acp2Setting": {
+                    "$ref": "#/definitions/waCommon.ACP2Setting"
+                },
                 "associatedPrimaryIdentityKey": {
                     "type": "array",
                     "items": {
@@ -13192,6 +15769,9 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "includesChatTheme": {
+                    "type": "boolean"
                 },
                 "messageCount": {
                     "type": "integer"
@@ -14602,6 +17182,9 @@ const docTemplate = `{
         "waE2E.ProtocolMessage": {
             "type": "object",
             "properties": {
+                "acp2Setting": {
+                    "$ref": "#/definitions/waCommon.ACP2Setting"
+                },
                 "afterReadDuration": {
                     "type": "integer"
                 },
@@ -14689,6 +17272,12 @@ const docTemplate = `{
                 "requestWelcomeMessageMetadata": {
                     "$ref": "#/definitions/waE2E.RequestWelcomeMessageMetadata"
                 },
+                "sharedDeviceContactHashKeyRequest": {
+                    "$ref": "#/definitions/waE2E.SharedDeviceContactHashKeyRequest"
+                },
+                "sharedDeviceContactHashKeyShare": {
+                    "$ref": "#/definitions/waE2E.SharedDeviceContactHashKeyShare"
+                },
                 "timestampMS": {
                     "type": "integer"
                 },
@@ -14731,7 +17320,10 @@ const docTemplate = `{
                 34,
                 35,
                 36,
-                37
+                37,
+                39,
+                40,
+                41
             ],
             "x-enum-varnames": [
                 "ProtocolMessage_REVOKE",
@@ -14765,7 +17357,10 @@ const docTemplate = `{
                 "ProtocolMessage_CHAT_THEME_SETTING",
                 "ProtocolMessage_AI_METADATA_OPERATION",
                 "ProtocolMessage_MARK_AS_VERIFIED_ACTION",
-                "ProtocolMessage_COEX_STATE_SYNC"
+                "ProtocolMessage_COEX_STATE_SYNC",
+                "ProtocolMessage_ACP2_SETTING",
+                "ProtocolMessage_SHARED_DEVICE_CONTACT_HASH_KEY_SHARE",
+                "ProtocolMessage_SHARED_DEVICE_CONTACT_HASH_KEY_REQUEST"
             ]
         },
         "waE2E.QuestionResponseMessage": {
@@ -14999,6 +17594,55 @@ const docTemplate = `{
                 }
             }
         },
+        "waE2E.SharedDeviceContactHashKey": {
+            "type": "object",
+            "properties": {
+                "epoch": {
+                    "type": "integer"
+                },
+                "keyData": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "kind": {
+                    "$ref": "#/definitions/waE2E.SharedDeviceContactHashKey_Kind"
+                }
+            }
+        },
+        "waE2E.SharedDeviceContactHashKeyRequest": {
+            "type": "object",
+            "properties": {
+                "knownEpoch": {
+                    "type": "integer"
+                }
+            }
+        },
+        "waE2E.SharedDeviceContactHashKeyShare": {
+            "type": "object",
+            "properties": {
+                "keys": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/waE2E.SharedDeviceContactHashKey"
+                    }
+                }
+            }
+        },
+        "waE2E.SharedDeviceContactHashKey_Kind": {
+            "type": "integer",
+            "enum": [
+                0,
+                1,
+                2
+            ],
+            "x-enum-varnames": [
+                "SharedDeviceContactHashKey_UNKNOWN",
+                "SharedDeviceContactHashKey_LID",
+                "SharedDeviceContactHashKey_PHONE_NUMBER"
+            ]
+        },
         "waE2E.SplitPaymentMessage": {
             "type": "object",
             "properties": {
@@ -15191,6 +17835,9 @@ const docTemplate = `{
                 },
                 "accessibilityLabel": {
                     "type": "string"
+                },
+                "audio": {
+                    "description": "Types that are valid to be assigned to Audio:\n\n\t*StickerMessage_AudioMessage"
                 },
                 "contextInfo": {
                     "$ref": "#/definitions/waE2E.ContextInfo"
@@ -15648,6 +18295,9 @@ const docTemplate = `{
                     }
                 },
                 "seconds": {
+                    "type": "integer"
+                },
+                "smartThumbnailTS": {
                     "type": "integer"
                 },
                 "staticURL": {

@@ -4,9 +4,14 @@ import (
 	"net/http"
 
 	community_service "github.com/evolution-foundation/evolution-go/pkg/community/service"
+	docmodels "github.com/evolution-foundation/evolution-go/pkg/docmodels"
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
 	"github.com/gin-gonic/gin"
 )
+
+// Keep docmodels referenced so the import is not dropped: swag reads the Go
+// source (not pre-processed) and needs the alias to be in scope.
+var _ = docmodels.Envelope{}
 
 type CommunityHandler interface {
 	CreateCommunity(ctx *gin.Context)
@@ -25,9 +30,9 @@ type communityHandler struct {
 // @Accept json
 // @Produce json
 // @Param message body community_service.CreateCommunityStruct true "Community data"
-// @Success 200 {object} gin.H "success"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.Community} "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /community/create [post]
 func (c *communityHandler) CreateCommunity(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -66,9 +71,9 @@ func (c *communityHandler) CreateCommunity(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param message body community_service.AddParticipantStruct true "Participant data"
-// @Success 200 {object} gin.H "success"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.CommunityMutation} "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /community/add [post]
 func (c *communityHandler) CommunityAdd(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -112,9 +117,9 @@ func (c *communityHandler) CommunityAdd(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param message body community_service.AddParticipantStruct true "Participant data"
-// @Success 200 {object} gin.H "success"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.CommunityMutation} "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /community/remove [post]
 func (c *communityHandler) CommunityRemove(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")

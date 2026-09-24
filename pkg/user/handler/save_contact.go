@@ -6,10 +6,15 @@ package user_handler
 import (
 	"net/http"
 
+	docmodels "github.com/evolution-foundation/evolution-go/pkg/docmodels"
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
 	user_service "github.com/evolution-foundation/evolution-go/pkg/user/service"
 	"github.com/gin-gonic/gin"
 )
+
+// Keep docmodels referenced so the package import is not dropped
+// (swag reads Go source, not pre-processed, and needs the alias to be in scope).
+var _ = docmodels.Envelope{}
 
 // Save a contact to the device addressbook
 // @Summary Save a contact
@@ -19,9 +24,9 @@ import (
 // @Accept json
 // @Produce json
 // @Param message body user_service.SaveContactStruct true "Contact data"
-// @Success 200 {object} gin.H "success"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /user/savecontact [post]
 func (u *userHandler) SaveContact(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")

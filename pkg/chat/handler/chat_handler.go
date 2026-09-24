@@ -4,9 +4,14 @@ import (
 	"net/http"
 
 	chat_service "github.com/evolution-foundation/evolution-go/pkg/chat/service"
+	docmodels "github.com/evolution-foundation/evolution-go/pkg/docmodels"
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
 	"github.com/gin-gonic/gin"
 )
+
+// Keep docmodels referenced so the import is not dropped: swag reads the Go
+// source directly and needs the alias in scope on this file.
+var _ = docmodels.Envelope{}
 
 type ChatHandler interface {
 	ChatPin(ctx *gin.Context)
@@ -30,9 +35,9 @@ type chatHandler struct {
 // @Accept json
 // @Produce json
 // @Param message body chat_service.BodyStruct true "Chat"
-// @Success 200 {object} gin.H "success"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.ChatActionResult} "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /chat/pin [post]
 func (c *chatHandler) ChatPin(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -75,9 +80,9 @@ func (c *chatHandler) ChatPin(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param message body chat_service.BodyStruct true "Chat"
-// @Success 200 {object} gin.H "success"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.ChatActionResult} "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /chat/unpin [post]
 func (c *chatHandler) ChatUnpin(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -120,9 +125,9 @@ func (c *chatHandler) ChatUnpin(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param message body chat_service.BodyStruct true "Chat"
-// @Success 200 {object} gin.H "success"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.ChatActionResult} "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /chat/archive [post]
 func (c *chatHandler) ChatArchive(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -165,9 +170,9 @@ func (c *chatHandler) ChatArchive(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param message body chat_service.BodyStruct true "Chat"
-// @Success 200 {object} gin.H "success"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.ChatActionResult} "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /chat/unarchive [post]
 func (c *chatHandler) ChatUnarchive(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -210,9 +215,9 @@ func (c *chatHandler) ChatUnarchive(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param message body chat_service.BodyStruct true "Chat"
-// @Success 200 {object} gin.H "success"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.ChatActionResult} "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /chat/mute [post]
 func (c *chatHandler) ChatMute(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -255,9 +260,9 @@ func (c *chatHandler) ChatMute(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param message body chat_service.BodyStruct true "Chat"
-// @Success 200 {object} gin.H "success"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.ChatActionResult} "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /chat/unmute [post]
 func (c *chatHandler) ChatUnmute(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -303,9 +308,9 @@ func (c *chatHandler) ChatUnmute(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param message body chat_service.EphemeralStruct true "Chat and expiration"
-// @Success 200 {object} gin.H "success"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /chat/ephemeral [post]
 func (c *chatHandler) SetEphemeralExpiration(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -343,9 +348,9 @@ func (c *chatHandler) SetEphemeralExpiration(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param message body chat_service.HistorySyncRequestStruct true "Chat"
-// @Success 200 {object} gin.H "success"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.HistorySyncResult} "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /chat/history-sync [post]
 func (c *chatHandler) HistorySyncRequest(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")

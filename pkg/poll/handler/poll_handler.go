@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	docmodels "github.com/evolution-foundation/evolution-go/pkg/docmodels"
 	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
 	poll_model "github.com/evolution-foundation/evolution-go/pkg/poll/model"
 	poll_service "github.com/evolution-foundation/evolution-go/pkg/poll/service"
@@ -13,6 +14,10 @@ import (
 // Keep poll_model referenced so the package import is not dropped
 // (swag reads Go source, not pre-processed, and needs the alias to be in scope).
 var _ = poll_model.PollResults{}
+
+// Keep docmodels referenced so the import is not dropped: swag reads the Go
+// source (not pre-processed) and needs the alias to be in scope.
+var _ = docmodels.Envelope{}
 
 type PollHandler struct {
 	pollService   poll_service.PollService
@@ -35,9 +40,9 @@ func NewPollHandler(pollService poll_service.PollService, loggerWrapper *logger_
 // @Produce json
 // @Param pollMessageId path string true "ID da mensagem da enquete"
 // @Success 200 {object} poll_model.PollResults
-// @Failure 400 {object} gin.H
-// @Failure 404 {object} gin.H
-// @Failure 500 {object} gin.H
+// @Failure 400 {object} docmodels.ErrorResponse "pollMessageId is required"
+// @Failure 404 {object} docmodels.ErrorResponse "No votes found for this poll"
+// @Failure 500 {object} docmodels.ErrorResponse "Failed to fetch poll results"
 // @Router /polls/{pollMessageId}/results [get]
 func (h *PollHandler) GetPollResults(c *gin.Context) {
 	pollMessageID := c.Param("pollMessageId")

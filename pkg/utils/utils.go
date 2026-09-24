@@ -24,9 +24,9 @@ type Values struct {
 }
 
 type VCardStruct struct {
-	FullName     string `json:"fullName"`
-	Organization string `json:"organization"`
-	Phone        string `json:"phone"`
+	FullName     string `json:"fullName" example:"Alice Souza"`
+	Organization string `json:"organization" example:"Minha Empresa LTDA"`
+	Phone        string `json:"phone" example:"5511999999999"`
 }
 
 func GenerateRandomString(length int) string {

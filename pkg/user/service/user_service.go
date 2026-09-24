@@ -1,10 +1,10 @@
 package user_service
 
 import (
-	"github.com/evolution-foundation/evolution-go/pkg/safemap"
 	"context"
 	"errors"
 	"fmt"
+	"github.com/evolution-foundation/evolution-go/pkg/safemap"
 	"io"
 	"net/http"
 	"time"
@@ -99,34 +99,34 @@ type CheckUserCollection struct {
 }
 
 type CheckUserStruct struct {
-	Number    []string `json:"number"`
-	FormatJid *bool    `json:"formatJid,omitempty"`
+	Number    []string `json:"number" example:"5511999999999"`
+	FormatJid *bool    `json:"formatJid,omitempty" example:"false"`
 }
 
 type GetAvatarStruct struct {
-	Number  string `json:"number"`
-	Preview bool   `json:"preview"`
+	Number  string `json:"number" example:"5511999999999"`
+	Preview bool   `json:"preview" example:"false"`
 }
 
 type BlockStruct struct {
-	Number string `json:"number"`
+	Number string `json:"number" example:"5511999999999"`
 }
 
 type SetProfilePictureStruct struct {
-	Image string `json:"image"`
+	Image string `json:"image" example:"data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ..."`
 }
 
 type SetProfileNameStruct struct {
-	Name string `json:"name"`
+	Name string `json:"name" example:"Minha Loja"`
 }
 
 type SetProfileStatusStruct struct {
-	Status string `json:"status"`
+	Status string `json:"status" example:"Disponivel para atendimento"`
 }
 
 type ResolveLidStruct struct {
-	Lid      string `json:"lid"`
-	GroupJid string `json:"groupJid,omitempty"`
+	Lid      string `json:"lid" example:"1234567890@lid"`
+	GroupJid string `json:"groupJid,omitempty" example:"120363000000000000@g.us"`
 }
 
 type ResolveLidResult struct {
@@ -136,13 +136,13 @@ type ResolveLidResult struct {
 }
 
 type PrivacyStruct struct {
-	GroupAdd     types.PrivacySetting `json:"groupAdd"`
-	LastSeen     types.PrivacySetting `json:"lastSeen"`
-	Status       types.PrivacySetting `json:"status"`
-	Profile      types.PrivacySetting `json:"profile"`
-	ReadReceipts types.PrivacySetting `json:"readReceipts"`
-	CallAdd      types.PrivacySetting `json:"callAdd"`
-	Online       types.PrivacySetting `json:"online"`
+	GroupAdd     types.PrivacySetting `json:"groupAdd" example:"all"`
+	LastSeen     types.PrivacySetting `json:"lastSeen" example:"contacts"`
+	Status       types.PrivacySetting `json:"status" example:"contacts"`
+	Profile      types.PrivacySetting `json:"profile" example:"all"`
+	ReadReceipts types.PrivacySetting `json:"readReceipts" example:"all"`
+	CallAdd      types.PrivacySetting `json:"callAdd" example:"all"`
+	Online       types.PrivacySetting `json:"online" example:"all"`
 }
 
 func (u *userService) ensureClientConnected(instanceId string) (*whatsmeow.Client, error) {

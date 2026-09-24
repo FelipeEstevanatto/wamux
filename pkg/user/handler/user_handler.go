@@ -5,11 +5,16 @@ import (
 	"errors"
 	"net/http"
 
+	docmodels "github.com/evolution-foundation/evolution-go/pkg/docmodels"
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
 	user_service "github.com/evolution-foundation/evolution-go/pkg/user/service"
 	"github.com/gin-gonic/gin"
 	"go.mau.fi/whatsmeow"
 )
+
+// Keep docmodels referenced so the package import is not dropped
+// (swag reads Go source, not pre-processed, and needs the alias to be in scope).
+var _ = docmodels.Envelope{}
 
 // writeUserWAError maps WhatsApp IQ / context errors to honest HTTP statuses.
 // rate-overlimit → 429; IQ/context timeout or cancel → 504; everything else → 500.
@@ -54,11 +59,11 @@ type userHandler struct {
 // @Accept json
 // @Produce json
 // @Param message body user_service.CheckUserStruct true "User data"
-// @Success 200 {object} gin.H "success"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 429 {object} gin.H "WhatsApp rate limit"
-// @Failure 500 {object} gin.H "Internal server error"
-// @Failure 504 {object} gin.H "WhatsApp query timeout"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.UserCollection} "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 429 {object} docmodels.ErrorResponse "WhatsApp rate limit"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
+// @Failure 504 {object} docmodels.ErrorResponse "WhatsApp query timeout"
 // @Router /user/info [post]
 func (u *userHandler) GetUser(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -97,9 +102,9 @@ func (u *userHandler) GetUser(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param message body user_service.CheckUserStruct true "User data"
-// @Success 200 {object} gin.H "success"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.CheckUserCollection} "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /user/check [post]
 func (u *userHandler) CheckUser(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -138,11 +143,11 @@ func (u *userHandler) CheckUser(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param message body user_service.GetAvatarStruct true "Avatar data"
-// @Success 200 {object} gin.H "success"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 429 {object} gin.H "WhatsApp rate limit"
-// @Failure 500 {object} gin.H "Internal server error"
-// @Failure 504 {object} gin.H "WhatsApp query timeout"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.Avatar} "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 429 {object} docmodels.ErrorResponse "WhatsApp rate limit"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
+// @Failure 504 {object} docmodels.ErrorResponse "WhatsApp query timeout"
 // @Router /user/avatar [post]
 func (u *userHandler) GetAvatar(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -185,8 +190,8 @@ func (u *userHandler) GetAvatar(ctx *gin.Context) {
 // @Tags User
 // @Accept json
 // @Produce json
-// @Success 200 {object} gin.H "success"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=[]docmodels.Contact} "success"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /user/contacts [get]
 func (u *userHandler) GetContacts(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -212,8 +217,8 @@ func (u *userHandler) GetContacts(ctx *gin.Context) {
 // @Tags User
 // @Accept json
 // @Produce json
-// @Success 200 {object} gin.H "success"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.Privacy} "success"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /user/privacy [get]
 func (u *userHandler) GetPrivacy(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -240,8 +245,8 @@ func (u *userHandler) GetPrivacy(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param message body user_service.PrivacyStruct true "Privacy data"
-// @Success 200 {object} gin.H "success"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.Privacy} "success"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /user/privacy [post]
 func (u *userHandler) SetPrivacy(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -310,9 +315,9 @@ func (u *userHandler) SetPrivacy(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param message body user_service.BlockStruct true "Block data"
-// @Success 200 {object} gin.H "success"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.Blocklist} "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /user/block [post]
 func (u *userHandler) BlockContact(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -356,9 +361,9 @@ func (u *userHandler) BlockContact(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param message body user_service.BlockStruct true "Block data"
-// @Success 200 {object} gin.H "success"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.Blocklist} "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /user/unblock [post]
 func (u *userHandler) UnblockContact(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -401,8 +406,8 @@ func (u *userHandler) UnblockContact(ctx *gin.Context) {
 // @Tags User
 // @Accept json
 // @Produce json
-// @Success 200 {object} gin.H "success"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.Blocklist} "success"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /user/blocklist [get]
 func (u *userHandler) GetBlockList(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -429,9 +434,9 @@ func (u *userHandler) GetBlockList(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param message body user_service.SetProfilePictureStruct true "Profile picture data"
-// @Success 200 {object} gin.H "success"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.ProfilePicture} "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /user/profilePicture [post]
 func (u *userHandler) SetProfilePicture(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -476,10 +481,10 @@ func (u *userHandler) SetProfilePicture(ctx *gin.Context) {
 // @Tags User
 // @Accept json
 // @Produce json
-// @Param message body user_service.SetProfilePictureStruct true "Profile name data"
-// @Success 200 {object} gin.H "success"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Param message body user_service.SetProfileNameStruct true "Profile name data"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.ProfileName} "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /user/profileName [post]
 func (u *userHandler) SetProfileName(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -524,10 +529,10 @@ func (u *userHandler) SetProfileName(ctx *gin.Context) {
 // @Tags User
 // @Accept json
 // @Produce json
-// @Param message body user_service.SetProfilePictureStruct true "Profile status data"
-// @Success 200 {object} gin.H "success"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Param message body user_service.SetProfileStatusStruct true "Profile status data"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.ProfileStatus} "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /user/profileStatus [post]
 func (u *userHandler) SetProfileStatus(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -573,9 +578,9 @@ func (u *userHandler) SetProfileStatus(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param message body user_service.ResolveLidStruct true "Lid data"
-// @Success 200 {object} gin.H "success"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.ResolveLid} "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /user/lid [post]
 func (u *userHandler) ResolveLid(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")

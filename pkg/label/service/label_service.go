@@ -1,9 +1,9 @@
 package label_service
 
 import (
-	"github.com/evolution-foundation/evolution-go/pkg/safemap"
 	"context"
 	"errors"
+	"github.com/evolution-foundation/evolution-go/pkg/safemap"
 	"time"
 
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
@@ -33,21 +33,21 @@ type labelService struct {
 }
 
 type ChatLabelStruct struct {
-	JID     string `json:"jid"`
-	LabelID string `json:"labelId"`
+	JID     string `json:"jid" example:"5511999999999@s.whatsapp.net"`
+	LabelID string `json:"labelId" example:"1"`
 }
 
 type MessageLabelStruct struct {
-	JID       string `json:"jid"`
-	LabelID   string `json:"labelId"`
-	MessageID string `json:"messageId"`
+	JID       string `json:"jid" example:"5511999999999@s.whatsapp.net"`
+	LabelID   string `json:"labelId" example:"1"`
+	MessageID string `json:"messageId" example:"3EB0A1B2C3D4E5F6A7B8C9"`
 }
 
 type EditLabelStruct struct {
-	LabelID string `json:"labelId"`
-	Name    string `json:"name"`
-	Color   int    `json:"color"`
-	Deleted bool   `json:"deleted"`
+	LabelID string `json:"labelId" example:"1"`
+	Name    string `json:"name" example:"Cliente VIP"`
+	Color   int    `json:"color" example:"1"`
+	Deleted bool   `json:"deleted" example:"false"`
 }
 
 func (l *labelService) ensureClientConnected(instanceId string) (*whatsmeow.Client, error) {
