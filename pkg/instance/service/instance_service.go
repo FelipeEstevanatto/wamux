@@ -20,10 +20,10 @@ import (
 	instance_repository "github.com/evolution-foundation/evolution-go/pkg/instance/repository"
 	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
 	"github.com/evolution-foundation/evolution-go/pkg/utils"
-	"github.com/patrickmn/go-cache"
 	"github.com/evolution-foundation/evolution-go/pkg/walimits"
 	whatsmeow_service "github.com/evolution-foundation/evolution-go/pkg/whatsmeow/service"
 	"github.com/google/uuid"
+	"github.com/patrickmn/go-cache"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types"
 )
@@ -910,7 +910,9 @@ func (i instances) RemoveProxy(id string) error {
 }
 
 func (i instances) ForceReconnect(instanceId string, number string) error {
-	if i.clientPointer.Get(instanceId).IsConnected() && i.clientPointer.Get(instanceId).IsLoggedIn() {
+	// The client is often absent here (that is the state this endpoint exists to
+	// recover from), so Get may return nil — never dereference it blindly.
+	if client := i.clientPointer.Get(instanceId); client != nil && client.IsConnected() && client.IsLoggedIn() {
 		return fmt.Errorf("client already connected")
 	}
 

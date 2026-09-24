@@ -16,6 +16,33 @@ import (
 // JIDValidationMiddleware validates JID parameters in request bodies
 type JIDValidationMiddleware struct{}
 
+// maxBodyBytes caps how much of a JSON request body the validation middleware
+// buffers in memory. These bodies are small (a JID plus a caption at most); the
+// limit keeps a large upload from being fully buffered before the handler even
+// sees it. 4 MiB is comfortably above the biggest legitimate JSON payload
+// (base64 media goes through the URL field or multipart, not this path).
+const maxBodyBytes = 4 << 20
+
+// readBody reads the (bounded) JSON body and restores it for downstream
+// handlers. It returns false and writes a 413 when the body is too large.
+func readBody(c *gin.Context) ([]byte, bool) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxBodyBytes)
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		if _, ok := err.(*http.MaxBytesError); ok {
+			c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": fmt.Sprintf("request body exceeds %d bytes", maxBodyBytes)})
+			c.Abort()
+			return nil, false
+		}
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to read request body"})
+		c.Abort()
+		return nil, false
+	}
+	// Restore the request body for downstream handlers
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
+	return body, true
+}
+
 // NewJIDValidationMiddleware creates a new JID validation middleware
 func NewJIDValidationMiddleware() *JIDValidationMiddleware {
 	return &JIDValidationMiddleware{}
@@ -37,15 +64,10 @@ func (m *JIDValidationMiddleware) ValidateJIDFields(fieldNames ...string) gin.Ha
 		}
 
 		// Read the request body
-		body, err := io.ReadAll(c.Request.Body)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to read request body"})
-			c.Abort()
+		body, ok := readBody(c)
+		if !ok {
 			return
 		}
-
-		// Restore the request body for downstream handlers
-		c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
 
 		// Parse JSON
 		var requestData map[string]interface{}
@@ -143,15 +165,10 @@ func (m *JIDValidationMiddleware) ValidateNumberField() gin.HandlerFunc {
 		}
 
 		// Read the request body
-		body, err := io.ReadAll(c.Request.Body)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to read request body"})
-			c.Abort()
+		body, ok := readBody(c)
+		if !ok {
 			return
 		}
-
-		// Restore the request body for downstream handlers
-		c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
 
 		// Parse JSON
 		var requestData map[string]interface{}
@@ -257,15 +274,10 @@ func (m *JIDValidationMiddleware) ValidateMultipleNumbers(fieldName string) gin.
 		}
 
 		// Read the request body
-		body, err := io.ReadAll(c.Request.Body)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to read request body"})
-			c.Abort()
+		body, ok := readBody(c)
+		if !ok {
 			return
 		}
-
-		// Restore the request body for downstream handlers
-		c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
 
 		// Parse JSON
 		var requestData map[string]interface{}
@@ -329,15 +341,10 @@ func (m *JIDValidationMiddleware) ValidateNumberFieldWithFormatJid() gin.Handler
 		}
 
 		// Read the request body
-		body, err := io.ReadAll(c.Request.Body)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to read request body"})
-			c.Abort()
+		body, ok := readBody(c)
+		if !ok {
 			return
 		}
-
-		// Restore the request body for downstream handlers
-		c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
 
 		// Parse JSON
 		var requestData map[string]interface{}
@@ -459,15 +466,10 @@ func (m *JIDValidationMiddleware) ValidateContactFields() gin.HandlerFunc {
 		}
 
 		// Read the request body
-		body, err := io.ReadAll(c.Request.Body)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to read request body"})
-			c.Abort()
+		body, ok := readBody(c)
+		if !ok {
 			return
 		}
-
-		// Restore the request body for downstream handlers
-		c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
 
 		// Parse JSON
 		var requestData map[string]interface{}

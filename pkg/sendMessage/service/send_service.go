@@ -2990,7 +2990,7 @@ func (s *sendService) SendList(data *ListStruct, instance *instance_model.Instan
 func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.Message, messageType string, data *SendDataStruct) (*MessageSendStruct, error) {
 	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] SendMessage called for number: %s, type: %s", instance.Id, data.Number, messageType)
 
-	recipient, err := s.validateAndCheckUserExists(data.Number, data.FormatJid, &data.Quoted.MessageID, &data.Quoted.MessageID, instance)
+	recipient, err := s.validateAndCheckUserExists(data.Number, data.FormatJid, &data.Quoted.MessageID, &data.Quoted.Participant, instance)
 	if err != nil {
 		s.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields or user check: %v", instance.Id, err)
 		return nil, err
@@ -3590,25 +3590,50 @@ func (s *sendService) SendCarousel(data *CarouselStruct, instance *instance_mode
 				var buttonName string
 				var buttonParams string
 
+				// Build the params as JSON with json.Marshal rather than
+				// Sprintf: DisplayText/Id/CopyCode come straight from the
+				// request body, and an unescaped quote used to produce malformed
+				// JSON (or inject extra fields into the native-flow payload).
+				marshalParams := func(v interface{}) {
+					b, err := json.Marshal(v)
+					if err != nil {
+						s.loggerWrapper.GetLogger(instance.Id).LogError("[%s] failed to marshal carousel button params: %v", instance.Id, err)
+						buttonParams = "{}"
+						return
+					}
+					buttonParams = string(b)
+				}
 				switch buttonType {
 				case "URL":
 					// URL button - opens a link
 					buttonName = "cta_url"
-					buttonParams = fmt.Sprintf(`{"display_text":"%s","url":"%s"}`, btn.DisplayText, btn.Id)
+					marshalParams(struct {
+						DisplayText string `json:"display_text"`
+						URL         string `json:"url"`
+					}{btn.DisplayText, btn.Id})
 				case "CALL":
 					// Call button - initiates a phone call
 					buttonName = "cta_call"
-					buttonParams = fmt.Sprintf(`{"display_text":"%s","phone_number":"%s"}`, btn.DisplayText, btn.Id)
+					marshalParams(struct {
+						DisplayText string `json:"display_text"`
+						PhoneNumber string `json:"phone_number"`
+					}{btn.DisplayText, btn.Id})
 				case "COPY":
 					// Copy button - copies text to clipboard
 					buttonName = "cta_copy"
-					buttonParams = fmt.Sprintf(`{"display_text":"%s","copy_code":"%s"}`, btn.DisplayText, btn.CopyCode)
+					marshalParams(struct {
+						DisplayText string `json:"display_text"`
+						CopyCode    string `json:"copy_code"`
+					}{btn.DisplayText, btn.CopyCode})
 				case "REPLY":
 					fallthrough
 				default:
 					// Quick reply button (default)
 					buttonName = "quick_reply"
-					buttonParams = fmt.Sprintf(`{"display_text":"%s","id":"%s"}`, btn.DisplayText, btn.Id)
+					marshalParams(struct {
+						DisplayText string `json:"display_text"`
+						ID          string `json:"id"`
+					}{btn.DisplayText, btn.Id})
 				}
 
 				buttons[j] = &waE2E.InteractiveMessage_NativeFlowMessage_NativeFlowButton{
