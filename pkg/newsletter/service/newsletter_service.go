@@ -1,9 +1,9 @@
 package newsletter_service
 
 import (
-	"github.com/evolution-foundation/evolution-go/pkg/safemap"
 	"context"
 	"errors"
+	"github.com/evolution-foundation/evolution-go/pkg/safemap"
 	"time"
 
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
@@ -29,8 +29,8 @@ type newsletterService struct {
 }
 
 type CreateNewsletterStruct struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	Name        string `json:"name" example:"Novidades da Loja"`
+	Description string `json:"description" example:"Ofertas e lancamentos"`
 }
 
 type GetNewsletterStruct struct {
@@ -38,13 +38,13 @@ type GetNewsletterStruct struct {
 }
 
 type GetNewsletterInviteStruct struct {
-	Key string `json:"key"`
+	Key string `json:"key" example:"AbCdEfGhIjKlMnOpQrStUv"`
 }
 
 type GetNewsletterMessagesStruct struct {
 	JID      types.JID `json:"jid"`
-	Count    int       `json:"count"`
-	BeforeID int       `json:"before_id"`
+	Count    int       `json:"count" example:"20"`
+	BeforeID int       `json:"before_id" example:"0"`
 }
 
 func (n *newsletterService) ensureClientConnected(instanceId string) (*whatsmeow.Client, error) {

@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	config "github.com/evolution-foundation/evolution-go/pkg/config"
+	docmodels "github.com/evolution-foundation/evolution-go/pkg/docmodels"
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
 	instance_service "github.com/evolution-foundation/evolution-go/pkg/instance/service"
 	"github.com/evolution-foundation/evolution-go/pkg/utils"
@@ -43,6 +44,10 @@ type instanceHandler struct {
 	instanceService instance_service.InstanceService
 }
 
+// Keep docmodels referenced so the import is not dropped: swag reads the Go
+// source directly and needs the alias in scope on this file.
+var _ = docmodels.Envelope{}
+
 // Create a new instance
 // @Summary Create a new instance
 // @Description Creates a new instance with the provided data including optional advanced settings
@@ -50,9 +55,9 @@ type instanceHandler struct {
 // @Accept json
 // @Produce json
 // @Param instance body instance_service.CreateStruct true "Instance data with optional advanced settings"
-// @Success 200 {object} gin.H "Instance created successfully"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.Instance} "Instance created successfully"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /instance/create [post]
 func (i *instanceHandler) Create(ctx *gin.Context) {
 	var data *instance_service.CreateStruct
@@ -119,9 +124,9 @@ func (i *instanceHandler) Create(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param instance body instance_service.ConnectStruct true "Instance data"
-// @Success 200 {object} gin.H "Instance connected successfully"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.QRCode} "Instance connected successfully"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /instance/connect [post]
 func (i *instanceHandler) Connect(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -162,8 +167,8 @@ func (i *instanceHandler) Connect(ctx *gin.Context) {
 // @Tags Instance
 // @Accept json
 // @Produce json
-// @Success 200 {object} gin.H "Instance reconnected successfully"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope "Instance reconnected successfully"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /instance/reconnect [post]
 func (i *instanceHandler) Reconnect(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -189,8 +194,8 @@ func (i *instanceHandler) Reconnect(ctx *gin.Context) {
 // @Tags Instance
 // @Accept json
 // @Produce json
-// @Success 200 {object} gin.H "Instance disconnected successfully"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope "Instance disconnected successfully"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /instance/disconnect [post]
 func (i *instanceHandler) Disconnect(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -218,8 +223,8 @@ func (i *instanceHandler) Disconnect(ctx *gin.Context) {
 // @Tags Instance
 // @Accept json
 // @Produce json
-// @Success 200 {object} gin.H "Instance logged out successfully"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope "Instance logged out successfully"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /instance/logout [delete]
 func (i *instanceHandler) Logout(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -247,8 +252,8 @@ func (i *instanceHandler) Logout(ctx *gin.Context) {
 // @Tags Instance
 // @Accept json
 // @Produce json
-// @Success 200 {object} gin.H "Instance status"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.ConnectionStatus} "Instance status"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /instance/status [get]
 func (i *instanceHandler) Status(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -274,8 +279,8 @@ func (i *instanceHandler) Status(ctx *gin.Context) {
 // @Tags Instance
 // @Accept json
 // @Produce json
-// @Success 200 {object} gin.H "Instance QR code"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.QRCode} "Instance QR code"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /instance/qr [get]
 func (i *instanceHandler) Qr(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -302,9 +307,9 @@ func (i *instanceHandler) Qr(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param instance body instance_service.PairStruct true "Instance data"
-// @Success 200 {object} gin.H "Pairing code"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.PairResult} "Pairing code"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /instance/pair [post]
 func (i *instanceHandler) Pair(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
@@ -342,8 +347,8 @@ func (i *instanceHandler) Pair(ctx *gin.Context) {
 // @Tags Instance
 // @Accept json
 // @Produce json
-// @Success 200 {object} gin.H "All instances"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=[]docmodels.Instance} "All instances"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /instance/all [get]
 func (i *instanceHandler) All(ctx *gin.Context) {
 	instances, err := i.instanceService.GetAll()
@@ -362,9 +367,9 @@ func (i *instanceHandler) All(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param instanceId path string true "Instance Id"
-// @Success 200 {object} gin.H "Instance"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.Instance} "Instance"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /instance/info/{instanceId} [get]
 func (i *instanceHandler) Info(ctx *gin.Context) {
 	instanceId := ctx.Param("instanceId")
@@ -391,9 +396,9 @@ func (i *instanceHandler) Info(ctx *gin.Context) {
 // @Produce json
 // @Param instanceId path string true "Instance Id"
 // @Param instance body instance_service.RenameStruct true "New instance name"
-// @Success 200 {object} gin.H "Instance renamed successfully"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.Instance} "Instance renamed successfully"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /instance/name/{instanceId} [put]
 func (i *instanceHandler) Rename(ctx *gin.Context) {
 	instanceId := ctx.Param("instanceId")
@@ -432,9 +437,9 @@ func (i *instanceHandler) Rename(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param instanceId path string true "Instance Id"
-// @Success 200 {object} gin.H "Instance deleted successfully"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope "Instance deleted successfully"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /instance/delete/{instanceId} [delete]
 func (i *instanceHandler) Delete(ctx *gin.Context) {
 	instanceId := ctx.Param("instanceId")
@@ -461,9 +466,9 @@ func (i *instanceHandler) Delete(ctx *gin.Context) {
 // @Produce json
 // @Param instanceId path string true "Instance id"
 // @Param proxy body instance_service.SetProxyStruct true "Proxy configuration"
-// @Success 200 {object} gin.H "Proxy set successfully"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.ProxySet} "Proxy set successfully"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /instance/proxy/{instanceId} [post]
 func (i *instanceHandler) SetProxy(ctx *gin.Context) {
 	instanceId := ctx.Param("instanceId")
@@ -514,9 +519,9 @@ func (i *instanceHandler) SetProxy(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param instanceId path string true "Instance id"
-// @Success 200 {object} gin.H "Proxy configuration"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.ProxyGet} "Proxy configuration"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /instance/proxy/{instanceId} [get]
 func (i *instanceHandler) GetProxy(ctx *gin.Context) {
 	instanceId := ctx.Param("instanceId")
@@ -558,8 +563,8 @@ func (i *instanceHandler) GetProxy(ctx *gin.Context) {
 // @Param instanceId path string true "Instance id"
 // @Param proxy body instance_service.ProxyConfig false "Proxy to test (defaults to the saved one)"
 // @Success 200 {object} instance_service.ProxyTestResult "Proxy test result"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /instance/proxy/{instanceId}/test [post]
 func (i *instanceHandler) TestProxy(ctx *gin.Context) {
 	instanceId := ctx.Param("instanceId")
@@ -602,9 +607,9 @@ func (i *instanceHandler) TestProxy(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param instanceId path string true "Instance id"
-// @Success 200 {object} gin.H "success"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope "Proxy reconnected successfully"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /instance/proxy/{instanceId}/reconnect [post]
 func (i *instanceHandler) ReconnectProxy(ctx *gin.Context) {
 	instanceId := ctx.Param("instanceId")
@@ -630,9 +635,9 @@ func (i *instanceHandler) ReconnectProxy(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param instanceId path string true "Instance id"
-// @Success 200 {object} instance_service.LimitsStruct "Account limits"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.Limits} "Account limits"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /instance/limits/{instanceId} [get]
 func (i *instanceHandler) Limits(ctx *gin.Context) {
 	instanceId := ctx.Param("instanceId")
@@ -658,9 +663,9 @@ func (i *instanceHandler) Limits(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param instanceId path string true "Instance id"
-// @Success 200 {object} gin.H "Proxy deleted successfully"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope "Proxy deleted successfully"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /instance/proxy/{instanceId} [delete]
 func (i *instanceHandler) DeleteProxy(ctx *gin.Context) {
 	instanceId := ctx.Param("instanceId")
@@ -687,9 +692,9 @@ func (i *instanceHandler) DeleteProxy(ctx *gin.Context) {
 // @Produce json
 // @Param instanceId path string true "Instance Id"
 // @Param instance body instance_service.ForceReconnectStruct true "Instance data"
-// @Success 200 {object} gin.H "Instance force reconnected successfully"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope "Instance force reconnected successfully"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /instance/forcereconnect/{instanceId} [post]
 func (i *instanceHandler) ForceReconnect(ctx *gin.Context) {
 	instanceId := ctx.Param("instanceId")
@@ -740,9 +745,9 @@ type GetLogsQuery struct {
 // @Param end_date query string false "End date (YYYY-MM-DD, defaults to now)"
 // @Param level query string false "Log level filter"
 // @Param limit query int false "Max number of entries"
-// @Success 200 {object} gin.H "Logs"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {array} docmodels.LogEntry "Logs"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /instance/logs/{instanceId} [get]
 func (h *instanceHandler) GetLogs(c *gin.Context) {
 	instanceId := c.Param("instanceId")
@@ -787,9 +792,9 @@ func (h *instanceHandler) GetLogs(c *gin.Context) {
 // @Produce json
 // @Param instanceId path string true "Instance ID"
 // @Success 200 {object} instance_model.AdvancedSettings "Advanced settings retrieved successfully"
-// @Failure 400 {object} gin.H "Invalid instance ID"
-// @Failure 404 {object} gin.H "Instance not found"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Failure 400 {object} docmodels.ErrorResponse "Invalid instance ID"
+// @Failure 404 {object} docmodels.ErrorResponse "Instance not found"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /instance/{instanceId}/advanced-settings [get]
 func (h *instanceHandler) GetAdvancedSettings(c *gin.Context) {
 	instanceId := c.Param("instanceId")
@@ -816,10 +821,10 @@ func (h *instanceHandler) GetAdvancedSettings(c *gin.Context) {
 // @Produce json
 // @Param instanceId path string true "Instance ID"
 // @Param settings body instance_model.AdvancedSettings true "Advanced settings data"
-// @Success 200 {object} gin.H "Advanced settings updated successfully"
-// @Failure 400 {object} gin.H "Invalid request data"
-// @Failure 404 {object} gin.H "Instance not found"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} instance_model.AdvancedSettings "Advanced settings updated successfully"
+// @Failure 400 {object} docmodels.ErrorResponse "Invalid request data"
+// @Failure 404 {object} docmodels.ErrorResponse "Instance not found"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /instance/{instanceId}/advanced-settings [put]
 func (h *instanceHandler) UpdateAdvancedSettings(c *gin.Context) {
 	instanceId := c.Param("instanceId")

@@ -10,10 +10,15 @@ import (
 	"strings"
 	"time"
 
+	docmodels "github.com/evolution-foundation/evolution-go/pkg/docmodels"
 	message_repository "github.com/evolution-foundation/evolution-go/pkg/message/repository"
 	whatsmeow_service "github.com/evolution-foundation/evolution-go/pkg/whatsmeow/service"
 	"github.com/gin-gonic/gin"
 )
+
+// Keep docmodels referenced so the import is not dropped: swag reads the Go
+// source (not pre-processed) and needs the alias to be in scope.
+var _ = docmodels.Envelope{}
 
 type ServerHandler interface {
 	ServerOk(ctx *gin.Context)
@@ -44,7 +49,7 @@ type serverHandler struct {
 // @Description Returns ok when the server is up (public, no apikey)
 // @Tags Server
 // @Produce json
-// @Success 200 {object} gin.H "status"
+// @Success 200 {object} docmodels.ServerOK "status"
 // @Router /server/ok [get]
 func (s *serverHandler) ServerOk(ctx *gin.Context) {
 	ctx.JSON(200, gin.H{
@@ -58,7 +63,7 @@ func (s *serverHandler) ServerOk(ctx *gin.Context) {
 // @Description Runtime/host metrics (version, RAM, load, goroutines, uptime) and message aggregates
 // @Tags Server
 // @Produce json
-// @Success 200 {object} gin.H "system and messages"
+// @Success 200 {object} docmodels.ServerStats "system and messages"
 // @Router /server/stats [get]
 func (s *serverHandler) Stats(ctx *gin.Context) {
 	var mem runtime.MemStats
@@ -214,9 +219,9 @@ func (s *serverHandler) resolveTopSources(sources []message_repository.StatKV) [
 // @Tags Instance
 // @Produce json
 // @Param instanceId path string true "Instance Id"
-// @Success 200 {object} gin.H "overview"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.InstanceOverview} "overview"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /instance/overview/{instanceId} [get]
 func (s *serverHandler) InstanceOverview(ctx *gin.Context) {
 	instanceId := ctx.Param("instanceId")

@@ -13,6 +13,7 @@ package handler
 import (
 	"net/http"
 
+	docmodels "github.com/evolution-foundation/evolution-go/pkg/docmodels"
 	whatsmeow_service "github.com/evolution-foundation/evolution-go/pkg/whatsmeow/service"
 	"github.com/gin-gonic/gin"
 	"go.mau.fi/whatsmeow/types"
@@ -22,6 +23,9 @@ import (
 type PasskeyHandler struct {
 	whatsmeowService whatsmeow_service.WhatsmeowService
 }
+
+// Keep docmodels referenced so swag resolves the import (see pkg/poll/handler).
+var _ = docmodels.PasskeyCeremony{}
 
 // NewPasskeyHandler builds the handler.
 func NewPasskeyHandler(svc whatsmeow_service.WhatsmeowService) *PasskeyHandler {
@@ -35,10 +39,10 @@ func NewPasskeyHandler(svc whatsmeow_service.WhatsmeowService) *PasskeyHandler {
 // @Tags Passkey
 // @Produce json
 // @Param token path string true "Ceremony token"
-// @Success 200 {object} gin.H "Ceremony state ({stage, skipHandoffUX, publicKey?, code?, error?})"
-// @Failure 400 {object} gin.H "token is required"
-// @Failure 404 {object} gin.H "ceremony not found or expired"
-// @Failure 503 {object} gin.H "passkey ceremony unavailable"
+// @Success 200 {object} docmodels.PasskeyCeremony "Ceremony state ({stage, skipHandoffUX, publicKey?, code?, error?})"
+// @Failure 400 {object} docmodels.ErrorResponse "token is required"
+// @Failure 404 {object} docmodels.ErrorResponse "ceremony not found or expired"
+// @Failure 503 {object} docmodels.ErrorResponse "passkey ceremony unavailable"
 // @Router /passkey-ceremony/{token} [get]
 func (h *PasskeyHandler) GetCeremony(c *gin.Context) {
 	token := c.Param("token")
@@ -88,11 +92,11 @@ func (h *PasskeyHandler) GetCeremony(c *gin.Context) {
 // @Produce json
 // @Param token path string true "Ceremony token"
 // @Param response body types.WebAuthnResponse true "WebAuthn assertion"
-// @Success 200 {object} gin.H "ok"
-// @Failure 400 {object} gin.H "token is required / invalid body"
-// @Failure 404 {object} gin.H "ceremony not found or expired"
-// @Failure 500 {object} gin.H "Internal server error"
-// @Failure 503 {object} gin.H "passkey ceremony unavailable"
+// @Success 200 {object} docmodels.PasskeyOK "ok"
+// @Failure 400 {object} docmodels.ErrorResponse "token is required / invalid body"
+// @Failure 404 {object} docmodels.ErrorResponse "ceremony not found or expired"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
+// @Failure 503 {object} docmodels.ErrorResponse "passkey ceremony unavailable"
 // @Router /passkey-ceremony/{token}/response [post]
 func (h *PasskeyHandler) SubmitResponse(c *gin.Context) {
 	token := c.Param("token")
@@ -136,11 +140,11 @@ func (h *PasskeyHandler) SubmitResponse(c *gin.Context) {
 // @Tags Passkey
 // @Produce json
 // @Param token path string true "Ceremony token"
-// @Success 200 {object} gin.H "ok"
-// @Failure 400 {object} gin.H "token is required"
-// @Failure 404 {object} gin.H "ceremony not found or expired"
-// @Failure 500 {object} gin.H "Internal server error"
-// @Failure 503 {object} gin.H "passkey ceremony unavailable"
+// @Success 200 {object} docmodels.PasskeyOK "ok"
+// @Failure 400 {object} docmodels.ErrorResponse "token is required"
+// @Failure 404 {object} docmodels.ErrorResponse "ceremony not found or expired"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
+// @Failure 503 {object} docmodels.ErrorResponse "passkey ceremony unavailable"
 // @Router /passkey-ceremony/{token}/confirm [post]
 func (h *PasskeyHandler) Confirm(c *gin.Context) {
 	token := c.Param("token")

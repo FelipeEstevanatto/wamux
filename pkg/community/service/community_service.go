@@ -1,9 +1,9 @@
 package community_service
 
 import (
-	"github.com/evolution-foundation/evolution-go/pkg/safemap"
 	"context"
 	"errors"
+	"github.com/evolution-foundation/evolution-go/pkg/safemap"
 	"time"
 
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
@@ -28,12 +28,12 @@ type communityService struct {
 }
 
 type CreateCommunityStruct struct {
-	CommunityName string `json:"communityName"`
+	CommunityName string `json:"communityName" example:"Minha Comunidade"`
 }
 
 type AddParticipantStruct struct {
-	CommunityJID string   `json:"communityJid"`
-	GroupJID     []string `json:"groupJid"`
+	CommunityJID string   `json:"communityJid" example:"120363000000000000@g.us"`
+	GroupJID     []string `json:"groupJid" example:"120363000000000001@g.us"`
 }
 
 func (c *communityService) ensureClientConnected(instanceId string) (*whatsmeow.Client, error) {

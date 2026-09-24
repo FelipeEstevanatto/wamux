@@ -33,12 +33,12 @@ type chatService struct {
 }
 
 type BodyStruct struct {
-	Chat string `json:"chat"`
+	Chat string `json:"chat" example:"5511999999999@s.whatsapp.net"`
 }
 
 // EphemeralStruct is the body of POST /chat/ephemeral.
 type EphemeralStruct struct {
-	Chat string `json:"chat"`
+	Chat string `json:"chat" example:"5511999999999@s.whatsapp.net"`
 	// Expiration is the disappearing-messages timer in SECONDS (0 disables it).
 	// Official clients use 0, 86400 (24h), 604800 (7d) or 7776000 (90d).
 	Expiration int64 `json:"expiration" example:"86400"`
@@ -78,7 +78,7 @@ func (c *chatService) SetEphemeralExpiration(data *EphemeralStruct, instance *in
 
 type HistorySyncRequestStruct struct {
 	MessageInfo *types.MessageInfo `json:"messageInfo"`
-	Count       int                `json:"count"`
+	Count       int                `json:"count" example:"50"`
 }
 
 func (c *chatService) ensureClientConnected(instanceId string) (*whatsmeow.Client, error) {

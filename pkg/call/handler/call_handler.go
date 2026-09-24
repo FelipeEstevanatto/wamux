@@ -4,9 +4,14 @@ import (
 	"net/http"
 
 	call_service "github.com/evolution-foundation/evolution-go/pkg/call/service"
+	docmodels "github.com/evolution-foundation/evolution-go/pkg/docmodels"
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
 	"github.com/gin-gonic/gin"
 )
+
+// Keep docmodels referenced so the import is not dropped: swag reads the Go
+// source directly and needs the alias in scope on this file.
+var _ = docmodels.Envelope{}
 
 type CallHandler interface {
 	RejectCall(ctx *gin.Context)
@@ -23,8 +28,9 @@ type callHandler struct {
 // @Accept json
 // @Produce json
 // @Param message body call_service.RejectCallStruct true "Call data"
-// @Success 200 {object} gin.H "success"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /call/reject [post]
 func (g *callHandler) RejectCall(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")

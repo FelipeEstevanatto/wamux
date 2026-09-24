@@ -1,22 +1,22 @@
 definitions:
-  gin.H:
-    additionalProperties: {}
-    type: object
   github_com_evolution-foundation_evolution-go_pkg_call_service.RejectCallStruct:
     properties:
       callCreator:
         $ref: '#/definitions/types.JID'
       callId:
+        example: 3EB0A1B2C3D4E5F6A7B8C9
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_chat_service.BodyStruct:
     properties:
       chat:
+        example: 5511999999999@s.whatsapp.net
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_chat_service.EphemeralStruct:
     properties:
       chat:
+        example: 5511999999999@s.whatsapp.net
         type: string
       expiration:
         description: |-
@@ -28,6 +28,7 @@ definitions:
   github_com_evolution-foundation_evolution-go_pkg_chat_service.HistorySyncRequestStruct:
     properties:
       count:
+        example: 50
         type: integer
       messageInfo:
         $ref: '#/definitions/types.MessageInfo'
@@ -35,8 +36,11 @@ definitions:
   github_com_evolution-foundation_evolution-go_pkg_community_service.AddParticipantStruct:
     properties:
       communityJid:
+        example: 120363000000000000@g.us
         type: string
       groupJid:
+        example:
+        - 120363000000000001@g.us
         items:
           type: string
         type: array
@@ -44,15 +48,989 @@ definitions:
   github_com_evolution-foundation_evolution-go_pkg_community_service.CreateCommunityStruct:
     properties:
       communityName:
+        example: Minha Comunidade
         type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.Avatar:
+    properties:
+      direct_path:
+        example: /v/t61.24694-24/example.jpg
+        type: string
+      hash:
+        example: mprE5+0w7jtC7PY4NhW3O2qZpvyOo9T+n8kgPbY7L9s=
+        type: string
+      id:
+        example: "1062917621"
+        type: string
+      type:
+        example: image
+        type: string
+      url:
+        example: https://pps.whatsapp.net/v/t61.24694-24/example.jpg
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.Blocklist:
+    properties:
+      DHash:
+        example: ""
+        type: string
+      JIDs:
+        example:
+        - 5511999999999@s.whatsapp.net
+        items:
+          type: string
+        type: array
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.ChatActionResult:
+    properties:
+      timestamp:
+        example: 0001-01-01 00:00:00 +0000 UTC
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.CheckUser:
+    properties:
+      IsInWhatsapp:
+        example: true
+        type: boolean
+      JID:
+        example: 1234567890@lid
+        type: string
+      LID: {}
+      Query:
+        example: +5511999999999@s.whatsapp.net
+        type: string
+      RemoteJID:
+        example: 1234567890@lid
+        type: string
+      VerifiedName:
+        example: ""
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.CheckUserCollection:
+    properties:
+      Users:
+        items:
+          $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.CheckUser'
+        type: array
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.Community:
+    properties:
+      JID:
+        example: 120363000000000000@g.us
+        type: string
+      Name:
+        example: Minha Comunidade
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.CommunityMutation:
+    properties:
+      JID:
+        example: 120363000000000000@g.us
+        type: string
+      Participants:
+        items:
+          properties:
+            Error:
+              example: 0
+              type: integer
+            JID:
+              example: 120363000000000001@g.us
+              type: string
+          type: object
+        type: array
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.ConnectionStatus:
+    properties:
+      Connected:
+        example: true
+        type: boolean
+      LoggedIn:
+        example: true
+        type: boolean
+      Name:
+        example: Minha Instancia
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.Contact:
+    properties:
+      BusinessName:
+        example: ""
+        type: string
+      FirstName:
+        example: Alice
+        type: string
+      Found:
+        example: true
+        type: boolean
+      FullName:
+        example: Alice Souza
+        type: string
+      Jid:
+        example: 5511999999999@s.whatsapp.net
+        type: string
+      PushName:
+        example: Alice
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.DownloadMedia:
+    properties:
+      base64:
+        example: data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ...
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope:
+    properties:
+      data: {}
+      message:
+        example: success
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse:
+    properties:
+      error:
+        example: phone number is required
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.Group:
+    properties:
+      AddressingMode:
+        example: lid
+        type: string
+      AnnounceVersionID:
+        example: "1790119298733550"
+        type: string
+      CreatorCountryCode:
+        example: BR
+        type: string
+      DefaultMembershipApprovalMode:
+        example: ""
+        type: string
+      DisappearingTimer:
+        example: 0
+        type: integer
+      GroupCreated:
+        example: "2026-01-10T20:21:38-03:00"
+        type: string
+      IsAnnounce:
+        example: false
+        type: boolean
+      IsDefaultSubGroup:
+        example: false
+        type: boolean
+      IsEphemeral:
+        example: true
+        type: boolean
+      IsIncognito:
+        example: false
+        type: boolean
+      IsJoinApprovalRequired:
+        example: false
+        type: boolean
+      IsLocked:
+        example: false
+        type: boolean
+      IsParent:
+        example: false
+        type: boolean
+      JID:
+        example: 120363000000000000@g.us
+        type: string
+      LinkedParentJID:
+        example: ""
+        type: string
+      MemberAddMode:
+        example: all_member_add
+        type: string
+      Name:
+        example: Equipe Vendas
+        type: string
+      NameSetAt:
+        example: "2026-01-10T20:21:38-03:00"
+        type: string
+      NameSetBy:
+        example: 1234567890@lid
+        type: string
+      NameSetByPN:
+        example: 5511999999999@s.whatsapp.net
+        type: string
+      OwnerJID:
+        example: 1234567890@lid
+        type: string
+      OwnerPN:
+        example: 5511999999999@s.whatsapp.net
+        type: string
+      ParticipantCount:
+        example: 2
+        type: integer
+      ParticipantVersionID:
+        example: "1790119298733550"
+        type: string
+      Participants:
+        items:
+          $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.GroupParticipant'
+        type: array
+      Suspended:
+        example: false
+        type: boolean
+      Topic:
+        example: ""
+        type: string
+      TopicDeleted:
+        example: false
+        type: boolean
+      TopicID:
+        example: ""
+        type: string
+      TopicSetAt:
+        example: "0001-01-01T00:00:00Z"
+        type: string
+      TopicSetBy:
+        example: ""
+        type: string
+      TopicSetByPN:
+        example: ""
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.GroupCreateResult:
+    properties:
+      added:
+        example:
+        - 5511999999999@s.whatsapp.net
+        - 5511888888888@s.whatsapp.net
+        items:
+          type: string
+        type: array
+      failed:
+        example:
+        - ""
+        items:
+          type: string
+        type: array
+      jid:
+        example: 120363000000000000@g.us
+        type: string
+      name:
+        example: Equipe Vendas
+        type: string
+      owner:
+        example: 5511999999999@s.whatsapp.net
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.GroupParticipant:
+    properties:
+      AddRequest: {}
+      DisplayName:
+        example: ""
+        type: string
+      Error:
+        example: 0
+        type: integer
+      IsAdmin:
+        example: true
+        type: boolean
+      IsSuperAdmin:
+        example: false
+        type: boolean
+      JID:
+        example: 1234567890@lid
+        type: string
+      LID:
+        example: 1234567890@lid
+        type: string
+      PhoneNumber:
+        example: 5511999999999@s.whatsapp.net
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.HistorySyncResult:
+    properties:
+      ID:
+        example: 3EB0A1B2C3D4E5F6A7B8C9
+        type: string
+      Timestamp:
+        example: "2026-01-15T10:30:00-03:00"
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.Instance:
+    properties:
+      alwaysOnline:
+        example: false
+        type: boolean
+      client_name:
+        example: evolution
+        type: string
+      connected:
+        example: true
+        type: boolean
+      createdAt:
+        example: "2026-01-15T10:30:00.000000-03:00"
+        type: string
+      disconnect_reason:
+        example: ""
+        type: string
+      events:
+        example: MESSAGE
+        type: string
+      expiration:
+        example: 0
+        type: integer
+      id:
+        example: 11111111-2222-3333-4444-555555555555
+        type: string
+      ignoreGroups:
+        example: false
+        type: boolean
+      ignoreStatus:
+        example: false
+        type: boolean
+      jid:
+        example: 5511999999999:7@s.whatsapp.net
+        type: string
+      msgRejectCall:
+        example: ""
+        type: string
+      name:
+        example: Minha Instancia
+        type: string
+      natsEnable:
+        example: ""
+        type: string
+      os_name:
+        example: Evolution GO
+        type: string
+      proxy:
+        example: ""
+        type: string
+      qrcode:
+        example: ""
+        type: string
+      rabbitmqEnable:
+        example: ""
+        type: string
+      readMessages:
+        example: false
+        type: boolean
+      rejectCall:
+        example: false
+        type: boolean
+      token:
+        example: aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
+        type: string
+      webhook:
+        example: https://webhook.example.com/evolution
+        type: string
+      websocketEnable:
+        example: ""
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.InstanceOverview:
+    properties:
+      chatsCount:
+        example: 3
+        type: integer
+      connected:
+        example: true
+        type: boolean
+      contactsCount:
+        example: 344
+        type: integer
+      messagesCount:
+        example: 19
+        type: integer
+      platform:
+        example: android
+        type: string
+      profileName:
+        example: Minha Instancia
+        type: string
+      profilePicUrl:
+        example: https://pps.whatsapp.net/v/t61.24694-24/example.jpg
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.Label:
+    properties:
+      color:
+        example: 1
+        type: integer
+      deleted:
+        example: false
+        type: boolean
+      id:
+        example: "1"
+        type: string
+      name:
+        example: Cliente VIP
+        type: string
+      predefinedId:
+        example: ""
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.Limits:
+    properties:
+      newChatCapping:
+        $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.NewChatCapping'
+      reachoutTimelock:
+        $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ReachoutTimelock'
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.LogEntry:
+    properties:
+      instance_id:
+        example: 11111111-2222-3333-4444-555555555555
+        type: string
+      level:
+        example: INFO
+        type: string
+      message:
+        example: 'Client successfully validated - Connected: true'
+        type: string
+      timestamp:
+        example: "2026-01-15T10:30:00.676Z"
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageActionResult:
+    properties:
+      timestamp:
+        example: 0001-01-01 00:00:00 +0000 UTC
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageBody:
+    properties:
+      conversation:
+        example: Ola, tudo bem?
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageInfo:
+    properties:
+      Chat:
+        example: 5511999999999@s.whatsapp.net
+        type: string
+      ID:
+        example: 3EB0A1B2C3D4E5F6A7B8C9
+        type: string
+      IsFromMe:
+        example: true
+        type: boolean
+      IsGroup:
+        example: false
+        type: boolean
+      Sender:
+        example: 5511999999999@s.whatsapp.net
+        type: string
+      Timestamp:
+        example: "2026-01-15T10:30:00Z"
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageMutationResult:
+    properties:
+      messageId:
+        example: 3EB0A1B2C3D4E5F6A7B8C9
+        type: string
+      timestamp:
+        example: 2026-01-15 10:31:00 -0300 -03
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend:
+    properties:
+      Info:
+        $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageInfo'
+      Message:
+        $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageBody'
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageStats:
+    properties:
+      byDay:
+        items:
+          properties:
+            count:
+              example: 169
+              type: integer
+            key:
+              example: "2026-01-15"
+              type: string
+          type: object
+        type: array
+      byStatus:
+        items:
+          properties:
+            count:
+              example: 127
+              type: integer
+            key:
+              example: Read
+              type: string
+          type: object
+        type: array
+      topSources:
+        items:
+          properties:
+            count:
+              example: 171
+              type: integer
+            key:
+              example: "5511999999999"
+              type: string
+            name:
+              example: Alice Souza
+              type: string
+            phone:
+              example: "5511999999999"
+              type: string
+          type: object
+        type: array
+      total:
+        example: 184
+        type: integer
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageStatus:
+    properties:
+      result:
+        $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageStatusRow'
+      timestamp:
+        example: 0001-01-01 00:00:00 +0000 UTC
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageStatusRow:
+    properties:
+      id:
+        example: 57c59a33-33f3-4e30-9b0d-07536b5f8e4b
+        type: string
+      instance_id:
+        example: 11111111-2222-3333-4444-555555555555
+        type: string
+      message_id:
+        example: 3EB0A1B2C3D4E5F6A7B8C9
+        type: string
+      source:
+        example: "1234567890"
+        type: string
+      status:
+        example: Sent
+        type: string
+      timestamp:
+        example: "2026-01-15 10:30:00"
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.NewChatCapping:
+    properties:
+      cappingStatus:
+        example: NONE
+        type: string
+      cycleEnds:
+        example: 1
+        type: integer
+      totalQuota:
+        example: 0
+        type: integer
+      usedQuota:
+        example: 0
+        type: integer
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.Newsletter:
+    properties:
+      id:
+        example: 120363000000000000@newsletter
+        type: string
+      state:
+        $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterState'
+      thread_metadata:
+        $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterThreadMetadata'
+      viewer_metadata:
+        $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterViewerMetadata'
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterMedia:
+    properties:
+      direct_path:
+        example: ""
+        type: string
+      hash: {}
+      id:
+        example: "1790227157396014"
+        type: string
+      type:
+        example: IMAGE
+        type: string
+      url:
+        example: ""
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterMessage:
+    properties:
+      id:
+        example: 3EB0A1B2C3D4E5F6A7B8C9
+        type: string
+      message:
+        properties:
+          conversation:
+            example: Confira nossa promocao de hoje!
+            type: string
+        type: object
+      serverId:
+        example: 123456789
+        type: integer
+      timestamp:
+        example: "2026-01-15T10:30:00-03:00"
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterSettings:
+    properties:
+      reaction_codes:
+        properties:
+          value:
+            example: ALL
+            type: string
+        type: object
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterState:
+    properties:
+      type:
+        example: active
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterTextField:
+    properties:
+      id:
+        example: "1790227149344380"
+        type: string
+      text:
+        example: Novidades da Loja
+        type: string
+      update_time:
+        example: "1790227149344380"
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterThreadMetadata:
+    properties:
+      creation_time:
+        example: "1790227149"
+        type: string
+      description:
+        $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterTextField'
+      invite:
+        example: 0029Vb8UfYvBadmcTuuhZC28
+        type: string
+      name:
+        $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterTextField'
+      picture:
+        $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterMedia'
+      preview:
+        $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterMedia'
+      settings:
+        $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterSettings'
+      subscribers_count:
+        example: "0"
+        type: string
+      verification:
+        example: unverified
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterViewerMetadata:
+    properties:
+      mute:
+        example: "on"
+        type: string
+      role:
+        example: owner
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.PairResult:
+    properties:
+      pairingCode:
+        example: ABCD-EFGH
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.PasskeyCeremony:
+    properties:
+      code:
+        example: ABCD-EFGH
+        type: string
+      error:
+        example: ""
+        type: string
+      publicKey: {}
+      skipHandoffUX:
+        example: false
+        type: boolean
+      stage:
+        example: awaiting-response
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.PasskeyOK:
+    properties:
+      ok:
+        example: true
+        type: boolean
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.Privacy:
+    properties:
+      CallAdd:
+        example: all
+        type: string
+      Defense:
+        example: "off"
+        type: string
+      GroupAdd:
+        example: all
+        type: string
+      LastSeen:
+        example: contacts
+        type: string
+      Messages:
+        example: all
+        type: string
+      Online:
+        example: all
+        type: string
+      Profile:
+        example: all
+        type: string
+      ReadReceipts:
+        example: all
+        type: string
+      Status:
+        example: contacts
+        type: string
+      Stickers:
+        example: contacts
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.ProfileName:
+    properties:
+      name:
+        example: Minha Loja
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.ProfilePicture:
+    properties:
+      image:
+        example: data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ...
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.ProfileStatus:
+    properties:
+      status:
+        example: Disponivel para atendimento
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.ProxyGet:
+    properties:
+      hasPassword:
+        example: true
+        type: boolean
+      host:
+        example: proxy.example.com
+        type: string
+      port:
+        example: "8080"
+        type: string
+      protocol:
+        example: http
+        type: string
+      username:
+        example: proxyuser
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.ProxySet:
+    properties:
+      hasAuth:
+        example: true
+        type: boolean
+      host:
+        example: proxy.example.com
+        type: string
+      port:
+        example: "8080"
+        type: string
+      protocol:
+        example: http
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.QRCode:
+    properties:
+      qrcode:
+        example: 2@AbCdEfGhIjKlMnOpQrStUvWxYz0123456789+/=,AbCdEfGhIjKlMnOpQrStUvWxYz0123456789+/=,AbCdEfGhIjKlMnOpQrStUvWxYz0123456789+/=,AbCdEfGhIjKlMnOpQrStUvWxYz0123456789+/=
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.ReachoutTimelock:
+    properties:
+      enforcementType:
+        example: ""
+        type: string
+      isActive:
+        example: false
+        type: boolean
+      timeEnforcementEnds:
+        example: 0
+        type: integer
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.ResolveLid:
+    properties:
+      jid:
+        example: 5511999999999@s.whatsapp.net
+        type: string
+      lid:
+        example: 1234567890@lid
+        type: string
+      phoneNumber:
+        example: "5511999999999"
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.ServerOK:
+    properties:
+      status:
+        example: ok
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.ServerStats:
+    properties:
+      messages:
+        $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageStats'
+      storage:
+        $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.StorageStats'
+      system:
+        $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.SystemStats'
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.StorageStats:
+    properties:
+      dataDir:
+        example: /app/data
+        type: string
+      dataFiles:
+        example: 14
+        type: integer
+      dataUsedMB:
+        example: 1.57
+        type: number
+      dbMessagesMB:
+        example: 0.11
+        type: number
+      dbTotalMB:
+        example: 8.05
+        type: number
+      diskAvailableMB:
+        example: 884839.43
+        type: number
+      diskPath:
+        example: /app/data
+        type: string
+      diskTotalMB:
+        example: 1.03101842e+06
+        type: number
+      diskUsedMB:
+        example: 93734.19
+        type: number
+      diskUsedPct:
+        example: 9.09
+        type: number
+      mediaEnabled:
+        example: false
+        type: boolean
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.SystemStats:
+    properties:
+      goVersion:
+        example: go1.26.8
+        type: string
+      goroutines:
+        example: 43
+        type: integer
+      heapInuseMB:
+        example: 17.85
+        type: number
+      hostMemAvailableMB:
+        example: 12475.51
+        type: number
+      hostMemTotalMB:
+        example: 15954.18
+        type: number
+      hostMemUsedPct:
+        example: 21.8
+        type: number
+      loadAvg1:
+        example: 4.47
+        type: number
+      loadAvg5:
+        example: 2.22
+        type: number
+      loadAvg15:
+        example: 1.49
+        type: number
+      memAllocMB:
+        example: 14.92
+        type: number
+      memSysMB:
+        example: 35.45
+        type: number
+      numCpu:
+        example: 16
+        type: integer
+      numGC:
+        example: 60
+        type: integer
+      uptimeSeconds:
+        example: 6789
+        type: integer
+      version:
+        example: 0.8.1
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.TypebotStatusChange:
+    properties:
+      remoteJid:
+        example: 5511999999999@s.whatsapp.net
+        type: string
+      status:
+        example: paused
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.TypebotSuccess:
+    properties:
+      success:
+        example: true
+        type: boolean
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.UserCollection:
+    properties:
+      Users:
+        additionalProperties:
+          $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.UserInfo'
+        type: object
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.UserInfo:
+    properties:
+      Devices:
+        example:
+        - 5511999999999@s.whatsapp.net
+        - 5511999999999:38@s.whatsapp.net
+        items:
+          type: string
+        type: array
+      LID:
+        example: 1234567890@lid
+        type: string
+      PictureID:
+        example: "1062917621"
+        type: string
+      PictureURL:
+        example: https://pps.whatsapp.net/v/t61.24694-24/example.jpg
+        type: string
+      Status:
+        example: Disponivel
+        type: string
+      VerifiedName: {}
     type: object
   github_com_evolution-foundation_evolution-go_pkg_group_service.AddParticipantStruct:
     properties:
       action:
-        $ref: '#/definitions/whatsmeow.ParticipantChange'
+        allOf:
+        - $ref: '#/definitions/whatsmeow.ParticipantChange'
+        example: add
       groupJid:
         $ref: '#/definitions/types.JID'
       participants:
+        example:
+        - "5511999999999"
         items:
           type: string
         type: array
@@ -60,8 +1038,12 @@ definitions:
   github_com_evolution-foundation_evolution-go_pkg_group_service.CreateGroupStruct:
     properties:
       groupName:
+        example: Equipe Vendas
         type: string
       participants:
+        example:
+        - "5511999999999"
+        - "5511888888888"
         items:
           type: string
         type: array
@@ -69,18 +1051,22 @@ definitions:
   github_com_evolution-foundation_evolution-go_pkg_group_service.GetGroupInfoStruct:
     properties:
       groupJid:
+        example: 120363000000000000@g.us
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_group_service.GetGroupInviteLinkStruct:
     properties:
       groupJid:
+        example: 120363000000000000@g.us
         type: string
       reset:
+        example: false
         type: boolean
     type: object
   github_com_evolution-foundation_evolution-go_pkg_group_service.JoinGroupStruct:
     properties:
       code:
+        example: AbCdEfGhIjKlMnOpQrStUv
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_group_service.LeaveGroupStruct:
@@ -91,45 +1077,59 @@ definitions:
   github_com_evolution-foundation_evolution-go_pkg_group_service.SetGroupDescriptionStruct:
     properties:
       description:
+        example: Grupo de atendimento da loja
         type: string
       groupJid:
+        example: 120363000000000000@g.us
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_group_service.SetGroupNameStruct:
     properties:
       groupJid:
+        example: 120363000000000000@g.us
         type: string
       name:
+        example: Equipe Vendas
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_group_service.SetGroupPhotoStruct:
     properties:
       groupJid:
+        example: 120363000000000000@g.us
         type: string
       image:
+        example: data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ...
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_group_service.UpdateGroupSettingsStruct:
     properties:
       action:
         description: announcement, not_announcement, locked, unlocked
+        example: announcement
         type: string
       groupJid:
+        example: 120363000000000000@g.us
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_instance_model.AdvancedSettings:
     properties:
       alwaysOnline:
+        example: false
         type: boolean
       ignoreGroups:
+        example: false
         type: boolean
       ignoreStatus:
+        example: false
         type: boolean
       msgRejectCall:
+        example: Chamada recusada, envie uma mensagem.
         type: string
       readMessages:
+        example: false
         type: boolean
       rejectCall:
+        example: false
         type: boolean
     type: object
   github_com_evolution-foundation_evolution-go_pkg_instance_service.ConnectStruct:
@@ -169,25 +1169,6 @@ definitions:
       number:
         type: string
     type: object
-  github_com_evolution-foundation_evolution-go_pkg_instance_service.LimitsStruct:
-    properties:
-      newChatCapping:
-        $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_instance_service.NewChatCappingStruct'
-      reachoutTimelock:
-        $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_instance_service.ReachoutTimelockStruct'
-    type: object
-  github_com_evolution-foundation_evolution-go_pkg_instance_service.NewChatCappingStruct:
-    properties:
-      cappingStatus:
-        type: string
-      cycleEnds:
-        description: unix seconds
-        type: integer
-      totalQuota:
-        type: integer
-      usedQuota:
-        type: integer
-    type: object
   github_com_evolution-foundation_evolution-go_pkg_instance_service.PairStruct:
     properties:
       phone:
@@ -215,39 +1196,37 @@ definitions:
       anonymous:
         description: Anonymous is true when IP differs from ServerIP — the point of
           a proxy.
+        example: true
         type: boolean
       error:
+        example: ""
         type: string
       ip:
         description: IP is the address the outside world sees when this proxy is used.
+        example: 203.0.113.10
         type: string
       latencyMs:
+        example: 142
         type: integer
       ok:
+        example: true
         type: boolean
       protocol:
+        example: http
         type: string
       serverIp:
         description: |-
           ServerIP is what the outside world sees without the proxy, so the caller
           can tell a working proxy from one that silently passes traffic through.
+        example: 198.51.100.4
         type: string
       whatsappReachable:
         description: |-
           WhatsAppReachable reports whether web.whatsapp.com answered through the
           proxy. A proxy can reach the open internet and still be blocked by
           WhatsApp, and that distinction is the useful one here.
+        example: true
         type: boolean
-    type: object
-  github_com_evolution-foundation_evolution-go_pkg_instance_service.ReachoutTimelockStruct:
-    properties:
-      enforcementType:
-        type: string
-      isActive:
-        type: boolean
-      timeEnforcementEnds:
-        description: unix seconds
-        type: integer
     type: object
   github_com_evolution-foundation_evolution-go_pkg_instance_service.RenameStruct:
     properties:
@@ -273,28 +1252,37 @@ definitions:
   github_com_evolution-foundation_evolution-go_pkg_label_service.ChatLabelStruct:
     properties:
       jid:
+        example: 5511999999999@s.whatsapp.net
         type: string
       labelId:
+        example: "1"
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_label_service.EditLabelStruct:
     properties:
       color:
+        example: 1
         type: integer
       deleted:
+        example: false
         type: boolean
       labelId:
+        example: "1"
         type: string
       name:
+        example: Cliente VIP
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_label_service.MessageLabelStruct:
     properties:
       jid:
+        example: 5511999999999@s.whatsapp.net
         type: string
       labelId:
+        example: "1"
         type: string
       messageId:
+        example: 3EB0A1B2C3D4E5F6A7B8C9
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_message_service.ChatPresenceStruct:
@@ -304,93 +1292,139 @@ definitions:
           Delay, in milliseconds, keeps the "composing"/"recording" indicator alive
           for the given duration (re-sending it periodically) and then sends "paused".
           Only applies when State is "composing". 0 = single fire (legacy behaviour).
+        example: 5000
         type: integer
       isAudio:
+        example: false
         type: boolean
       number:
+        example: "5511999999999"
         type: string
       state:
+        example: composing
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_message_service.DownloadMediaStruct:
     properties:
+      chat:
+        example: 5511999999999@s.whatsapp.net
+        type: string
+      fromMe:
+        example: true
+        type: boolean
+      id:
+        description: |-
+          Optional message context. When the media is gone (403/404/410) and this is
+          provided, the server asks the sender's phone to re-upload it (media retry)
+          and the next request with the same `id` returns the refreshed bytes.
+        example: 3EB0A1B2C3D4E5F6A7B8C9
+        type: string
+      isGroup:
+        example: false
+        type: boolean
       message:
         $ref: '#/definitions/waE2E.Message'
+      participant:
+        example: 5511999999999@s.whatsapp.net
+        type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_message_service.EditMessageStruct:
     properties:
       chat:
+        example: 5511999999999@s.whatsapp.net
         type: string
       message:
+        example: Mensagem editada
         type: string
       messageId:
+        example: 3EB0A1B2C3D4E5F6A7B8C9
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_message_service.MarkPlayedStruct:
     properties:
       id:
+        example:
+        - 3EB0A1B2C3D4E5F6A7B8C9
         items:
           type: string
         type: array
       number:
+        example: "5511999999999"
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_message_service.MarkReadStruct:
     properties:
       id:
+        example:
+        - 3EB0A1B2C3D4E5F6A7B8C9
         items:
           type: string
         type: array
       number:
+        example: "5511999999999"
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_message_service.MessageStatusStruct:
     properties:
       id:
+        example: 3EB0A1B2C3D4E5F6A7B8C9
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_message_service.MessageStruct:
     properties:
       chat:
+        example: 5511999999999@s.whatsapp.net
         type: string
       messageId:
+        example: 3EB0A1B2C3D4E5F6A7B8C9
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_message_service.ReactStruct:
     properties:
       fromMe:
+        example: false
         type: boolean
       id:
+        example: 3EB0A1B2C3D4E5F6A7B8C9
         type: string
       number:
+        example: "5511999999999"
         type: string
       participant:
+        example: 5511999999999@s.whatsapp.net
         type: string
       reaction:
+        example: "\U0001F44D"
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_message_service.SubscribePresenceStruct:
     properties:
       number:
+        example: "5511999999999"
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_newsletter_service.CreateNewsletterStruct:
     properties:
       description:
+        example: Ofertas e lancamentos
         type: string
       name:
+        example: Novidades da Loja
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_newsletter_service.GetNewsletterInviteStruct:
     properties:
       key:
+        example: AbCdEfGhIjKlMnOpQrStUv
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_newsletter_service.GetNewsletterMessagesStruct:
     properties:
       before_id:
+        example: 0
         type: integer
       count:
+        example: 20
         type: integer
       jid:
         $ref: '#/definitions/types.JID'
@@ -406,12 +1440,17 @@ definitions:
         additionalProperties:
           type: integer
         description: hash -> count
+        example:
+          a1b2c3d4e5f6: 2
         type: object
       pollChatJid:
+        example: 120363000000000000@g.us
         type: string
       pollMessageId:
+        example: 3EB0A1B2C3D4E5F6A7B8C9
         type: string
       totalVotes:
+        example: 3
         type: integer
       voters:
         items:
@@ -425,46 +1464,65 @@ definitions:
   github_com_evolution-foundation_evolution-go_pkg_poll_model.PollVote:
     properties:
       companyId:
+        example: aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
         type: string
       id:
+        example: 11111111-2222-3333-4444-555555555555
         type: string
       instanceId:
+        example: aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
         type: string
       pollChatJid:
+        example: 120363000000000000@g.us
         type: string
       pollMessageId:
+        example: 3EB0A1B2C3D4E5F6A7B8C9
         type: string
       receivedAt:
+        example: "2026-01-15T10:30:01Z"
         type: string
       selectedOptions:
         description: SHA-256 hashes
+        example:
+        - a1b2c3d4e5f6
         items:
           type: string
         type: array
       voteMessageId:
+        example: 3EB0B2C3D4E5F6A7B8C9D0
         type: string
       votedAt:
+        example: "2026-01-15T10:30:00Z"
         type: string
       voterJid:
+        example: 5511999999999@s.whatsapp.net
         type: string
       voterName:
+        example: Alice Souza
         type: string
       voterPhone:
+        example: "5511999999999"
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_poll_model.VoterInfo:
     properties:
       jid:
+        example: 5511999999999@s.whatsapp.net
         type: string
       name:
+        example: Alice Souza
         type: string
       phone:
+        example: "5511999999999"
         type: string
       selectedOptions:
+        example:
+        - a1b2c3d4e5f6
         items:
           type: string
         type: array
       votedAt:
+        example: "2026-01-15T10:30:00Z"
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.Button:
@@ -546,15 +1604,20 @@ definitions:
       formatJid:
         description: If false, skips automatic formatting/validation of `number` into
           a JID.
+        example: true
         type: boolean
       imageUrl:
         description: Optional image URL used as header for reply-only buttons.
+        example: https://example.com/header.jpg
         type: string
       mentionAll:
         description: Mention every participant (groups only).
+        example: false
         type: boolean
       mentionedJid:
         description: JIDs to mention inside the body text.
+        example:
+        - 5511999999999@s.whatsapp.net
         items:
           type: string
         type: array
@@ -572,6 +1635,7 @@ definitions:
         type: string
       videoUrl:
         description: Optional video URL used as header for reply-only buttons.
+        example: https://example.com/header.mp4
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.CarouselButtonStruct:
@@ -628,6 +1692,7 @@ definitions:
         type: string
       videoUrl:
         description: Public URL to a video. Used only when `imageUrl` is empty.
+        example: https://example.com/video.mp4
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.CarouselCardStruct:
@@ -673,6 +1738,7 @@ definitions:
       formatJid:
         description: If false, skips automatic formatting/validation of `number` into
           a JID.
+        example: true
         type: boolean
       number:
         description: Destination phone number.
@@ -686,18 +1752,25 @@ definitions:
   github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.ContactStruct:
     properties:
       delay:
+        example: 1200
         type: integer
       formatJid:
+        example: true
         type: boolean
       id:
+        example: 3EB0A1B2C3D4E5F6A7B8C9
         type: string
       mentionAll:
+        example: false
         type: boolean
       mentionedJid:
+        example:
+        - 5511999999999@s.whatsapp.net
         items:
           type: string
         type: array
       number:
+        example: "5511999999999"
         type: string
       quoted:
         $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.QuotedStruct'
@@ -722,31 +1795,44 @@ definitions:
   github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.EventStruct:
     properties:
       delay:
+        example: 1200
         type: integer
       description:
+        example: Reuniao trimestral de vendas
         type: string
       endTime:
+        example: "2026-06-25T21:00:00-03:00"
         type: string
       extraGuestsAllowed:
+        example: true
         type: boolean
       formatJid:
+        example: true
         type: boolean
       hasReminder:
+        example: true
         type: boolean
       id:
+        example: 3EB0A1B2C3D4E5F6A7B8C9
         type: string
       isCanceled:
+        example: false
         type: boolean
       isScheduleCall:
+        example: false
         type: boolean
       joinLink:
         description: Call link (only call.whatsapp.com; external links go in description).
+        example: https://call.whatsapp.com/video/AbCdEf123456
         type: string
       location:
         $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.EventLocationStruct'
       mentionAll:
+        example: false
         type: boolean
       mentionedJid:
+        example:
+        - 5511999999999@s.whatsapp.net
         items:
           type: string
         type: array
@@ -759,6 +1845,7 @@ definitions:
       quoted:
         $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.QuotedStruct'
       reminderOffsetSec:
+        example: 900
         type: integer
       startTime:
         example: "2026-06-25T20:00:00-03:00"
@@ -767,35 +1854,48 @@ definitions:
         description: |-
           Optional text sent BEFORE the event card (the event itself has no caption).
           Respects mentionAll/mentionedJid/delay.
+        example: Segue o convite da reuniao
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.LinkStruct:
     properties:
       delay:
+        example: 1200
         type: integer
       description:
+        example: Aproveite os descontos desta semana
         type: string
       formatJid:
+        example: true
         type: boolean
       id:
+        example: 3EB0A1B2C3D4E5F6A7B8C9
         type: string
       imgUrl:
+        example: https://example.com/preview.jpg
         type: string
       mentionAll:
+        example: false
         type: boolean
       mentionedJid:
+        example:
+        - 5511999999999@s.whatsapp.net
         items:
           type: string
         type: array
       number:
+        example: "5511999999999"
         type: string
       quoted:
         $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.QuotedStruct'
       text:
+        example: 'Confira nossa loja: https://example.com'
         type: string
       title:
+        example: Promocao da semana
         type: string
       url:
+        example: https://example.com/promocao
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.ListStruct:
@@ -820,12 +1920,16 @@ definitions:
       formatJid:
         description: If false, skips automatic formatting/validation of `number` into
           a JID.
+        example: true
         type: boolean
       mentionAll:
         description: Mention every participant (groups only).
+        example: false
         type: boolean
       mentionedJid:
         description: JIDs to mention inside the body text.
+        example:
+        - 5511999999999@s.whatsapp.net
         items:
           type: string
         type: array
@@ -850,26 +1954,37 @@ definitions:
   github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.LocationStruct:
     properties:
       address:
+        example: Av. Paulista, 1000 - Sao Paulo
         type: string
       delay:
+        example: 1200
         type: integer
       formatJid:
+        example: true
         type: boolean
       id:
+        example: 3EB0A1B2C3D4E5F6A7B8C9
         type: string
       latitude:
+        example: -16.6869
         type: number
       longitude:
+        example: -49.2648
         type: number
       mentionAll:
+        example: false
         type: boolean
       mentionedJid:
+        example:
+        - 5511999999999@s.whatsapp.net
         items:
           type: string
         type: array
       name:
+        example: Escritorio Central
         type: string
       number:
+        example: "5511999999999"
         type: string
       quoted:
         $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.QuotedStruct'
@@ -877,63 +1992,90 @@ definitions:
   github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.MediaStruct:
     properties:
       caption:
+        example: Veja esta foto
         type: string
       delay:
+        example: 1200
         type: integer
       filename:
+        example: foto.jpg
         type: string
       formatJid:
+        example: true
         type: boolean
       forwardingScore:
+        example: 1
         type: integer
       gifPlayback:
         description: |-
           GifPlayback sends the media as a looping animation (no sound, no video
           controls). Set it for GIFs. `type: "gif"` implies it. An animated GIF is
           transcoded to a silent MP4 first, since WhatsApp does not accept a raw GIF.
+        example: false
         type: boolean
       id:
+        example: 3EB0A1B2C3D4E5F6A7B8C9
         type: string
       mentionAll:
+        example: false
         type: boolean
       mentionedJid:
+        example:
+        - 5511999999999@s.whatsapp.net
         items:
           type: string
         type: array
       number:
+        example: "5511999999999"
         type: string
       quoted:
         $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.QuotedStruct'
       type:
+        example: image
         type: string
       url:
+        example: https://example.com/imagem.jpg
         type: string
       viewOnce:
+        example: false
         type: boolean
     type: object
   github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.PollStruct:
     properties:
       delay:
+        example: 1200
         type: integer
       formatJid:
+        example: true
         type: boolean
       id:
+        example: 3EB0A1B2C3D4E5F6A7B8C9
         type: string
       maxAnswer:
+        example: 1
         type: integer
       mentionAll:
+        example: false
         type: boolean
       mentionedJid:
+        example:
+        - 5511999999999@s.whatsapp.net
         items:
           type: string
         type: array
       number:
+        example: "5511999999999"
         type: string
       options:
+        example:
+        - Sim
+        - Nao
+        - Talvez
         items:
           type: string
         type: array
       question:
+        example: Vamos confirmar a reuniao?
         type: string
       quoted:
         $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.QuotedStruct'
@@ -941,51 +2083,69 @@ definitions:
   github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.ProductStruct:
     properties:
       body:
+        example: Aproveite esta oferta!
         type: string
       businessOwnerJid:
         description: Catalog owner JID. When empty, the instance's own JID is used.
+        example: 5511999999999@s.whatsapp.net
         type: string
       currency:
         example: BRL
         type: string
       delay:
+        example: 1200
         type: integer
       description:
+        example: Camiseta oficial 100% algodao
         type: string
       footer:
+        example: Evolution GO
         type: string
       formatJid:
+        example: true
         type: boolean
       id:
+        example: 3EB0A1B2C3D4E5F6A7B8C9
         type: string
       imageBase64:
         description: 'Product image: base64 or an external URL (downloaded and re-uploaded).'
+        example: data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ...
         type: string
       imageUrl:
+        example: https://loja.example.com/imagens/camiseta.jpg
         type: string
       mentionAll:
+        example: false
         type: boolean
       mentionedJid:
+        example:
+        - 5511999999999@s.whatsapp.net
         items:
           type: string
         type: array
       number:
+        example: "5511999999999"
         type: string
       price:
         description: 'Price in thousandths of the currency unit: R$ 10,00 => 10000.'
+        example: 10000
         type: integer
       productId:
         description: |-
           Product data shown on the card. ProductId must be the product's ID in your
           catalog -- get it from the official app / Commerce Manager.
+        example: "1234567890123456"
         type: string
       quoted:
         $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.QuotedStruct'
       retailerId:
+        example: SKU-001
         type: string
       title:
+        example: Camiseta Evolution GO
         type: string
       url:
+        example: https://loja.example.com/produto/1234567890123456
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.QuotedStruct:
@@ -995,10 +2155,13 @@ definitions:
           Message is the optional quoted content. When provided it is placed in the
           reply's ContextInfo.QuotedMessage so contacts see a real, tappable quote
           card (issue #189). When omitted the key alone is sent.
+        example: Mensagem original
         type: string
       messageId:
+        example: 3EB0A1B2C3D4E5F6A7B8C9
         type: string
       participant:
+        example: 5511999999999@s.whatsapp.net
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.Row:
@@ -1032,124 +2195,167 @@ definitions:
   github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.StatusTextStruct:
     properties:
       id:
+        example: 3EB0A1B2C3D4E5F6A7B8C9
         type: string
       text:
+        example: Bom dia a todos!
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.StickerStruct:
     properties:
       delay:
+        example: 1200
         type: integer
       formatJid:
+        example: true
         type: boolean
       id:
+        example: 3EB0A1B2C3D4E5F6A7B8C9
         type: string
       mentionAll:
+        example: false
         type: boolean
       mentionedJid:
+        example:
+        - 5511999999999@s.whatsapp.net
         items:
           type: string
         type: array
       number:
+        example: "5511999999999"
         type: string
       quoted:
         $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.QuotedStruct'
       sticker:
+        example: https://example.com/figurinha.webp
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.TextStruct:
     properties:
       delay:
+        example: 1200
         type: integer
       formatJid:
+        example: true
         type: boolean
       forwardingScore:
+        example: 1
         type: integer
       id:
+        example: 3EB0A1B2C3D4E5F6A7B8C9
         type: string
       mentionAll:
+        example: false
         type: boolean
       mentionedJid:
+        example:
+        - 5511999999999@s.whatsapp.net
         items:
           type: string
         type: array
       number:
+        example: "5511999999999"
         type: string
       quoted:
         $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.QuotedStruct'
       text:
+        example: Ola, tudo bem?
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_typebot_model.Typebot:
     properties:
       createdAt:
+        example: "2026-01-15T10:30:00Z"
         type: string
       delayMessage:
         description: |-
           DelayMessage é a pausa em milissegundos antes de cada mensagem enviada,
           para a resposta não parecer instantânea demais.
+        example: 0
         type: integer
       description:
+        example: Bot de atendimento
         type: string
       enabled:
+        example: true
         type: boolean
       expire:
         description: |-
           Expire é o tempo em minutos sem interação após o qual a sessão é
           encerrada e a próxima mensagem começa um fluxo novo. Zero desliga a
           expiração.
+        example: 0
         type: integer
       id:
+        example: 11111111-2222-3333-4444-555555555555
         type: string
       instanceId:
+        example: aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
         type: string
       keywordFinish:
         description: 'KeywordFinish é a palavra que o contato manda para encerrar
           (ex.: "#sair").'
+        example: '#sair'
         type: string
       listeningFromMe:
         description: |-
           ListeningFromMe faz o bot reagir também às mensagens enviadas pela própria
           instância. StopBotFromMe encerra a sessão quando o operador escreve
           manualmente na conversa — é o que permite assumir um atendimento.
+        example: false
         type: boolean
       stopBotFromMe:
+        example: true
         type: boolean
       typebot:
+        example: meu-fluxo
         type: string
       unknownMessage:
         description: UnknownMessage é enviado quando o Typebot responde sem nenhum
           texto.
+        example: Desculpe, nao entendi.
         type: string
       updatedAt:
+        example: "2026-01-15T10:30:00Z"
         type: string
       url:
         description: |-
           URL base do Typebot (ex.: https://viewer.exemplo.net) e o nome público do
           fluxo, que é o {typebot} da rota /api/v1/typebots/{typebot}/startChat.
+        example: https://viewer.typebot.io
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_typebot_model.TypebotRequest:
     properties:
       delayMessage:
+        example: 0
         type: integer
       description:
+        example: Bot de atendimento
         type: string
       enabled:
+        example: true
         type: boolean
       expire:
+        example: 0
         type: integer
       keywordFinish:
+        example: '#sair'
         type: string
       listeningFromMe:
+        example: false
         type: boolean
       stopBotFromMe:
+        example: true
         type: boolean
       typebot:
+        example: meu-fluxo
         type: string
       unknownMessage:
+        example: Desculpe, nao entendi.
         type: string
       url:
+        example: https://viewer.typebot.io
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_typebot_model.TypebotSession:
@@ -1158,12 +2364,16 @@ definitions:
         description: |-
           AwaitUser indica que a última mensagem foi do bot e estamos esperando o
           contato responder.
+        example: true
         type: boolean
       createdAt:
+        example: "2026-01-15T10:30:00Z"
         type: string
       id:
+        example: 66666666-7777-8888-9999-000000000000
         type: string
       instanceId:
+        example: aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
         type: string
       msgCount:
         description: |-
@@ -1171,39 +2381,52 @@ definitions:
           porque a sessão já é gravada a cada mensagem — o custo é praticamente
           zero e o estado sobrevive a um restart, que é justamente quando um
           contato em flood não deveria ganhar contador zerado.
+        example: 3
         type: integer
       pausedReason:
         description: |-
           PausedReason registra por que uma pausa automática aconteceu, para que a
           origem continue visível depois — o webhook de alerta é entregue uma vez
           só e pode se perder.
+        example: ""
         type: string
       pushName:
+        example: Alice Souza
         type: string
       remoteJid:
         description: 'RemoteJid identifica o contato (ex.: 5588999999999@s.whatsapp.net).'
+        example: 5511999999999@s.whatsapp.net
         type: string
       sessionId:
+        example: clx1a2b3c4d5e6f7g8h9i0j
         type: string
       status:
+        example: opened
         type: string
       typebotId:
+        example: 11111111-2222-3333-4444-555555555555
         type: string
       updatedAt:
+        example: "2026-01-15T10:35:00Z"
         type: string
       windowStart:
+        example: "2026-01-15T10:30:00Z"
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_user_service.BlockStruct:
     properties:
       number:
+        example: "5511999999999"
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_user_service.CheckUserStruct:
     properties:
       formatJid:
+        example: false
         type: boolean
       number:
+        example:
+        - "5511999999999"
         items:
           type: string
         type: array
@@ -1211,32 +2434,50 @@ definitions:
   github_com_evolution-foundation_evolution-go_pkg_user_service.GetAvatarStruct:
     properties:
       number:
+        example: "5511999999999"
         type: string
       preview:
+        example: false
         type: boolean
     type: object
   github_com_evolution-foundation_evolution-go_pkg_user_service.PrivacyStruct:
     properties:
       callAdd:
-        $ref: '#/definitions/types.PrivacySetting'
+        allOf:
+        - $ref: '#/definitions/types.PrivacySetting'
+        example: all
       groupAdd:
-        $ref: '#/definitions/types.PrivacySetting'
+        allOf:
+        - $ref: '#/definitions/types.PrivacySetting'
+        example: all
       lastSeen:
-        $ref: '#/definitions/types.PrivacySetting'
+        allOf:
+        - $ref: '#/definitions/types.PrivacySetting'
+        example: contacts
       online:
-        $ref: '#/definitions/types.PrivacySetting'
+        allOf:
+        - $ref: '#/definitions/types.PrivacySetting'
+        example: all
       profile:
-        $ref: '#/definitions/types.PrivacySetting'
+        allOf:
+        - $ref: '#/definitions/types.PrivacySetting'
+        example: all
       readReceipts:
-        $ref: '#/definitions/types.PrivacySetting'
+        allOf:
+        - $ref: '#/definitions/types.PrivacySetting'
+        example: all
       status:
-        $ref: '#/definitions/types.PrivacySetting'
+        allOf:
+        - $ref: '#/definitions/types.PrivacySetting'
+        example: contacts
     type: object
   github_com_evolution-foundation_evolution-go_pkg_user_service.ResolveLidStruct:
     properties:
       groupJid:
+        example: 120363000000000000@g.us
         type: string
       lid:
+        example: 1234567890@lid
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_user_service.SaveContactStruct:
@@ -1260,18 +2501,34 @@ definitions:
           to the "Sync contact to phone" toggle in WhatsApp Web).
         type: boolean
     type: object
+  github_com_evolution-foundation_evolution-go_pkg_user_service.SetProfileNameStruct:
+    properties:
+      name:
+        example: Minha Loja
+        type: string
+    type: object
   github_com_evolution-foundation_evolution-go_pkg_user_service.SetProfilePictureStruct:
     properties:
       image:
+        example: data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ...
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_user_service.SetProfileStatusStruct:
+    properties:
+      status:
+        example: Disponivel para atendimento
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_utils.VCardStruct:
     properties:
       fullName:
+        example: Alice Souza
         type: string
       organization:
+        example: Minha Empresa LTDA
         type: string
       phone:
+        example: "5511999999999"
         type: string
     type: object
   types.AddressingMode:
@@ -1287,11 +2544,13 @@ definitions:
     - first
     - inner
     - last
+    - full
     type: string
     x-enum-varnames:
     - EditTypeFirst
     - EditTypeInner
     - EditTypeLast
+    - EditTypeFull
   types.BroadcastRecipient:
     properties:
       lid:
@@ -1412,6 +2671,9 @@ definitions:
     type: object
   types.MsgBotInfo:
     properties:
+      clientThreadID:
+        description: For messages sent to bots
+        type: string
       editSenderTimestampMS:
         type: string
       editTargetID:
@@ -1723,6 +2985,7 @@ definitions:
     - 68
     - 69
     - 70
+    - 71
     type: integer
     x-enum-varnames:
     - BotCapabilityMetadata_UNKNOWN
@@ -1796,6 +3059,7 @@ definitions:
     - BotCapabilityMetadata_AI_RICH_RESPONSE_EMAIL_CALENDAR_ENABLED
     - BotCapabilityMetadata_AI_RICH_RESPONSE_REMINDERS_ENABLED
     - BotCapabilityMetadata_AI_STOP_GENERATION_ENABLED
+    - BotCapabilityMetadata_AI_RICH_RESPONSE_3P_LINKING_CARD_ENABLED
   waAICommon.BotCommandMetadata:
     properties:
       commandDescription:
@@ -3196,6 +4460,17 @@ definitions:
     - NonE2EEAttestation_E2EE
     - NonE2EEAttestation_HYBRID_E2EE
     - NonE2EEAttestation_NON_E2EE
+  waCommon.ACP2Setting:
+    properties:
+      enabled:
+        type: boolean
+      initiatedByMe:
+        type: boolean
+      settingTimestamp:
+        type: integer
+      trigger:
+        $ref: '#/definitions/waCommon.LimitSharing_Trigger'
+    type: object
   waCommon.LimitSharing:
     properties:
       initiatedByMe:
@@ -3654,7 +4929,7 @@ definitions:
       settingTimestampMS:
         type: integer
       wallpaper:
-        description: "Types that are valid to be assigned to Wallpaper:\n\n\t*ChatThemeSetting_DefaultWallpaper\n\t*ChatThemeSetting_SolidColor\n\t*ChatThemeSetting_StockImage\n\t*ChatThemeSetting_CustomImage"
+        description: "Types that are valid to be assigned to Wallpaper:\n\n\t*ChatThemeSetting_DefaultWallpaper\n\t*ChatThemeSetting_SolidColor\n\t*ChatThemeSetting_StockImage\n\t*ChatThemeSetting_CustomImage\n\t*ChatThemeSetting_AnimatedWallpaper"
     type: object
   waE2E.CloudAPIThreadControlNotification:
     properties:
@@ -3847,6 +5122,8 @@ definitions:
       partiallySelectedContent:
         $ref: '#/definitions/waE2E.ContextInfo_PartiallySelectedContent'
       participant:
+        type: string
+      partnerDeepLinkToken:
         type: string
       placeholderKey:
         $ref: '#/definitions/waCommon.MessageKey'
@@ -4061,6 +5338,8 @@ definitions:
       clickToWhatsappCall:
         type: boolean
       containsAutoReply:
+        type: boolean
+      containsCtwaFlowsAutoLabel:
         type: boolean
       containsCtwaFlowsAutoReply:
         type: boolean
@@ -5436,12 +6715,16 @@ definitions:
     type: object
   waE2E.Message:
     properties:
+      acp2SettingMessage:
+        $ref: '#/definitions/waE2E.FutureProofMessage'
       albumMessage:
         $ref: '#/definitions/waE2E.AlbumMessage'
       associatedChildMessage:
         $ref: '#/definitions/waE2E.FutureProofMessage'
       audioMessage:
         $ref: '#/definitions/waE2E.AudioMessage'
+      audioStickerMessage:
+        $ref: '#/definitions/waE2E.FutureProofMessage'
       bcallMessage:
         $ref: '#/definitions/waE2E.BCallMessage'
       botForwardedMessage:
@@ -5718,6 +7001,8 @@ definitions:
     properties:
       accountEncryptionAttestation:
         $ref: '#/definitions/waAea.NonE2EEAttestation'
+      acp2Setting:
+        $ref: '#/definitions/waCommon.ACP2Setting'
       associatedPrimaryIdentityKey:
         items:
           type: integer
@@ -5808,6 +7093,8 @@ definitions:
         items:
           type: string
         type: array
+      includesChatTheme:
+        type: boolean
       messageCount:
         type: integer
       nonHistoryReceivers:
@@ -6763,6 +8050,8 @@ definitions:
     type: object
   waE2E.ProtocolMessage:
     properties:
+      acp2Setting:
+        $ref: '#/definitions/waCommon.ACP2Setting'
       afterReadDuration:
         type: integer
       aiMediaCollectionMessage:
@@ -6821,6 +8110,10 @@ definitions:
         $ref: '#/definitions/waE2E.PeerDataOperationRequestResponseMessage'
       requestWelcomeMessageMetadata:
         $ref: '#/definitions/waE2E.RequestWelcomeMessageMetadata'
+      sharedDeviceContactHashKeyRequest:
+        $ref: '#/definitions/waE2E.SharedDeviceContactHashKeyRequest'
+      sharedDeviceContactHashKeyShare:
+        $ref: '#/definitions/waE2E.SharedDeviceContactHashKeyShare'
       timestampMS:
         type: integer
       type:
@@ -6860,6 +8153,9 @@ definitions:
     - 35
     - 36
     - 37
+    - 39
+    - 40
+    - 41
     type: integer
     x-enum-varnames:
     - ProtocolMessage_REVOKE
@@ -6894,6 +8190,9 @@ definitions:
     - ProtocolMessage_AI_METADATA_OPERATION
     - ProtocolMessage_MARK_AS_VERIFIED_ACTION
     - ProtocolMessage_COEX_STATE_SYNC
+    - ProtocolMessage_ACP2_SETTING
+    - ProtocolMessage_SHARED_DEVICE_CONTACT_HASH_KEY_SHARE
+    - ProtocolMessage_SHARED_DEVICE_CONTACT_HASH_KEY_REQUEST
   waE2E.QuestionResponseMessage:
     properties:
       key:
@@ -7051,6 +8350,39 @@ definitions:
       groupID:
         type: string
     type: object
+  waE2E.SharedDeviceContactHashKey:
+    properties:
+      epoch:
+        type: integer
+      keyData:
+        items:
+          type: integer
+        type: array
+      kind:
+        $ref: '#/definitions/waE2E.SharedDeviceContactHashKey_Kind'
+    type: object
+  waE2E.SharedDeviceContactHashKey_Kind:
+    enum:
+    - 0
+    - 1
+    - 2
+    type: integer
+    x-enum-varnames:
+    - SharedDeviceContactHashKey_UNKNOWN
+    - SharedDeviceContactHashKey_LID
+    - SharedDeviceContactHashKey_PHONE_NUMBER
+  waE2E.SharedDeviceContactHashKeyRequest:
+    properties:
+      knownEpoch:
+        type: integer
+    type: object
+  waE2E.SharedDeviceContactHashKeyShare:
+    properties:
+      keys:
+        items:
+          $ref: '#/definitions/waE2E.SharedDeviceContactHashKey'
+        type: array
+    type: object
   waE2E.SplitPaymentMessage:
     properties:
       contextInfo:
@@ -7183,6 +8515,8 @@ definitions:
         type: string
       accessibilityLabel:
         type: string
+      audio:
+        description: "Types that are valid to be assigned to Audio:\n\n\t*StickerMessage_AudioMessage"
       contextInfo:
         $ref: '#/definitions/waE2E.ContextInfo'
       directPath:
@@ -7487,6 +8821,8 @@ definitions:
         type: array
       seconds:
         type: integer
+      smartThumbnailTS:
+        type: integer
       staticURL:
         type: string
       streamingSidecar:
@@ -7709,11 +9045,15 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+        "400":
+          description: Error on validation
+          schema:
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Reject call
       tags:
       - Call
@@ -7735,15 +9075,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ChatActionResult'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Archive a chat
       tags:
       - Chat
@@ -7769,15 +9114,15 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Set the disappearing-messages timer for a chat
       tags:
       - Chat
@@ -7799,15 +9144,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.HistorySyncResult'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: HistorySyncRequest a chat
       tags:
       - Chat
@@ -7829,15 +9179,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ChatActionResult'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Mute a chat
       tags:
       - Chat
@@ -7859,15 +9214,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ChatActionResult'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Pin a chat
       tags:
       - Chat
@@ -7889,15 +9249,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ChatActionResult'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Unarchive a chat
       tags:
       - Chat
@@ -7919,15 +9284,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ChatActionResult'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Unmute a chat
       tags:
       - Chat
@@ -7949,15 +9319,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ChatActionResult'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Unpin a chat
       tags:
       - Chat
@@ -7979,15 +9354,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.CommunityMutation'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Add participant to community
       tags:
       - Community
@@ -8009,15 +9389,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Community'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Create community
       tags:
       - Community
@@ -8039,15 +9424,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.CommunityMutation'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Remove participant from community
       tags:
       - Community
@@ -8069,15 +9459,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.GroupCreateResult'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Create group
       tags:
       - Group
@@ -8099,15 +9494,15 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Set group description
       tags:
       - Group
@@ -8129,15 +9524,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Group'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Get group info
       tags:
       - Group
@@ -8159,15 +9559,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  type: string
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Get group invite link
       tags:
       - Group
@@ -8189,15 +9594,15 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Join group link
       tags:
       - Group
@@ -8219,15 +9624,15 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Leave group
       tags:
       - Group
@@ -8242,11 +9647,18 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Group'
+                  type: array
+              type: object
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: List groups
       tags:
       - Group
@@ -8261,11 +9673,18 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Group'
+                  type: array
+              type: object
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Get my groups
       tags:
       - Group
@@ -8287,15 +9706,15 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Set group name
       tags:
       - Group
@@ -8317,15 +9736,15 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Update participant
       tags:
       - Group
@@ -8347,15 +9766,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  type: string
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Set group photo
       tags:
       - Group
@@ -8378,15 +9802,15 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Update group settings
       tags:
       - Group
@@ -8409,15 +9833,15 @@ paths:
         "400":
           description: Invalid instance ID
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "404":
           description: Instance not found
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Get advanced settings
       tags:
       - Instance
@@ -8443,19 +9867,19 @@ paths:
         "200":
           description: Advanced settings updated successfully
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_instance_model.AdvancedSettings'
         "400":
           description: Invalid request data
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "404":
           description: Instance not found
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Update advanced settings
       tags:
       - Instance
@@ -8470,11 +9894,18 @@ paths:
         "200":
           description: All instances
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Instance'
+                  type: array
+              type: object
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Get all instances
       tags:
       - Instance
@@ -8496,15 +9927,20 @@ paths:
         "200":
           description: Instance connected successfully
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.QRCode'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Connect to instance
       tags:
       - Instance
@@ -8527,15 +9963,20 @@ paths:
         "200":
           description: Instance created successfully
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Instance'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Create a new instance
       tags:
       - Instance
@@ -8556,15 +9997,15 @@ paths:
         "200":
           description: Instance deleted successfully
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Delete instance
       tags:
       - Instance
@@ -8579,11 +10020,11 @@ paths:
         "200":
           description: Instance disconnected successfully
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Disconnect from instance
       tags:
       - Instance
@@ -8610,15 +10051,15 @@ paths:
         "200":
           description: Instance force reconnected successfully
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Force reconnect
       tags:
       - Instance
@@ -8639,15 +10080,20 @@ paths:
         "200":
           description: Instance
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Instance'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Get instance
       tags:
       - Instance
@@ -8670,15 +10116,20 @@ paths:
         "200":
           description: Account limits
           schema:
-            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_instance_service.LimitsStruct'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Limits'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Get account messaging limits
       tags:
       - Instance
@@ -8693,11 +10144,11 @@ paths:
         "200":
           description: Instance logged out successfully
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Logout from instance
       tags:
       - Instance
@@ -8733,15 +10184,17 @@ paths:
         "200":
           description: Logs
           schema:
-            $ref: '#/definitions/gin.H'
+            items:
+              $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.LogEntry'
+            type: array
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Get instance logs
       tags:
       - Instance
@@ -8768,15 +10221,20 @@ paths:
         "200":
           description: Instance renamed successfully
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Instance'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Rename instance
       tags:
       - Instance
@@ -8796,15 +10254,20 @@ paths:
         "200":
           description: overview
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.InstanceOverview'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Per-instance overview
       tags:
       - Instance
@@ -8826,15 +10289,20 @@ paths:
         "200":
           description: Pairing code
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.PairResult'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Request pairing code
       tags:
       - Instance
@@ -8855,15 +10323,15 @@ paths:
         "200":
           description: Proxy deleted successfully
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Delete proxy
       tags:
       - Instance
@@ -8884,15 +10352,20 @@ paths:
         "200":
           description: Proxy configuration
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ProxyGet'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Get proxy configuration
       tags:
       - Instance
@@ -8918,15 +10391,20 @@ paths:
         "200":
           description: Proxy set successfully
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ProxySet'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Set proxy configuration
       tags:
       - Instance
@@ -8947,17 +10425,17 @@ paths:
       - application/json
       responses:
         "200":
-          description: success
+          description: Proxy reconnected successfully
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Reconnect through the configured proxy
       tags:
       - Instance
@@ -8990,11 +10468,11 @@ paths:
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Test proxy connectivity
       tags:
       - Instance
@@ -9009,11 +10487,16 @@ paths:
         "200":
           description: Instance QR code
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.QRCode'
+              type: object
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Get instance QR code
       tags:
       - Instance
@@ -9028,11 +10511,11 @@ paths:
         "200":
           description: Instance reconnected successfully
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Reconnect to instance
       tags:
       - Instance
@@ -9047,11 +10530,16 @@ paths:
         "200":
           description: Instance status
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ConnectionStatus'
+              type: object
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Get instance status
       tags:
       - Instance
@@ -9073,15 +10561,15 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Add label to chat
       tags:
       - Label
@@ -9103,15 +10591,15 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Edit label
       tags:
       - Label
@@ -9124,13 +10612,15 @@ paths:
       - application/json
       responses:
         "200":
-          description: success
+          description: All labels
           schema:
-            $ref: '#/definitions/gin.H'
+            items:
+              $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Label'
+            type: array
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Get all labels
       tags:
       - Label
@@ -9152,15 +10642,15 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Add label to message
       tags:
       - Label
@@ -9182,15 +10672,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageMutationResult'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Delete a message for everyone
       tags:
       - Message
@@ -9213,15 +10708,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.DownloadMedia'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Download media
       tags:
       - Message
@@ -9243,15 +10743,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageMutationResult'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Edit a message
       tags:
       - Message
@@ -9273,15 +10778,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageActionResult'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Mark an audio message as played
       tags:
       - Message
@@ -9303,15 +10813,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageActionResult'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Mark a message as read
       tags:
       - Message
@@ -9333,15 +10848,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageActionResult'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Set chat presence
       tags:
       - Message
@@ -9364,15 +10884,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: React a message
       tags:
       - Message
@@ -9394,15 +10919,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageStatus'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Get message status
       tags:
       - Message
@@ -9425,15 +10955,15 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Subscribe to a contact's presence
       tags:
       - Message
@@ -9455,15 +10985,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Newsletter'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Create newsletter
       tags:
       - Newsletter
@@ -9485,15 +11020,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Newsletter'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Get newsletter
       tags:
       - Newsletter
@@ -9515,15 +11055,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Newsletter'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Get newsletter invite
       tags:
       - Newsletter
@@ -9538,11 +11083,18 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Newsletter'
+                  type: array
+              type: object
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: List newsletters
       tags:
       - Newsletter
@@ -9564,15 +11116,22 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterMessage'
+                  type: array
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Get newsletter messages
       tags:
       - Newsletter
@@ -9594,15 +11153,15 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Subscribe newsletter
       tags:
       - Newsletter
@@ -9623,19 +11182,19 @@ paths:
         "200":
           description: Ceremony state ({stage, skipHandoffUX, publicKey?, code?, error?})
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.PasskeyCeremony'
         "400":
           description: token is required
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "404":
           description: ceremony not found or expired
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "503":
           description: passkey ceremony unavailable
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Get passkey ceremony state
       tags:
       - Passkey
@@ -9655,23 +11214,23 @@ paths:
         "200":
           description: ok
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.PasskeyOK'
         "400":
           description: token is required
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "404":
           description: ceremony not found or expired
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "503":
           description: passkey ceremony unavailable
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Confirm passkey pairing
       tags:
       - Passkey
@@ -9701,23 +11260,23 @@ paths:
         "200":
           description: ok
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.PasskeyOK'
         "400":
           description: token is required / invalid body
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "404":
           description: ceremony not found or expired
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "503":
           description: passkey ceremony unavailable
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Submit passkey WebAuthn response
       tags:
       - Passkey
@@ -9740,17 +11299,17 @@ paths:
           schema:
             $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_poll_model.PollResults'
         "400":
-          description: Bad Request
+          description: pollMessageId is required
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "404":
-          description: Not Found
+          description: No votes found for this poll
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
-          description: Internal Server Error
+          description: Failed to fetch poll results
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Get poll results
       tags:
       - Polls
@@ -9784,15 +11343,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Send a button message
       tags:
       - Send Message
@@ -9830,15 +11394,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Send a carousel message
       tags:
       - Send Message
@@ -9860,15 +11429,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Send a contact message
       tags:
       - Send Message
@@ -9893,15 +11467,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Send a WhatsApp event message
       tags:
       - Send Message
@@ -9923,15 +11502,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Send a link message
       tags:
       - Send Message
@@ -9960,15 +11544,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Send a list message
       tags:
       - Send Message
@@ -9990,15 +11579,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Send a location message
       tags:
       - Send Message
@@ -10023,15 +11617,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Send a media message
       tags:
       - Send Message
@@ -10053,15 +11652,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Send a poll message
       tags:
       - Send Message
@@ -10091,15 +11695,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Send a catalog product card
       tags:
       - Send Message
@@ -10138,15 +11747,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Send a WhatsApp media status (image/video)
       tags:
       - Send Message
@@ -10168,15 +11782,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Send a WhatsApp text status
       tags:
       - Send Message
@@ -10198,15 +11817,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Send a sticker message
       tags:
       - Send Message
@@ -10228,15 +11852,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Send a text message
       tags:
       - Send Message
@@ -10249,7 +11878,7 @@ paths:
         "200":
           description: status
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ServerOK'
       summary: Server health
       tags:
       - Server
@@ -10263,7 +11892,7 @@ paths:
         "200":
           description: system and messages
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ServerStats'
       summary: System and message metrics
       tags:
       - Server
@@ -10281,7 +11910,7 @@ paths:
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: List the instance's Typebot configurations
       tags:
       - Typebot
@@ -10305,11 +11934,11 @@ paths:
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Create a Typebot configuration for the instance
       tags:
       - Typebot
@@ -10327,11 +11956,11 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.TypebotSuccess'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Delete a Typebot configuration and its sessions
       tags:
       - Typebot
@@ -10360,11 +11989,11 @@ paths:
         "404":
           description: Not found
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Update a Typebot configuration
       tags:
       - Typebot
@@ -10394,19 +12023,19 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.TypebotStatusChange'
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "404":
           description: No session for that contact
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Change a session's status by contact JID
       tags:
       - Typebot
@@ -10424,7 +12053,7 @@ paths:
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: List the instance's Typebot sessions
       tags:
       - Typebot
@@ -10442,11 +12071,11 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.TypebotSuccess'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Delete a Typebot session
       tags:
       - Typebot
@@ -10475,15 +12104,15 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.TypebotSuccess'
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Pause, close or reopen a session
       tags:
       - Typebot
@@ -10505,15 +12134,15 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Remove label from chat
       tags:
       - Label
@@ -10535,15 +12164,15 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Remove label from message
       tags:
       - Label
@@ -10565,23 +12194,28 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Avatar'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "429":
           description: WhatsApp rate limit
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "504":
           description: WhatsApp query timeout
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Get a user's avatar
       tags:
       - User
@@ -10603,15 +12237,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Blocklist'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Block a contact
       tags:
       - User
@@ -10626,11 +12265,16 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Blocklist'
+              type: object
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Get a user's block list
       tags:
       - User
@@ -10652,15 +12296,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.CheckUserCollection'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Check a user
       tags:
       - User
@@ -10675,11 +12324,18 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Contact'
+                  type: array
+              type: object
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Get a user's contacts
       tags:
       - User
@@ -10701,23 +12357,28 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.UserCollection'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "429":
           description: WhatsApp rate limit
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "504":
           description: WhatsApp query timeout
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Get a user
       tags:
       - User
@@ -10739,15 +12400,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ResolveLid'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Resolve the phone number behind a LID
       tags:
       - User
@@ -10762,11 +12428,16 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Privacy'
+              type: object
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Get a user's privacy settings
       tags:
       - User
@@ -10787,11 +12458,16 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Privacy'
+              type: object
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Set a user's privacy settings
       tags:
       - User
@@ -10806,22 +12482,27 @@ paths:
         name: message
         required: true
         schema:
-          $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_user_service.SetProfilePictureStruct'
+          $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_user_service.SetProfileNameStruct'
       produces:
       - application/json
       responses:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ProfileName'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Set a user's profile name
       tags:
       - User
@@ -10843,15 +12524,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ProfilePicture'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Set a user's profile picture
       tags:
       - User
@@ -10866,22 +12552,27 @@ paths:
         name: message
         required: true
         schema:
-          $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_user_service.SetProfilePictureStruct'
+          $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_user_service.SetProfileStatusStruct'
       produces:
       - application/json
       responses:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ProfileStatus'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Set a user's profile status
       tags:
       - User
@@ -10905,15 +12596,15 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Save a contact
       tags:
       - User
@@ -10935,15 +12626,20 @@ paths:
         "200":
           description: success
           schema:
-            $ref: '#/definitions/gin.H'
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Blocklist'
+              type: object
         "400":
           description: Error on validation
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/gin.H'
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Unblock a contact
       tags:
       - User

@@ -41,21 +41,21 @@ var ipEchoEndpoints = []string{
 
 // ProxyTestResult is what the UI shows after a test.
 type ProxyTestResult struct {
-	OK bool `json:"ok"`
+	OK bool `json:"ok" example:"true"`
 	// IP is the address the outside world sees when this proxy is used.
-	IP string `json:"ip,omitempty"`
+	IP string `json:"ip,omitempty" example:"203.0.113.10"`
 	// ServerIP is what the outside world sees without the proxy, so the caller
 	// can tell a working proxy from one that silently passes traffic through.
-	ServerIP string `json:"serverIp,omitempty"`
+	ServerIP string `json:"serverIp,omitempty" example:"198.51.100.4"`
 	// Anonymous is true when IP differs from ServerIP — the point of a proxy.
-	Anonymous bool `json:"anonymous"`
+	Anonymous bool `json:"anonymous" example:"true"`
 	// WhatsAppReachable reports whether web.whatsapp.com answered through the
 	// proxy. A proxy can reach the open internet and still be blocked by
 	// WhatsApp, and that distinction is the useful one here.
-	WhatsAppReachable bool   `json:"whatsappReachable"`
-	LatencyMs         int64  `json:"latencyMs,omitempty"`
-	Protocol          string `json:"protocol,omitempty"`
-	Error             string `json:"error,omitempty"`
+	WhatsAppReachable bool   `json:"whatsappReachable" example:"true"`
+	LatencyMs         int64  `json:"latencyMs,omitempty" example:"142"`
+	Protocol          string `json:"protocol,omitempty" example:"http"`
+	Error             string `json:"error,omitempty" example:""`
 }
 
 // TestProxy checks whether a proxy actually works, without touching the

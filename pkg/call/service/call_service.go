@@ -26,7 +26,7 @@ type callService struct {
 
 type RejectCallStruct struct {
 	CallCreator types.JID `json:"callCreator"`
-	CallID      string    `json:"callId"`
+	CallID      string    `json:"callId" example:"3EB0A1B2C3D4E5F6A7B8C9"`
 }
 
 func (c *callService) ensureClientConnected(instanceId string) (*whatsmeow.Client, error) {

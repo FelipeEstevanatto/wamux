@@ -3,10 +3,15 @@ package send_handler
 import (
 	"net/http"
 
+	docmodels "github.com/evolution-foundation/evolution-go/pkg/docmodels"
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
 	send_service "github.com/evolution-foundation/evolution-go/pkg/sendMessage/service"
 	"github.com/gin-gonic/gin"
 )
+
+// Keep docmodels referenced so the import is not dropped
+// (swag reads Go source, not pre-processed, and needs the alias to be in scope).
+var _ = docmodels.Envelope{}
 
 // Send a catalog product card
 // @Summary Send a catalog product card
@@ -22,9 +27,9 @@ import (
 // @Accept json
 // @Produce json
 // @Param message body send_service.ProductStruct true "Product message data"
-// @Success 200 {object} gin.H "success"
-// @Failure 400 {object} gin.H "Error on validation"
-// @Failure 500 {object} gin.H "Internal server error"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.MessageSend} "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /send/product [post]
 func (s *sendHandler) SendProduct(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")

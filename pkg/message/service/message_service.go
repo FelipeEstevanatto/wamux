@@ -43,35 +43,35 @@ type messageService struct {
 }
 
 type ReactStruct struct {
-	Number      string `json:"number"`
-	Reaction    string `json:"reaction"`
-	Id          string `json:"id"`
-	FromMe      bool   `json:"fromMe"`
-	Participant string `json:"participant,omitempty"`
+	Number      string `json:"number" example:"5511999999999"`
+	Reaction    string `json:"reaction" example:"👍"`
+	Id          string `json:"id" example:"3EB0A1B2C3D4E5F6A7B8C9"`
+	FromMe      bool   `json:"fromMe" example:"false"`
+	Participant string `json:"participant,omitempty" example:"5511999999999@s.whatsapp.net"`
 }
 
 type ChatPresenceStruct struct {
-	Number  string `json:"number"`
-	State   string `json:"state"`
-	IsAudio bool   `json:"isAudio"`
+	Number  string `json:"number" example:"5511999999999"`
+	State   string `json:"state" example:"composing"`
+	IsAudio bool   `json:"isAudio" example:"false"`
 	// Delay, in milliseconds, keeps the "composing"/"recording" indicator alive
 	// for the given duration (re-sending it periodically) and then sends "paused".
 	// Only applies when State is "composing". 0 = single fire (legacy behaviour).
-	Delay int `json:"delay"`
+	Delay int `json:"delay" example:"5000"`
 }
 
 type SubscribePresenceStruct struct {
-	Number string `json:"number"`
+	Number string `json:"number" example:"5511999999999"`
 }
 
 type MarkReadStruct struct {
-	Id     []string `json:"id"`
-	Number string   `json:"number"`
+	Id     []string `json:"id" example:"3EB0A1B2C3D4E5F6A7B8C9"`
+	Number string   `json:"number" example:"5511999999999"`
 }
 
 type MarkPlayedStruct struct {
-	Id     []string `json:"id"`
-	Number string   `json:"number"`
+	Id     []string `json:"id" example:"3EB0A1B2C3D4E5F6A7B8C9"`
+	Number string   `json:"number" example:"5511999999999"`
 }
 
 type DownloadMediaStruct struct {
@@ -79,26 +79,26 @@ type DownloadMediaStruct struct {
 	// Optional message context. When the media is gone (403/404/410) and this is
 	// provided, the server asks the sender's phone to re-upload it (media retry)
 	// and the next request with the same `id` returns the refreshed bytes.
-	Id          string `json:"id,omitempty"`
-	Chat        string `json:"chat,omitempty"`
-	FromMe      bool   `json:"fromMe,omitempty"`
-	IsGroup     bool   `json:"isGroup,omitempty"`
-	Participant string `json:"participant,omitempty"`
+	Id          string `json:"id,omitempty" example:"3EB0A1B2C3D4E5F6A7B8C9"`
+	Chat        string `json:"chat,omitempty" example:"5511999999999@s.whatsapp.net"`
+	FromMe      bool   `json:"fromMe,omitempty" example:"true"`
+	IsGroup     bool   `json:"isGroup,omitempty" example:"false"`
+	Participant string `json:"participant,omitempty" example:"5511999999999@s.whatsapp.net"`
 }
 
 type MessageStatusStruct struct {
-	Id string `json:"id"`
+	Id string `json:"id" example:"3EB0A1B2C3D4E5F6A7B8C9"`
 }
 
 type MessageStruct struct {
-	Chat      string `json:"chat"`
-	MessageID string `json:"messageId"`
+	Chat      string `json:"chat" example:"5511999999999@s.whatsapp.net"`
+	MessageID string `json:"messageId" example:"3EB0A1B2C3D4E5F6A7B8C9"`
 }
 
 type EditMessageStruct struct {
-	Chat      string `json:"chat"`
-	Message   string `json:"message"`
-	MessageID string `json:"messageId"`
+	Chat      string `json:"chat" example:"5511999999999@s.whatsapp.net"`
+	Message   string `json:"message" example:"Mensagem editada"`
+	MessageID string `json:"messageId" example:"3EB0A1B2C3D4E5F6A7B8C9"`
 }
 
 type MessageSendStruct struct {

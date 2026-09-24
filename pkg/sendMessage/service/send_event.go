@@ -57,29 +57,29 @@ type EventStruct struct {
 	Number string `json:"number" example:"120363000000000000@g.us"`
 	Name   string `json:"name" example:"Sales meeting"`
 
-	Description string `json:"description,omitempty"`
+	Description string `json:"description,omitempty" example:"Reuniao trimestral de vendas"`
 	// Optional text sent BEFORE the event card (the event itself has no caption).
 	// Respects mentionAll/mentionedJid/delay.
-	Text string `json:"text,omitempty"`
+	Text string `json:"text,omitempty" example:"Segue o convite da reuniao"`
 
 	StartTime EventTime `json:"startTime" swaggertype:"string" example:"2026-06-25T20:00:00-03:00"`
-	EndTime   EventTime `json:"endTime,omitempty" swaggertype:"string"`
+	EndTime   EventTime `json:"endTime,omitempty" swaggertype:"string" example:"2026-06-25T21:00:00-03:00"`
 
 	Location *EventLocationStruct `json:"location,omitempty"`
 	// Call link (only call.whatsapp.com; external links go in description).
-	JoinLink string `json:"joinLink,omitempty"`
+	JoinLink string `json:"joinLink,omitempty" example:"https://call.whatsapp.com/video/AbCdEf123456"`
 
-	ExtraGuestsAllowed bool  `json:"extraGuestsAllowed,omitempty"`
-	IsScheduleCall     bool  `json:"isScheduleCall,omitempty"`
-	HasReminder        bool  `json:"hasReminder,omitempty"`
-	ReminderOffsetSec  int64 `json:"reminderOffsetSec,omitempty"`
-	IsCanceled         bool  `json:"isCanceled,omitempty"`
+	ExtraGuestsAllowed bool  `json:"extraGuestsAllowed,omitempty" example:"true"`
+	IsScheduleCall     bool  `json:"isScheduleCall,omitempty" example:"false"`
+	HasReminder        bool  `json:"hasReminder,omitempty" example:"true"`
+	ReminderOffsetSec  int64 `json:"reminderOffsetSec,omitempty" example:"900"`
+	IsCanceled         bool  `json:"isCanceled,omitempty" example:"false"`
 
-	Id           string       `json:"id,omitempty"`
-	Delay        int32        `json:"delay,omitempty"`
-	MentionedJID []string     `json:"mentionedJid,omitempty"`
-	MentionAll   bool         `json:"mentionAll,omitempty"`
-	FormatJid    *bool        `json:"formatJid,omitempty"`
+	Id           string       `json:"id,omitempty" example:"3EB0A1B2C3D4E5F6A7B8C9"`
+	Delay        int32        `json:"delay,omitempty" example:"1200"`
+	MentionedJID []string     `json:"mentionedJid,omitempty" example:"5511999999999@s.whatsapp.net"`
+	MentionAll   bool         `json:"mentionAll,omitempty" example:"false"`
+	FormatJid    *bool        `json:"formatJid,omitempty" example:"true"`
 	Quoted       QuotedStruct `json:"quoted,omitempty"`
 }
 

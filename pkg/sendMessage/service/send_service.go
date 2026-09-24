@@ -116,12 +116,12 @@ type SendDataStruct struct {
 }
 
 type QuotedStruct struct {
-	MessageID   string `json:"messageId"`
-	Participant string `json:"participant"`
+	MessageID   string `json:"messageId" example:"3EB0A1B2C3D4E5F6A7B8C9"`
+	Participant string `json:"participant" example:"5511999999999@s.whatsapp.net"`
 	// Message is the optional quoted content. When provided it is placed in the
 	// reply's ContextInfo.QuotedMessage so contacts see a real, tappable quote
 	// card (issue #189). When omitted the key alone is sent.
-	Message string `json:"message,omitempty"`
+	Message string `json:"message,omitempty" example:"Mensagem original"`
 }
 
 // quotedMessageContent builds the quoted payload for a reply's ContextInfo.
@@ -175,98 +175,98 @@ func lookPathOrEmpty(name string) string {
 }
 
 type TextStruct struct {
-	Number          string       `json:"number"`
-	Text            string       `json:"text"`
-	Id              string       `json:"id"`
-	Delay           int32        `json:"delay"`
-	MentionedJID    []string     `json:"mentionedJid"`
-	MentionAll      bool         `json:"mentionAll"`
-	FormatJid       *bool        `json:"formatJid,omitempty"`
+	Number          string       `json:"number" example:"5511999999999"`
+	Text            string       `json:"text" example:"Ola, tudo bem?"`
+	Id              string       `json:"id" example:"3EB0A1B2C3D4E5F6A7B8C9"`
+	Delay           int32        `json:"delay" example:"1200"`
+	MentionedJID    []string     `json:"mentionedJid" example:"5511999999999@s.whatsapp.net"`
+	MentionAll      bool         `json:"mentionAll" example:"false"`
+	FormatJid       *bool        `json:"formatJid,omitempty" example:"true"`
 	Quoted          QuotedStruct `json:"quoted"`
-	ForwardingScore *uint32      `json:"forwardingScore,omitempty"`
+	ForwardingScore *uint32      `json:"forwardingScore,omitempty" example:"1"`
 }
 
 type LinkStruct struct {
-	Number       string       `json:"number"`
-	Text         string       `json:"text"`
-	Title        string       `json:"title"`
-	Url          string       `json:"url"`
-	Description  string       `json:"description"`
-	ImgUrl       string       `json:"imgUrl"`
-	Id           string       `json:"id"`
-	Delay        int32        `json:"delay"`
-	MentionedJID []string     `json:"mentionedJid"`
-	MentionAll   bool         `json:"mentionAll"`
-	FormatJid    *bool        `json:"formatJid,omitempty"`
+	Number       string       `json:"number" example:"5511999999999"`
+	Text         string       `json:"text" example:"Confira nossa loja: https://example.com"`
+	Title        string       `json:"title" example:"Promocao da semana"`
+	Url          string       `json:"url" example:"https://example.com/promocao"`
+	Description  string       `json:"description" example:"Aproveite os descontos desta semana"`
+	ImgUrl       string       `json:"imgUrl" example:"https://example.com/preview.jpg"`
+	Id           string       `json:"id" example:"3EB0A1B2C3D4E5F6A7B8C9"`
+	Delay        int32        `json:"delay" example:"1200"`
+	MentionedJID []string     `json:"mentionedJid" example:"5511999999999@s.whatsapp.net"`
+	MentionAll   bool         `json:"mentionAll" example:"false"`
+	FormatJid    *bool        `json:"formatJid,omitempty" example:"true"`
 	Quoted       QuotedStruct `json:"quoted"`
 }
 
 type MediaStruct struct {
-	Number          string       `json:"number"`
-	Url             string       `json:"url"`
-	Type            string       `json:"type"`
-	Caption         string       `json:"caption"`
-	Filename        string       `json:"filename"`
-	Id              string       `json:"id"`
-	Delay           int32        `json:"delay"`
-	MentionedJID    []string     `json:"mentionedJid"`
-	MentionAll      bool         `json:"mentionAll"`
-	FormatJid       *bool        `json:"formatJid,omitempty"`
+	Number          string       `json:"number" example:"5511999999999"`
+	Url             string       `json:"url" example:"https://example.com/imagem.jpg"`
+	Type            string       `json:"type" example:"image"`
+	Caption         string       `json:"caption" example:"Veja esta foto"`
+	Filename        string       `json:"filename" example:"foto.jpg"`
+	Id              string       `json:"id" example:"3EB0A1B2C3D4E5F6A7B8C9"`
+	Delay           int32        `json:"delay" example:"1200"`
+	MentionedJID    []string     `json:"mentionedJid" example:"5511999999999@s.whatsapp.net"`
+	MentionAll      bool         `json:"mentionAll" example:"false"`
+	FormatJid       *bool        `json:"formatJid,omitempty" example:"true"`
 	Quoted          QuotedStruct `json:"quoted"`
-	ForwardingScore *uint32      `json:"forwardingScore,omitempty"`
-	ViewOnce        bool         `json:"viewOnce"`
+	ForwardingScore *uint32      `json:"forwardingScore,omitempty" example:"1"`
+	ViewOnce        bool         `json:"viewOnce" example:"false"`
 	// GifPlayback sends the media as a looping animation (no sound, no video
 	// controls). Set it for GIFs. `type: "gif"` implies it. An animated GIF is
 	// transcoded to a silent MP4 first, since WhatsApp does not accept a raw GIF.
-	GifPlayback bool `json:"gifPlayback,omitempty"`
+	GifPlayback bool `json:"gifPlayback,omitempty" example:"false"`
 }
 
 type PollStruct struct {
-	Id           string       `json:"id"`
-	Number       string       `json:"number"`
-	Question     string       `json:"question"`
-	MaxAnswer    int          `json:"maxAnswer"`
-	Options      []string     `json:"options"`
-	Delay        int32        `json:"delay"`
-	MentionedJID []string     `json:"mentionedJid"`
-	MentionAll   bool         `json:"mentionAll"`
-	FormatJid    *bool        `json:"formatJid,omitempty"`
+	Id           string       `json:"id" example:"3EB0A1B2C3D4E5F6A7B8C9"`
+	Number       string       `json:"number" example:"5511999999999"`
+	Question     string       `json:"question" example:"Vamos confirmar a reuniao?"`
+	MaxAnswer    int          `json:"maxAnswer" example:"1"`
+	Options      []string     `json:"options" example:"Sim,Nao,Talvez"`
+	Delay        int32        `json:"delay" example:"1200"`
+	MentionedJID []string     `json:"mentionedJid" example:"5511999999999@s.whatsapp.net"`
+	MentionAll   bool         `json:"mentionAll" example:"false"`
+	FormatJid    *bool        `json:"formatJid,omitempty" example:"true"`
 	Quoted       QuotedStruct `json:"quoted"`
 }
 
 type StickerStruct struct {
-	Number       string       `json:"number"`
-	Sticker      string       `json:"sticker"`
-	Id           string       `json:"id"`
-	Delay        int32        `json:"delay"`
-	MentionedJID []string     `json:"mentionedJid"`
-	MentionAll   bool         `json:"mentionAll"`
-	FormatJid    *bool        `json:"formatJid,omitempty"`
+	Number       string       `json:"number" example:"5511999999999"`
+	Sticker      string       `json:"sticker" example:"https://example.com/figurinha.webp"`
+	Id           string       `json:"id" example:"3EB0A1B2C3D4E5F6A7B8C9"`
+	Delay        int32        `json:"delay" example:"1200"`
+	MentionedJID []string     `json:"mentionedJid" example:"5511999999999@s.whatsapp.net"`
+	MentionAll   bool         `json:"mentionAll" example:"false"`
+	FormatJid    *bool        `json:"formatJid,omitempty" example:"true"`
 	Quoted       QuotedStruct `json:"quoted"`
 }
 
 type LocationStruct struct {
-	Number       string       `json:"number"`
-	Id           string       `json:"id"`
-	Name         string       `json:"name"`
-	Latitude     float64      `json:"latitude"`
-	Longitude    float64      `json:"longitude"`
-	Address      string       `json:"address"`
-	Delay        int32        `json:"delay"`
-	MentionedJID []string     `json:"mentionedJid"`
-	MentionAll   bool         `json:"mentionAll"`
-	FormatJid    *bool        `json:"formatJid,omitempty"`
+	Number       string       `json:"number" example:"5511999999999"`
+	Id           string       `json:"id" example:"3EB0A1B2C3D4E5F6A7B8C9"`
+	Name         string       `json:"name" example:"Escritorio Central"`
+	Latitude     float64      `json:"latitude" example:"-16.6869"`
+	Longitude    float64      `json:"longitude" example:"-49.2648"`
+	Address      string       `json:"address" example:"Av. Paulista, 1000 - Sao Paulo"`
+	Delay        int32        `json:"delay" example:"1200"`
+	MentionedJID []string     `json:"mentionedJid" example:"5511999999999@s.whatsapp.net"`
+	MentionAll   bool         `json:"mentionAll" example:"false"`
+	FormatJid    *bool        `json:"formatJid,omitempty" example:"true"`
 	Quoted       QuotedStruct `json:"quoted"`
 }
 
 type ContactStruct struct {
-	Number       string            `json:"number"`
-	Id           string            `json:"id"`
+	Number       string            `json:"number" example:"5511999999999"`
+	Id           string            `json:"id" example:"3EB0A1B2C3D4E5F6A7B8C9"`
 	Vcard        utils.VCardStruct `json:"vcard"`
-	Delay        int32             `json:"delay"`
-	MentionedJID []string          `json:"mentionedJid"`
-	MentionAll   bool              `json:"mentionAll"`
-	FormatJid    *bool             `json:"formatJid,omitempty"`
+	Delay        int32             `json:"delay" example:"1200"`
+	MentionedJID []string          `json:"mentionedJid" example:"5511999999999@s.whatsapp.net"`
+	MentionAll   bool              `json:"mentionAll" example:"false"`
+	FormatJid    *bool             `json:"formatJid,omitempty" example:"true"`
 	Quoted       QuotedStruct      `json:"quoted"`
 }
 
@@ -324,17 +324,17 @@ type ButtonStruct struct {
 	// Typing delay (milliseconds) applied before sending the message.
 	Delay int32 `json:"delay,omitempty" example:"1200"`
 	// JIDs to mention inside the body text.
-	MentionedJID []string `json:"mentionedJid,omitempty"`
+	MentionedJID []string `json:"mentionedJid,omitempty" example:"5511999999999@s.whatsapp.net"`
 	// Mention every participant (groups only).
-	MentionAll bool `json:"mentionAll,omitempty"`
+	MentionAll bool `json:"mentionAll,omitempty" example:"false"`
 	// If false, skips automatic formatting/validation of `number` into a JID.
-	FormatJid *bool `json:"formatJid,omitempty"`
+	FormatJid *bool `json:"formatJid,omitempty" example:"true"`
 	// Quoted (reply-to) context.
 	Quoted QuotedStruct `json:"quoted,omitempty"`
 	// Optional image URL used as header for reply-only buttons.
-	ImageUrl string `json:"imageUrl,omitempty"`
+	ImageUrl string `json:"imageUrl,omitempty" example:"https://example.com/header.jpg"`
 	// Optional video URL used as header for reply-only buttons.
-	VideoUrl string `json:"videoUrl,omitempty"`
+	VideoUrl string `json:"videoUrl,omitempty" example:"https://example.com/header.mp4"`
 }
 
 // Row is a selectable item inside a list Section.
@@ -374,11 +374,11 @@ type ListStruct struct {
 	// Typing delay (milliseconds) applied before sending the message.
 	Delay int32 `json:"delay,omitempty" example:"1200"`
 	// JIDs to mention inside the body text.
-	MentionedJID []string `json:"mentionedJid,omitempty"`
+	MentionedJID []string `json:"mentionedJid,omitempty" example:"5511999999999@s.whatsapp.net"`
 	// Mention every participant (groups only).
-	MentionAll bool `json:"mentionAll,omitempty"`
+	MentionAll bool `json:"mentionAll,omitempty" example:"false"`
 	// If false, skips automatic formatting/validation of `number` into a JID.
-	FormatJid *bool `json:"formatJid,omitempty"`
+	FormatJid *bool `json:"formatJid,omitempty" example:"true"`
 	// Quoted (reply-to) context.
 	Quoted QuotedStruct `json:"quoted,omitempty"`
 }
@@ -420,7 +420,7 @@ type CarouselCardHeaderStruct struct {
 	// Public URL to an image. Downloaded, uploaded to WhatsApp servers and used as card media.
 	ImageUrl string `json:"imageUrl,omitempty" example:"https://picsum.photos/seed/card1/600/400"`
 	// Public URL to a video. Used only when `imageUrl` is empty.
-	VideoUrl string `json:"videoUrl,omitempty"`
+	VideoUrl string `json:"videoUrl,omitempty" example:"https://example.com/video.mp4"`
 }
 
 // CarouselCardBodyStruct is the text area of a carousel card.
@@ -456,7 +456,7 @@ type CarouselStruct struct {
 	// Typing delay (milliseconds) applied before sending the message.
 	Delay int32 `json:"delay,omitempty" example:"1200"`
 	// If false, skips automatic formatting/validation of `number` into a JID.
-	FormatJid *bool `json:"formatJid,omitempty"`
+	FormatJid *bool `json:"formatJid,omitempty" example:"true"`
 	// Quoted (reply-to) context.
 	Quoted QuotedStruct `json:"quoted,omitempty"`
 	// Cards displayed in order. At least one card is required.
@@ -464,15 +464,15 @@ type CarouselStruct struct {
 }
 
 type StatusTextStruct struct {
-	Text string `json:"text"`
-	Id   string `json:"id"`
+	Text string `json:"text" example:"Bom dia a todos!"`
+	Id   string `json:"id" example:"3EB0A1B2C3D4E5F6A7B8C9"`
 }
 
 type StatusMediaStruct struct {
-	Type    string `json:"type"`
-	Url     string `json:"url"`
-	Caption string `json:"caption"`
-	Id      string `json:"id"`
+	Type    string `json:"type" example:"image"`
+	Url     string `json:"url" example:"https://example.com/status.jpg"`
+	Caption string `json:"caption" example:"Promocao de hoje"`
+	Id      string `json:"id" example:"3EB0A1B2C3D4E5F6A7B8C9"`
 }
 
 type MessageSendStruct struct {
