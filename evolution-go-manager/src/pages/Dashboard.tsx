@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
   Activity,
   Cpu,
@@ -108,11 +108,14 @@ export default function Dashboard() {
   const { apiUrl, apiKey } = useAuth();
   const { theme } = useDarkMode();
 
+  // The embedded dashboard only makes sense once credentials are available.
+  // Derived rather than stored, so the effect below has no state to set.
+  const embedReady = Boolean(apiUrl && apiKey);
+
   // The static self-hosted dashboard at /dashboard has its own charts, top
   // sources and per-instance logs; rather than duplicate it, it is embedded
   // below. It reads its credentials from its own localStorage keys, so seed
   // them here (same origin) before mounting the iframe to avoid a second login.
-  const [embedReady, setEmbedReady] = useState(false);
   useEffect(() => {
     if (!apiKey) return;
     const sameOrigin =
@@ -122,7 +125,6 @@ export default function Dashboard() {
       'egogo_dash_base',
       sameOrigin ? '' : apiUrl.replace(/\/+$/, '')
     );
-    setEmbedReady(true);
   }, [apiUrl, apiKey]);
 
   useEffect(() => {

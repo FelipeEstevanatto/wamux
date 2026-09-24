@@ -13,12 +13,16 @@ interface LayoutProps {
 
 function Layout({ children }: LayoutProps) {
   const [menuOpen, setMenuOpen] = useState(false);
-  // Once opened, keep the drawer mounted so its close animation can play.
-  const [menuMounted, setMenuMounted] = useState(false);
+  // Once opened, keep the drawer mounted so its close animation can play. This
+  // is derived during render rather than via an effect, so opening the menu does
+  // not trigger an extra render pass.
+  const [menuOpenedOnce, setMenuOpenedOnce] = useState(false);
+  const menuMounted = menuOpen || menuOpenedOnce;
 
-  useEffect(() => {
-    if (menuOpen) setMenuMounted(true);
-  }, [menuOpen]);
+  const handleMenuOpenChange = (open: boolean) => {
+    setMenuOpen(open);
+    if (open) setMenuOpenedOnce(true);
+  };
 
   // On phones the drawer is the only navigation, so fetch its chunk up front
   // (without rendering it) and it opens instantly on the first tap.
@@ -37,12 +41,12 @@ function Layout({ children }: LayoutProps) {
           SidebarNav so the two can never drift. */}
       <Suspense fallback={null}>
         {menuMounted && (
-          <MobileNav open={menuOpen} onOpenChange={setMenuOpen} />
+          <MobileNav open={menuOpen} onOpenChange={handleMenuOpenChange} />
         )}
       </Suspense>
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <Header onOpenMenu={() => setMenuOpen(true)} />
+        <Header onOpenMenu={() => handleMenuOpenChange(true)} />
         <main className="flex-1 overflow-y-auto">{children || <Outlet />}</main>
       </div>
     </div>

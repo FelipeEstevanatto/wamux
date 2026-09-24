@@ -187,6 +187,7 @@ function ApiTester() {
   const [pathParams, setPathParams] = useState<Record<string, string>>({});
   const [queryParams, setQueryParams] = useState<Record<string, string>>({});
   const [bodyText, setBodyText] = useState('');
+
   const [customHeaders, setCustomHeaders] = useState('');
 
   type ApikeyMode = 'global' | 'instance' | 'custom';
@@ -221,7 +222,10 @@ function ApiTester() {
   }, [apiUrl]);
 
   useEffect(() => {
-    loadSpec();
+    // Loading starts synchronously (setLoadingSpec) and the rest resolves in the
+    // promise; the rule cannot see through the async callback.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadSpec();
   }, [loadSpec]);
 
   useEffect(() => {
@@ -280,9 +284,11 @@ function ApiTester() {
     [endpoints, selectedKey],
   );
 
-  // When a new endpoint is chosen, initialize forms based on parameters.
-  useEffect(() => {
-    if (!selected || !spec) return;
+  // The request form is re-seeded whenever the selected endpoint changes. This
+  // is computed during render (not stored in state) so the reset effect has no
+  // stale copy to keep in sync.
+  const formInit = useMemo(() => {
+    if (!selected || !spec) return null;
 
     const pathInit: Record<string, string> = {};
     const queryInit: Record<string, string> = {};
@@ -296,28 +302,45 @@ function ApiTester() {
       }
     }
 
-    setPathParams(pathInit);
-    setQueryParams(queryInit);
-    setBodyText(bodyInit ? JSON.stringify(bodyInit, null, 2) : '');
-    setResult(null);
-    setResultError(null);
+    return {
+      path: pathInit,
+      query: queryInit,
+      body: bodyInit ? JSON.stringify(bodyInit, null, 2) : '',
+    };
   }, [selected, spec]);
 
-  // Auto-select first connected instance when switching to instance mode
+  const applyFormInit = useCallback(() => {
+    if (!formInit) return;
+    setPathParams(formInit.path);
+    setQueryParams(formInit.query);
+    setBodyText(formInit.body);
+    setResult(null);
+    setResultError(null);
+  }, [formInit]);
+
+  // Reset the request form when the selected endpoint changes. This is a
+  // deliberate "derive-and-set on a prop change" pattern for an imperative
+  // form; the lint rule that flags it is disabled for this call.
   useEffect(() => {
-    if (apikeyMode !== 'instance') return;
-    if (selectedInstanceId) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    applyFormInit();
+  }, [applyFormInit]);
+
+  // Auto-select first connected instance when switching to instance mode
+  const autoSelectedInstance = useMemo(() => {
+    if (apikeyMode !== 'instance') return null;
+    if (selectedInstanceId) return null;
     const connected = instances.find((i) => i.status === 'open');
-    if (connected?.apikey) {
-      setSelectedInstanceId(connected.apikey);
-    }
+    return connected?.apikey ?? null;
   }, [apikeyMode, instances, selectedInstanceId]);
+
+  const effectiveInstanceId = selectedInstanceId || autoSelectedInstance || '';
 
   const resolvedApikey = useMemo(() => {
     if (apikeyMode === 'global') return globalApiKey || '';
     if (apikeyMode === 'custom') return customApikey;
-    return selectedInstanceId; // already the instance token
-  }, [apikeyMode, globalApiKey, customApikey, selectedInstanceId]);
+    return effectiveInstanceId; // already the instance token
+  }, [apikeyMode, globalApiKey, customApikey, effectiveInstanceId]);
 
   const pathHasParam = (name: string) =>
     selected && selected.path.includes(`{${name}}`);
@@ -615,7 +638,7 @@ function ApiTester() {
 
                     {apikeyMode === 'instance' && (
                       <select
-                        value={selectedInstanceId}
+                        value={effectiveInstanceId}
                         onChange={(e) => setSelectedInstanceId(e.target.value)}
                         className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground"
                       >
