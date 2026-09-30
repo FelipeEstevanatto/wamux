@@ -39,6 +39,19 @@ type Instance struct {
 	ReadMessages  bool   `json:"readMessages" gorm:"default:false"`
 	IgnoreGroups  bool   `json:"ignoreGroups" gorm:"default:false"`
 	IgnoreStatus  bool   `json:"ignoreStatus" gorm:"default:false"`
+
+	// Per-instance S3-compatible media storage. When enabled it takes precedence
+	// over the global MinIO config for this instance's inbound media webhooks.
+	// S3SecretKey is AES-256-GCM encrypted at rest and never serialized.
+	S3Enabled       bool   `json:"s3Enabled" gorm:"default:false"`
+	S3Endpoint      string `json:"s3Endpoint"`
+	S3Region        string `json:"s3Region"`
+	S3Bucket        string `json:"s3Bucket"`
+	S3AccessKey     string `json:"s3AccessKey"`
+	S3SecretKey     string `json:"-"`
+	S3PathStyle     bool   `json:"s3PathStyle"`
+	S3PublicURL     string `json:"s3PublicUrl"`
+	S3MediaDelivery string `json:"s3MediaDelivery"` // base64 | s3 | both
 }
 
 // AdvancedSettings representa as configurações avançadas de uma instância.

@@ -56,8 +56,9 @@ func TestUpdateRemainsFullRow(t *testing.T) {
 	repo, mock := newInstanceMockRepo(t)
 
 	// Match the whole column list to document that Update is a full-row Save.
-	// (hmac_key sits between created_at and the advanced-settings columns.)
-	mock.ExpectExec(`UPDATE "instances" SET "name"=\$1,.*"ignore_status"=\$23 WHERE "id" = \$24`).
+	// (hmac_key sits before the advanced-settings columns; the per-instance S3
+	// columns follow them.)
+	mock.ExpectExec(`UPDATE "instances" SET "name"=\$1,.*"s3_media_delivery"=\$32 WHERE "id" = \$33`).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	inst := &instance_model.Instance{Id: "11111111-1111-1111-1111-111111111111", Name: "n", Token: "t"}

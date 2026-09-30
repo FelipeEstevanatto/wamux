@@ -1015,6 +1015,34 @@ Covered by repository tests (upsert column selection, pagination/clamping,
 `pkg/message/content` unit tests (every message kind, edits, deletes,
 reactions, quoting).
 
+## 3p. Per-instance S3 media storage (new in this fork)
+
+WuzAPI lets each user attach their own S3 bucket with a delivery mode; upstream
+Evolution Go only had a single global MinIO config. This fork adds the same per
+instance:
+
+- `POST /instance/s3` configures `{enabled, endpoint, region, bucket,
+  accessKey, secretKey, pathStyle, publicUrl, mediaDelivery}`; `GET` returns it
+  with the secret masked; `DELETE` clears it; `POST /instance/s3/test` checks the
+  bucket is reachable (no writes). All are instance-token authenticated, so one
+  instance cannot touch another's config.
+- The secret is AES-256-GCM encrypted at rest with the same key material as the
+  HMAC keys (`DataEncryptionKey`, derived from
+  `WEBHOOK_HMAC_ENCRYPTION_KEY`/`GLOBAL_ENCRYPTION_KEY`/`GLOBAL_API_KEY`).
+- `mediaDelivery` is `base64`, `s3` or `both` and controls the webhook payload.
+- `whatsmeowService.MediaStorageFor` resolves, per inbound media message, the
+  instance's S3 (when enabled and complete), else the global MinIO config, else
+  base64. The built client is cached per instance and the cache key includes the
+  encrypted secret, so any config change rebuilds it; `InvalidateMediaStorage`
+  drops it explicitly on a config write.
+- `pkg/storage/minio` gained an Options constructor (path-style, custom public
+  URL for a CDN, skip-bucket-policy) and `TestConnection`/`NormalizeEndpoint`.
+
+Scope: inbound media only (sent media is not uploaded), and object retention is
+not enforced yet. Tests cover the delivery-mode normalization, the fallback
+chain, the enabled build/cache/rebuild path, endpoint normalization, and the
+service's encrypt/validate/keep-secret/clear behaviour.
+
 ## 4. Build & run
 
 From the repository root (the `docker-compose.yml` is there):

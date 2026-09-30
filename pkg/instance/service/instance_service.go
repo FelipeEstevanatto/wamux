@@ -19,6 +19,7 @@ import (
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
 	instance_repository "github.com/evolution-foundation/evolution-go/pkg/instance/repository"
 	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
+	minio_storage "github.com/evolution-foundation/evolution-go/pkg/storage/minio"
 	"github.com/evolution-foundation/evolution-go/pkg/utils"
 	"github.com/evolution-foundation/evolution-go/pkg/walimits"
 	"github.com/evolution-foundation/evolution-go/pkg/webhooksign"
@@ -60,6 +61,46 @@ type InstanceService interface {
 	SetWebhookHmacKey(instanceId string, key string) (*HmacConfigStatus, error)
 	ClearWebhookHmacKey(instanceId string) error
 	WebhookHmacStatus(instanceId string) (*HmacConfigStatus, error)
+
+	// Per-instance S3 media storage. The secret key is encrypted at rest and
+	// never returned.
+	SetS3Config(instanceId string, data *S3ConfigStruct) (*S3ConfigStatus, error)
+	GetS3Config(instanceId string) (*S3ConfigStatus, error)
+	DeleteS3Config(instanceId string) error
+	TestS3Connection(instanceId string, data *S3ConfigStruct) (*S3TestResult, error)
+}
+
+// S3ConfigStruct is the request body for the per-instance S3 endpoints.
+type S3ConfigStruct struct {
+	Enabled       bool   `json:"enabled" example:"true"`
+	Endpoint      string `json:"endpoint" example:"https://s3.amazonaws.com"`
+	Region        string `json:"region" example:"us-east-1"`
+	Bucket        string `json:"bucket" example:"my-whatsapp-media"`
+	AccessKey     string `json:"accessKey" example:"AKIA..."`
+	SecretKey     string `json:"secretKey" example:"wJalr..."`
+	PathStyle     bool   `json:"pathStyle" example:"false"`
+	PublicURL     string `json:"publicUrl" example:"https://cdn.example.com"`
+	MediaDelivery string `json:"mediaDelivery" example:"both"`
+}
+
+// S3ConfigStatus is the non-sensitive view of the config. The secret itself is
+// never returned, only whether one is stored.
+type S3ConfigStatus struct {
+	Enabled       bool   `json:"enabled"`
+	Endpoint      string `json:"endpoint"`
+	Region        string `json:"region"`
+	Bucket        string `json:"bucket"`
+	AccessKey     string `json:"accessKey"`
+	SecretKeySet  bool   `json:"secretKeySet"`
+	PathStyle     bool   `json:"pathStyle"`
+	PublicURL     string `json:"publicUrl"`
+	MediaDelivery string `json:"mediaDelivery"`
+}
+
+// S3TestResult is returned by the S3 connection test on success.
+type S3TestResult struct {
+	Bucket string `json:"bucket"`
+	Region string `json:"region"`
 }
 
 // HmacConfigStatus is the (non-sensitive) HMAC configuration summary returned by
@@ -1289,6 +1330,186 @@ func (i instances) WebhookHmacStatus(instanceId string) (*HmacConfigStatus, erro
 		Configured:     instance.HmacKey != "",
 		GlobalFallback: i.config.WebhookHmacGlobalKey != "",
 	}, nil
+}
+
+// normalizeMediaDelivery validates the per-instance media delivery mode.
+// Empty defaults to "base64" (the pre-existing behaviour).
+func normalizeMediaDelivery(mode string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case "":
+		return "base64", nil
+	case "base64":
+		return "base64", nil
+	case "s3":
+		return "s3", nil
+	case "both":
+		return "both", nil
+	default:
+		return "", fmt.Errorf("invalid mediaDelivery %q (valid: base64, s3, both)", mode)
+	}
+}
+
+func s3StatusFromInstance(inst *instance_model.Instance) *S3ConfigStatus {
+	return &S3ConfigStatus{
+		Enabled:       inst.S3Enabled,
+		Endpoint:      inst.S3Endpoint,
+		Region:        inst.S3Region,
+		Bucket:        inst.S3Bucket,
+		AccessKey:     inst.S3AccessKey,
+		SecretKeySet:  inst.S3SecretKey != "",
+		PathStyle:     inst.S3PathStyle,
+		PublicURL:     inst.S3PublicURL,
+		MediaDelivery: inst.S3MediaDelivery,
+	}
+}
+
+// SetS3Config validates, encrypts (the secret) and stores an instance's S3
+// config, then invalidates the runtime media-storage cache so the change takes
+// effect on the next media message.
+func (i instances) SetS3Config(instanceId string, data *S3ConfigStruct) (*S3ConfigStatus, error) {
+	if data == nil {
+		return nil, errors.New("invalid request")
+	}
+	instance, err := i.instanceRepository.GetInstanceByID(instanceId)
+	if err != nil {
+		i.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Cannot set S3 config: %v", instanceId, err)
+		return nil, err
+	}
+
+	delivery, err := normalizeMediaDelivery(data.MediaDelivery)
+	if err != nil {
+		return nil, err
+	}
+
+	endpoint := strings.TrimSpace(data.Endpoint)
+	bucket := strings.TrimSpace(data.Bucket)
+	accessKey := strings.TrimSpace(data.AccessKey)
+
+	if data.Enabled {
+		if endpoint == "" || bucket == "" || accessKey == "" {
+			return nil, errors.New("endpoint, bucket and accessKey are required when S3 is enabled")
+		}
+		if strings.TrimSpace(data.SecretKey) == "" && instance.S3SecretKey == "" {
+			return nil, errors.New("secretKey is required when S3 is enabled")
+		}
+	}
+
+	updates := map[string]interface{}{
+		"s3_enabled":        data.Enabled,
+		"s3_endpoint":       endpoint,
+		"s3_region":         strings.TrimSpace(data.Region),
+		"s3_bucket":         bucket,
+		"s3_access_key":     accessKey,
+		"s3_path_style":     data.PathStyle,
+		"s3_public_url":     strings.TrimSpace(data.PublicURL),
+		"s3_media_delivery": delivery,
+	}
+
+	// An empty secret on update keeps the stored one (so operators can change
+	// other fields without re-sending it).
+	if secret := strings.TrimSpace(data.SecretKey); secret != "" {
+		encrypted, err := webhooksign.Encrypt(i.config.DataEncryptionKey, secret)
+		if err != nil {
+			i.loggerWrapper.GetLogger(instanceId).LogError("[%s] Failed to encrypt S3 secret: %v", instanceId, err)
+			return nil, err
+		}
+		updates["s3_secret_key"] = encrypted
+	}
+
+	if err := i.instanceRepository.UpdateS3Config(instanceId, updates); err != nil {
+		i.loggerWrapper.GetLogger(instanceId).LogError("[%s] Failed to store S3 config: %v", instanceId, err)
+		return nil, err
+	}
+
+	i.invalidateAuthCache()
+	i.whatsmeowService.InvalidateMediaStorage(instanceId)
+	i.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] S3 config updated (enabled=%v, delivery=%s)", instanceId, data.Enabled, delivery)
+	return i.GetS3Config(instanceId)
+}
+
+// DeleteS3Config removes the per-instance S3 config, reverting the instance to
+// the global MinIO config (or base64).
+func (i instances) DeleteS3Config(instanceId string) error {
+	if _, err := i.instanceRepository.GetInstanceByID(instanceId); err != nil {
+		return err
+	}
+	updates := map[string]interface{}{
+		"s3_enabled":        false,
+		"s3_endpoint":       "",
+		"s3_region":         "",
+		"s3_bucket":         "",
+		"s3_access_key":     "",
+		"s3_secret_key":     "",
+		"s3_path_style":     false,
+		"s3_public_url":     "",
+		"s3_media_delivery": "",
+	}
+	if err := i.instanceRepository.UpdateS3Config(instanceId, updates); err != nil {
+		i.loggerWrapper.GetLogger(instanceId).LogError("[%s] Failed to clear S3 config: %v", instanceId, err)
+		return err
+	}
+	i.invalidateAuthCache()
+	i.whatsmeowService.InvalidateMediaStorage(instanceId)
+	i.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] S3 config cleared", instanceId)
+	return nil
+}
+
+// GetS3Config returns the stored config with the secret masked.
+func (i instances) GetS3Config(instanceId string) (*S3ConfigStatus, error) {
+	instance, err := i.instanceRepository.GetInstanceByID(instanceId)
+	if err != nil {
+		return nil, err
+	}
+	return s3StatusFromInstance(instance), nil
+}
+
+// TestS3Connection probes the bucket (no writes). Fields omitted from the
+// request fall back to the stored config, so it can test an existing config
+// without re-sending the secret.
+func (i instances) TestS3Connection(instanceId string, data *S3ConfigStruct) (*S3TestResult, error) {
+	instance, err := i.instanceRepository.GetInstanceByID(instanceId)
+	if err != nil {
+		return nil, err
+	}
+	if data == nil {
+		data = &S3ConfigStruct{}
+	}
+
+	pick := func(request, stored string) string {
+		if strings.TrimSpace(request) != "" {
+			return strings.TrimSpace(request)
+		}
+		return strings.TrimSpace(stored)
+	}
+	endpoint := pick(data.Endpoint, instance.S3Endpoint)
+	bucket := pick(data.Bucket, instance.S3Bucket)
+	accessKey := pick(data.AccessKey, instance.S3AccessKey)
+	region := pick(data.Region, instance.S3Region)
+
+	secret := strings.TrimSpace(data.SecretKey)
+	if secret == "" && instance.S3SecretKey != "" {
+		secret, err = webhooksign.Decrypt(i.config.DataEncryptionKey, instance.S3SecretKey)
+		if err != nil {
+			return nil, fmt.Errorf("could not decrypt the stored secret; re-send it in the request")
+		}
+	}
+	if endpoint == "" || bucket == "" || accessKey == "" || secret == "" {
+		return nil, errors.New("endpoint, bucket, accessKey and secretKey are required")
+	}
+
+	host, useSSL := minio_storage.NormalizeEndpoint(endpoint)
+	if err := minio_storage.TestConnection(minio_storage.Options{
+		Endpoint:  host,
+		AccessKey: accessKey,
+		SecretKey: secret,
+		Bucket:    bucket,
+		Region:    region,
+		UseSSL:    useSSL,
+		PathStyle: data.PathStyle,
+	}); err != nil {
+		return nil, err
+	}
+	return &S3TestResult{Bucket: bucket, Region: region}, nil
 }
 
 func NewInstanceService(

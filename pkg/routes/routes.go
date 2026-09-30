@@ -132,6 +132,11 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.POST("/hmac", r.instanceHandler.SetHmac)
 			routes.GET("/hmac", r.instanceHandler.GetHmac)
 			routes.DELETE("/hmac", r.instanceHandler.DeleteHmac)
+			// Per-instance S3 media storage.
+			routes.POST("/s3", r.instanceHandler.SetS3)
+			routes.GET("/s3", r.instanceHandler.GetS3)
+			routes.DELETE("/s3", r.instanceHandler.DeleteS3)
+			routes.POST("/s3/test", r.instanceHandler.TestS3)
 		}
 	}
 

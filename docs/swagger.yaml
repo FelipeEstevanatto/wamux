@@ -1063,6 +1063,11 @@ definitions:
         example: false
         type: boolean
     type: object
+  github_com_evolution-foundation_evolution-go_pkg_group_service.GetGroupRequestParticipantsStruct:
+    properties:
+      groupJid:
+        type: string
+    type: object
   github_com_evolution-foundation_evolution-go_pkg_group_service.JoinGroupStruct:
     properties:
       code:
@@ -1100,6 +1105,18 @@ definitions:
       image:
         example: data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ...
         type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_group_service.UpdateGroupRequestParticipantsStruct:
+    properties:
+      action:
+        description: approve, reject
+        type: string
+      groupJid:
+        type: string
+      participants:
+        items:
+          type: string
+        type: array
     type: object
   github_com_evolution-foundation_evolution-go_pkg_group_service.UpdateGroupSettingsStruct:
     properties:
@@ -1241,6 +1258,36 @@ definitions:
   github_com_evolution-foundation_evolution-go_pkg_instance_service.RenameStruct:
     properties:
       name:
+        type: string
+    type: object
+  github_com_evolution-foundation_evolution-go_pkg_instance_service.S3ConfigStruct:
+    properties:
+      accessKey:
+        example: AKIA...
+        type: string
+      bucket:
+        example: my-whatsapp-media
+        type: string
+      enabled:
+        example: true
+        type: boolean
+      endpoint:
+        example: https://s3.amazonaws.com
+        type: string
+      mediaDelivery:
+        example: both
+        type: string
+      pathStyle:
+        example: false
+        type: boolean
+      publicUrl:
+        example: https://cdn.example.com
+        type: string
+      region:
+        example: us-east-1
+        type: string
+      secretKey:
+        example: wJalr...
         type: string
     type: object
   github_com_evolution-foundation_evolution-go_pkg_instance_service.SetProxyStruct:
@@ -9878,6 +9925,37 @@ paths:
       summary: Set group photo
       tags:
       - Group
+  /group/requestparticipants:
+    post:
+      consumes:
+      - application/json
+      description: Lists participants who asked to join the group. Requires join-approval
+        mode enabled and the session to be a group admin.
+      parameters:
+      - description: Group data
+        in: body
+        name: message
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_group_service.GetGroupRequestParticipantsStruct'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: success
+          schema:
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+        "400":
+          description: Error on validation
+          schema:
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
+      summary: List pending group join requests
+      tags:
+      - Group
   /group/settings:
     post:
       consumes:
@@ -9907,6 +9985,37 @@ paths:
           schema:
             $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Update group settings
+      tags:
+      - Group
+  /group/updaterequestparticipants:
+    post:
+      consumes:
+      - application/json
+      description: Approves or rejects pending join requests. `action` is "approve"
+        or "reject"; `participants` are the JIDs returned by /group/requestparticipants.
+      parameters:
+      - description: Group data
+        in: body
+        name: message
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_group_service.UpdateGroupRequestParticipantsStruct'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: success
+          schema:
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+        "400":
+          description: Error on validation
+          schema:
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
+      summary: Approve or reject group join requests
       tags:
       - Group
   /instance/{instanceId}/advanced-settings:
@@ -10688,6 +10797,101 @@ paths:
           schema:
             $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Reconnect to instance
+      tags:
+      - Instance
+  /instance/s3:
+    delete:
+      description: Removes the instance's S3 config, reverting it to the global MinIO
+        config (or base64).
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Cleared
+          schema:
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
+      summary: Delete per-instance S3 configuration
+      tags:
+      - Instance
+    get:
+      description: Returns the instance's S3 config with the secret masked (secretKeySet
+        only).
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Configuration
+          schema:
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
+      summary: Get per-instance S3 configuration
+      tags:
+      - Instance
+    post:
+      consumes:
+      - application/json
+      description: Sets the instance's own S3-compatible media storage (overriding
+        the global MinIO config). The secret key is encrypted at rest and never returned.
+      parameters:
+      - description: S3 configuration
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_instance_service.S3ConfigStruct'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Configured
+          schema:
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+        "400":
+          description: Error on validation
+          schema:
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
+      summary: Configure per-instance S3 storage
+      tags:
+      - Instance
+  /instance/s3/test:
+    post:
+      consumes:
+      - application/json
+      description: Verifies the endpoint and bucket are reachable. Omitted fields
+        fall back to the stored config; performs no writes.
+      parameters:
+      - description: Optional S3 override
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_instance_service.S3ConfigStruct'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Reachable
+          schema:
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+        "400":
+          description: Error on validation
+          schema:
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
+      summary: Test per-instance S3 connection
       tags:
       - Instance
   /instance/status:

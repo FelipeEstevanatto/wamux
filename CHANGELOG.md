@@ -21,6 +21,11 @@ Three additive features, all disabled/unchanged by default unless configured.
 - **Group join requests** — `POST /group/requestparticipants` (list pending
   requests) and `POST /group/updaterequestparticipants` (`approve`/`reject`),
   wiring service methods that already existed but were never exposed.
+- **Per-instance S3 storage** — `POST/GET/DELETE /instance/s3` and
+  `POST /instance/s3/test` let one instance use its own S3-compatible bucket
+  (overriding the global MinIO config) with a `mediaDelivery` mode of `base64`,
+  `s3` or `both`. The secret is encrypted at rest; the config is cached and
+  rebuilt on change.
 
 ### 🔧 Improvements
 - **Webhook dead-letter queue** — webhooks that fail permanently (retries

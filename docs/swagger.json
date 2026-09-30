@@ -1316,6 +1316,52 @@
                 }
             }
         },
+        "/group/requestparticipants": {
+            "post": {
+                "description": "Lists participants who asked to join the group. Requires join-approval mode enabled and the session to be a group admin.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Group"
+                ],
+                "summary": "List pending group join requests",
+                "parameters": [
+                    {
+                        "description": "Group data",
+                        "name": "message",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_group_service.GetGroupRequestParticipantsStruct"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "success",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                        }
+                    },
+                    "400": {
+                        "description": "Error on validation",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/group/settings": {
             "post": {
                 "description": "Update group settings (announcement, not_announcement, locked, unlocked, approval_on, approval_off, admin_add, all_member_add)",
@@ -1337,6 +1383,52 @@
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_group_service.UpdateGroupSettingsStruct"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "success",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                        }
+                    },
+                    "400": {
+                        "description": "Error on validation",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/group/updaterequestparticipants": {
+            "post": {
+                "description": "Approves or rejects pending join requests. `action` is \"approve\" or \"reject\"; `participants` are the JIDs returned by /group/requestparticipants.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Group"
+                ],
+                "summary": "Approve or reject group join requests",
+                "parameters": [
+                    {
+                        "description": "Group data",
+                        "name": "message",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_group_service.UpdateGroupRequestParticipantsStruct"
                         }
                     }
                 ],
@@ -2467,6 +2559,145 @@
                         "description": "Instance reconnected successfully",
                         "schema": {
                             "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/instance/s3": {
+            "get": {
+                "description": "Returns the instance's S3 config with the secret masked (secretKeySet only).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Instance"
+                ],
+                "summary": "Get per-instance S3 configuration",
+                "responses": {
+                    "200": {
+                        "description": "Configuration",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Sets the instance's own S3-compatible media storage (overriding the global MinIO config). The secret key is encrypted at rest and never returned.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Instance"
+                ],
+                "summary": "Configure per-instance S3 storage",
+                "parameters": [
+                    {
+                        "description": "S3 configuration",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_instance_service.S3ConfigStruct"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Configured",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                        }
+                    },
+                    "400": {
+                        "description": "Error on validation",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Removes the instance's S3 config, reverting it to the global MinIO config (or base64).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Instance"
+                ],
+                "summary": "Delete per-instance S3 configuration",
+                "responses": {
+                    "200": {
+                        "description": "Cleared",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/instance/s3/test": {
+            "post": {
+                "description": "Verifies the endpoint and bucket are reachable. Omitted fields fall back to the stored config; performs no writes.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Instance"
+                ],
+                "summary": "Test per-instance S3 connection",
+                "parameters": [
+                    {
+                        "description": "Optional S3 override",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_instance_service.S3ConfigStruct"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Reachable",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                        }
+                    },
+                    "400": {
+                        "description": "Error on validation",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
@@ -7420,6 +7651,14 @@
                 }
             }
         },
+        "github_com_evolution-foundation_evolution-go_pkg_group_service.GetGroupRequestParticipantsStruct": {
+            "type": "object",
+            "properties": {
+                "groupJid": {
+                    "type": "string"
+                }
+            }
+        },
         "github_com_evolution-foundation_evolution-go_pkg_group_service.JoinGroupStruct": {
             "type": "object",
             "properties": {
@@ -7473,6 +7712,24 @@
                 "image": {
                     "type": "string",
                     "example": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ..."
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_group_service.UpdateGroupRequestParticipantsStruct": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "description": "approve, reject",
+                    "type": "string"
+                },
+                "groupJid": {
+                    "type": "string"
+                },
+                "participants": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -7669,6 +7926,47 @@
             "properties": {
                 "name": {
                     "type": "string"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_instance_service.S3ConfigStruct": {
+            "type": "object",
+            "properties": {
+                "accessKey": {
+                    "type": "string",
+                    "example": "AKIA..."
+                },
+                "bucket": {
+                    "type": "string",
+                    "example": "my-whatsapp-media"
+                },
+                "enabled": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "endpoint": {
+                    "type": "string",
+                    "example": "https://s3.amazonaws.com"
+                },
+                "mediaDelivery": {
+                    "type": "string",
+                    "example": "both"
+                },
+                "pathStyle": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "publicUrl": {
+                    "type": "string",
+                    "example": "https://cdn.example.com"
+                },
+                "region": {
+                    "type": "string",
+                    "example": "us-east-1"
+                },
+                "secretKey": {
+                    "type": "string",
+                    "example": "wJalr..."
                 }
             }
         },
