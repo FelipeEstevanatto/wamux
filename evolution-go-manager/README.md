@@ -29,6 +29,9 @@ locally with `make manager-build`, which syncs the build into `manager/dist`.
 - **Per-instance overview** — profile picture, contacts, chats, messages, device
 - **Proxy settings** — set / test / reconnect / remove per instance
 - **Messaging** — text, media, buttons, lists, carousels, events, products
+- **Messages screen** — per-instance conversation list and thread read back from
+  stored history (`/chat/chats`, `/chat/history`), send text, live updates over
+  `/ws`
 - **Webhooks** — per-instance webhook configuration and event selection
 - **Dashboard** — instances, messages, contacts and host metrics
 - **API tester** — reads the live Swagger spec
