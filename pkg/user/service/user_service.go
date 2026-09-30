@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"github.com/evolution-foundation/evolution-go/pkg/safemap"
 	"io"
-	"net/http"
 	"time"
 
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
 	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
+	"github.com/evolution-foundation/evolution-go/pkg/ssrf"
 	"github.com/evolution-foundation/evolution-go/pkg/utils"
 	whatsmeow_service "github.com/evolution-foundation/evolution-go/pkg/whatsmeow/service"
 	"go.mau.fi/whatsmeow"
@@ -31,7 +31,9 @@ const clientReadyWait = 2 * time.Second
 const profileNameTimeout = 15 * time.Second
 
 // profilePictureHTTPClient bounds downloads of user-supplied profile-picture URLs.
-var profilePictureHTTPClient = &http.Client{Timeout: 30 * time.Second}
+// It is SSRF-guarded: avatar URLs come from the request and must not be able to
+// reach loopback/private/link-local hosts. See pkg/ssrf.
+var profilePictureHTTPClient = ssrf.DefaultClient(30 * time.Second)
 
 // userInfoRequestTimeout bounds the usync IQ on POST /user/info.
 const userInfoRequestTimeout = 10 * time.Second
