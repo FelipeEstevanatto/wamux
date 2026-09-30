@@ -6,8 +6,8 @@ import "testing"
 // ceiling shared by every instance and the dashboard.
 func TestParseDBPoolConfig(t *testing.T) {
 	cases := []struct {
-		name           string
-		open, idle     string
+		name               string
+		open, idle         string
 		wantOpen, wantIdle int
 	}{
 		{"defaults", "", "", 25, 5},

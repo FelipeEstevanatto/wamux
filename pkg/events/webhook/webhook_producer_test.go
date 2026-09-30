@@ -1,10 +1,12 @@
 package webhook_producer
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -378,4 +380,113 @@ func TestFansOutToMultipleInstanceWebhooks(t *testing.T) {
 	waitFor(t, func() bool {
 		return atomic.LoadInt64(&a) == 1 && atomic.LoadInt64(&b) == 1
 	}, "both instance webhooks should have received the event")
+}
+
+// fakeProducer captures dead-letter publications.
+type fakeProducer struct {
+	mu       sync.Mutex
+	queues   []string
+	payloads [][]byte
+}
+
+func (f *fakeProducer) Produce(queueName string, payload []byte, _ string, _ string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.queues = append(f.queues, queueName)
+	f.payloads = append(f.payloads, append([]byte(nil), payload...))
+	return nil
+}
+
+func (f *fakeProducer) CreateGlobalQueues() error { return nil }
+
+func (f *fakeProducer) count() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.queues)
+}
+
+func (f *fakeProducer) last() (string, []byte) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if len(f.queues) == 0 {
+		return "", nil
+	}
+	return f.queues[len(f.queues)-1], f.payloads[len(f.payloads)-1]
+}
+
+var _ producer_interfaces.Producer = (*fakeProducer)(nil)
+
+// A webhook that exhausts its retries must be published to the dead-letter
+// queue with enough context to inspect or replay it.
+func TestExhaustedWebhookGoesToDeadLetter(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	fake := &fakeProducer{}
+	p := newTestProducer(t, "")
+	p.maxAttempts = 2
+	p.deadLetter = fake
+	p.errorQueue = "webhook_errors"
+
+	_ = p.Produce("inst.message", []byte(`{"event":"Message","data":{"id":"abc"}}`), server.URL, "i1")
+
+	waitFor(t, func() bool { return fake.count() == 1 }, "exhausted webhook was not dead-lettered")
+
+	queue, payload := fake.last()
+	if queue != "webhook_errors" {
+		t.Fatalf("dead-letter queue = %q, want webhook_errors", queue)
+	}
+
+	var envelope map[string]any
+	if err := json.Unmarshal(payload, &envelope); err != nil {
+		t.Fatalf("dead-letter payload is not JSON: %v", err)
+	}
+	if envelope["url"] != server.URL {
+		t.Fatalf("envelope url = %v, want %s", envelope["url"], server.URL)
+	}
+	if envelope["userID"] != "i1" {
+		t.Fatalf("envelope userID = %v, want i1", envelope["userID"])
+	}
+	if _, ok := envelope["payload"].(map[string]any); !ok {
+		t.Fatalf("envelope payload should preserve the original JSON object, got %T", envelope["payload"])
+	}
+	if envelope["error"] == "" || envelope["error"] == nil {
+		t.Fatal("envelope should carry the failure reason")
+	}
+}
+
+// A non-retryable (4xx) response is permanent too, so it must be dead-lettered.
+func TestRejectedWebhookGoesToDeadLetter(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	defer server.Close()
+
+	fake := &fakeProducer{}
+	p := newTestProducer(t, "")
+	p.deadLetter = fake
+	p.errorQueue = "webhook_errors"
+
+	_ = p.Produce("inst.message", []byte(`{"event":"Message"}`), server.URL, "i1")
+
+	waitFor(t, func() bool { return fake.count() == 1 }, "rejected webhook was not dead-lettered")
+	if q, _ := fake.last(); q != "webhook_errors" {
+		t.Fatalf("dead-letter queue = %q", q)
+	}
+}
+
+// With no dead-letter configured, failures must not try to publish anywhere.
+func TestNoDeadLetterConfiguredIsNotAnError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	p := newTestProducer(t, "")
+	p.maxAttempts = 1
+	// no deadLetter/errorQueue set
+	_ = p.Produce("inst.message", []byte(`{}`), server.URL, "i1")
+	// Reaching here without a panic is the assertion.
 }

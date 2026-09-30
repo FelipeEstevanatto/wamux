@@ -157,6 +157,7 @@ SWAGGER_ENABLED=true        # set false to hide /swagger
 # WEBHOOK_URL=https://your-webhook-url.com/webhook
 # WEBHOOK_HMAC_KEY=               # global webhook signing key
 # WEBHOOK_HMAC_ENCRYPTION_KEY=    # encrypts per-instance keys at rest
+# WEBHOOK_ERROR_QUEUE_NAME=webhook_errors  # RabbitMQ queue for failed webhooks
 # SSRF_PROTECTION=true            # opt-in: block loopback/private/metadata fetches (default false)
 # PASSKEY_PUBLIC_URL=https://your-api.example.com
 # AMQP_URL=amqp://user:pass@rabbitmq:5672/
@@ -178,6 +179,7 @@ SWAGGER_ENABLED=true        # set false to hide /swagger
 | `WEBHOOK_HMAC_KEY` | Global HMAC key for webhook signing | — |
 | `WEBHOOK_HMAC_ENCRYPTION_KEY` | AES key encrypting per-instance HMAC keys at rest | derived from `GLOBAL_API_KEY` |
 | `SSRF_PROTECTION` | Opt-in: refuse outbound fetches to loopback/private/link-local hosts | `false` |
+| `WEBHOOK_ERROR_QUEUE_NAME` | RabbitMQ queue for permanently failed webhooks | `webhook_errors` |
 
 ---
 
@@ -209,6 +211,14 @@ The key is stored AES-256-GCM encrypted with `WEBHOOK_HMAC_ENCRYPTION_KEY`
 `GLOBAL_API_KEY`, so it works with no extra configuration). Changing
 `GLOBAL_API_KEY` while using the derived key invalidates stored keys, so set an
 explicit `WEBHOOK_HMAC_ENCRYPTION_KEY` for long-lived deployments.
+
+### Webhook dead-letter queue
+
+When RabbitMQ is configured (`AMQP_URL`) and a webhook can never be delivered —
+every retry exhausted, or a non-retryable (4xx) response — the delivery is
+published to `WEBHOOK_ERROR_QUEUE_NAME` (default `webhook_errors`) as JSON with
+`url`, `userID`, the original `payload`, the last `statusCode`/`response`,
+`attemptTime` and `error`. Without RabbitMQ the failure is only logged.
 
 ---
 

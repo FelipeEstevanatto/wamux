@@ -135,7 +135,13 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		)
 	}
 
-	webhookProducer := webhook_producer.NewWebhookProducer(config.WebhookUrl, loggerWrapper)
+	// Permanently failed webhooks go to a dead-letter queue, but only when
+	// RabbitMQ is configured (there is nowhere to publish them otherwise).
+	var webhookOpts []webhook_producer.Option
+	if config.AmqpUrl != "" {
+		webhookOpts = append(webhookOpts, webhook_producer.WithDeadLetterQueue(rabbitmqProducer, config.WebhookErrorQueueName))
+	}
+	webhookProducer := webhook_producer.NewWebhookProducer(config.WebhookUrl, loggerWrapper, webhookOpts...)
 	websocketProducer := websocket_producer.NewWebsocketProducer(loggerWrapper)
 
 	// Cria filas globais se o RabbitMQ global estiver habilitado

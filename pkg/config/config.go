@@ -76,6 +76,13 @@ type Config struct {
 	// secret is used when configured, otherwise one is derived from
 	// GLOBAL_API_KEY so the feature works out of the box.
 	WebhookHmacEncryptionKey []byte
+	// DataEncryptionKey is the 32-byte AES-256-GCM key used to encrypt other
+	// per-instance secrets at rest (currently the S3 secret key). Derived from
+	// the same configured secret as WebhookHmacEncryptionKey.
+	DataEncryptionKey []byte
+	// WebhookErrorQueueName is the RabbitMQ queue for webhooks that failed
+	// permanently. Empty disables the dead-letter path.
+	WebhookErrorQueueName string
 
 	// Typebot flood/loop protections. See pkg/typebot/service/protection.go.
 	TypebotContactRateLimit  int
@@ -350,6 +357,12 @@ func Load() *Config {
 	}
 	applog.Logger.LogInfo("[CONFIG] webhook HMAC key encryption source: %s", hmacEncSource)
 
+	// Dead-letter queue for permanently failed webhooks (RabbitMQ only).
+	webhookErrorQueueName := strings.TrimSpace(os.Getenv(config_env.WEBHOOK_ERROR_QUEUE_NAME))
+	if webhookErrorQueueName == "" {
+		webhookErrorQueueName = "webhook_errors"
+	}
+
 	// Swagger is served by default; set SWAGGER_ENABLED=false to disable it. The
 	// docs are public (no apikey), so this is the switch for locking down /swagger
 	// on an internet-facing deployment.
@@ -512,6 +525,8 @@ func Load() *Config {
 		NatsGlobalEvents:         natsGlobalEvents,
 		WebhookHmacGlobalKey:     webhookHmacGlobalKey,
 		WebhookHmacEncryptionKey: webhookHmacEncryptionKey,
+		DataEncryptionKey:        webhookHmacEncryptionKey,
+		WebhookErrorQueueName:    webhookErrorQueueName,
 		LogMaxSize:               logMaxSize,
 		LogMaxBackups:            logMaxBackups,
 		LogMaxAge:                logMaxAge,
