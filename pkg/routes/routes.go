@@ -203,6 +203,9 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.POST("/unmute", r.jidValidationMiddleware.ValidateNumberField(), r.chatHandler.ChatUnmute)
 			routes.POST("/ephemeral", r.chatHandler.SetEphemeralExpiration)
 			routes.POST("/history-sync", r.chatHandler.HistorySyncRequest)
+			// Read stored history back (requires DATABASE_SAVE_MESSAGES).
+			routes.GET("/history", r.messageHandler.GetHistory)
+			routes.GET("/chats", r.messageHandler.ListChats)
 		}
 	}
 	routes = eng.Group("/group")

@@ -23,6 +23,8 @@ type MessageHandler interface {
 	GetMessageStatus(ctx *gin.Context)
 	DeleteMessageEveryone(ctx *gin.Context)
 	EditMessage(ctx *gin.Context)
+	GetHistory(ctx *gin.Context)
+	ListChats(ctx *gin.Context)
 }
 
 type messageHandler struct {
@@ -457,6 +459,82 @@ func (m *messageHandler) EditMessage(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+}
+
+// GetHistory reads a conversation back
+// @Summary Get chat message history
+// @Description Returns stored messages for one conversation, newest first. `chat` accepts a phone number or a full JID. Page backwards with `before` (the timestamp of the oldest message already seen). Requires DATABASE_SAVE_MESSAGES.
+// @Tags Message
+// @Produce json
+// @Param chat query string true "Phone number or JID of the conversation"
+// @Param limit query int false "Max messages (default 50, max 500)"
+// @Param before query string false "Return messages strictly older than this timestamp (YYYY-MM-DD HH:MM:SS)"
+// @Success 200 {object} docmodels.Envelope "Messages, newest first"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
+// @Router /chat/history [get]
+func (m *messageHandler) GetHistory(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	var query message_service.HistoryQuery
+	if err := ctx.ShouldBindQuery(&query); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if query.Chat == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "chat is required"})
+		return
+	}
+
+	messages, err := m.messageService.GetHistory(&query, instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": messages})
+}
+
+// ListChats lists conversations with their newest message
+// @Summary List conversations
+// @Description Returns each conversation's newest stored message and its message count, most recent first. Requires DATABASE_SAVE_MESSAGES.
+// @Tags Message
+// @Produce json
+// @Param limit query int false "Max conversations (default 50, max 500)"
+// @Success 200 {object} docmodels.Envelope "Conversations"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
+// @Router /chat/chats [get]
+func (m *messageHandler) ListChats(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	var query struct {
+		Limit int `form:"limit"`
+	}
+	if err := ctx.ShouldBindQuery(&query); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	chats, err := m.messageService.ListChats(instance, query.Limit)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": chats})
 }
 
 func NewMessageHandler(

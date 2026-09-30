@@ -119,6 +119,40 @@ const docTemplate = `{
                 }
             }
         },
+        "/chat/chats": {
+            "get": {
+                "description": "Returns each conversation's newest stored message and its message count, most recent first. Requires DATABASE_SAVE_MESSAGES.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Message"
+                ],
+                "summary": "List conversations",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Max conversations (default 50, max 500)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Conversations",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/chat/ephemeral": {
             "post": {
                 "description": "Sets the chat's disappearing-messages timer in seconds (0 disables it).\nOfficial clients use 86400 (24h), 604800 (7d) or 7776000 (90d). Outgoing\nmessages to the chat then carry the timer, so the recipient does not warn\nthat the message will not disappear.",
@@ -146,6 +180,59 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "success",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                        }
+                    },
+                    "400": {
+                        "description": "Error on validation",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/chat/history": {
+            "get": {
+                "description": "Returns stored messages for one conversation, newest first. ` + "`" + `chat` + "`" + ` accepts a phone number or a full JID. Page backwards with ` + "`" + `before` + "`" + ` (the timestamp of the oldest message already seen). Requires DATABASE_SAVE_MESSAGES.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Message"
+                ],
+                "summary": "Get chat message history",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Phone number or JID of the conversation",
+                        "name": "chat",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Max messages (default 50, max 500)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Return messages strictly older than this timestamp (YYYY-MM-DD HH:MM:SS)",
+                        "name": "before",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Messages, newest first",
                         "schema": {
                             "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
                         }
