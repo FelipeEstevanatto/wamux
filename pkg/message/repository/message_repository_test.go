@@ -141,7 +141,10 @@ func TestDeleteAllMessagesInvalidatesCache(t *testing.T) {
 	}
 }
 
-func TestInsertMessagePreservesReferralOnStatusUpdate(t *testing.T) {
+// A content insert must overwrite the content columns (and referral when
+// present); a status-only receipt must move only the status, so it can neither
+// reorder the message to the receipt time nor erase what it said.
+func TestInsertMessageUpsertColumns(t *testing.T) {
 	sqlDB, _, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("open sqlmock db: %v", err)
@@ -167,42 +170,154 @@ func TestInsertMessagePreservesReferralOnStatusUpdate(t *testing.T) {
 	repo := NewMessageRepository(gormDB)
 	referral := json.RawMessage(`{"ctwaClid":"abc123","showAdAttribution":true}`)
 
-	initial := message_model.Message{
-		MessageID: "msg-1",
-		Timestamp: "2026-05-09 10:00:00",
-		Status:    "Received",
-		Source:    "1551999999999",
-		Referral:  referral,
+	content := message_model.Message{
+		MessageID:       "msg-1",
+		Timestamp:       "2026-05-09 10:00:00",
+		Status:          "Received",
+		Source:          "1551999999999",
+		ChatJid:         "1551999999999@s.whatsapp.net",
+		SenderJid:       "1551999999999@s.whatsapp.net",
+		MessageType:     "text",
+		TextContent:     "hello",
+		QuotedMessageID: "msg-0",
+		Referral:        referral,
 	}
 
-	if err := repo.InsertMessage(initial); err != nil {
-		t.Fatalf("insert initial message: %v", err)
+	if err := repo.InsertMessage(content); err != nil {
+		t.Fatalf("insert content message: %v", err)
 	}
 
-	initialSQL := logBuffer.String()
-	if !strings.Contains(initialSQL, `"referral"="excluded"."referral"`) {
-		t.Fatalf("expected initial upsert SQL to update referral, got %q", initialSQL)
+	contentSQL := logBuffer.String()
+	for _, want := range []string{
+		`"referral"="excluded"."referral"`,
+		`"chat_jid"="excluded"."chat_jid"`,
+		`"text_content"="excluded"."text_content"`,
+		`"message_type"="excluded"."message_type"`,
+	} {
+		if !strings.Contains(contentSQL, want) {
+			t.Fatalf("content upsert SQL missing %s, got %q", want, contentSQL)
+		}
 	}
 
 	logBuffer.Reset()
 
-	updated := message_model.Message{
+	// A receipt carries no content; it must only move the status.
+	receipt := message_model.Message{
 		MessageID: "msg-1",
 		Timestamp: "2026-05-09 10:05:00",
 		Status:    "Read",
 		Source:    "1551999999999",
 	}
-
-	if err := repo.InsertMessage(updated); err != nil {
-		t.Fatalf("insert updated message: %v", err)
+	if err := repo.InsertMessage(receipt); err != nil {
+		t.Fatalf("insert receipt: %v", err)
 	}
 
-	updatedSQL := logBuffer.String()
-	if strings.Contains(updatedSQL, `"referral"="excluded"."referral"`) {
-		t.Fatalf("expected updated upsert SQL to omit referral update, got %q", updatedSQL)
+	receiptSQL := logBuffer.String()
+	if !strings.Contains(receiptSQL, `"status"="excluded"."status"`) {
+		t.Fatalf("receipt upsert SQL should update status, got %q", receiptSQL)
 	}
-	if !strings.Contains(updatedSQL, `"timestamp"="excluded"."timestamp","status"="excluded"."status","source"="excluded"."source"`) {
-		t.Fatalf("expected updated upsert SQL to keep core columns, got %q", updatedSQL)
+	for _, unwanted := range []string{
+		`"timestamp"="excluded"."timestamp"`,
+		`"text_content"="excluded"."text_content"`,
+		`"chat_jid"="excluded"."chat_jid"`,
+		`"referral"="excluded"."referral"`,
+	} {
+		if strings.Contains(receiptSQL, unwanted) {
+			t.Fatalf("receipt upsert SQL must not update %s, got %q", unwanted, receiptSQL)
+		}
+	}
+
+	logBuffer.Reset()
+
+	// A content row without referral must not try to set referral.
+	contentNoReferral := content
+	contentNoReferral.Referral = nil
+	contentNoReferral.TextContent = "edited text"
+	if err := repo.InsertMessage(contentNoReferral); err != nil {
+		t.Fatalf("insert content without referral: %v", err)
+	}
+	noReferralSQL := logBuffer.String()
+	if strings.Contains(noReferralSQL, `"referral"="excluded"."referral"`) {
+		t.Fatalf("content upsert without referral should omit it, got %q", noReferralSQL)
+	}
+	if !strings.Contains(noReferralSQL, `"text_content"="excluded"."text_content"`) {
+		t.Fatalf("content upsert should still update text, got %q", noReferralSQL)
+	}
+}
+
+func TestListMessagesScopesAndPaginates(t *testing.T) {
+	repo, mock := newMockRepo(t)
+
+	mock.ExpectQuery(`SELECT \* FROM "messages" WHERE \(?instance_id = \$1 AND chat_jid = \$2\)? AND "timestamp" < \$3 ORDER BY "timestamp" DESC,id DESC LIMIT \$4`).
+		WithArgs("inst-1", "chat@s.whatsapp.net", "2026-05-09 10:00:00", 25).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "message_id", "text_content"}).
+			AddRow("uuid-1", "msg-2", "newer").
+			AddRow("uuid-2", "msg-1", "older"))
+
+	messages, err := repo.ListMessages("inst-1", "chat@s.whatsapp.net", "2026-05-09 10:00:00", 25)
+	if err != nil {
+		t.Fatalf("ListMessages: %v", err)
+	}
+	if len(messages) != 2 || messages[0].MessageID != "msg-2" {
+		t.Fatalf("ListMessages = %+v, want 2 newest-first rows", messages)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestListMessagesClampsLimitAndSkipsEmptyScopes(t *testing.T) {
+	repo, mock := newMockRepo(t)
+
+	// No chat -> no query at all, not a table-wide scan.
+	if got, err := repo.ListMessages("inst-1", "", "", 0); err != nil || len(got) != 0 {
+		t.Fatalf("empty chat = %v, %v; want no rows and no error", got, err)
+	}
+
+	// A zero limit becomes the default, an oversized one is clamped.
+	mock.ExpectQuery(`SELECT \* FROM "messages" WHERE \(?instance_id = \$1 AND chat_jid = \$2\)? ORDER BY "timestamp" DESC,id DESC LIMIT \$3`).
+		WithArgs("inst-1", "chat@s.whatsapp.net", defaultHistoryLimit).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}))
+	if _, err := repo.ListMessages("inst-1", "chat@s.whatsapp.net", "", 0); err != nil {
+		t.Fatalf("default limit: %v", err)
+	}
+
+	mock.ExpectQuery(`SELECT \* FROM "messages" WHERE \(?instance_id = \$1 AND chat_jid = \$2\)? ORDER BY "timestamp" DESC,id DESC LIMIT \$3`).
+		WithArgs("inst-1", "chat@s.whatsapp.net", maxHistoryLimit).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}))
+	if _, err := repo.ListMessages("inst-1", "chat@s.whatsapp.net", "", 100000); err != nil {
+		t.Fatalf("clamped limit: %v", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestListChatsReturnsNewestPerChat(t *testing.T) {
+	repo, mock := newMockRepo(t)
+
+	mock.ExpectQuery(`DISTINCT ON \(chat_jid\)`).
+		WithArgs("inst-1", defaultHistoryLimit).
+		WillReturnRows(sqlmock.NewRows([]string{"chat_jid", "message_id", "timestamp", "message_type", "text_content", "status", "media_url", "sender_jid", "is_from_me", "message_count"}).
+			AddRow("a@s.whatsapp.net", "m2", "2026-05-09 11:00:00", "text", "hi", "Received", "", "a@s.whatsapp.net", false, 3).
+			AddRow("b@s.whatsapp.net", "m9", "2026-05-09 09:00:00", "image", "cap", "Sent", "http://x/y.jpg", "me@s.whatsapp.net", true, 5))
+
+	chats, err := repo.ListChats("inst-1", 0)
+	if err != nil {
+		t.Fatalf("ListChats: %v", err)
+	}
+	if len(chats) != 2 {
+		t.Fatalf("got %d chats, want 2", len(chats))
+	}
+	if chats[0].ChatJid != "a@s.whatsapp.net" || chats[0].MessageCount != 3 {
+		t.Fatalf("first chat = %+v", chats[0])
+	}
+	if chats[1].MediaUrl != "http://x/y.jpg" || !chats[1].IsFromMe {
+		t.Fatalf("second chat = %+v", chats[1])
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
 	}
 }
 

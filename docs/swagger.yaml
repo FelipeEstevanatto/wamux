@@ -9126,6 +9126,29 @@ paths:
       summary: Archive a chat
       tags:
       - Chat
+  /chat/chats:
+    get:
+      description: Returns each conversation's newest stored message and its message
+        count, most recent first. Requires DATABASE_SAVE_MESSAGES.
+      parameters:
+      - description: Max conversations (default 50, max 500)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Conversations
+          schema:
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
+      summary: List conversations
+      tags:
+      - Message
   /chat/ephemeral:
     post:
       consumes:
@@ -9160,6 +9183,44 @@ paths:
       summary: Set the disappearing-messages timer for a chat
       tags:
       - Chat
+  /chat/history:
+    get:
+      description: Returns stored messages for one conversation, newest first. `chat`
+        accepts a phone number or a full JID. Page backwards with `before` (the timestamp
+        of the oldest message already seen). Requires DATABASE_SAVE_MESSAGES.
+      parameters:
+      - description: Phone number or JID of the conversation
+        in: query
+        name: chat
+        required: true
+        type: string
+      - description: Max messages (default 50, max 500)
+        in: query
+        name: limit
+        type: integer
+      - description: Return messages strictly older than this timestamp (YYYY-MM-DD
+          HH:MM:SS)
+        in: query
+        name: before
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Messages, newest first
+          schema:
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+        "400":
+          description: Error on validation
+          schema:
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
+      summary: Get chat message history
+      tags:
+      - Message
   /chat/history-sync:
     post:
       consumes:

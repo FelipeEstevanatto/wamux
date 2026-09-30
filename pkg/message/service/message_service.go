@@ -33,6 +33,10 @@ type MessageService interface {
 	GetMessageStatus(data *MessageStatusStruct, instance *instance_model.Instance) (*message_model.Message, string, error)
 	DeleteMessageEveryone(data *MessageStruct, instance *instance_model.Instance) (string, string, error)
 	EditMessage(data *EditMessageStruct, instance *instance_model.Instance) (string, string, error)
+
+	// History readback.
+	GetHistory(data *HistoryQuery, instance *instance_model.Instance) ([]message_model.Message, error)
+	ListChats(instance *instance_model.Instance, limit int) ([]message_repository.ChatSummary, error)
 }
 
 type messageService struct {
@@ -105,6 +109,15 @@ type MessageSendStruct struct {
 	Info               types.MessageInfo
 	Message            *waE2E.Message
 	MessageContextInfo *waE2E.ContextInfo
+}
+
+// HistoryQuery is the input for GET /chat/history. Chat accepts a phone number
+// or a full JID (including a group JID); Before pages backwards and is the
+// timestamp of the oldest message already seen.
+type HistoryQuery struct {
+	Chat   string `form:"chat" json:"chat" example:"5511999999999"`
+	Limit  int    `form:"limit" json:"limit" example:"50"`
+	Before string `form:"before" json:"before" example:"2026-05-09 10:00:00"`
 }
 
 func (m *messageService) ensureClientConnected(instanceId string) (*whatsmeow.Client, error) {
@@ -680,6 +693,52 @@ func (m *messageService) EditMessage(data *EditMessageStruct, instance *instance
 	}
 
 	return resp.ID, resp.Timestamp.String(), nil
+}
+
+// normalizeChatJid turns a phone number or JID into the canonical, non-device
+// JID stored in messages.chat_jid, so a lookup by number and a lookup by full
+// JID both find the same conversation. It also strips the device suffix and the
+// leading "+".
+func normalizeChatJid(raw string) (string, bool) {
+	if strings.TrimSpace(raw) == "" {
+		return "", false
+	}
+	jid, ok := utils.ParseJID(raw)
+	if !ok {
+		return "", false
+	}
+	return utils.CanonicalJID(jid).ToNonAD().String(), true
+}
+
+// GetHistory returns one conversation's stored messages, newest first.
+func (m *messageService) GetHistory(data *HistoryQuery, instance *instance_model.Instance) ([]message_model.Message, error) {
+	if data == nil || instance == nil {
+		return nil, errors.New("invalid request")
+	}
+	chatJid, ok := normalizeChatJid(data.Chat)
+	if !ok {
+		return nil, errors.New("invalid chat")
+	}
+
+	messages, err := m.messageRepository.ListMessages(instance.Id, chatJid, strings.TrimSpace(data.Before), data.Limit)
+	if err != nil {
+		m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to read message history for %s: %v", instance.Id, chatJid, err)
+		return nil, err
+	}
+	return messages, nil
+}
+
+// ListChats returns each conversation's newest message plus its message count.
+func (m *messageService) ListChats(instance *instance_model.Instance, limit int) ([]message_repository.ChatSummary, error) {
+	if instance == nil {
+		return nil, errors.New("invalid instance")
+	}
+	chats, err := m.messageRepository.ListChats(instance.Id, limit)
+	if err != nil {
+		m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to list chats: %v", instance.Id, err)
+		return nil, err
+	}
+	return chats, nil
 }
 
 func NewMessageService(

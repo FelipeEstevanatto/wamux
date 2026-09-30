@@ -26,6 +26,7 @@ import (
 	config "github.com/evolution-foundation/evolution-go/pkg/config"
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
 	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
+	message_content "github.com/evolution-foundation/evolution-go/pkg/message/content"
 	message_model "github.com/evolution-foundation/evolution-go/pkg/message/model"
 	message_repository "github.com/evolution-foundation/evolution-go/pkg/message/repository"
 	"github.com/evolution-foundation/evolution-go/pkg/ssrf"
@@ -4035,12 +4036,19 @@ func (s *sendService) persistSentMessage(instanceId string, sent *MessageSendStr
 	if s.messageRepository == nil || !s.config.DatabaseSaveMessages || sent == nil {
 		return
 	}
+	summary := message_content.Summarize(sent.Message)
 	msg := message_model.Message{
-		MessageID:  sent.Info.ID,
-		InstanceId: instanceId,
-		Timestamp:  sent.Info.Timestamp.Format("2006-01-02 15:04:05"),
-		Status:     "Sent",
-		Source:     sent.Info.Chat.ToNonAD().User,
+		MessageID:       sent.Info.ID,
+		InstanceId:      instanceId,
+		Timestamp:       sent.Info.Timestamp.Format("2006-01-02 15:04:05"),
+		Status:          "Sent",
+		Source:          sent.Info.Chat.ToNonAD().User,
+		ChatJid:         sent.Info.Chat.ToNonAD().String(),
+		SenderJid:       sent.Info.Sender.ToNonAD().String(),
+		MessageType:     summary.Type,
+		TextContent:     summary.Text,
+		QuotedMessageID: summary.QuotedID,
+		IsFromMe:        true,
 	}
 	go func() {
 		if err := s.messageRepository.InsertMessage(msg); err != nil {

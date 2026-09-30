@@ -226,6 +226,26 @@ or internal host.
 
 ---
 
+## Message history readback
+
+When `DATABASE_SAVE_MESSAGES=true` (the default), inbound and outbound messages
+are persisted with their content, so a conversation can be read back over the
+API instead of only through webhooks:
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/chat/history?chat=<phone-or-JID>&limit=&before=` | Messages of one conversation, newest first. `before` pages backwards (timestamp of the oldest message already seen). |
+| `GET` | `/chat/chats?limit=` | Conversations with their newest message, status, type, count, most recent first. |
+
+`chat` accepts a phone number or a full JID (including `@g.us`); it is
+normalized to the same canonical JID stored on the row. Limits default to 50 and
+are capped at 500. Each message row carries `chat_jid`, `sender_jid`,
+`message_type`, `text_content`, `media_url`, `media_mimetype`,
+`quoted_message_id` and `is_from_me`. Status-only updates (read/delivered
+receipts) never overwrite the content or reorder the message.
+
+---
+
 ## Authentication
 
 Two credentials, both sent in the `apikey` header:
@@ -255,6 +275,8 @@ A few of the endpoints this fork adds or that are easy to get wrong:
 | `GET` | `/instance/overview/:instanceId` | global | Profile picture, push name, device platform, contact/chat/message counts |
 | `GET` | `/server/stats` | global | Runtime/host metrics, message aggregates, running version |
 | `GET` | `/dashboard` | — | Self-hosted dashboard page |
+| `GET` | `/chat/history` · `/chat/chats` | instance | Read stored messages / list conversations |
+| `POST` | `/instance/hmac` · `GET` · `DELETE` | instance | Configure webhook HMAC signing |
 | `POST` | `/chat/ephemeral` | instance | Set/clear the disappearing-messages timer for a chat |
 | `POST` | `/send/text` · `/send/media` · `/send/button` · `/send/list` · `/send/carousel` · `/send/event` · `/send/product` | instance | Send messages |
 | `POST` | `/instance/name/:instanceId` | global | Rename an instance (id/token unchanged) |

@@ -44,6 +44,7 @@ import (
 	label_model "github.com/evolution-foundation/evolution-go/pkg/label/model"
 	label_repository "github.com/evolution-foundation/evolution-go/pkg/label/repository"
 	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
+	message_content "github.com/evolution-foundation/evolution-go/pkg/message/content"
 	message_model "github.com/evolution-foundation/evolution-go/pkg/message/model"
 	message_repository "github.com/evolution-foundation/evolution-go/pkg/message/repository"
 	"github.com/evolution-foundation/evolution-go/pkg/passkey/ceremony"
@@ -2298,6 +2299,10 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			dataMap["referral"] = referral
 		}
 
+		// The media URL/mimetype captured below are also written to the history
+		// row, so a stored media message can be read back with its pointer.
+		var storedMediaURL, storedMediaMimetype string
+
 		if mycli.config.WebhookFiles {
 			isMedia := false
 
@@ -2505,6 +2510,8 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 							mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] S3/Minio upload successful - ID: %s, Size: %d bytes, Duration: %v, URL: %s", mycli.userID, evt.Info.ID, len(data), storageDuration, mediaURL)
 							messageMap["mediaUrl"] = mediaURL
 							messageMap["mimetype"] = mimeType
+							storedMediaURL = mediaURL
+							storedMediaMimetype = mimeType
 						}
 					} else {
 						mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Encoding to base64 - ID: %s, Size: %d bytes", mycli.userID, evt.Info.ID, len(data))
@@ -2563,13 +2570,26 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			if evt.Info.IsFromMe {
 				status = "Sent"
 			}
+
+			// Persist the visible content too, so the conversation can be read
+			// back via GET /chat/history. The stored JIDs are canonical and
+			// non-device so they match the endpoint's `chat` filter.
+			summary := message_content.Summarize(evt.Message)
 			message := message_model.Message{
-				MessageID:  evt.Info.ID,
-				InstanceId: mycli.userID,
-				Timestamp:  evt.Info.Timestamp.Format("2006-01-02 15:04:05"),
-				Status:     status,
-				Source:     evt.Info.Chat.ToNonAD().User,
-				Referral:   referral,
+				MessageID:       evt.Info.ID,
+				InstanceId:      mycli.userID,
+				Timestamp:       evt.Info.Timestamp.Format("2006-01-02 15:04:05"),
+				Status:          status,
+				Source:          evt.Info.Chat.ToNonAD().User,
+				Referral:        referral,
+				ChatJid:         evt.Info.Chat.ToNonAD().String(),
+				SenderJid:       evt.Info.Sender.ToNonAD().String(),
+				MessageType:     summary.Type,
+				TextContent:     summary.Text,
+				QuotedMessageID: summary.QuotedID,
+				IsFromMe:        evt.Info.IsFromMe,
+				MediaUrl:        storedMediaURL,
+				MediaMimetype:   storedMediaMimetype,
 			}
 
 			mycli.persistMessageAsync(message)

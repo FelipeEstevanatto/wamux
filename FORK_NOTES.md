@@ -930,6 +930,34 @@ integration tests proving they reject a loopback URL, and `pkg/ssrf` has unit
 tests for the address classification, the loopback/hostname dial path and the
 env toggle.
 
+## 3o. Message history readback (new in this fork)
+
+Upstream persists a message row only for dashboard counters: `message_id`,
+`timestamp`, `status`, `source` — no content. The fork extends the row with
+`chat_jid`, `sender_jid`, `message_type`, `text_content`, `media_url`,
+`media_mimetype`, `quoted_message_id` and `is_from_me`, and adds two endpoints:
+
+- `GET /chat/history?chat=<phone-or-JID>&limit=&before=` — one conversation,
+  newest first, keyset-paginated with `before`.
+- `GET /chat/chats?limit=` — conversations with their newest message and count.
+
+Content is extracted by `pkg/message/content` (a small dependency-free
+summarizer over `waE2E.Message`) and written on both the inbound path
+(`pkg/whatsmeow/service`) and the outbound path (`send_service.persistSentMessage`).
+The receipt path only moves the status: `messageUpdateColumns` returns just
+`status` for a content-less row, so a later Read/Delivered receipt cannot
+reorder the message to the receipt time or erase its text — previously a
+receipt overwrote the timestamp (and would have overwritten content). The
+`chat` filter normalizes a phone number or JID to the canonical stored JID
+(`utils.CanonicalJID(...).ToNonAD()`), so either form finds the conversation.
+Limits default to 50 and are capped at 500. Requires
+`DATABASE_SAVE_MESSAGES=true`.
+
+Covered by repository tests (upsert column selection, pagination/clamping,
+`ListChats`), service tests (JID normalization, empty-chat rejection) and
+`pkg/message/content` unit tests (every message kind, edits, deletes,
+reactions, quoting).
+
 ## 4. Build & run
 
 From the repository root (the `docker-compose.yml` is there):

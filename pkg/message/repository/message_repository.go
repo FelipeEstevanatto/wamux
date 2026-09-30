@@ -22,6 +22,43 @@ type MessageRepository interface {
 	CountChatsByInstance(instanceId string) (int64, error)
 	DatabaseSizeBytes() (totalBytes int64, messagesBytes int64, err error)
 	DeleteMessagesOlderThan(cutoff string) (int64, error)
+
+	// History readback (GET /chat/history and GET /chat/chats).
+	ListMessages(instanceId, chatJid, before string, limit int) ([]message_model.Message, error)
+	ListChats(instanceId string, limit int) ([]ChatSummary, error)
+}
+
+// ChatSummary is the per-conversation row returned by ListChats: the newest
+// message in the chat plus its total message count.
+type ChatSummary struct {
+	ChatJid      string `json:"chat_jid" gorm:"column:chat_jid"`
+	MessageID    string `json:"last_message_id" gorm:"column:message_id"`
+	Timestamp    string `json:"last_timestamp" gorm:"column:timestamp"`
+	MessageType  string `json:"last_message_type" gorm:"column:message_type"`
+	TextContent  string `json:"last_text_content" gorm:"column:text_content"`
+	Status       string `json:"last_status" gorm:"column:status"`
+	MediaUrl     string `json:"last_media_url" gorm:"column:media_url"`
+	SenderJid    string `json:"last_sender_jid" gorm:"column:sender_jid"`
+	IsFromMe     bool   `json:"last_from_me" gorm:"column:is_from_me"`
+	MessageCount int64  `json:"message_count" gorm:"column:message_count"`
+}
+
+// History pagination bounds. A request without a limit returns the most recent
+// page; an oversized limit is clamped so a single call cannot pull an entire
+// conversation into memory.
+const (
+	defaultHistoryLimit = 50
+	maxHistoryLimit     = 500
+)
+
+func clampHistoryLimit(limit int) int {
+	if limit <= 0 {
+		return defaultHistoryLimit
+	}
+	if limit > maxHistoryLimit {
+		return maxHistoryLimit
+	}
+	return limit
 }
 
 // StatKV is a label/count pair used by the dashboard aggregations.
@@ -84,7 +121,19 @@ func WithRollup(enabled bool) Option {
 }
 
 func messageUpdateColumns(message message_model.Message) []string {
-	updates := []string{"timestamp", "status", "source"}
+	// A status-only row (a read/delivered receipt) must move only the delivery
+	// state. Writing timestamp/source/content for it would reorder the message
+	// to the receipt time and erase what it said. Content rows carry the
+	// message and overwrite everything.
+	if message.MessageType == "" && message.ChatJid == "" && message.TextContent == "" {
+		return []string{"status"}
+	}
+
+	updates := []string{
+		"timestamp", "status", "source",
+		"chat_jid", "sender_jid", "message_type", "text_content",
+		"media_url", "media_mimetype", "quoted_message_id", "is_from_me",
+	}
 	if len(message.Referral) > 0 {
 		updates = append(updates, "referral")
 	}
@@ -157,6 +206,57 @@ func (m *messageRepository) DeleteAllMessages() (int64, error) {
 	result := m.db.Exec("DELETE FROM messages")
 	m.invalidateAggregates()
 	return result.RowsAffected, result.Error
+}
+
+// ListMessages returns a conversation's stored messages, newest first.
+// `before` (a "YYYY-MM-DD HH:MM:SS" timestamp) pages backwards: it returns the
+// messages strictly older than the newest one already seen.
+func (m *messageRepository) ListMessages(instanceId, chatJid, before string, limit int) ([]message_model.Message, error) {
+	messages := make([]message_model.Message, 0)
+	if instanceId == "" || chatJid == "" {
+		return messages, nil
+	}
+
+	query := m.db.Where("instance_id = ? AND chat_jid = ?", instanceId, chatJid)
+	if before != "" {
+		query = query.Where(`"timestamp" < ?`, before)
+	}
+
+	err := query.
+		Order(`"timestamp" DESC`).
+		Order("id DESC").
+		Limit(clampHistoryLimit(limit)).
+		Find(&messages).Error
+	return messages, err
+}
+
+// ListChats returns each conversation's newest message plus its total count,
+// ordered by most recent activity. Postgres-only (DISTINCT ON), like the rest
+// of the repository's raw SQL.
+func (m *messageRepository) ListChats(instanceId string, limit int) ([]ChatSummary, error) {
+	summaries := make([]ChatSummary, 0)
+	if instanceId == "" {
+		return summaries, nil
+	}
+
+	// DISTINCT ON keeps the newest row per chat_jid. The window count runs over
+	// the whole partition before the distinct is applied, so it is the chat's
+	// full message count.
+	const query = `
+SELECT * FROM (
+    SELECT DISTINCT ON (chat_jid)
+        chat_jid, message_id, "timestamp", message_type, text_content, status,
+        media_url, sender_jid, is_from_me,
+        count(*) OVER (PARTITION BY chat_jid) AS message_count
+    FROM messages
+    WHERE instance_id = ? AND chat_jid <> ''
+    ORDER BY chat_jid, "timestamp" DESC
+) t
+ORDER BY "timestamp" DESC
+LIMIT ?`
+
+	err := m.db.Raw(query, instanceId, clampHistoryLimit(limit)).Scan(&summaries).Error
+	return summaries, err
 }
 
 func (m *messageRepository) GetLatestMessageID(source string) (string, string, error) {
