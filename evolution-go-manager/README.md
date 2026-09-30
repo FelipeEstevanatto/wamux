@@ -39,6 +39,10 @@ locally with `make manager-build`, which syncs the build into `manager/dist`.
 
 ## Quick start
 
+> The production build (`tsc -b && vite build`) needs **Node.js ≥ 20** (Node 26
+> is tested); the bundler fails on older Node. The Docker image builds it with
+> bun, so this only affects local builds.
+
 ```bash
 # Install (pnpm, bun or npm)
 pnpm install        # or: bun install / npm install
