@@ -50,6 +50,7 @@ import (
 	"github.com/evolution-foundation/evolution-go/pkg/passkey/ceremony"
 	poll_service "github.com/evolution-foundation/evolution-go/pkg/poll/service"
 	storage_interfaces "github.com/evolution-foundation/evolution-go/pkg/storage/interfaces"
+	minio_storage "github.com/evolution-foundation/evolution-go/pkg/storage/minio"
 	"github.com/evolution-foundation/evolution-go/pkg/utils"
 	"github.com/evolution-foundation/evolution-go/pkg/walimits"
 	"github.com/evolution-foundation/evolution-go/pkg/webhooksign"
@@ -91,6 +92,14 @@ type WhatsmeowService interface {
 	// instance so a key configured at runtime takes effect immediately, without
 	// waiting for a reconnect. An empty key clears it.
 	SetWebhookHmacKey(instanceId string, plaintextKey string)
+
+	// MediaStorageFor resolves the storage to use for an instance's inbound
+	// media and the delivery mode ("base64", "s3" or "both"): the instance's own
+	// S3 config if enabled, else the global MinIO config, else none.
+	MediaStorageFor(instance *instance_model.Instance) (storage_interfaces.MediaStorage, string)
+	// InvalidateMediaStorage drops a cached per-instance storage (call after
+	// the S3 config changes).
+	InvalidateMediaStorage(instanceId string)
 	GetPollService() poll_service.PollService // NOVO: Acesso ao serviço de polls
 
 	// Passkey (WebAuthn) pairing bridge — read by the public ceremony endpoint,
@@ -168,6 +177,9 @@ type whatsmeowService struct {
 	// changed while the client is running, overriding the (possibly stale)
 	// encrypted copy on the in-memory instance. Empty string means "no key".
 	webhookHmacKeys *safemap.Map[string]
+	// instanceS3Storage caches a built per-instance S3 storage, keyed by
+	// instance id, with the config signature it was built from.
+	instanceS3Storage *safemap.Map[instanceS3Entry]
 	// authStore is heap-allocated so sync.Once works with value-receiver methods like StartClient.
 	authStore *sharedSQLStore
 }
@@ -2492,19 +2504,21 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 				// Only process storage if download was successful
 				if err == nil && len(data) > 0 {
-					if mycli.config.MinioEnabled {
+					// Resolve where to store: the instance's own S3 if enabled,
+					// else the global MinIO config, else nowhere (base64 only).
+					storage, delivery := mycli.service.MediaStorageFor(mycli.Instance)
+
+					if storage != nil && (delivery == "s3" || delivery == "both") {
 						fileName := evt.Info.ID + extension
 						storageStart := time.Now()
 
 						mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Uploading to S3/Minio - ID: %s, FileName: %s, Size: %d bytes", mycli.userID, evt.Info.ID, fileName, len(data))
 
-						mediaURL, err := mycli.mediaStorage.Store(context.Background(), data, fileName, mimeType)
+						mediaURL, storeErr := storage.Store(context.Background(), data, fileName, mimeType)
 						storageDuration := time.Since(storageStart)
 
-						if err != nil {
-							mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to store media in S3/Minio - ID: %s, Size: %d bytes, Duration: %v, Error: %v", mycli.userID, evt.Info.ID, len(data), storageDuration, err)
-
-							// Continue processing without storage URL
+						if storeErr != nil {
+							mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to store media in S3/Minio - ID: %s, Size: %d bytes, Duration: %v, Error: %v", mycli.userID, evt.Info.ID, len(data), storageDuration, storeErr)
 							mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Continuing message processing without S3 URL - ID: %s", mycli.userID, evt.Info.ID)
 						} else {
 							mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] S3/Minio upload successful - ID: %s, Size: %d bytes, Duration: %v, URL: %s", mycli.userID, evt.Info.ID, len(data), storageDuration, mediaURL)
@@ -2513,7 +2527,9 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 							storedMediaURL = mediaURL
 							storedMediaMimetype = mimeType
 						}
-					} else {
+					}
+
+					if delivery == "base64" || delivery == "both" {
 						mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Encoding to base64 - ID: %s, Size: %d bytes", mycli.userID, evt.Info.ID, len(data))
 						encodeStart := time.Now()
 
@@ -3522,6 +3538,82 @@ func (w *whatsmeowService) webhookSigningKey(instance *instance_model.Instance) 
 	return nil
 }
 
+// instanceS3Entry is a built per-instance storage plus the config signature it
+// was built from, so a config change is detected and the client rebuilt.
+type instanceS3Entry struct {
+	signature string
+	storage   storage_interfaces.MediaStorage
+}
+
+// InvalidateMediaStorage drops the cached per-instance S3 storage.
+func (w *whatsmeowService) InvalidateMediaStorage(instanceId string) {
+	if w.instanceS3Storage != nil {
+		w.instanceS3Storage.Delete(instanceId)
+	}
+}
+
+// MediaStorageFor resolves where an instance's inbound media should be stored
+// and how it should be delivered:
+//
+//   - the instance's own S3 config (when enabled and complete) -> its
+//     mediaDelivery mode ("base64", "s3" or "both");
+//   - else the global MinIO config (matching the historical behaviour) -> "s3";
+//   - else no storage -> "base64".
+func (w *whatsmeowService) MediaStorageFor(instance *instance_model.Instance) (storage_interfaces.MediaStorage, string) {
+	if instance != nil && instance.S3Enabled && instance.S3Endpoint != "" && instance.S3Bucket != "" {
+		sig := strings.Join([]string{
+			instance.S3Endpoint, instance.S3Bucket, instance.S3AccessKey,
+			instance.S3Region, fmt.Sprintf("%v", instance.S3PathStyle),
+			instance.S3SecretKey, instance.S3PublicURL,
+		}, "|")
+		if entry, ok := w.instanceS3Storage.Lookup(instance.Id); ok && entry.signature == sig {
+			return entry.storage, instanceMediaDelivery(instance.S3MediaDelivery)
+		}
+
+		secret, err := webhooksign.Decrypt(w.config.DataEncryptionKey, instance.S3SecretKey)
+		if err != nil {
+			w.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Could not decrypt the S3 secret; using base64 for this media", instance.Id)
+		} else {
+			host, useSSL := minio_storage.NormalizeEndpoint(instance.S3Endpoint)
+			storage, berr := minio_storage.NewMinioMediaStorageWithOptions(minio_storage.Options{
+				Endpoint:         host,
+				AccessKey:        instance.S3AccessKey,
+				SecretKey:        secret,
+				Bucket:           instance.S3Bucket,
+				Region:           instance.S3Region,
+				UseSSL:           useSSL,
+				PathStyle:        instance.S3PathStyle,
+				PublicURL:        instance.S3PublicURL,
+				SkipBucketPolicy: instance.S3PublicURL != "",
+			})
+			if berr != nil {
+				w.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to build per-instance S3 storage: %v", instance.Id, berr)
+			} else {
+				w.instanceS3Storage.Set(instance.Id, instanceS3Entry{signature: sig, storage: storage})
+				return storage, instanceMediaDelivery(instance.S3MediaDelivery)
+			}
+		}
+	}
+
+	if w.config.MinioEnabled && w.mediaStorage != nil {
+		return w.mediaStorage, "s3"
+	}
+	return nil, "base64"
+}
+
+// instanceMediaDelivery normalizes a stored delivery mode, defaulting to
+// base64 for anything unrecognized.
+func instanceMediaDelivery(mode string) string {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case "s3":
+		return "s3"
+	case "both":
+		return "both"
+	default:
+		return "base64"
+	}
+}
+
 func (w whatsmeowService) StartInstance(instanceId string) error {
 	instance, err := w.instanceRepository.GetInstanceByID(instanceId)
 	if err != nil {
@@ -4066,6 +4158,7 @@ func NewWhatsmeowService(
 		mediaRetryPending:  cache.New(10*time.Minute, 15*time.Minute),
 		mediaRetryBytes:    cache.New(30*time.Minute, time.Hour),
 		webhookHmacKeys:    safemap.New[string](),
+		instanceS3Storage:  safemap.New[instanceS3Entry](),
 		authStore:          &sharedSQLStore{},
 		persistPool:        newPersistPool(persistWorkers, persistQueueSize),
 	}

@@ -27,6 +27,7 @@ type InstanceRepository interface {
 	UpdateProxy(userId string, proxy string) error
 	UpdateJid(userId string, jid string) error
 	UpdateHmacKey(userId string, encryptedKey string) error
+	UpdateS3Config(instanceId string, updates map[string]interface{}) error
 	UpdateName(instanceId string, name string) error
 	UpdateConnectSettings(instanceId string, updates map[string]interface{}) error
 	GetAllConnectedInstances() ([]*instance_model.Instance, error)
@@ -141,6 +142,19 @@ func (i *instanceRepository) UpdateConnectSettings(instanceId string, updates ma
 	err := i.db.Model(&instance_model.Instance{}).Where("id = ?", instanceId).Updates(updates).Error
 	if err != nil {
 		applog.Logger.LogError("Error updating connect settings in DB: %v", err)
+	}
+	return err
+}
+
+// UpdateS3Config writes the per-instance S3 columns (a partial update, so an
+// omitted field is left untouched).
+func (i *instanceRepository) UpdateS3Config(instanceId string, updates map[string]interface{}) error {
+	if len(updates) == 0 {
+		return nil
+	}
+	err := i.db.Model(&instance_model.Instance{}).Where("id = ?", instanceId).Updates(updates).Error
+	if err != nil {
+		applog.Logger.LogError("Error updating S3 config in DB: %v", err)
 	}
 	return err
 }

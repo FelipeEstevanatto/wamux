@@ -239,6 +239,30 @@ enabled — there is no separate allowlist yet.
 
 ---
 
+## Per-instance S3 storage
+
+Each instance can use its own S3-compatible bucket for inbound media, overriding
+the global MinIO config. Configured at runtime with the instance token:
+
+| Method | Endpoint | Body / result |
+|---|---|---|
+| `POST` | `/instance/s3` | `{enabled, endpoint, region, bucket, accessKey, secretKey, pathStyle, publicUrl, mediaDelivery}`. `mediaDelivery` is `base64` \| `s3` \| `both`. An empty `secretKey` on update keeps the stored one. |
+| `GET` | `/instance/s3` | Config with the secret masked (`secretKeySet`). |
+| `DELETE` | `/instance/s3` | Clear the config (revert to global MinIO / base64). |
+| `POST` | `/instance/s3/test` | Reachability check (no writes); omitted fields fall back to the stored config. |
+
+The secret is encrypted at rest (AES-256-GCM, same key material as HMAC — set
+`WEBHOOK_HMAC_ENCRYPTION_KEY`/`GLOBAL_ENCRYPTION_KEY` to keep it stable).
+`endpoint` may include a scheme (`https://…`); without one, TLS is off.
+`publicUrl` (a CDN/public base URL) is used instead of presigned URLs when set.
+`mediaDelivery` controls the webhook payload: `s3` (URL only), `base64`, or
+`both` (default). The config is cached per instance and rebuilt when it changes.
+
+Outbound/sent media is not uploaded to S3 (only inbound media is), and object
+retention is not enforced yet.
+
+---
+
 ## Message history readback
 
 When `DATABASE_SAVE_MESSAGES=true` (the default), inbound and outbound messages
@@ -290,6 +314,7 @@ A few of the endpoints this fork adds or that are easy to get wrong:
 | `GET` | `/dashboard` | — | Self-hosted dashboard page |
 | `GET` | `/chat/history` · `/chat/chats` | instance | Read stored messages / list conversations |
 | `POST` | `/instance/hmac` · `GET` · `DELETE` | instance | Configure webhook HMAC signing |
+| `POST` | `/instance/s3` · `GET` · `DELETE` · `POST /instance/s3/test` | instance | Per-instance S3 media storage |
 | `POST` | `/chat/ephemeral` | instance | Set/clear the disappearing-messages timer for a chat |
 | `POST` | `/send/text` · `/send/media` · `/send/button` · `/send/list` · `/send/carousel` · `/send/event` · `/send/product` | instance | Send messages |
 | `POST` | `/instance/name/:instanceId` | global | Rename an instance (id/token unchanged) |

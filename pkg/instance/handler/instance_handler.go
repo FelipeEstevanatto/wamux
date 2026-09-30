@@ -41,6 +41,10 @@ type InstanceHandler interface {
 	SetHmac(ctx *gin.Context)
 	GetHmac(ctx *gin.Context)
 	DeleteHmac(ctx *gin.Context)
+	SetS3(ctx *gin.Context)
+	GetS3(ctx *gin.Context)
+	DeleteS3(ctx *gin.Context)
+	TestS3(ctx *gin.Context)
 }
 
 type instanceHandler struct {
@@ -997,6 +1001,113 @@ func (h *instanceHandler) authenticatedInstance(c *gin.Context) (*instance_model
 		return nil, false
 	}
 	return instance, true
+}
+
+// SetS3 configures the per-instance S3 media storage
+// @Summary Configure per-instance S3 storage
+// @Description Sets the instance's own S3-compatible media storage (overriding the global MinIO config). The secret key is encrypted at rest and never returned.
+// @Tags Instance
+// @Accept json
+// @Produce json
+// @Param request body instance_service.S3ConfigStruct true "S3 configuration"
+// @Success 200 {object} docmodels.Envelope "Configured"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
+// @Router /instance/s3 [post]
+func (h *instanceHandler) SetS3(c *gin.Context) {
+	instance, ok := h.authenticatedInstance(c)
+	if !ok {
+		return
+	}
+
+	var data instance_service.S3ConfigStruct
+	if err := c.ShouldBindJSON(&data); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	status, err := h.instanceService.SetS3Config(instance.Id, &data)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "success", "data": status})
+}
+
+// GetS3 reports the per-instance S3 configuration
+// @Summary Get per-instance S3 configuration
+// @Description Returns the instance's S3 config with the secret masked (secretKeySet only).
+// @Tags Instance
+// @Produce json
+// @Success 200 {object} docmodels.Envelope "Configuration"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
+// @Router /instance/s3 [get]
+func (h *instanceHandler) GetS3(c *gin.Context) {
+	instance, ok := h.authenticatedInstance(c)
+	if !ok {
+		return
+	}
+
+	status, err := h.instanceService.GetS3Config(instance.Id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "success", "data": status})
+}
+
+// DeleteS3 clears the per-instance S3 configuration
+// @Summary Delete per-instance S3 configuration
+// @Description Removes the instance's S3 config, reverting it to the global MinIO config (or base64).
+// @Tags Instance
+// @Produce json
+// @Success 200 {object} docmodels.Envelope "Cleared"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
+// @Router /instance/s3 [delete]
+func (h *instanceHandler) DeleteS3(c *gin.Context) {
+	instance, ok := h.authenticatedInstance(c)
+	if !ok {
+		return
+	}
+
+	if err := h.instanceService.DeleteS3Config(instance.Id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "success"})
+}
+
+// TestS3 probes the instance's S3 bucket
+// @Summary Test per-instance S3 connection
+// @Description Verifies the endpoint and bucket are reachable. Omitted fields fall back to the stored config; performs no writes.
+// @Tags Instance
+// @Accept json
+// @Produce json
+// @Param request body instance_service.S3ConfigStruct false "Optional S3 override"
+// @Success 200 {object} docmodels.Envelope "Reachable"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
+// @Router /instance/s3/test [post]
+func (h *instanceHandler) TestS3(c *gin.Context) {
+	instance, ok := h.authenticatedInstance(c)
+	if !ok {
+		return
+	}
+
+	// Body is optional: an empty body tests the stored config.
+	var data instance_service.S3ConfigStruct
+	_ = c.ShouldBindJSON(&data)
+
+	result, err := h.instanceService.TestS3Connection(instance.Id, &data)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "success", "data": result})
 }
 
 func NewInstanceHandler(instanceService instance_service.InstanceService, config *config.Config) InstanceHandler {
