@@ -88,24 +88,31 @@ committed, served by the app) and everything in the current tree were kept.
 All commits, messages, authors and dates are preserved — only the hashes
 changed. A pre-rewrite mirror backup was taken before running this.
 
-**Consequence for upstream sync.** Because the rewrite touched the commits that
-were shared with `evolution-foundation/evolution-go`, the fork no longer shares
-commit hashes with it, so a plain `git merge upstream/main` is no longer a
-hash-based merge and would re-import the purged artifacts. Bringing upstream
-changes in is now a port, not a merge:
+**Consequence for upstream sync.** The rewrite only touched commits that
+contained the purged paths, so the fork still shares the *pre-artifact* upstream
+history (the merge base is `877eef7` "release: v0.6.1"). A plain
+`git merge upstream/main` is therefore still possible — but it would re-add the
+purged artifacts, because every upstream commit since v0.6.1 carries them. Port
+upstream changes instead of merging them, and keep upstream in a **separate
+clone** so the fork repo never re-imports the artifacts:
 
 ```bash
-# Keep upstream in a separate clone and cherry-pick what is needed, e.g.
-git clone https://github.com/evolution-foundation/evolution-go.git /tmp/upstream-evo
-git -C /tmp/upstream-evo fetch origin
-git remote add upstream-evo /tmp/upstream-evo
-git fetch --filter=blob:none upstream-evo   # commits/trees only, no big blobs
-git cherry-pick -x FETCH_HEAD               # or apply a range of commits
+git clone --filter=blob:none https://github.com/evolution-foundation/evolution-go.git /tmp/upstream-evo
+git -C /tmp/upstream-evo log --oneline -20
+git -C /tmp/upstream-evo format-patch --stdout <old>..<new> | git am -3   # in the fork
+# or, from inside the fork:
+git fetch /tmp/upstream-evo <sha> && git cherry-pick -x FETCH_HEAD
 ```
 
-Configuring the remote as a partial clone (`--filter=blob:none`, as above) keeps
-future fetches from downloading the purged binaries again. The `.git/filter-repo/`
-directory holds the old→new commit map if a mapping is ever needed.
+> **Do not enable partial clone on this repo.** Fetching upstream with
+> `--filter=blob:none` sets `extensions.partialClone`; a later `git gc` then
+> pruned objects it treated as remotely-fetchable and left the local history
+> with missing trees/blobs. It had to be repaired by re-importing the missing
+> objects from the pre-rewrite backup. Always do blob:none fetches in a
+> throwaway clone, never in the fork.
+
+The `.git/filter-repo/` directory holds the old→new commit map if a mapping is
+ever needed.
 
 ## 2. Applied community fixes
 
