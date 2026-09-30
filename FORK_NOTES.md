@@ -68,6 +68,45 @@ endorsed by, or an official release of Evolution Foundation.
   while removing the logo triggers 1.a. Any use not expressly permitted needs
   written permission (`TRADEMARKS.md` §5, suporte@evofoundation.com.br).
 
+## 1c. History rewrite — build artifacts purged
+
+Upstream historically committed build artifacts into git. They were removed from
+the working tree but stayed reachable in history and dominated the pack (~388 MiB
+of a 413 MiB `.git`). History was rewritten once to drop them:
+
+| Path (removed from all history) | Was |
+|---|---|
+| `evolution-go` | 64 MiB Linux ELF at the repo root |
+| `evolution-go.exe` | 92 MiB Windows binary |
+| `build/server` | 61 MiB compiled server |
+| `cmd/evolution-go/tmp/`, `cmd/evolution-go/logs/` | temp binaries and run logs |
+| `manager-v2/` | a superseded copy of the manager (node_modules + dist) |
+| `evolution-go-manager/node_modules/` | committed dependencies |
+
+Pack size went from **~388 MiB to ~8 MiB**; `manager/dist` (deliberately
+committed, served by the app) and everything in the current tree were kept.
+All commits, messages, authors and dates are preserved — only the hashes
+changed. A pre-rewrite mirror backup was taken before running this.
+
+**Consequence for upstream sync.** Because the rewrite touched the commits that
+were shared with `evolution-foundation/evolution-go`, the fork no longer shares
+commit hashes with it, so a plain `git merge upstream/main` is no longer a
+hash-based merge and would re-import the purged artifacts. Bringing upstream
+changes in is now a port, not a merge:
+
+```bash
+# Keep upstream in a separate clone and cherry-pick what is needed, e.g.
+git clone https://github.com/evolution-foundation/evolution-go.git /tmp/upstream-evo
+git -C /tmp/upstream-evo fetch origin
+git remote add upstream-evo /tmp/upstream-evo
+git fetch --filter=blob:none upstream-evo   # commits/trees only, no big blobs
+git cherry-pick -x FETCH_HEAD               # or apply a range of commits
+```
+
+Configuring the remote as a partial clone (`--filter=blob:none`, as above) keeps
+future fetches from downloading the purged binaries again. The `.git/filter-repo/`
+directory holds the old→new commit map if a mapping is ever needed.
+
 ## 2. Applied community fixes
 
 All of these are main-branch PRs based on `0.7.2`, except where noted as ported
