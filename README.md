@@ -157,6 +157,7 @@ SWAGGER_ENABLED=true        # set false to hide /swagger
 # WEBHOOK_URL=https://your-webhook-url.com/webhook
 # WEBHOOK_HMAC_KEY=               # global webhook signing key
 # WEBHOOK_HMAC_ENCRYPTION_KEY=    # encrypts per-instance keys at rest
+# SSRF_PROTECTION=true            # block loopback/private/metadata fetches
 # PASSKEY_PUBLIC_URL=https://your-api.example.com
 # AMQP_URL=amqp://user:pass@rabbitmq:5672/
 # NATS_URL=nats://nats:4222
@@ -176,6 +177,7 @@ SWAGGER_ENABLED=true        # set false to hide /swagger
 | `LOG_TYPE` | `console` or `file` | `console` |
 | `WEBHOOK_HMAC_KEY` | Global HMAC key for webhook signing | — |
 | `WEBHOOK_HMAC_ENCRYPTION_KEY` | AES key encrypting per-instance HMAC keys at rest | derived from `GLOBAL_API_KEY` |
+| `SSRF_PROTECTION` | Refuse outbound fetches to loopback/private/link-local hosts | `true` |
 
 ---
 
@@ -207,6 +209,20 @@ The key is stored AES-256-GCM encrypted with `WEBHOOK_HMAC_ENCRYPTION_KEY`
 `GLOBAL_API_KEY`, so it works with no extra configuration). Changing
 `GLOBAL_API_KEY` while using the derived key invalidates stored keys, so set an
 explicit `WEBHOOK_HMAC_ENCRYPTION_KEY` for long-lived deployments.
+
+---
+
+## SSRF protection
+
+Endpoints that fetch a caller-supplied URL (media by URL, link previews,
+stickers, avatars, group photos, button/carousel headers) refuse to connect to
+loopback, private (RFC1918), link-local — including the `169.254.169.254` cloud
+metadata endpoint — CGNAT and multicast addresses. The check runs in the HTTP
+dialer and connects to the validated IP directly, so it also covers redirects
+and DNS rebinding. Enabled by default.
+
+Set `SSRF_PROTECTION=false` only if you legitimately fetch media from a private
+or internal host.
 
 ---
 

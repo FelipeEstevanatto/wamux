@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"github.com/evolution-foundation/evolution-go/pkg/safemap"
 	"io"
-	"net/http"
 	"strings"
 	"time"
 
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
 	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
+	"github.com/evolution-foundation/evolution-go/pkg/ssrf"
 	"github.com/evolution-foundation/evolution-go/pkg/utils"
 	whatsmeow_service "github.com/evolution-foundation/evolution-go/pkg/whatsmeow/service"
 	"github.com/gin-gonic/gin"
@@ -20,8 +20,9 @@ import (
 	"go.mau.fi/whatsmeow/types"
 )
 
-// groupImageHTTPClient bounds downloads of user-supplied group photo URLs.
-var groupImageHTTPClient = &http.Client{Timeout: 30 * time.Second}
+// groupImageHTTPClient bounds downloads of user-supplied group photo URLs. It is
+// SSRF-guarded (see pkg/ssrf).
+var groupImageHTTPClient = ssrf.DefaultClient(30 * time.Second)
 
 // maxGroupPhotoBytes caps a single group-photo download. The bytes are held in
 // memory and re-uploaded, so an unbounded fetch is a DoS vector.

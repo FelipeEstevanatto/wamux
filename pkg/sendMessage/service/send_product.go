@@ -11,6 +11,7 @@ import (
 	"time"
 
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
+	"github.com/evolution-foundation/evolution-go/pkg/ssrf"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"google.golang.org/protobuf/proto"
@@ -60,7 +61,7 @@ type ProductStruct struct {
 
 const productImageMaxBytes = 16 << 20 // 16 MiB
 
-var productImageHTTPClient = &http.Client{Timeout: 30 * time.Second}
+var productImageHTTPClient = ssrf.DefaultClient(30 * time.Second)
 
 func productImageBytes(data *ProductStruct) ([]byte, error) {
 	if data.ImageBase64 != "" {

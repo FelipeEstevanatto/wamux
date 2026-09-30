@@ -28,6 +28,7 @@ import (
 	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
 	message_model "github.com/evolution-foundation/evolution-go/pkg/message/model"
 	message_repository "github.com/evolution-foundation/evolution-go/pkg/message/repository"
+	"github.com/evolution-foundation/evolution-go/pkg/ssrf"
 	"github.com/evolution-foundation/evolution-go/pkg/utils"
 	whatsmeow_service "github.com/evolution-foundation/evolution-go/pkg/whatsmeow/service"
 	"github.com/gabriel-vasile/mimetype"
@@ -137,8 +138,10 @@ func quotedMessageContent(text string) *waE2E.Message {
 
 // mediaHTTPClient is used for every outbound fetch in this package (media URLs,
 // link previews, thumbnails). A bounded client stops a slow/hanging remote host
-// from pinning a send request or one of its goroutines forever.
-var mediaHTTPClient = &http.Client{Timeout: 60 * time.Second}
+// from pinning a send request or one of its goroutines forever. The transport
+// is SSRF-guarded: a caller-supplied URL cannot reach loopback, private,
+// link-local (cloud metadata) or multicast addresses. See pkg/ssrf.
+var mediaHTTPClient = ssrf.DefaultClient(60 * time.Second)
 
 // maxRemoteMediaBytes caps a single outbound fetch (URL media, link preview,
 // button/carousel headers). A malicious or broken remote host must not be able
@@ -1890,7 +1893,9 @@ func isAnimatedWebP(data []byte) bool {
 
 const stickerDownloadMaxBytes = 16 << 20 // 16 MiB
 
-var stickerHTTPClient = &http.Client{Timeout: 30 * time.Second}
+// stickerHTTPClient fetches caller-supplied sticker URLs; it is SSRF-guarded
+// like mediaHTTPClient.
+var stickerHTTPClient = ssrf.DefaultClient(30 * time.Second)
 
 func fetchStickerData(ctx context.Context, rawURL string) ([]byte, error) {
 	parsed, err := url.Parse(rawURL)

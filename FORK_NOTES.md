@@ -904,6 +904,32 @@ pushed as plaintext, and cleared correctly.
 
 Fully optional: with no key configured, existing consumers need no change.
 
+## 3n. Outbound URL SSRF protection (new in this fork)
+
+Several endpoints fetch a URL the caller supplies: media by URL
+(`/send/media`, `/send/status/media`), link preview images
+(`/send/link`), sticker URLs (`/send/sticker`), button/carousel header
+images/videos, profile-picture URLs (`/user/profilePicture`, `/user/avatar`) and
+group photo URLs (`/group/photo`). Upstream fetched all of them with a plain
+`http.Client`, so a caller could point the API at `http://169.254.169.254/…`
+(the cloud metadata service), `http://127.0.0.1:…` or any internal host and read
+the response back — server-side request forgery.
+
+This fork adds `pkg/ssrf`: an `http.Client`/`Transport` whose dialer resolves
+the host, refuses loopback, RFC1918 private, link-local/metadata, CGNAT and
+multicast addresses, and connects to a **validated IP directly** so the name is
+never re-resolved. Because the check is in `DialContext`, it also covers
+redirects (every hop re-dials) and DNS rebinding (the validated IP is the one
+dialled). The outbound clients in `pkg/sendMessage`, `pkg/user` and `pkg/group`
+now use it.
+
+Enabled by default; `SSRF_PROTECTION=false` restores the old behaviour for
+deployments that legitimately fetch media from a private host. The fetch
+helpers in `send_service` (`fetchLinkThumbnail`, `fetchStickerData`) have
+integration tests proving they reject a loopback URL, and `pkg/ssrf` has unit
+tests for the address classification, the loopback/hostname dial path and the
+env toggle.
+
 ## 4. Build & run
 
 From the repository root (the `docker-compose.yml` is there):
