@@ -96,6 +96,8 @@ function Bubble({ message }: { message: HistoryMessage }) {
 
 export default function Messages() {
   const instances = useInstancesStore((s) => s.instances);
+  const instancesLoading = useInstancesStore((s) => s.isLoading);
+  const fetchInstances = useInstancesStore((s) => s.fetchInstances);
   const connected = useMemo(
     () => instances.filter((i) => i.connected),
     [instances]
@@ -121,6 +123,13 @@ export default function Messages() {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [mobileThread, setMobileThread] = useState(false);
+
+  // Populate the instance list when this page is opened directly. The store is
+  // otherwise only filled by the Instances/Dashboard pages, so a direct load of
+  // /manager/messages would otherwise report "no connected instance".
+  useEffect(() => {
+    void fetchInstances();
+  }, [fetchInstances]);
 
   // Pick the first connected instance once one is available.
   useEffect(() => {
@@ -258,6 +267,14 @@ export default function Messages() {
     () => chats.find((c) => c.chat_jid === selectedChat),
     [chats, selectedChat]
   );
+
+  if (instancesLoading && instances.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center p-8 text-sm text-muted-foreground">
+        Carregando instâncias…
+      </div>
+    );
+  }
 
   if (connected.length === 0) {
     return (
