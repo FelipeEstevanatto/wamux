@@ -49,6 +49,17 @@ Three additive features, all disabled/unchanged by default unless configured.
   repository (upsert column selection, pagination, chats) and the
   HMAC/history HTTP handlers.
 
+### 🐛 Bug Fixes
+- **Chat history: one conversation per contact** — a 1:1 chat could be stored
+  twice, once under its LID (`…@lid`) and once under its phone-number JID, so it
+  showed as two conversations. Chat and sender are now canonicalized to the
+  phone-number JID when persisting, and `/chat/chats` + `/chat/history` merge
+  rows already stored under a LID (resolved via the whatsmeow LID store).
+- **Manager: `/manager/messages` on a direct load** — the page now loads the
+  instance list itself (previously it reported "no connected instance" until
+  another page populated the store), and a **Mensagens** entry was added to the
+  sidebar.
+
 ## 0.8.1 — `fork/community-stable`
 
 Rebrand do painel para **Evo-GoFork** (fork comunitário, não oficial), remoção

@@ -1015,6 +1015,14 @@ Covered by repository tests (upsert column selection, pagination/clamping,
 `pkg/message/content` unit tests (every message kind, edits, deletes,
 reactions, quoting).
 
+**Chat identity (LID vs phone number).** A 1:1 conversation can be addressed by
+either its LID (`…@lid`) or its phone-number JID, and the two forms used to be
+stored separately — the same contact appeared as two conversations. New rows are
+canonicalized to the phone-number JID when the LID mapping is known
+(`CanonicalChatJID`, resolved from the whatsmeow LID store), and `/chat/chats` +
+`/chat/history` merge rows already stored under a LID (`AlternateChatJID`), so a
+contact is always a single conversation.
+
 ## 3p. Per-instance S3 media storage (new in this fork)
 
 WuzAPI lets each user attach their own S3 bucket with a delivery mode; upstream

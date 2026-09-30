@@ -7,6 +7,7 @@ import (
 	"github.com/evolution-foundation/evolution-go/pkg/safemap"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -695,11 +696,11 @@ func (m *messageService) EditMessage(data *EditMessageStruct, instance *instance
 	return resp.ID, resp.Timestamp.String(), nil
 }
 
-// normalizeChatJid turns a phone number or JID into the canonical, non-device
-// JID stored in messages.chat_jid, so a lookup by number and a lookup by full
-// JID both find the same conversation. It also strips the device suffix and the
-// leading "+".
-func normalizeChatJid(raw string) (string, bool) {
+// canonicalChat turns a phone number or JID into the canonical JID stored in
+// messages.chat_jid. When the chat is LID-addressed and the running instance
+// knows the LID->phone mapping, the phone-number JID is returned, so a 1:1
+// conversation is not split across a LID row and a PN row.
+func (m *messageService) canonicalChat(instanceId, raw string) (string, bool) {
 	if strings.TrimSpace(raw) == "" {
 		return "", false
 	}
@@ -707,38 +708,155 @@ func normalizeChatJid(raw string) (string, bool) {
 	if !ok {
 		return "", false
 	}
-	return utils.CanonicalJID(jid).ToNonAD().String(), true
+	jid = utils.CanonicalJID(jid)
+	if m.clientPointer != nil {
+		if client := m.clientPointer.Get(instanceId); client != nil {
+			jid = whatsmeow_service.CanonicalChatJID(context.Background(), client, jid)
+		}
+	}
+	return jid.ToNonAD().String(), true
 }
 
-// GetHistory returns one conversation's stored messages, newest first.
+// chatJidVariants returns the canonical JID plus, when known, its counterpart
+// (the LID for a phone number, or vice versa), so a conversation already split
+// across both forms is read back together.
+func (m *messageService) chatJidVariants(instanceId, canonical string) []string {
+	variants := []string{canonical}
+	if m.clientPointer == nil {
+		return variants
+	}
+	if client := m.clientPointer.Get(instanceId); client != nil {
+		if jid, ok := utils.ParseJID(canonical); ok {
+			if alt, ok := whatsmeow_service.AlternateChatJID(context.Background(), client, jid.ToNonAD()); ok {
+				if altJid := alt.ToNonAD().String(); altJid != canonical {
+					variants = append(variants, altJid)
+				}
+			}
+		}
+	}
+	return variants
+}
+
+// historyLimit clamps a requested page size (same bounds as the repository).
+func historyLimit(limit int) int {
+	if limit <= 0 {
+		return 50
+	}
+	if limit > 500 {
+		return 500
+	}
+	return limit
+}
+
+// mergeMessagesByID de-duplicates by message id (last write wins) and sorts
+// newest-first. It is used when a conversation's rows come from more than one
+// JID variant.
+func mergeMessagesByID(messages []message_model.Message) []message_model.Message {
+	byID := make(map[string]message_model.Message, len(messages))
+	for _, msg := range messages {
+		byID[msg.MessageID] = msg
+	}
+	out := make([]message_model.Message, 0, len(byID))
+	for _, msg := range byID {
+		out = append(out, msg)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Timestamp != out[j].Timestamp {
+			return out[i].Timestamp > out[j].Timestamp
+		}
+		return out[i].Id > out[j].Id
+	})
+	return out
+}
+
+// GetHistory returns one conversation's stored messages, newest first,
+// including rows stored under the other JID form (LID vs phone number).
 func (m *messageService) GetHistory(data *HistoryQuery, instance *instance_model.Instance) ([]message_model.Message, error) {
 	if data == nil || instance == nil {
 		return nil, errors.New("invalid request")
 	}
-	chatJid, ok := normalizeChatJid(data.Chat)
+	chatJid, ok := m.canonicalChat(instance.Id, data.Chat)
 	if !ok {
 		return nil, errors.New("invalid chat")
 	}
 
-	messages, err := m.messageRepository.ListMessages(instance.Id, chatJid, strings.TrimSpace(data.Before), data.Limit)
-	if err != nil {
-		m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to read message history for %s: %v", instance.Id, chatJid, err)
-		return nil, err
+	limit := historyLimit(data.Limit)
+	before := strings.TrimSpace(data.Before)
+
+	var all []message_model.Message
+	for _, variant := range m.chatJidVariants(instance.Id, chatJid) {
+		msgs, err := m.messageRepository.ListMessages(instance.Id, variant, before, limit)
+		if err != nil {
+			m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to read message history for %s: %v", instance.Id, variant, err)
+			return nil, err
+		}
+		all = append(all, msgs...)
 	}
-	return messages, nil
+
+	all = mergeMessagesByID(all)
+	if len(all) > limit {
+		all = all[:limit]
+	}
+	return all, nil
 }
 
-// ListChats returns each conversation's newest message plus its message count.
+// ListChats returns each conversation's newest message plus its message count,
+// merging rows that belong to the same 1:1 conversation (LID + phone number).
 func (m *messageService) ListChats(instance *instance_model.Instance, limit int) ([]message_repository.ChatSummary, error) {
 	if instance == nil {
 		return nil, errors.New("invalid instance")
 	}
-	chats, err := m.messageRepository.ListChats(instance.Id, limit)
+
+	effective := historyLimit(limit)
+	// Overfetch so merging LID+PN rows still fills the requested page.
+	chats, err := m.messageRepository.ListChats(instance.Id, effective*4)
 	if err != nil {
 		m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to list chats: %v", instance.Id, err)
 		return nil, err
 	}
-	return chats, nil
+
+	merged := m.mergeChatSummaries(instance.Id, chats)
+	if len(merged) > effective {
+		merged = merged[:effective]
+	}
+	return merged, nil
+}
+
+// mergeChatSummaries canonicalizes each conversation's JID and merges entries
+// that collapse to the same one, summing counts and keeping the newest message.
+func (m *messageService) mergeChatSummaries(instanceId string, chats []message_repository.ChatSummary) []message_repository.ChatSummary {
+	var client *whatsmeow.Client
+	if m.clientPointer != nil {
+		client = m.clientPointer.Get(instanceId)
+	}
+
+	byJid := make(map[string]message_repository.ChatSummary, len(chats))
+	order := make([]string, 0, len(chats))
+	for _, c := range chats {
+		if jid, ok := utils.ParseJID(c.ChatJid); ok {
+			c.ChatJid = whatsmeow_service.CanonicalChatJID(context.Background(), client, jid.ToNonAD()).String()
+		}
+		if existing, ok := byJid[c.ChatJid]; ok {
+			total := existing.MessageCount + c.MessageCount
+			if c.Timestamp > existing.Timestamp {
+				c.MessageCount = total
+				byJid[c.ChatJid] = c
+			} else {
+				existing.MessageCount = total
+				byJid[c.ChatJid] = existing
+			}
+		} else {
+			byJid[c.ChatJid] = c
+			order = append(order, c.ChatJid)
+		}
+	}
+
+	out := make([]message_repository.ChatSummary, 0, len(order))
+	for _, jid := range order {
+		out = append(out, byJid[jid])
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Timestamp > out[j].Timestamp })
+	return out
 }
 
 func NewMessageService(

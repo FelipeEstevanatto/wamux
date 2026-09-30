@@ -4037,13 +4037,19 @@ func (s *sendService) persistSentMessage(instanceId string, sent *MessageSendStr
 		return
 	}
 	summary := message_content.Summarize(sent.Message)
+	// Canonicalize the chat to the phone-number JID when it went out addressed
+	// as a LID, so the conversation is not split across two rows (LID + PN).
+	chatJID := sent.Info.Chat.ToNonAD()
+	if client := s.clientPointer.Get(instanceId); client != nil {
+		chatJID = whatsmeow_service.CanonicalChatJID(context.Background(), client, sent.Info.Chat)
+	}
 	msg := message_model.Message{
 		MessageID:       sent.Info.ID,
 		InstanceId:      instanceId,
 		Timestamp:       sent.Info.Timestamp.Format("2006-01-02 15:04:05"),
 		Status:          "Sent",
-		Source:          sent.Info.Chat.ToNonAD().User,
-		ChatJid:         sent.Info.Chat.ToNonAD().String(),
+		Source:          chatJID.User,
+		ChatJid:         chatJID.String(),
 		SenderJid:       sent.Info.Sender.ToNonAD().String(),
 		MessageType:     summary.Type,
 		TextContent:     summary.Text,

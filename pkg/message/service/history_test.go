@@ -84,7 +84,48 @@ func TestListChatsPassesInstanceAndLimit(t *testing.T) {
 	if len(got) != 1 || got[0].ChatJid != "a@s.whatsapp.net" {
 		t.Fatalf("chats = %+v", got)
 	}
-	if repo.instance != "inst-9" || repo.limit != 25 {
-		t.Fatalf("instance/limit = %q/%d", repo.instance, repo.limit)
+	// ListChats overfetches (4x) so LID/PN merges still fill the page.
+	if repo.instance != "inst-9" || repo.limit != 100 {
+		t.Fatalf("instance/limit = %q/%d (want overfetch 100)", repo.instance, repo.limit)
+	}
+}
+
+// With no client (no LID store), a device suffixed chat still collapses to the
+// bare JID, and duplicate conversations are merged with summed counts.
+func TestMergeChatSummariesCollapsesDeviceAndSorts(t *testing.T) {
+	svc := &messageService{} // nil clientPointer is handled
+	out := svc.mergeChatSummaries("i", []message_repository.ChatSummary{
+		{ChatJid: "a@s.whatsapp.net", Timestamp: "2026-05-09 10:00:00", MessageCount: 1},
+		{ChatJid: "a:5@s.whatsapp.net", Timestamp: "2026-05-09 11:00:00", MessageCount: 2, MessageID: "m2"},
+		{ChatJid: "b@s.whatsapp.net", Timestamp: "2026-05-09 12:00:00", MessageCount: 5},
+	})
+	if len(out) != 2 {
+		t.Fatalf("expected 2 merged chats, got %d: %+v", len(out), out)
+	}
+	if out[0].ChatJid != "b@s.whatsapp.net" {
+		t.Fatalf("newest chat should be first, got %+v", out[0])
+	}
+	if out[1].ChatJid != "a@s.whatsapp.net" || out[1].MessageCount != 3 {
+		t.Fatalf("merged chat = %+v, want a@s.whatsapp.net with count 3", out[1])
+	}
+	if out[1].MessageID != "m2" {
+		t.Fatalf("merged chat should keep the newest message, got %q", out[1].MessageID)
+	}
+}
+
+func TestMergeMessagesByIDDeduplicatesAndSorts(t *testing.T) {
+	msg := func(id, ts string) message_model.Message {
+		return message_model.Message{MessageID: id, Timestamp: ts}
+	}
+	out := mergeMessagesByID([]message_model.Message{
+		msg("m1", "2026-05-09 10:00:00"),
+		msg("m2", "2026-05-09 11:00:00"),
+		msg("m1", "2026-05-09 10:00:00"),
+	})
+	if len(out) != 2 {
+		t.Fatalf("expected 2 messages, got %d", len(out))
+	}
+	if out[0].MessageID != "m2" {
+		t.Fatalf("newest first, got %+v", out)
 	}
 }
