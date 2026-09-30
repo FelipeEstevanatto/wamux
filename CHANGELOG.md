@@ -1,5 +1,36 @@
 # Evolution GO - Changelog
 
+## Unreleased — `fork/community-stable`
+
+Three additive features, all disabled/unchanged by default unless configured.
+
+### 🆕 New Features
+- **Webhook HMAC signing** — HTTP webhook deliveries can carry an
+  `x-hmac-signature` header (hex HMAC-SHA256 of the exact body). Configure a
+  per-instance key with `POST /instance/hmac` (`GET`/`DELETE` to inspect/clear)
+  or a global `WEBHOOK_HMAC_KEY`; per-instance wins. Keys are encrypted at rest
+  (AES-256-GCM) with `WEBHOOK_HMAC_ENCRYPTION_KEY` (falls back to
+  `GLOBAL_ENCRYPTION_KEY`, then a key derived from `GLOBAL_API_KEY`). No key
+  configured means deliveries are byte-for-byte unchanged.
+- **Message history readback** — message rows now persist content
+  (`chat_jid`, `sender_jid`, `message_type`, `text_content`, `media_url`,
+  `media_mimetype`, `quoted_message_id`, `is_from_me`), exposed via
+  `GET /chat/history?chat=…&limit=&before=` (keyset-paginated) and
+  `GET /chat/chats?limit=`. Status-only receipts no longer overwrite content or
+  reorder a message. Requires `DATABASE_SAVE_MESSAGES=true`.
+
+### 🔧 Improvements
+- **SSRF protection** — outbound fetches of caller-supplied URLs (media by URL,
+  link previews, stickers, avatars, group photos, button/carousel headers) now
+  refuse loopback, private, link-local (cloud metadata), CGNAT and multicast
+  destinations, connecting to the validated IP so redirects and DNS rebinding
+  are covered too. Enabled by default; `SSRF_PROTECTION=false` restores the old
+  behaviour for internal media hosts.
+- **Tests** — new unit/integration coverage for `pkg/webhooksign`, `pkg/ssrf`,
+  `pkg/message/content`, the webhook producer's signing path, the message
+  repository (upsert column selection, pagination, chats) and the
+  HMAC/history HTTP handlers.
+
 ## 0.8.1 — `fork/community-stable`
 
 Rebrand do painel para **Evo-GoFork** (fork comunitário, não oficial), remoção
