@@ -224,6 +224,9 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.POST("/join", r.groupHandler.JoinGroupLink)
 			routes.POST("/leave", r.jidValidationMiddleware.ValidateNumberField(), r.groupHandler.LeaveGroup)
 			routes.POST("/settings", r.jidValidationMiddleware.ValidateNumberField(), r.groupHandler.UpdateGroupSettings)
+			// Join-request management (requires join-approval mode + admin).
+			routes.POST("/requestparticipants", r.jidValidationMiddleware.ValidateJIDFields("groupJid"), r.groupHandler.GetGroupRequestParticipants)
+			routes.POST("/updaterequestparticipants", r.jidValidationMiddleware.ValidateJIDFields("groupJid"), r.jidValidationMiddleware.ValidateMultipleNumbers("participants"), r.groupHandler.UpdateGroupRequestParticipants)
 		}
 	}
 	routes = eng.Group("/call")

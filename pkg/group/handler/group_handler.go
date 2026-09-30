@@ -26,6 +26,8 @@ type GroupHandler interface {
 	JoinGroupLink(ctx *gin.Context)
 	LeaveGroup(ctx *gin.Context)
 	UpdateGroupSettings(ctx *gin.Context)
+	GetGroupRequestParticipants(ctx *gin.Context)
+	UpdateGroupRequestParticipants(ctx *gin.Context)
 }
 
 type groupHandler struct {
@@ -527,6 +529,94 @@ func (g *groupHandler) UpdateGroupSettings(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "success"})
+}
+
+// GetGroupRequestParticipants lists pending join requests
+// @Summary List pending group join requests
+// @Description Lists participants who asked to join the group. Requires join-approval mode enabled and the session to be a group admin.
+// @Tags Group
+// @Accept json
+// @Produce json
+// @Param message body group_service.GetGroupRequestParticipantsStruct true "Group data"
+// @Success 200 {object} docmodels.Envelope "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
+// @Router /group/requestparticipants [post]
+func (g *groupHandler) GetGroupRequestParticipants(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	var data *group_service.GetGroupRequestParticipantsStruct
+	if err := ctx.ShouldBindBodyWithJSON(&data); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if data.GroupJID == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "groupJid is required"})
+		return
+	}
+
+	requests, err := g.groupService.GetGroupRequestParticipants(data, instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": requests})
+}
+
+// UpdateGroupRequestParticipants approves or rejects join requests
+// @Summary Approve or reject group join requests
+// @Description Approves or rejects pending join requests. `action` is "approve" or "reject"; `participants` are the JIDs returned by /group/requestparticipants.
+// @Tags Group
+// @Accept json
+// @Produce json
+// @Param message body group_service.UpdateGroupRequestParticipantsStruct true "Group data"
+// @Success 200 {object} docmodels.Envelope "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
+// @Router /group/updaterequestparticipants [post]
+func (g *groupHandler) UpdateGroupRequestParticipants(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	var data *group_service.UpdateGroupRequestParticipantsStruct
+	if err := ctx.ShouldBindBodyWithJSON(&data); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if data.GroupJID == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "groupJid is required"})
+		return
+	}
+	if data.Action == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "action is required"})
+		return
+	}
+	if len(data.Participants) == 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "participants is required"})
+		return
+	}
+
+	results, err := g.groupService.UpdateGroupRequestParticipants(data, instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": results})
 }
 
 func NewGroupHandler(
