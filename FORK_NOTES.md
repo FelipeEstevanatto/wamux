@@ -948,6 +948,13 @@ test that a real HTTP server receives a signature that verifies over the body it
 actually got; and the service has tests that the stored key is encrypted,
 pushed as plaintext, and cleared correctly.
 
+**Dead-letter queue.** Webhooks that fail permanently — every retry exhausted, or
+a non-retryable (4xx) response — are published to RabbitMQ
+`WEBHOOK_ERROR_QUEUE_NAME` (default `webhook_errors`) when `AMQP_URL` is set,
+with `url`, `userID`, the original `payload`, the last `statusCode`/`response`,
+`attemptTime` and `error`. Without RabbitMQ the failure is only logged. The
+producer's tests cover the exhausted-retry and non-retryable paths.
+
 Fully optional: with no key configured, existing consumers need no change.
 
 ## 3n. Outbound URL SSRF protection (new in this fork)

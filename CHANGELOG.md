@@ -18,8 +18,15 @@ Three additive features, all disabled/unchanged by default unless configured.
   `GET /chat/history?chat=…&limit=&before=` (keyset-paginated) and
   `GET /chat/chats?limit=`. Status-only receipts no longer overwrite content or
   reorder a message. Requires `DATABASE_SAVE_MESSAGES=true`.
+- **Group join requests** — `POST /group/requestparticipants` (list pending
+  requests) and `POST /group/updaterequestparticipants` (`approve`/`reject`),
+  wiring service methods that already existed but were never exposed.
 
 ### 🔧 Improvements
+- **Webhook dead-letter queue** — webhooks that fail permanently (retries
+  exhausted, or a non-retryable response) are published to RabbitMQ
+  `WEBHOOK_ERROR_QUEUE_NAME` (default `webhook_errors`) with the URL, user,
+  original payload, last status/response and error, when `AMQP_URL` is set.
 - **SSRF protection (opt-in)** — outbound fetches of caller-supplied URLs
   (media by URL, link previews, stickers, avatars, group photos, button/carousel
   headers) can refuse loopback, private, link-local (cloud metadata), CGNAT and

@@ -49,18 +49,37 @@ type webhookProducer struct {
 	maxAttempts int
 	baseDelay   time.Duration
 	maxDelay    time.Duration
+
+	// deadLetter, when set, receives webhooks that failed permanently (all
+	// attempts exhausted, or a non-retryable response) so an operator can
+	// inspect/replay them. errorQueue is the destination queue name.
+	deadLetter producer_interfaces.Producer
+	errorQueue string
+}
+
+// Option configures a webhookProducer.
+type Option func(*webhookProducer)
+
+// WithDeadLetterQueue routes permanently failed deliveries to publisher under
+// queueName. It is normally wired only when RabbitMQ is configured.
+func WithDeadLetterQueue(publisher producer_interfaces.Producer, queueName string) Option {
+	return func(p *webhookProducer) {
+		p.deadLetter = publisher
+		p.errorQueue = queueName
+	}
 }
 
 func NewWebhookProducer(
 	url string,
 	loggerWrapper *logger_wrapper.LoggerManager,
+	opts ...Option,
 ) producer_interfaces.Producer {
 	transport := (http.DefaultTransport.(*http.Transport)).Clone()
 	// Webhooks are usually a handful of endpoints receiving many events, so keep
 	// connections warm instead of paying a TLS handshake per delivery.
 	transport.MaxIdleConnsPerHost = 16
 
-	return &webhookProducer{
+	p := &webhookProducer{
 		url:           url,
 		client:        &http.Client{Transport: transport, Timeout: deliveryTimeout},
 		inFlight:      make(chan struct{}, maxInFlight),
@@ -69,6 +88,10 @@ func NewWebhookProducer(
 		baseDelay:     retryBaseDelay,
 		maxDelay:      retryMaxDelay,
 	}
+	for _, opt := range opts {
+		opt(p)
+	}
+	return p
 }
 
 // Produce fans one event out to the global webhook and the instance's own.
@@ -186,8 +209,13 @@ func (p *webhookProducer) sendWebhookWithRetry(url string, body []byte, userID s
 	logger := p.loggerWrapper.GetLogger(userID)
 	delay := p.baseDelay
 
+	var lastStatus int
+	var lastResponse []byte
+	var lastErr error
+
 	for attempt := 1; attempt <= p.maxAttempts; attempt++ {
 		statusCode, responseBody, retryable, err := p.sendWebhook(url, body, hmacKey)
+		lastStatus, lastResponse, lastErr = statusCode, responseBody, err
 		if err == nil {
 			logger.LogInfo(
 				"[%s] webhook delivered - url: %s, status: %d, attempt: %d, response: %s",
@@ -203,6 +231,7 @@ func (p *webhookProducer) sendWebhookWithRetry(url string, body []byte, userID s
 				"[%s] webhook rejected, not retrying - url: %s, status: %d, error: %v, response: %s",
 				userID, url, statusCode, err, string(responseBody),
 			)
+			p.publishDeadLetter(url, body, userID, lastStatus, lastResponse, lastErr)
 			return
 		}
 
@@ -225,6 +254,49 @@ func (p *webhookProducer) sendWebhookWithRetry(url string, body []byte, userID s
 	}
 
 	logger.LogError("[%s] webhook failed after %d attempts - url: %s", userID, p.maxAttempts, url)
+	p.publishDeadLetter(url, body, userID, lastStatus, lastResponse, lastErr)
+}
+
+// publishDeadLetter sends a permanently failed delivery to the configured
+// dead-letter queue. It is a no-op when no queue is configured, and never
+// fails the caller: the webhook has already failed, so a dead-letter failure
+// is only logged.
+func (p *webhookProducer) publishDeadLetter(url string, body []byte, userID string, statusCode int, responseBody []byte, err error) {
+	if p.deadLetter == nil || p.errorQueue == "" {
+		return
+	}
+
+	payload := json.RawMessage(body)
+	if !json.Valid(body) {
+		if quoted, qErr := json.Marshal(string(body)); qErr == nil {
+			payload = quoted
+		}
+	}
+
+	errText := ""
+	if err != nil {
+		errText = err.Error()
+	}
+
+	envelope, mErr := json.Marshal(map[string]any{
+		"url":         url,
+		"userID":      userID,
+		"payload":     payload,
+		"statusCode":  statusCode,
+		"response":    string(responseBody),
+		"attemptTime": time.Now().UTC().Format(time.RFC3339),
+		"error":       errText,
+	})
+	if mErr != nil {
+		p.loggerWrapper.GetLogger(userID).LogError("[%s] failed to encode dead-letter payload for %s: %v", userID, url, mErr)
+		return
+	}
+
+	if perr := p.deadLetter.Produce(p.errorQueue, envelope, "enabled", userID); perr != nil {
+		p.loggerWrapper.GetLogger(userID).LogError("[%s] failed to publish webhook to dead-letter queue %s: %v", userID, p.errorQueue, perr)
+		return
+	}
+	p.loggerWrapper.GetLogger(userID).LogWarn("[%s] webhook moved to dead-letter queue %s - url: %s", userID, p.errorQueue, url)
 }
 
 // sendWebhook performs one attempt. retryable reports whether trying again could
