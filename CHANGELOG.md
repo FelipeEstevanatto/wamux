@@ -20,12 +20,13 @@ Three additive features, all disabled/unchanged by default unless configured.
   reorder a message. Requires `DATABASE_SAVE_MESSAGES=true`.
 
 ### 🔧 Improvements
-- **SSRF protection** — outbound fetches of caller-supplied URLs (media by URL,
-  link previews, stickers, avatars, group photos, button/carousel headers) now
-  refuse loopback, private, link-local (cloud metadata), CGNAT and multicast
-  destinations, connecting to the validated IP so redirects and DNS rebinding
-  are covered too. Enabled by default; `SSRF_PROTECTION=false` restores the old
-  behaviour for internal media hosts.
+- **SSRF protection (opt-in)** — outbound fetches of caller-supplied URLs
+  (media by URL, link previews, stickers, avatars, group photos, button/carousel
+  headers) can refuse loopback, private, link-local (cloud metadata), CGNAT and
+  multicast destinations, connecting to the validated IP so redirects and DNS
+  rebinding are covered too. Enabled by `SSRF_PROTECTION=true`; the default
+  (`false`) is permissive so updating the fork does not break senders that fetch
+  media from an internal host (self-hosted MinIO, Typebot, internal CDN).
 - **Tests** — new unit/integration coverage for `pkg/webhooksign`, `pkg/ssrf`,
   `pkg/message/content`, the webhook producer's signing path, the message
   repository (upsert column selection, pagination, chats) and the

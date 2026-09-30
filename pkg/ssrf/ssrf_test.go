@@ -164,19 +164,25 @@ func TestValidateURL(t *testing.T) {
 	}
 }
 
-func TestDefaultHonoursEnvToggle(t *testing.T) {
-	t.Setenv("SSRF_PROTECTION", "false")
-	if err := Default().ValidateURL("http://127.0.0.1/"); err != nil {
-		t.Fatalf("SSRF_PROTECTION=false should disable the guard: %v", err)
-	}
-
+func TestDefaultIsOptIn(t *testing.T) {
+	// Unset -> permissive, so an update never breaks internal media.
 	t.Setenv("SSRF_PROTECTION", "")
-	if err := Default().ValidateURL("http://127.0.0.1/"); err == nil {
-		t.Fatal("an unset SSRF_PROTECTION should keep the guard enabled")
+	if err := Default().ValidateURL("http://127.0.0.1/"); err != nil {
+		t.Fatalf("unset SSRF_PROTECTION should be permissive: %v", err)
 	}
 
+	// Explicit false -> permissive.
+	t.Setenv("SSRF_PROTECTION", "false")
+	if err := Default().ValidateURL("http://10.0.0.1/"); err != nil {
+		t.Fatalf("SSRF_PROTECTION=false should be permissive: %v", err)
+	}
+
+	// Explicit true -> enforce.
 	t.Setenv("SSRF_PROTECTION", "true")
-	if err := Default().ValidateURL("http://10.0.0.1/"); err == nil {
-		t.Fatal("SSRF_PROTECTION=true should keep the guard enabled")
+	if err := Default().ValidateURL("http://127.0.0.1/"); err == nil {
+		t.Fatal("SSRF_PROTECTION=true must block loopback")
+	}
+	if err := Default().ValidateURL("http://169.254.169.254/"); err == nil {
+		t.Fatal("SSRF_PROTECTION=true must block the metadata address")
 	}
 }
