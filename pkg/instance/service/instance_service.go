@@ -21,6 +21,7 @@ import (
 	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
 	"github.com/evolution-foundation/evolution-go/pkg/utils"
 	"github.com/evolution-foundation/evolution-go/pkg/walimits"
+	"github.com/evolution-foundation/evolution-go/pkg/webhooksign"
 	whatsmeow_service "github.com/evolution-foundation/evolution-go/pkg/whatsmeow/service"
 	"github.com/google/uuid"
 	"github.com/patrickmn/go-cache"
@@ -53,6 +54,21 @@ type InstanceService interface {
 	GetLogs(instanceId string, startDate, endDate time.Time, level string, limit int) ([]logger_wrapper.LogEntry, error)
 	GetAdvancedSettings(instanceId string) (*instance_model.AdvancedSettings, error)
 	UpdateAdvancedSettings(instanceId string, settings *instance_model.AdvancedSettings) error
+
+	// Webhook HMAC signing. The key is validated, encrypted and stored; the
+	// plaintext never leaves the process after the request returns.
+	SetWebhookHmacKey(instanceId string, key string) (*HmacConfigStatus, error)
+	ClearWebhookHmacKey(instanceId string) error
+	WebhookHmacStatus(instanceId string) (*HmacConfigStatus, error)
+}
+
+// HmacConfigStatus is the (non-sensitive) HMAC configuration summary returned by
+// the instance endpoints. It never includes the key itself.
+type HmacConfigStatus struct {
+	// Configured is true when the instance has its own signing key.
+	Configured bool `json:"configured"`
+	// GlobalFallback is true when a process-global key would be used instead.
+	GlobalFallback bool `json:"globalFallback"`
 }
 
 type instances struct {
@@ -1211,6 +1227,68 @@ func (i instances) UpdateAdvancedSettings(instanceId string, settings *instance_
 
 	i.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Advanced settings updated successfully", instanceId)
 	return nil
+}
+
+// SetWebhookHmacKey validates, encrypts and stores an instance's webhook
+// signing key, and pushes the plaintext to the running client so the next
+// delivery is signed. The stored value is never returned.
+func (i instances) SetWebhookHmacKey(instanceId string, key string) (*HmacConfigStatus, error) {
+	key = strings.TrimSpace(key)
+	if len(key) < webhooksign.MinKeyLength {
+		return nil, fmt.Errorf("hmac key must be at least %d characters", webhooksign.MinKeyLength)
+	}
+
+	if _, err := i.instanceRepository.GetInstanceByID(instanceId); err != nil {
+		i.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Cannot set webhook HMAC key: %v", instanceId, err)
+		return nil, err
+	}
+
+	encrypted, err := webhooksign.Encrypt(i.config.WebhookHmacEncryptionKey, key)
+	if err != nil {
+		i.loggerWrapper.GetLogger(instanceId).LogError("[%s] Failed to encrypt webhook HMAC key: %v", instanceId, err)
+		return nil, err
+	}
+
+	if err := i.instanceRepository.UpdateHmacKey(instanceId, encrypted); err != nil {
+		i.loggerWrapper.GetLogger(instanceId).LogError("[%s] Failed to store webhook HMAC key: %v", instanceId, err)
+		return nil, err
+	}
+
+	// Update the running client and the auth cache so the key is used at once.
+	i.whatsmeowService.SetWebhookHmacKey(instanceId, key)
+	i.invalidateAuthCache()
+
+	i.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Webhook HMAC key configured", instanceId)
+	return i.WebhookHmacStatus(instanceId)
+}
+
+// ClearWebhookHmacKey removes an instance's signing key, reverting it to the
+// global key (if any) or unsigned deliveries.
+func (i instances) ClearWebhookHmacKey(instanceId string) error {
+	if _, err := i.instanceRepository.GetInstanceByID(instanceId); err != nil {
+		return err
+	}
+	if err := i.instanceRepository.UpdateHmacKey(instanceId, ""); err != nil {
+		i.loggerWrapper.GetLogger(instanceId).LogError("[%s] Failed to clear webhook HMAC key: %v", instanceId, err)
+		return err
+	}
+	i.whatsmeowService.SetWebhookHmacKey(instanceId, "")
+	i.invalidateAuthCache()
+	i.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Webhook HMAC key cleared", instanceId)
+	return nil
+}
+
+// WebhookHmacStatus reports whether an instance has its own key and whether a
+// global fallback exists, without revealing either.
+func (i instances) WebhookHmacStatus(instanceId string) (*HmacConfigStatus, error) {
+	instance, err := i.instanceRepository.GetInstanceByID(instanceId)
+	if err != nil {
+		return nil, err
+	}
+	return &HmacConfigStatus{
+		Configured:     instance.HmacKey != "",
+		GlobalFallback: i.config.WebhookHmacGlobalKey != "",
+	}, nil
 }
 
 func NewInstanceService(

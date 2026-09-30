@@ -10,7 +10,9 @@ import (
 	"time"
 
 	"github.com/evolution-foundation/evolution-go/pkg/config"
+	producer_interfaces "github.com/evolution-foundation/evolution-go/pkg/events/interfaces"
 	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
+	"github.com/evolution-foundation/evolution-go/pkg/webhooksign"
 )
 
 // newTestProducer builds a producer with waits short enough to test a real
@@ -97,6 +99,68 @@ func TestDeliversPayloadToInstanceWebhook(t *testing.T) {
 	waitFor(t, func() bool { return atomic.LoadInt64(&hits) == 1 }, "webhook was never delivered")
 	if got := body.Load(); got != `{"event":"Message"}` {
 		t.Errorf("body = %v, want the original payload", got)
+	}
+}
+
+// Signed deliveries must carry the header a consumer can verify, and the
+// signature must cover the exact bytes that were sent.
+func TestProduceSignedAddsVerifiableSignature(t *testing.T) {
+	key := []byte("0123456789abcdef0123456789abcdef")
+	payload := []byte(`{"event":"Message","instanceId":"i1"}`)
+
+	var sig atomic.Value
+	var received atomic.Value
+	var hits int64
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		received.Store(string(body))
+		sig.Store(r.Header.Get(webhooksign.SignatureHeader))
+		atomic.AddInt64(&hits, 1)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	p := newTestProducer(t, "")
+	if err := p.ProduceSigned("inst.message", payload, server.URL, "i1", key); err != nil {
+		t.Fatalf("ProduceSigned: %v", err)
+	}
+	waitFor(t, func() bool { return atomic.LoadInt64(&hits) == 1 }, "signed webhook was never delivered")
+
+	gotSig, _ := sig.Load().(string)
+	if gotSig == "" {
+		t.Fatal("signed delivery is missing the " + webhooksign.SignatureHeader + " header")
+	}
+	if !webhooksign.Verify(key, []byte(received.Load().(string)), gotSig) {
+		t.Fatalf("signature %q does not verify over the delivered body", gotSig)
+	}
+}
+
+// An empty key must behave exactly like the unsigned Produce.
+func TestProduceSignedWithEmptyKeyIsUnsigned(t *testing.T) {
+	var hasHeader atomic.Bool
+	var hits int64
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get(webhooksign.SignatureHeader) != "" {
+			hasHeader.Store(true)
+		}
+		atomic.AddInt64(&hits, 1)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	p := newTestProducer(t, "")
+	_ = p.ProduceSigned("inst.message", []byte(`{}`), server.URL, "i1", nil)
+	waitFor(t, func() bool { return atomic.LoadInt64(&hits) == 1 }, "webhook was never delivered")
+
+	if hasHeader.Load() {
+		t.Fatal("unsigned producer sent a signature header")
+	}
+}
+
+// The producer must satisfy the interface the whatsmeow service type-asserts.
+func TestProducerImplementsSignedProducer(t *testing.T) {
+	if _, ok := NewWebhookProducer("", nil).(producer_interfaces.SignedProducer); !ok {
+		t.Fatal("webhookProducer does not implement producer_interfaces.SignedProducer")
 	}
 }
 
@@ -250,7 +314,7 @@ func TestSlowEndpointTimesOutInsteadOfHanging(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		p.sendWebhookWithRetry(server.URL, []byte(`{}`), "i1")
+		p.sendWebhookWithRetry(server.URL, []byte(`{}`), "i1", nil)
 		close(done)
 	}()
 
@@ -269,7 +333,7 @@ func TestUnreachableHostIsRetried(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		// Port 0 is never listening, so every attempt fails fast.
-		p.sendWebhookWithRetry("http://127.0.0.1:0/hook", []byte(`{}`), "i1")
+		p.sendWebhookWithRetry("http://127.0.0.1:0/hook", []byte(`{}`), "i1", nil)
 		close(done)
 	}()
 

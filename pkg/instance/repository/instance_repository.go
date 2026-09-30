@@ -26,6 +26,7 @@ type InstanceRepository interface {
 	UpdateQrcode(userId string, qr string) error
 	UpdateProxy(userId string, proxy string) error
 	UpdateJid(userId string, jid string) error
+	UpdateHmacKey(userId string, encryptedKey string) error
 	UpdateName(instanceId string, name string) error
 	UpdateConnectSettings(instanceId string, updates map[string]interface{}) error
 	GetAllConnectedInstances() ([]*instance_model.Instance, error)
@@ -114,6 +115,12 @@ func (i *instanceRepository) UpdateQrcode(userId string, qr string) error {
 
 func (i *instanceRepository) UpdateProxy(userId string, proxy string) error {
 	return i.db.Model(&instance_model.Instance{}).Where("id = ?", userId).Update("proxy", proxy).Error
+}
+
+// UpdateHmacKey persists the (already encrypted) per-instance webhook signing
+// key. An empty string clears it.
+func (i *instanceRepository) UpdateHmacKey(userId string, encryptedKey string) error {
+	return i.db.Model(&instance_model.Instance{}).Where("id = ?", userId).Update("hmac_key", encryptedKey).Error
 }
 
 func (i *instanceRepository) UpdateJid(userId string, jid string) error {

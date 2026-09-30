@@ -155,6 +155,8 @@ SWAGGER_ENABLED=true        # set false to hide /swagger
 
 # Optional
 # WEBHOOK_URL=https://your-webhook-url.com/webhook
+# WEBHOOK_HMAC_KEY=               # global webhook signing key
+# WEBHOOK_HMAC_ENCRYPTION_KEY=    # encrypts per-instance keys at rest
 # PASSKEY_PUBLIC_URL=https://your-api.example.com
 # AMQP_URL=amqp://user:pass@rabbitmq:5672/
 # NATS_URL=nats://nats:4222
@@ -172,6 +174,39 @@ SWAGGER_ENABLED=true        # set false to hide /swagger
 | `SWAGGER_ENABLED` | Serve `/swagger` publicly | `true` |
 | `DEBUG_ENABLED` | `1` enables debug logging | `0` |
 | `LOG_TYPE` | `console` or `file` | `console` |
+| `WEBHOOK_HMAC_KEY` | Global HMAC key for webhook signing | — |
+| `WEBHOOK_HMAC_ENCRYPTION_KEY` | AES key encrypting per-instance HMAC keys at rest | derived from `GLOBAL_API_KEY` |
+
+---
+
+## Webhook HMAC signing
+
+Every HTTP webhook delivery can carry an `x-hmac-signature` header: the
+lowercase hex HMAC-SHA256 of the **exact request body**. Verify it before
+trusting the payload:
+
+```go
+mac := hmac.New(sha256.New, []byte(secret))
+mac.Write(body)
+expected := hex.EncodeToString(mac.Sum(nil))
+// constant-time compare against r.Header.Get("x-hmac-signature")
+```
+
+Priority: a **per-instance key** (if configured) wins over the process-global
+`WEBHOOK_HMAC_KEY`. With neither, deliveries are sent unsigned. Per-instance
+keys are encrypted at rest and are managed by the instance itself:
+
+| Method | Endpoint | Body | Description |
+|---|---|---|---|
+| `POST` | `/instance/hmac` | `{"hmacKey":"..."}` or `{"generate":true}` | Set the instance key (min 32 chars). With `generate`, the server returns a fresh key once. |
+| `GET` | `/instance/hmac` | — | `{"configured":bool,"globalFallback":bool}` |
+| `DELETE` | `/instance/hmac` | — | Remove the instance key |
+
+The key is stored AES-256-GCM encrypted with `WEBHOOK_HMAC_ENCRYPTION_KEY`
+(falling back to `GLOBAL_ENCRYPTION_KEY`, then to a key derived from
+`GLOBAL_API_KEY`, so it works with no extra configuration). Changing
+`GLOBAL_API_KEY` while using the derived key invalidates stored keys, so set an
+explicit `WEBHOOK_HMAC_ENCRYPTION_KEY` for long-lived deployments.
 
 ---
 

@@ -1569,6 +1569,124 @@ const docTemplate = `{
                 }
             }
         },
+        "/instance/hmac": {
+            "get": {
+                "description": "Reports whether this instance has its own webhook signing key and whether a global fallback key exists. The key itself is never returned.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Instance"
+                ],
+                "summary": "Get webhook HMAC configuration",
+                "responses": {
+                    "200": {
+                        "description": "Configuration status",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_instance_service.HmacConfigStatus"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Sets (or generates) the HMAC-SHA256 key used to sign this instance's webhook deliveries. The key is encrypted at rest and never returned, except when Generate is used.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Instance"
+                ],
+                "summary": "Configure webhook HMAC signing key",
+                "parameters": [
+                    {
+                        "description": "HMAC key (or generate=true)",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/pkg_instance_handler.HmacKeyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Key configured",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/pkg_instance_handler.HmacKeyResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error on validation",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Removes this instance's signing key. Deliveries fall back to the global key, or are sent unsigned if none is configured.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Instance"
+                ],
+                "summary": "Delete webhook HMAC key",
+                "responses": {
+                    "200": {
+                        "description": "Key deleted",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/instance/info/{instanceId}": {
             "get": {
                 "description": "Get instance",
@@ -7379,6 +7497,19 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_evolution-foundation_evolution-go_pkg_instance_service.HmacConfigStatus": {
+            "type": "object",
+            "properties": {
+                "configured": {
+                    "description": "Configured is true when the instance has its own signing key.",
+                    "type": "boolean"
+                },
+                "globalFallback": {
+                    "description": "GlobalFallback is true when a process-global key would be used instead.",
+                    "type": "boolean"
+                }
+            }
+        },
         "github_com_evolution-foundation_evolution-go_pkg_instance_service.PairStruct": {
             "type": "object",
             "properties": {
@@ -9207,6 +9338,35 @@ const docTemplate = `{
                 "phone": {
                     "type": "string",
                     "example": "5511999999999"
+                }
+            }
+        },
+        "pkg_instance_handler.HmacKeyRequest": {
+            "type": "object",
+            "properties": {
+                "generate": {
+                    "description": "Generate asks the server to create a strong random key and return it once\nin the response (so it can be saved). Ignored when HmacKey is set.",
+                    "type": "boolean",
+                    "example": false
+                },
+                "hmacKey": {
+                    "description": "HmacKey is the signing secret, at least 32 characters. Required unless\nGenerate is true.",
+                    "type": "string",
+                    "example": "a-very-long-random-secret-value-0123456789"
+                }
+            }
+        },
+        "pkg_instance_handler.HmacKeyResponse": {
+            "type": "object",
+            "properties": {
+                "configured": {
+                    "type": "boolean"
+                },
+                "generatedKey": {
+                    "type": "string"
+                },
+                "globalFallback": {
+                    "type": "boolean"
                 }
             }
         },

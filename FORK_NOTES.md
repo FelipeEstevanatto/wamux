@@ -870,6 +870,40 @@ Verified end to end: with the default 365-day window, a synthetic row dated 2020
 was removed by the first sweep (`deleted 1 message(s) older than 2025-09-23 …
 in 3ms`) while a 2026 row survived.
 
+## 3m. Webhook HMAC signing (new in this fork)
+
+Upstream signs nothing: a webhook consumer cannot tell a genuine delivery from a
+forged POST to the same URL. This fork adds optional **HMAC-SHA256 signing**,
+modelled on WuzAPI's contract.
+
+- Every HTTP webhook delivery can carry an `x-hmac-signature` header holding the
+  lowercase hex HMAC-SHA256 of the **exact request body**.
+- The key is resolved per delivery: a **per-instance key** wins over the global
+  `WEBHOOK_HMAC_KEY`; with neither, deliveries are unsigned and byte-for-byte
+  identical to upstream.
+- Per-instance keys are configured at runtime — `POST /instance/hmac`
+  (`{"hmacKey":"..."}` or `{"generate":true}`), `GET /instance/hmac`,
+  `DELETE /instance/hmac` — authenticated with the instance token in `apikey`,
+  so one instance can never touch another's key.
+- Keys are encrypted at rest (AES-256-GCM) in the new `instances.hmac_key`
+  column with `WEBHOOK_HMAC_ENCRYPTION_KEY`, falling back to
+  `GLOBAL_ENCRYPTION_KEY`, then to a key derived from `GLOBAL_API_KEY`. The
+  column is `json:"-"`, so it never appears in an API response.
+- The plaintext key is pushed to the running client (`SetWebhookHmacKey`) so a
+  key configured at runtime takes effect on the next delivery, without a
+  reconnect, while the signed bytes are unchanged across retries.
+
+Implemented in `pkg/webhooksign` (dependency-free crypto + tests),
+`pkg/events/webhook` (`ProduceSigned`), `pkg/events/interfaces`
+(`SignedProducer`), `pkg/instance/{service,repository,handler,model}` and
+`pkg/whatsmeow/service`. `pkg/webhooksign` has unit tests for derivation,
+signing/verification, nonce randomness and tamper rejection; the producer has a
+test that a real HTTP server receives a signature that verifies over the body it
+actually got; and the service has tests that the stored key is encrypted,
+pushed as plaintext, and cleared correctly.
+
+Fully optional: with no key configured, existing consumers need no change.
+
 ## 4. Build & run
 
 From the repository root (the `docker-compose.yml` is there):

@@ -1169,6 +1169,16 @@ definitions:
       number:
         type: string
     type: object
+  github_com_evolution-foundation_evolution-go_pkg_instance_service.HmacConfigStatus:
+    properties:
+      configured:
+        description: Configured is true when the instance has its own signing key.
+        type: boolean
+      globalFallback:
+        description: GlobalFallback is true when a process-global key would be used
+          instead.
+        type: boolean
+    type: object
   github_com_evolution-foundation_evolution-go_pkg_instance_service.PairStruct:
     properties:
       phone:
@@ -2530,6 +2540,30 @@ definitions:
       phone:
         example: "5511999999999"
         type: string
+    type: object
+  pkg_instance_handler.HmacKeyRequest:
+    properties:
+      generate:
+        description: |-
+          Generate asks the server to create a strong random key and return it once
+          in the response (so it can be saved). Ignored when HmacKey is set.
+        example: false
+        type: boolean
+      hmacKey:
+        description: |-
+          HmacKey is the signing secret, at least 32 characters. Required unless
+          Generate is true.
+        example: a-very-long-random-secret-value-0123456789
+        type: string
+    type: object
+  pkg_instance_handler.HmacKeyResponse:
+    properties:
+      configured:
+        type: boolean
+      generatedKey:
+        type: string
+      globalFallback:
+        type: boolean
     type: object
   types.AddressingMode:
     enum:
@@ -10061,6 +10095,82 @@ paths:
           schema:
             $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
       summary: Force reconnect
+      tags:
+      - Instance
+  /instance/hmac:
+    delete:
+      description: Removes this instance's signing key. Deliveries fall back to the
+        global key, or are sent unsigned if none is configured.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Key deleted
+          schema:
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
+      summary: Delete webhook HMAC key
+      tags:
+      - Instance
+    get:
+      description: Reports whether this instance has its own webhook signing key and
+        whether a global fallback key exists. The key itself is never returned.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Configuration status
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_instance_service.HmacConfigStatus'
+              type: object
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
+      summary: Get webhook HMAC configuration
+      tags:
+      - Instance
+    post:
+      consumes:
+      - application/json
+      description: Sets (or generates) the HMAC-SHA256 key used to sign this instance's
+        webhook deliveries. The key is encrypted at rest and never returned, except
+        when Generate is used.
+      parameters:
+      - description: HMAC key (or generate=true)
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/pkg_instance_handler.HmacKeyRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Key configured
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/pkg_instance_handler.HmacKeyResponse'
+              type: object
+        "400":
+          description: Error on validation
+          schema:
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
+      summary: Configure webhook HMAC signing key
       tags:
       - Instance
   /instance/info/{instanceId}:
