@@ -127,6 +127,11 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.DELETE("/logout", r.instanceHandler.Logout)
 			routes.GET("/:instanceId/advanced-settings", r.instanceHandler.GetAdvancedSettings)
 			routes.PUT("/:instanceId/advanced-settings", r.instanceHandler.UpdateAdvancedSettings)
+			// Per-instance webhook HMAC signing. The authenticated instance is
+			// implied by the token, so no instance id is in the path.
+			routes.POST("/hmac", r.instanceHandler.SetHmac)
+			routes.GET("/hmac", r.instanceHandler.GetHmac)
+			routes.DELETE("/hmac", r.instanceHandler.DeleteHmac)
 		}
 	}
 

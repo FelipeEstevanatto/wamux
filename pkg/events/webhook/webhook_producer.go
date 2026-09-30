@@ -11,6 +11,7 @@ import (
 
 	producer_interfaces "github.com/evolution-foundation/evolution-go/pkg/events/interfaces"
 	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
+	"github.com/evolution-foundation/evolution-go/pkg/webhooksign"
 )
 
 const (
@@ -80,12 +81,35 @@ func (p *webhookProducer) Produce(
 	webhookUrl string,
 	userID string,
 ) error {
+	return p.produce(queueName, payload, webhookUrl, userID, nil)
+}
+
+// ProduceSigned is Produce plus an HMAC-SHA256 signature over the exact bytes
+// that are sent, so a consumer can authenticate the body. An empty key falls
+// back to the unsigned behaviour of Produce.
+func (p *webhookProducer) ProduceSigned(
+	queueName string,
+	payload []byte,
+	webhookUrl string,
+	userID string,
+	hmacKey []byte,
+) error {
+	return p.produce(queueName, payload, webhookUrl, userID, hmacKey)
+}
+
+func (p *webhookProducer) produce(
+	queueName string,
+	payload []byte,
+	webhookUrl string,
+	userID string,
+	hmacKey []byte,
+) error {
 	// The queue name is meaningless for HTTP delivery: it names an AMQP queue,
 	// and the webhook body already carries the event. It used to be parsed here
 	// and anything without a dot was dropped, which silently discarded events
 	// posted under a bare name such as "sendstatus".
 	if p.url != "" {
-		p.deliver(p.url, payload, userID)
+		p.deliver(p.url, payload, userID, hmacKey)
 	}
 
 	// Multiple webhooks per instance. The instance's Webhook field may contain
@@ -96,7 +120,7 @@ func (p *webhookProducer) Produce(
 		if url == p.url {
 			continue
 		}
-		p.deliver(url, payload, userID)
+		p.deliver(url, payload, userID, hmacKey)
 	}
 
 	return nil
@@ -141,7 +165,7 @@ func splitWebhookURLs(raw string) []string {
 // deliver queues one delivery, dropping it only if the in-flight budget is full
 // — which means the endpoints are far behind and queueing more would just grow
 // memory until something breaks.
-func (p *webhookProducer) deliver(url string, payload []byte, userID string) {
+func (p *webhookProducer) deliver(url string, payload []byte, userID string, hmacKey []byte) {
 	select {
 	case p.inFlight <- struct{}{}:
 	default:
@@ -154,16 +178,16 @@ func (p *webhookProducer) deliver(url string, payload []byte, userID string) {
 
 	go func() {
 		defer func() { <-p.inFlight }()
-		p.sendWebhookWithRetry(url, payload, userID)
+		p.sendWebhookWithRetry(url, payload, userID, hmacKey)
 	}()
 }
 
-func (p *webhookProducer) sendWebhookWithRetry(url string, body []byte, userID string) {
+func (p *webhookProducer) sendWebhookWithRetry(url string, body []byte, userID string, hmacKey []byte) {
 	logger := p.loggerWrapper.GetLogger(userID)
 	delay := p.baseDelay
 
 	for attempt := 1; attempt <= p.maxAttempts; attempt++ {
-		statusCode, responseBody, retryable, err := p.sendWebhook(url, body)
+		statusCode, responseBody, retryable, err := p.sendWebhook(url, body, hmacKey)
 		if err == nil {
 			logger.LogInfo(
 				"[%s] webhook delivered - url: %s, status: %d, attempt: %d, response: %s",
@@ -205,7 +229,7 @@ func (p *webhookProducer) sendWebhookWithRetry(url string, body []byte, userID s
 
 // sendWebhook performs one attempt. retryable reports whether trying again could
 // plausibly succeed: network failures and 5xx yes, an outright refusal no.
-func (p *webhookProducer) sendWebhook(url string, body []byte) (status int, response []byte, retryable bool, err error) {
+func (p *webhookProducer) sendWebhook(url string, body []byte, hmacKey []byte) (status int, response []byte, retryable bool, err error) {
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		// A malformed URL will not fix itself on the next attempt.
@@ -215,6 +239,9 @@ func (p *webhookProducer) sendWebhook(url string, body []byte) (status int, resp
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "EvolutionGO-Webhook/1.0")
+	if len(hmacKey) > 0 {
+		req.Header.Set(webhooksign.SignatureHeader, webhooksign.Sign(hmacKey, body))
+	}
 
 	resp, err := p.client.Do(req)
 	if err != nil {

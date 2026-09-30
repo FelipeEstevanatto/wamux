@@ -14,7 +14,12 @@ import (
 	"gorm.io/gorm"
 
 	config_env "github.com/evolution-foundation/evolution-go/pkg/config/env"
+	"github.com/evolution-foundation/evolution-go/pkg/webhooksign"
 )
+
+// webhookHmacDerivationLabel domain-separates the webhook-key encryption key
+// derived from GLOBAL_API_KEY from any other use of that secret.
+const webhookHmacDerivationLabel = "evolution-go:webhook-hmac-encryption:v1:"
 
 type Config struct {
 	PostgresAuthDB       string
@@ -62,6 +67,15 @@ type Config struct {
 	EventIgnoreStatus    bool
 	QrcodeMaxCount       int
 	CheckUserExists      bool
+
+	// WebhookHmacGlobalKey signs webhook deliveries for instances that have no
+	// per-instance key. Empty disables the global fallback.
+	WebhookHmacGlobalKey string
+	// WebhookHmacEncryptionKey is the 32-byte AES-256-GCM key used to encrypt
+	// per-instance HMAC keys at rest. It is always populated: a dedicated
+	// secret is used when configured, otherwise one is derived from
+	// GLOBAL_API_KEY so the feature works out of the box.
+	WebhookHmacEncryptionKey []byte
 
 	// Typebot flood/loop protections. See pkg/typebot/service/protection.go.
 	TypebotContactRateLimit  int
@@ -309,6 +323,33 @@ func Load() *Config {
 		checkUserExists = "true"
 	}
 
+	// Webhook HMAC signing. A global key is optional (it signs deliveries for
+	// instances without their own key); the encryption key always exists so
+	// per-instance keys can be stored without extra configuration.
+	webhookHmacGlobalKey := strings.TrimSpace(os.Getenv(config_env.WEBHOOK_HMAC_KEY))
+	if webhookHmacGlobalKey != "" && len(webhookHmacGlobalKey) < webhooksign.MinKeyLength {
+		applog.Logger.LogWarn("[CONFIG] %s is shorter than %d characters; use a longer, random key", config_env.WEBHOOK_HMAC_KEY, webhooksign.MinKeyLength)
+	}
+
+	hmacEncSecret := os.Getenv(config_env.WEBHOOK_HMAC_ENCRYPTION_KEY)
+	hmacEncSource := config_env.WEBHOOK_HMAC_ENCRYPTION_KEY
+	if hmacEncSecret == "" {
+		hmacEncSecret = os.Getenv(config_env.GLOBAL_ENCRYPTION_KEY)
+		hmacEncSource = config_env.GLOBAL_ENCRYPTION_KEY
+	}
+	if hmacEncSecret == "" {
+		// Derive a stable key from the always-present global API key so
+		// per-instance keys survive restarts without any extra configuration.
+		// Setting WEBHOOK_HMAC_ENCRYPTION_KEY decouples the two secrets.
+		hmacEncSecret = webhookHmacDerivationLabel + globalApiKey
+		hmacEncSource = config_env.GLOBAL_API_KEY + " (derived; set " + config_env.WEBHOOK_HMAC_ENCRYPTION_KEY + " to decouple)"
+	}
+	webhookHmacEncryptionKey, err := webhooksign.DeriveEncryptionKey(hmacEncSecret)
+	if err != nil {
+		applog.Logger.LogFatal("[CONFIG] failed to derive the webhook HMAC encryption key: %v", err)
+	}
+	applog.Logger.LogInfo("[CONFIG] webhook HMAC key encryption source: %s", hmacEncSource)
+
 	// Swagger is served by default; set SWAGGER_ENABLED=false to disable it. The
 	// docs are public (no apikey), so this is the switch for locking down /swagger
 	// on an internet-facing deployment.
@@ -469,6 +510,8 @@ func Load() *Config {
 		NatsUrl:                  natsUrl,
 		NatsGlobalEnabled:        natsGlobalEnabled == "true",
 		NatsGlobalEvents:         natsGlobalEvents,
+		WebhookHmacGlobalKey:     webhookHmacGlobalKey,
+		WebhookHmacEncryptionKey: webhookHmacEncryptionKey,
 		LogMaxSize:               logMaxSize,
 		LogMaxBackups:            logMaxBackups,
 		LogMaxAge:                logMaxAge,

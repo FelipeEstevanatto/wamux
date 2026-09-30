@@ -12,6 +12,7 @@ import (
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
 	instance_service "github.com/evolution-foundation/evolution-go/pkg/instance/service"
 	"github.com/evolution-foundation/evolution-go/pkg/utils"
+	"github.com/evolution-foundation/evolution-go/pkg/webhooksign"
 )
 
 type InstanceHandler interface {
@@ -37,6 +38,9 @@ type InstanceHandler interface {
 	GetLogs(ctx *gin.Context)
 	GetAdvancedSettings(ctx *gin.Context)
 	UpdateAdvancedSettings(ctx *gin.Context)
+	SetHmac(ctx *gin.Context)
+	GetHmac(ctx *gin.Context)
+	DeleteHmac(ctx *gin.Context)
 }
 
 type instanceHandler struct {
@@ -860,6 +864,139 @@ func (h *instanceHandler) UpdateAdvancedSettings(c *gin.Context) {
 		"message":  "Advanced settings updated successfully",
 		"settings": persisted,
 	})
+}
+
+// HmacKeyRequest is the payload accepted by POST /instance/hmac.
+type HmacKeyRequest struct {
+	// HmacKey is the signing secret, at least 32 characters. Required unless
+	// Generate is true.
+	HmacKey string `json:"hmacKey" example:"a-very-long-random-secret-value-0123456789"`
+	// Generate asks the server to create a strong random key and return it once
+	// in the response (so it can be saved). Ignored when HmacKey is set.
+	Generate bool `json:"generate" example:"false"`
+}
+
+// HmacKeyResponse is the response for POST /instance/hmac. GeneratedKey is only
+// present when the caller asked the server to generate one; it is never
+// returned again afterwards.
+type HmacKeyResponse struct {
+	Configured     bool   `json:"configured"`
+	GlobalFallback bool   `json:"globalFallback"`
+	GeneratedKey   string `json:"generatedKey,omitempty"`
+}
+
+// SetHmac configures the per-instance webhook signing key
+// @Summary Configure webhook HMAC signing key
+// @Description Sets (or generates) the HMAC-SHA256 key used to sign this instance's webhook deliveries. The key is encrypted at rest and never returned, except when Generate is used.
+// @Tags Instance
+// @Accept json
+// @Produce json
+// @Param request body instance_handler.HmacKeyRequest true "HMAC key (or generate=true)"
+// @Success 200 {object} docmodels.Envelope{data=instance_handler.HmacKeyResponse} "Key configured"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
+// @Router /instance/hmac [post]
+func (h *instanceHandler) SetHmac(c *gin.Context) {
+	instance, ok := h.authenticatedInstance(c)
+	if !ok {
+		return
+	}
+
+	var data HmacKeyRequest
+	if err := c.ShouldBindJSON(&data); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	key := strings.TrimSpace(data.HmacKey)
+	if key == "" {
+		if !data.Generate {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "hmacKey is required"})
+			return
+		}
+		generated, err := webhooksign.GenerateKey()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		key = generated
+		data.Generate = true
+	} else {
+		data.Generate = false
+	}
+
+	status, err := h.instanceService.SetWebhookHmacKey(instance.Id, key)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	response := HmacKeyResponse{
+		Configured:     status.Configured,
+		GlobalFallback: status.GlobalFallback,
+	}
+	if data.Generate {
+		response.GeneratedKey = key
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "success", "data": response})
+}
+
+// GetHmac reports whether webhook HMAC signing is configured
+// @Summary Get webhook HMAC configuration
+// @Description Reports whether this instance has its own webhook signing key and whether a global fallback key exists. The key itself is never returned.
+// @Tags Instance
+// @Produce json
+// @Success 200 {object} docmodels.Envelope{data=instance_service.HmacConfigStatus} "Configuration status"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
+// @Router /instance/hmac [get]
+func (h *instanceHandler) GetHmac(c *gin.Context) {
+	instance, ok := h.authenticatedInstance(c)
+	if !ok {
+		return
+	}
+
+	status, err := h.instanceService.WebhookHmacStatus(instance.Id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "success", "data": status})
+}
+
+// DeleteHmac removes the per-instance webhook signing key
+// @Summary Delete webhook HMAC key
+// @Description Removes this instance's signing key. Deliveries fall back to the global key, or are sent unsigned if none is configured.
+// @Tags Instance
+// @Produce json
+// @Success 200 {object} docmodels.Envelope "Key deleted"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
+// @Router /instance/hmac [delete]
+func (h *instanceHandler) DeleteHmac(c *gin.Context) {
+	instance, ok := h.authenticatedInstance(c)
+	if !ok {
+		return
+	}
+
+	if err := h.instanceService.ClearWebhookHmacKey(instance.Id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "success"})
+}
+
+// authenticatedInstance reads the instance attached by the Auth middleware.
+func (h *instanceHandler) authenticatedInstance(c *gin.Context) (*instance_model.Instance, bool) {
+	getInstance := c.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return nil, false
+	}
+	return instance, true
 }
 
 func NewInstanceHandler(instanceService instance_service.InstanceService, config *config.Config) InstanceHandler {

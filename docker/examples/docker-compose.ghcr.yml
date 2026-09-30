@@ -53,6 +53,8 @@ services:
 
       # Optional integrations (leave empty to disable).
       WEBHOOK_URL: ${WEBHOOK_URL:-}
+      WEBHOOK_HMAC_KEY: ${WEBHOOK_HMAC_KEY:-}
+      WEBHOOK_HMAC_ENCRYPTION_KEY: ${WEBHOOK_HMAC_ENCRYPTION_KEY:-}
       PASSKEY_PUBLIC_URL: ${PASSKEY_PUBLIC_URL:-}
       AMQP_URL: ${AMQP_URL:-}
       AMQP_GLOBAL_ENABLED: ${AMQP_GLOBAL_ENABLED:-false}

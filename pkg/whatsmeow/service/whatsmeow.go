@@ -51,6 +51,7 @@ import (
 	storage_interfaces "github.com/evolution-foundation/evolution-go/pkg/storage/interfaces"
 	"github.com/evolution-foundation/evolution-go/pkg/utils"
 	"github.com/evolution-foundation/evolution-go/pkg/walimits"
+	"github.com/evolution-foundation/evolution-go/pkg/webhooksign"
 )
 
 type WhatsmeowService interface {
@@ -85,6 +86,10 @@ type WhatsmeowService interface {
 	ForceUpdateJid(instanceId string, number string) error
 	UpdateInstanceSettings(instanceId string) error
 	UpdateInstanceAdvancedSettings(instanceId string) error
+	// SetWebhookHmacKey remembers the plaintext webhook signing key for an
+	// instance so a key configured at runtime takes effect immediately, without
+	// waiting for a reconnect. An empty key clears it.
+	SetWebhookHmacKey(instanceId string, plaintextKey string)
 	GetPollService() poll_service.PollService // NOVO: Acesso ao serviço de polls
 
 	// Passkey (WebAuthn) pairing bridge — read by the public ceremony endpoint,
@@ -158,6 +163,10 @@ type whatsmeowService struct {
 	// refreshed bytes to serve on the next download request.
 	mediaRetryPending *cache.Cache
 	mediaRetryBytes   *cache.Cache
+	// webhookHmacKeys holds the plaintext signing key per instance when it has
+	// changed while the client is running, overriding the (possibly stale)
+	// encrypted copy on the in-memory instance. Empty string means "no key".
+	webhookHmacKeys *safemap.Map[string]
 	// authStore is heap-allocated so sync.Once works with value-receiver methods like StartClient.
 	authStore *sharedSQLStore
 }
@@ -3432,13 +3441,65 @@ func (w *whatsmeowService) sendToQueueOrWebhook(instance *instance_model.Instanc
 	}
 
 	if instance.Webhook != "" && instance.Webhook != "disabled" {
-		err := w.webhookProducer.Produce(queueName, jsonData, instance.Webhook, instance.Id)
+		key := w.webhookSigningKey(instance)
+		var err error
+		if signer, ok := w.webhookProducer.(producer_interfaces.SignedProducer); ok && len(key) > 0 {
+			err = signer.ProduceSigned(queueName, jsonData, instance.Webhook, instance.Id, key)
+		} else {
+			err = w.webhookProducer.Produce(queueName, jsonData, instance.Webhook, instance.Id)
+		}
 		if err != nil {
 			w.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to send message to webhook: %s", instance.Id, err)
 		} else {
 			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Message sent to webhook successfully", instance.Id)
 		}
 	}
+}
+
+// SetWebhookHmacKey records the plaintext signing key for an instance so it is
+// used by the next delivery even though the instance struct cached in the
+// running client still holds the old value.
+func (w *whatsmeowService) SetWebhookHmacKey(instanceId string, plaintextKey string) {
+	if w.webhookHmacKeys == nil {
+		return
+	}
+	w.webhookHmacKeys.Set(instanceId, plaintextKey)
+}
+
+// webhookSigningKey resolves the key an instance's webhook deliveries must be
+// signed with: an explicit runtime override, then the stored per-instance key,
+// then the process-global key. It returns nil when signing is disabled, in
+// which case the delivery is sent unsigned.
+func (w *whatsmeowService) webhookSigningKey(instance *instance_model.Instance) []byte {
+	if instance == nil {
+		return nil
+	}
+
+	if override, ok := w.webhookHmacKeys.Lookup(instance.Id); ok {
+		// An explicit override wins, including the empty string used to clear
+		// a key without forcing a reconnect.
+		if override == "" {
+			return nil
+		}
+		return []byte(override)
+	}
+
+	if instance.HmacKey != "" && len(w.config.WebhookHmacEncryptionKey) == 32 {
+		if key, err := webhooksign.Decrypt(w.config.WebhookHmacEncryptionKey, instance.HmacKey); err == nil && key != "" {
+			return []byte(key)
+		}
+		// A key that can no longer be decrypted (for example after the
+		// encryption secret changed) must not silently produce unsigned
+		// deliveries that consumers might still accept; fall through to the
+		// global key if one exists.
+		w.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] could not decrypt the stored webhook HMAC key; falling back to the global key if configured", instance.Id)
+	}
+
+	if w.config.WebhookHmacGlobalKey != "" {
+		return []byte(w.config.WebhookHmacGlobalKey)
+	}
+
+	return nil
 }
 
 func (w whatsmeowService) StartInstance(instanceId string) error {
@@ -3984,6 +4045,7 @@ func NewWhatsmeowService(
 		passkeyCeremony:    ceremony.NewStore(),
 		mediaRetryPending:  cache.New(10*time.Minute, 15*time.Minute),
 		mediaRetryBytes:    cache.New(30*time.Minute, time.Hour),
+		webhookHmacKeys:    safemap.New[string](),
 		authStore:          &sharedSQLStore{},
 		persistPool:        newPersistPool(persistWorkers, persistQueueSize),
 	}

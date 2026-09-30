@@ -26,6 +26,12 @@ type Instance struct {
 	ClientName       string    `json:"client_name"`
 	CreatedAt        time.Time `json:"createdAt" gorm:"autoCreateTime"`
 
+	// HmacKey is the per-instance webhook signing key, AES-256-GCM encrypted
+	// with the process encryption key. It is never serialized: it is only used
+	// server-side to sign outbound webhook deliveries. Empty means "use the
+	// global WEBHOOK_HMAC_KEY, if configured".
+	HmacKey string `json:"-" gorm:"type:text"`
+
 	// Advanced Settings
 	AlwaysOnline  bool   `json:"alwaysOnline" gorm:"default:false"`
 	RejectCall    bool   `json:"rejectCall" gorm:"default:false"`
