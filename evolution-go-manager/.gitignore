@@ -21,6 +21,8 @@ coverage
 dist
 dist-ssr
 build
+# Build output renamed aside when the committed dist was root-owned
+dist.root-owned/
 *.local
 
 # Environment variables
