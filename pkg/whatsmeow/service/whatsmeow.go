@@ -2588,18 +2588,21 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			}
 
 			// Persist the visible content too, so the conversation can be read
-			// back via GET /chat/history. The stored JIDs are canonical and
-			// non-device so they match the endpoint's `chat` filter.
+			// back via GET /chat/history. Chat/Sender are canonicalized to the
+			// phone-number JID when the chat arrived as a LID, so a 1:1
+			// conversation is not stored twice (LID + PN).
 			summary := message_content.Summarize(evt.Message)
+			chatJID := CanonicalChatJID(context.Background(), mycli.WAClient, evt.Info.Chat)
+			senderJID := CanonicalChatJID(context.Background(), mycli.WAClient, evt.Info.Sender)
 			message := message_model.Message{
 				MessageID:       evt.Info.ID,
 				InstanceId:      mycli.userID,
 				Timestamp:       evt.Info.Timestamp.Format("2006-01-02 15:04:05"),
 				Status:          status,
-				Source:          evt.Info.Chat.ToNonAD().User,
+				Source:          chatJID.User,
 				Referral:        referral,
-				ChatJid:         evt.Info.Chat.ToNonAD().String(),
-				SenderJid:       evt.Info.Sender.ToNonAD().String(),
+				ChatJid:         chatJID.String(),
+				SenderJid:       senderJID.String(),
 				MessageType:     summary.Type,
 				TextContent:     summary.Text,
 				QuotedMessageID: summary.QuotedID,
@@ -3612,6 +3615,42 @@ func instanceMediaDelivery(mode string) string {
 	default:
 		return "base64"
 	}
+}
+
+// CanonicalChatJID maps a LID-addressed 1:1 chat to its phone-number JID when
+// the local LID store knows the mapping, so the same conversation is not
+// persisted twice (once as "<lid>@lid" and once as "<phone>@s.whatsapp.net").
+// Groups, newsletters and already-PN JIDs are returned unchanged. The result is
+// always device-less (ToNonAD).
+func CanonicalChatJID(ctx context.Context, client *whatsmeow.Client, jid types.JID) types.JID {
+	if jid.Server != types.HiddenUserServer || client == nil || client.Store == nil || client.Store.LIDs == nil {
+		return jid.ToNonAD()
+	}
+	pn, err := client.Store.LIDs.GetPNForLID(ctx, jid)
+	if err != nil || pn.IsEmpty() {
+		return jid.ToNonAD()
+	}
+	return pn.ToNonAD()
+}
+
+// AlternateChatJID returns the counterpart of a 1:1 chat (the phone-number JID
+// for a LID, or the LID for a phone number) when the local mapping knows it.
+// It lets readback query both forms so already-split conversations are merged.
+func AlternateChatJID(ctx context.Context, client *whatsmeow.Client, jid types.JID) (types.JID, bool) {
+	if client == nil || client.Store == nil || client.Store.LIDs == nil {
+		return types.JID{}, false
+	}
+	switch jid.Server {
+	case types.HiddenUserServer:
+		if pn, err := client.Store.LIDs.GetPNForLID(ctx, jid); err == nil && !pn.IsEmpty() {
+			return pn.ToNonAD(), true
+		}
+	case types.DefaultUserServer:
+		if lid, err := client.Store.LIDs.GetLIDForPN(ctx, jid); err == nil && !lid.IsEmpty() {
+			return lid.ToNonAD(), true
+		}
+	}
+	return types.JID{}, false
 }
 
 func (w whatsmeowService) StartInstance(instanceId string) error {

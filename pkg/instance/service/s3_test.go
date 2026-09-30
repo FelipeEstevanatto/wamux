@@ -56,11 +56,17 @@ func newS3Service(t *testing.T) (instances, *s3Repo, *s3Whatsmeow, []byte) {
 	}
 	repo := &s3Repo{instance: &instance_model.Instance{Id: "11111111-1111-1111-1111-111111111111"}}
 	stub := &s3Whatsmeow{}
+
+	logs := logger_wrapper.NewLoggerManager(&config.Config{LogDirectory: t.TempDir()})
+	// The logger writes asynchronously; drain it before t.TempDir removes the
+	// directory, otherwise a late write races the cleanup.
+	t.Cleanup(func() { logs.Flush(repo.instance.Id) })
+
 	svc := instances{
 		instanceRepository: repo,
 		whatsmeowService:   stub,
 		config:             &config.Config{DataEncryptionKey: encKey},
-		loggerWrapper:      logger_wrapper.NewLoggerManager(&config.Config{LogDirectory: t.TempDir()}),
+		loggerWrapper:      logs,
 	}
 	return svc, repo, stub, encKey
 }
