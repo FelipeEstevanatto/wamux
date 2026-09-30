@@ -7,3 +7,8 @@ coverage.*
 .idea/
 .vscode/
 .DS_Store
+
+# Locally-compiled server binary that upstream accidentally committed at the
+# repo root (64MB ELF). It is a build artifact, never needed in git; the
+# Dockerfile compiles its own. Anchored so it does not hide a directory.
+/evolution-go
