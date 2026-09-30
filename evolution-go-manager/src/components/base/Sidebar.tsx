@@ -4,6 +4,7 @@ import {
   ExternalLink,
   Info,
   LayoutDashboard,
+  MessageSquare,
   Smartphone,
   TerminalSquare,
 } from 'lucide-react';
@@ -25,6 +26,7 @@ import {
 const navItems = [
   { to: '/manager', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/manager/instances', label: 'Instâncias', icon: Smartphone },
+  { to: '/manager/messages', label: 'Mensagens', icon: MessageSquare },
   { to: '/manager/api-tester', label: 'API Tester', icon: TerminalSquare },
   { to: '/manager/about', label: 'Sobre', icon: Info },
 ];
