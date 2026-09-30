@@ -923,12 +923,16 @@ redirects (every hop re-dials) and DNS rebinding (the validated IP is the one
 dialled). The outbound clients in `pkg/sendMessage`, `pkg/user` and `pkg/group`
 now use it.
 
-Enabled by default; `SSRF_PROTECTION=false` restores the old behaviour for
-deployments that legitimately fetch media from a private host. The fetch
+The guard is **opt-in for now**: it blocks only when `SSRF_PROTECTION=true`. The
+default (`false`) is permissive so updating the fork does not silently break
+senders that fetch media from an internal host — self-hosted MinIO, a
+self-hosted Typebot returning internal media URLs, or an internal CDN. Enable it
+when all media comes from public hosts, or migrate those senders to
+base64/multipart (`/send/media` already accepts a file upload) first. The fetch
 helpers in `send_service` (`fetchLinkThumbnail`, `fetchStickerData`) have
-integration tests proving they reject a loopback URL, and `pkg/ssrf` has unit
-tests for the address classification, the loopback/hostname dial path and the
-env toggle.
+integration tests proving they reject a loopback URL when the guard is on, and
+`pkg/ssrf` has unit tests for the address classification, the loopback/hostname
+dial path and the opt-in toggle.
 
 ## 3o. Message history readback (new in this fork)
 

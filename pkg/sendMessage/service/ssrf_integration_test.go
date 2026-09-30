@@ -17,8 +17,11 @@ import (
 func withGuardedMediaClient(t *testing.T) {
 	t.Helper()
 	oldMedia, oldSticker := mediaHTTPClient, stickerHTTPClient
-	mediaHTTPClient = ssrf.DefaultClient(5 * time.Second)
-	stickerHTTPClient = ssrf.DefaultClient(5 * time.Second)
+	// An explicitly enforcing guard, independent of the SSRF_PROTECTION default:
+	// this proves the fetch path consults the guard's dialer at all.
+	guarded := ssrf.New()
+	mediaHTTPClient = guarded.Client(5 * time.Second)
+	stickerHTTPClient = guarded.Client(5 * time.Second)
 	t.Cleanup(func() {
 		mediaHTTPClient = oldMedia
 		stickerHTTPClient = oldSticker

@@ -23,9 +23,10 @@
 //   - Redirects: every hop of a redirect goes through DialContext again, so an
 //     allowed public URL cannot bounce the client to an internal one.
 //
-// Set SSRF_PROTECTION=false to disable the guard (for deployments that
-// legitimately fetch media from a private/internal host). It is enabled by
-// default.
+// The guard is OPT-IN: it only blocks when SSRF_PROTECTION=true. The default is
+// permissive so updating the fork does not break senders that fetch media from
+// an internal host; enable it when all media comes from public hosts. This is a
+// deliberate, reversible posture (see FORK_NOTES.md §3n).
 package ssrf
 
 import (
@@ -70,12 +71,18 @@ func New(opts ...Option) *Guard {
 	return g
 }
 
-// Default returns the process-wide guard, honouring the SSRF_PROTECTION env
-// var (SSRF_PROTECTION=false disables the checks). It is evaluated per call so
-// the toggle is honoured wherever it is read from.
+// Default returns the process-wide guard. Protection is OPT-IN for now:
+// addresses are only checked when SSRF_PROTECTION=true. With the variable unset
+// (or any other value) the guard allows private networks, so updating the fork
+// does not silently break senders that fetch media from an internal host
+// (self-hosted MinIO, Typebot, an internal CDN).
+//
+// Set SSRF_PROTECTION=true to refuse loopback/private/link-local/metadata
+// destinations. It is evaluated per call so the toggle is honoured wherever it
+// is read from.
 func Default() *Guard {
-	disabled := strings.EqualFold(strings.TrimSpace(os.Getenv("SSRF_PROTECTION")), "false")
-	return New(WithAllowPrivateNetworks(disabled))
+	enabled := strings.EqualFold(strings.TrimSpace(os.Getenv("SSRF_PROTECTION")), "true")
+	return New(WithAllowPrivateNetworks(!enabled))
 }
 
 // DefaultClient returns an *http.Client that enforces the process-wide guard.
