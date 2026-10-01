@@ -1,10 +1,5 @@
 import LegalLayout, { LegalSection } from '@/components/base/LegalLayout';
-import {
-  FORK_OF_NAME,
-  FORK_REPO,
-  PRODUCT_NAME,
-  UPSTREAM_REPO,
-} from '@/constants/branding';
+import { PRODUCT_NAME, REPO } from '@/constants/branding';
 
 const UPDATED_AT = '24 de setembro de 2026';
 
@@ -23,15 +18,14 @@ export default function Terms() {
     >
       <LegalSection title="1. Sobre este software">
         <p>
-          O {PRODUCT_NAME} é um fork comunitário não oficial do {FORK_OF_NAME}{' '}
-          distribuído sob a Apache License 2.0. Trata-se de um servidor
-          auto-hospedado que expõe uma API REST e este painel web para criar,
-          conectar e gerenciar instâncias do WhatsApp, enviar e receber
+          O {PRODUCT_NAME} é um servidor auto-hospedado, distribuído sob a
+          Apache License 2.0. Ele expõe uma API REST e este painel web para
+          criar, conectar e gerenciar instâncias do WhatsApp, enviar e receber
           mensagens e acompanhar eventos.
         </p>
         <p>
           O software não é afiliado, endossado ou uma release oficial do
-          WhatsApp/Meta, nem da Evolution Foundation.
+          WhatsApp/Meta.
         </p>
       </LegalSection>
 
@@ -92,19 +86,17 @@ export default function Terms() {
 
       <LegalSection title="7. Limitação de responsabilidade">
         <p>
-          Na extensão máxima permitida pela lei, os mantenedores deste fork e os
-          autores do projeto upstream não respondem por danos indiretos,
-          incidentais ou consequentes, perda de dados, lucros cessantes ou
-          bloqueio de contas decorrentes do uso do software.
+          Na extensão máxima permitida pela lei, os mantenedores do projeto não
+          respondem por danos indiretos, incidentais ou consequentes, perda de
+          dados, lucros cessantes ou bloqueio de contas decorrentes do uso do
+          software.
         </p>
       </LegalSection>
 
       <LegalSection title="8. Licença e marca">
         <p>
-          O código é licenciado sob a Apache License 2.0, com condições
-          adicionais do {FORK_OF_NAME} (notificação de uso e uso de marca). Os
-          textos completos estão em{' '}
-          <code className="text-foreground">LICENSE</code>,{' '}
+          O código é licenciado sob a Apache License 2.0. Os textos completos
+          estão em <code className="text-foreground">LICENSE</code>,{' '}
           <code className="text-foreground">NOTICE</code> e{' '}
           <code className="text-foreground">TRADEMARKS.md</code> na raiz do
           projeto.
@@ -112,19 +104,11 @@ export default function Terms() {
         <div className="flex flex-wrap gap-4 pt-1">
           <a
             className="text-primary hover:underline"
-            href={FORK_REPO}
+            href={REPO}
             target="_blank"
             rel="noreferrer noopener"
           >
-            Repositório deste fork
-          </a>
-          <a
-            className="text-muted-foreground hover:text-foreground"
-            href={UPSTREAM_REPO}
-            target="_blank"
-            rel="noreferrer noopener"
-          >
-            Projeto upstream ({FORK_OF_NAME})
+            Repositório do projeto
           </a>
         </div>
       </LegalSection>

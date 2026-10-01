@@ -8,10 +8,7 @@
 
 </div>
 
-> **Unofficial community fork.** This is the web panel for **WaMux**, an
-> unofficial community fork of [WaMux](https://github.com/felipeestevanatto/wamux).
-> It is not affiliated with, endorsed by, or an official release of Evolution
-> Foundation. See the repository's `NOTICE` and `TRADEMARKS.md`.
+> Web panel for [WaMux](https://github.com/felipeestevanatto/wamux).
 
 ## About
 
@@ -55,7 +52,7 @@ pnpm build          # -> dist/
 ```
 
 `make manager-build` from the repository root builds and copies `dist/` into
-`manager/dist/` (preserving the fork-only `dashboard.html`).
+`manager/dist/` (preserving the hand-written `dashboard.html`).
 
 ## Authentication
 
@@ -63,7 +60,7 @@ pnpm build          # -> dist/
 2. Enter your **GLOBAL_API_KEY** from the `.env`
 3. Credentials are stored in the browser's `localStorage`
 
-No license activation is involved: this fork removed the gate entirely.
+No license activation is involved.
 
 ## Project structure
 
@@ -74,7 +71,7 @@ src/
 ├── components/
 │   ├── base/            # Layout, Header, Sidebar, GithubIcon, ErrorBoundary
 │   └── instances/       # Instance cards, QR code, create/send/test modals
-├── constants/branding.ts# Product name, fork/upstream links, disclaimers
+├── constants/branding.ts# Product branding (name, tagline, repo)
 ├── services/api/        # Axios client + instances/server APIs
 ├── store/               # Zustand stores (auth, instances + overviews)
 ├── hooks/               # useAuth, useDarkMode, useServerStats
@@ -103,11 +100,9 @@ src/
   routes, the instance token for instance-scoped ones)
 - **WebSocket** — real-time events at `/ws?token=<apiKey>&instanceId=<id>`
 
-## License & attribution
+## License
 
-Apache License 2.0 with WaMux's additional conditions. The upstream
-project is [WaMux](https://github.com/felipeestevanatto/wamux)
-by Evolution Foundation; its copyright line and trademark notices are kept
-intact.
+Apache License 2.0. See `LICENSE`, `NOTICE` and `TRADEMARKS.md` in the
+repository root.
 
-© 2026 Evolution Foundation
+© 2026 WaMux

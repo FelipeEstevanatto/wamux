@@ -7,7 +7,7 @@ import type { AuthStore } from '@/types/auth';
  * Authentication Store
  *
  * Manages the API URL and API key and persists them to localStorage. There is
- * no license state — this fork removed the license gate.
+ * no license state — this project removed the license gate.
  */
 
 const defaultApiUrl = () =>

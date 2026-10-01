@@ -16,12 +16,9 @@ import useInstancesStore from '@/store/instancesStore';
 import useAuth from '@/hooks/useAuth';
 import { useDarkMode } from '@/hooks/useDarkMode';
 import GithubIcon from '@/components/base/GithubIcon';
-import {
-  FORK_REPO,
-  UPSTREAM_REPO,
-} from '@/constants/branding';
+import { REPO } from '@/constants/branding';
 
-// (fork/upstream links come from @/constants/branding)
+// (the repository link comes from @/constants/branding)
 
 const fmtNumber = (n?: number) =>
   n === undefined || n === null ? '—' : n.toLocaleString('pt-BR');
@@ -219,24 +216,14 @@ export default function Dashboard() {
               {system.version ? `versão ${system.version}` : 'versão —'}
             </span>
             <a
-              href={FORK_REPO}
+              href={REPO}
               target="_blank"
               rel="noreferrer noopener"
               className="inline-flex items-center gap-2 rounded-md border border-sidebar-border bg-sidebar px-3 py-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
-              title="Repositório deste fork"
+              title="Repositório do projeto"
             >
               <GithubIcon className="h-3.5 w-3.5" />
-              Fork
-            </a>
-            <a
-              href={UPSTREAM_REPO}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="inline-flex items-center gap-2 rounded-md border border-sidebar-border bg-sidebar px-3 py-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
-              title="Projeto upstream (Evolution Foundation)"
-            >
-              <GithubIcon className="h-3.5 w-3.5" />
-              Upstream
+              GitHub
             </a>
           </div>
         </div>

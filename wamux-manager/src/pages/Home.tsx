@@ -3,13 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui';
 import { ArrowRight, Zap, Shield, Globe, Server } from 'lucide-react';
 import apiClient from '@/services/api/client';
-import {
-  COPYRIGHT_LINE,
-  FORK_DISCLAIMER,
-  FORK_OF_NAME,
-  PRODUCT_NAME,
-  PRODUCT_TAGLINE,
-} from '@/constants/branding';
+import { COPYRIGHT_LINE, PRODUCT_NAME, PRODUCT_TAGLINE } from '@/constants/branding';
 
 interface RootInfo {
   status?: number;
@@ -47,10 +41,6 @@ export const Home: React.FC = () => {
             </h1>
             <p className="text-xl text-muted-foreground">
               {PRODUCT_TAGLINE}
-            </p>
-            <p className="text-sm text-muted-foreground max-w-2xl mx-auto">
-              Fork comunitário não oficial do {FORK_OF_NAME}. Não é afiliado,
-              endossado ou uma release oficial da Evolution Foundation.
             </p>
           </div>
 
@@ -136,9 +126,6 @@ export const Home: React.FC = () => {
             </p>
             <p className="text-xs text-muted-foreground mt-2">
               {COPYRIGHT_LINE}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1 max-w-xl mx-auto">
-              {FORK_DISCLAIMER}
             </p>
           </div>
         </div>

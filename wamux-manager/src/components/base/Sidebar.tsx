@@ -12,14 +12,7 @@ import { cn } from '@/utils/cn';
 import useAuth from '@/hooks/useAuth';
 import useServerStats from '@/hooks/useServerStats';
 import GithubIcon from './GithubIcon';
-import {
-  COPYRIGHT_LINE,
-  FORK_DISCLAIMER,
-  FORK_OF_NAME,
-  FORK_REPO,
-  PRODUCT_NAME,
-  UPSTREAM_REPO,
-} from '@/constants/branding';
+import { COPYRIGHT_LINE, PRODUCT_NAME, REPO } from '@/constants/branding';
 
 // Dashboard/Instâncias/Sobre are SPA routes; API Tester is also a route, and
 // Swagger is served by the Go server (outside the SPA), so it is a plain link.
@@ -61,14 +54,11 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
         end
         onClick={onNavigate}
         title="Ir para o Dashboard"
-        className="flex h-16 flex-col items-start justify-center border-b border-sidebar-border px-4 transition-colors hover:bg-sidebar-accent/50"
+        className="flex h-16 items-center border-b border-sidebar-border px-4 transition-colors hover:bg-sidebar-accent/50"
       >
         <h2 className="text-lg font-bold leading-tight text-primary">
           {PRODUCT_NAME}
         </h2>
-        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-          fork de {FORK_OF_NAME}
-        </span>
       </NavLink>
 
       {/* Navigation Menu */}
@@ -114,28 +104,16 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <a
-            href={FORK_REPO}
+            href={REPO}
             target="_blank"
             rel="noreferrer noopener"
             className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-            title="Repositório deste fork"
+            title="Repositório do projeto"
           >
             <GithubIcon className="h-3.5 w-3.5" />
-            Fork
-          </a>
-          <a
-            href={UPSTREAM_REPO}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-            title={`Projeto upstream (${FORK_OF_NAME})`}
-          >
-            Upstream
+            GitHub
           </a>
         </div>
-        <p className="text-[11px] leading-snug text-muted-foreground">
-          {FORK_DISCLAIMER}
-        </p>
         <div className="text-[11px] text-muted-foreground">{COPYRIGHT_LINE}</div>
       </div>
     </div>
