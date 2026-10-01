@@ -540,11 +540,18 @@ func Load() *Config {
 		sendMaxConcurrent = 0
 	}
 
-	// Horizontal scaling identity + lease. NodeID defaults to the hostname so a
-	// container's name is used unless the operator pins it.
+	// Horizontal scaling identity + lease. NODE_ID identifies this process in
+	// instance_ownership. It must be STABLE across restarts: if it changes, the
+	// node no longer recognises its own previous lease and has to wait for it to
+	// expire before reconnecting. A container hostname is NOT stable (it changes
+	// on every recreate), so the default is CLIENT_NAME — stable, and correct for
+	// the common one-node-per-client-name case. Multi-node deployments MUST set
+	// NODE_ID explicitly (a distinct value per node).
 	nodeID := strings.TrimSpace(os.Getenv(config_env.NODE_ID))
 	if nodeID == "" {
-		if hostname, err := os.Hostname(); err == nil {
+		if clientName := strings.TrimSpace(os.Getenv(config_env.CLIENT_NAME)); clientName != "" {
+			nodeID = clientName
+		} else if hostname, err := os.Hostname(); err == nil {
 			nodeID = hostname
 		} else {
 			nodeID = "node-unknown"
