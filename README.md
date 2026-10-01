@@ -273,6 +273,7 @@ API instead of only through webhooks:
 |---|---|---|
 | `GET` | `/chat/history?chat=<phone-or-JID>&limit=&before=` | Messages of one conversation, newest first. `before` pages backwards (timestamp of the oldest message already seen). |
 | `GET` | `/chat/chats?limit=` | Conversations with their newest message, status, type, count, most recent first. |
+| `GET` | `/chat/media/:messageId` | Streams a message's locally stored attachment (image/video/audio/document). Used by the manager for in-thread previews. |
 
 `chat` accepts a phone number or a full JID (including `@g.us`); it is
 normalized to the same canonical JID stored on the row. Limits default to 50 and
@@ -312,7 +313,7 @@ A few of the endpoints this fork adds or that are easy to get wrong:
 | `GET` | `/instance/overview/:instanceId` | global | Profile picture, push name, device platform, contact/chat/message counts |
 | `GET` | `/server/stats` | global | Runtime/host metrics, message aggregates, running version |
 | `GET` | `/dashboard` | — | Self-hosted dashboard page |
-| `GET` | `/chat/history` · `/chat/chats` | instance | Read stored messages / list conversations |
+| `GET` | `/chat/history` · `/chat/chats` · `/chat/media/:messageId` | instance | Read stored messages / list conversations / stream a stored attachment |
 | `POST` | `/instance/hmac` · `GET` · `DELETE` | instance | Configure webhook HMAC signing |
 | `POST` | `/instance/s3` · `GET` · `DELETE` · `POST /instance/s3/test` | instance | Per-instance S3 media storage |
 | `POST` | `/chat/ephemeral` | instance | Set/clear the disappearing-messages timer for a chat |

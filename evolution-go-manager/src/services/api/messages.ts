@@ -96,3 +96,21 @@ export const sendMedia = async (
   );
   return response.data.data;
 };
+
+/**
+ * Fetch a stored attachment as an object URL for in-thread previews.
+ *
+ * `media_url` is either an absolute object-store URL (used directly, no auth)
+ * or an API path like `/chat/media/<id>`, which requires the instance token.
+ * GET /chat/media/:messageId
+ */
+export const fetchMediaObjectUrl = async (
+  instanceToken: string,
+  path: string
+): Promise<string> => {
+  const response = await apiClient.get(path, {
+    headers: { apikey: instanceToken },
+    responseType: 'blob',
+  });
+  return URL.createObjectURL(response.data as Blob);
+};

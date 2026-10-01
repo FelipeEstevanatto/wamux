@@ -26,6 +26,7 @@ import (
 	config "github.com/evolution-foundation/evolution-go/pkg/config"
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
 	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
+	localmedia "github.com/evolution-foundation/evolution-go/pkg/media"
 	message_content "github.com/evolution-foundation/evolution-go/pkg/message/content"
 	message_model "github.com/evolution-foundation/evolution-go/pkg/message/model"
 	message_repository "github.com/evolution-foundation/evolution-go/pkg/message/repository"
@@ -483,6 +484,11 @@ type MessageSendStruct struct {
 	Info               types.MessageInfo
 	Message            *waE2E.Message
 	MessageContextInfo *waE2E.ContextInfo
+	// MediaData is the outbound attachment's bytes, used to keep a local copy
+	// for the manager's history preview. Never serialized in API responses.
+	MediaData []byte `json:"-"`
+	// MediaMimetype is the stored attachment's content type. Not serialized.
+	MediaMimetype string `json:"-"`
 }
 
 func (s *sendService) ensureClientConnected(instanceId string) (*whatsmeow.Client, error) {
@@ -3374,6 +3380,10 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 			Participant:   proto.String(data.Quoted.Participant),
 			QuotedMessage: quotedMessageContent(data.Quoted.Message),
 		},
+		// Keep the attachment bytes (when present) so a local copy can be
+		// stored for the manager's history preview.
+		MediaData:     data.MediaData,
+		MediaMimetype: detectMessageMimetype(msg),
 	}
 
 	postMap := make(map[string]interface{})
@@ -4056,9 +4066,40 @@ func (s *sendService) persistSentMessage(instanceId string, sent *MessageSendStr
 		QuotedMessageID: summary.QuotedID,
 		IsFromMe:        true,
 	}
+	// Store a local copy of an outbound attachment so it can be previewed from
+	// history without an object store (MinIO/S3).
+	if len(sent.MediaData) > 0 {
+		if err := localmedia.Save(instanceId, sent.Info.ID, sent.MediaData); err == nil {
+			msg.MediaUrl = localmedia.URLPath(sent.Info.ID)
+			msg.MediaMimetype = sent.MediaMimetype
+		} else if err != localmedia.ErrNotConfigured {
+			s.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Failed to store sent media locally for %s: %v", instanceId, sent.Info.ID, err)
+		}
+	}
 	go func() {
 		if err := s.messageRepository.InsertMessage(msg); err != nil {
 			s.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Failed to persist sent message %s: %v", instanceId, msg.MessageID, err)
 		}
 	}()
+}
+
+// detectMessageMimetype returns the content type of the media carried by an
+// outbound message, or "" for non-media messages.
+func detectMessageMimetype(msg *waE2E.Message) string {
+	if msg == nil {
+		return ""
+	}
+	switch {
+	case msg.GetImageMessage() != nil:
+		return msg.GetImageMessage().GetMimetype()
+	case msg.GetVideoMessage() != nil:
+		return msg.GetVideoMessage().GetMimetype()
+	case msg.GetAudioMessage() != nil:
+		return msg.GetAudioMessage().GetMimetype()
+	case msg.GetDocumentMessage() != nil:
+		return msg.GetDocumentMessage().GetMimetype()
+	case msg.GetStickerMessage() != nil:
+		return msg.GetStickerMessage().GetMimetype()
+	}
+	return ""
 }

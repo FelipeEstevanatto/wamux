@@ -44,6 +44,7 @@ import (
 	label_model "github.com/evolution-foundation/evolution-go/pkg/label/model"
 	label_repository "github.com/evolution-foundation/evolution-go/pkg/label/repository"
 	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
+	localmedia "github.com/evolution-foundation/evolution-go/pkg/media"
 	message_content "github.com/evolution-foundation/evolution-go/pkg/message/content"
 	message_model "github.com/evolution-foundation/evolution-go/pkg/message/model"
 	message_repository "github.com/evolution-foundation/evolution-go/pkg/message/repository"
@@ -2313,7 +2314,10 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 		// The media URL/mimetype captured below are also written to the history
 		// row, so a stored media message can be read back with its pointer.
+		// storedLocalMedia records that the bytes were saved to the local
+		// attachment store, which is used as the URL fallback (no MinIO/S3).
 		var storedMediaURL, storedMediaMimetype string
+		var storedLocalMedia bool
 
 		if mycli.config.WebhookFiles {
 			isMedia := false
@@ -2504,6 +2508,15 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 				// Only process storage if download was successful
 				if err == nil && len(data) > 0 {
+					// Always keep a local copy so the manager can preview the
+					// attachment from history even without MinIO/S3 configured.
+					storedMediaMimetype = mimeType
+					if saveErr := localmedia.Save(mycli.userID, evt.Info.ID, data); saveErr == nil {
+						storedLocalMedia = true
+					} else if saveErr != localmedia.ErrNotConfigured {
+						mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Failed to store media locally - ID: %s: %v", mycli.userID, evt.Info.ID, saveErr)
+					}
+
 					// Resolve where to store: the instance's own S3 if enabled,
 					// else the global MinIO config, else nowhere (base64 only).
 					storage, delivery := mycli.service.MediaStorageFor(mycli.Instance)
@@ -2594,6 +2607,12 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			summary := message_content.Summarize(evt.Message)
 			chatJID := CanonicalChatJID(context.Background(), mycli.WAClient, evt.Info.Chat)
 			senderJID := CanonicalChatJID(context.Background(), mycli.WAClient, evt.Info.Sender)
+			// Prefer the object-store URL when present (directly reachable),
+			// otherwise fall back to the locally stored copy served by the API.
+			mediaURL := storedMediaURL
+			if mediaURL == "" && storedLocalMedia {
+				mediaURL = localmedia.URLPath(evt.Info.ID)
+			}
 			message := message_model.Message{
 				MessageID:       evt.Info.ID,
 				InstanceId:      mycli.userID,
@@ -2607,7 +2626,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 				TextContent:     summary.Text,
 				QuotedMessageID: summary.QuotedID,
 				IsFromMe:        evt.Info.IsFromMe,
-				MediaUrl:        storedMediaURL,
+				MediaUrl:        mediaURL,
 				MediaMimetype:   storedMediaMimetype,
 			}
 

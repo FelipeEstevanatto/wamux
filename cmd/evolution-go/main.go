@@ -46,6 +46,7 @@ import (
 	label_repository "github.com/evolution-foundation/evolution-go/pkg/label/repository"
 	label_service "github.com/evolution-foundation/evolution-go/pkg/label/service"
 	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
+	localmedia "github.com/evolution-foundation/evolution-go/pkg/media"
 	message_cleanup "github.com/evolution-foundation/evolution-go/pkg/message/cleanup"
 	message_handler "github.com/evolution-foundation/evolution-go/pkg/message/handler"
 	message_model "github.com/evolution-foundation/evolution-go/pkg/message/model"
@@ -276,6 +277,11 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	mediaBackend := ""
 	if config.MinioEnabled {
 		mediaBackend = "minio:" + config.MinioBucket
+	}
+
+	// Local attachment store (manager previews) under the data volume.
+	if err := localmedia.Configure(filepath.Join(dataDir, "media")); err != nil {
+		log.Fatal(err)
 	}
 
 	routes.NewRouter(
