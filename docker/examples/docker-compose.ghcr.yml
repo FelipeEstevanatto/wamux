@@ -14,7 +14,7 @@
 # Swagger:  http://localhost:8081/swagger/index.html
 # Manager:  http://localhost:8081/manager
 #
-# Tags: `dev` = develop branch (newest), `0.9.1` = current release, `latest`
+# Tags: `dev` = develop branch (newest), `0.9.2` = current release, `latest`
 # follows releases. Override with WAMUX_VERSION in .env.
 #
 # This is an UNOFFICIAL community build. See NOTICE/TRADEMARKS.md.
