@@ -1,0 +1,14 @@
+# gitleaks configuration.
+#
+# Extend the built-in rules and allow known, non-secret test fixtures. The
+# benchmark payloads under pkg/jsonx use placeholder identifiers (all-zero
+# UUIDs), not real instance tokens or credentials. Everything else still uses
+# the default rules, so a real leaked key in a test fixture is still caught.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Benchmark/test fixtures with placeholder values, not real secrets."
+paths = [
+  '''pkg/jsonx/jsonx_bench_test\.go''',
+]

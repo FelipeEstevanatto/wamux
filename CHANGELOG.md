@@ -1,5 +1,13 @@
 # WaMux - Changelog
 
+## 0.9.1 — security and CI fixes
+
+- Go toolchain bumped to 1.26.8 (`go.mod` + `golang:1.26.8-alpine`), clearing 26
+  standard-library advisories reported by `govulncheck`.
+- `github.com/quic-go/quic-go` bumped to v0.59.1 (GO-2026-5676, HTTP/3 QPACK).
+- gitleaks: `jsonx` benchmark uses an all-zero placeholder token; added
+  `.gitleaks.toml` allowlisting that fixture. No API or data changes.
+
 ## 0.9.0 — renamed to WaMux
 
 Rebrand from the `evo-gofork` community fork to **WaMux** (independent project,
