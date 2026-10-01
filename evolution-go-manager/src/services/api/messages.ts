@@ -84,12 +84,15 @@ export const sendMedia = async (
   if (payload.filename) form.append('filename', payload.filename);
   form.append('file', payload.file, payload.filename || payload.file.name);
 
-  // Do not set Content-Type: axios strips it for FormData so the browser adds
-  // the multipart boundary.
+  // Do not let the client's default `Content-Type: application/json` apply:
+  // axios would then JSON-stringify the FormData (turning the file into `{}`).
+  // `null` removes the header so the browser sends multipart with a boundary.
   const response = await apiClient.post<{ message: string; data: unknown }>(
     '/send/media',
     form,
-    asInstance(instanceToken)
+    {
+      headers: { apikey: instanceToken, 'Content-Type': null },
+    }
   );
   return response.data.data;
 };
