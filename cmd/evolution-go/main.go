@@ -306,7 +306,14 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 
 	// Rate limiting: per credential (instance token / admin key) or per client
 	// IP when unauthenticated. Stops apikey brute force and POST /send/* floods.
-	r.Use(httpguard.Middleware(httpguard.NewLimiter(config.RateLimitPerMinute, time.Minute)))
+	// Health/scrape routes are exempt and the admin key gets its own, more
+	// generous bucket, so a load test or dashboard burst never locks the operator
+	// out (both refinements came from a real load test).
+	r.Use(httpguard.MiddlewareWithAdmin(
+		httpguard.NewLimiter(config.RateLimitPerMinute, time.Minute),
+		nil,
+		config.GlobalApiKey,
+	))
 
 	// Passkey ceremony routes — PUBLIC (called by the browser extension from the
 	// web.whatsapp.com origin, gated only by an opaque ephemeral token).

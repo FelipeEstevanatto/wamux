@@ -72,6 +72,13 @@ Three additive features, all disabled/unchanged by default unless configured.
   `go vet` + `go test -race`, and a gitleaks secret scan, on push/PR/weekly.
 
 ### 🛡️ Resource safety
+- **Rate-limiter no longer locks the operator out** — health/observability
+  routes (`/`, `/server/ok`, `/server/health`, `/metrics`, `/favicon.ico`,
+  `/license/*`) are exempt from the limiter, so an orchestrator/scrape burst
+  never makes the service look down; and the admin/global key gets its **own,
+  more generous bucket** (10x, min 600/min) separate from per-instance/per-IP
+  traffic, so a dense dashboard/load burst cannot 429 the operator. Found by a
+  load test that tripped the shared bucket.
 - **Stored media serving is capped** at 64 MiB per request (`413` above it),
   with the read bounded by a `SectionReader`.
 - **Cluster-aware DB pool budget** (`DB_POOL_BUDGET_PER_NODE`, `DB_NODE_COUNT`):
