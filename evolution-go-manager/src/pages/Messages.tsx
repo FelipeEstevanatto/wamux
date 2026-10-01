@@ -169,6 +169,10 @@ export default function Messages() {
     [instances, instanceId]
   );
   const token = instance?.apikey ?? '';
+  // Live events are only published to /ws when the instance's WebSocket option
+  // is enabled; otherwise the socket connects but stays silent.
+  const wsEnabled =
+    instance?.websocketEnable === 'enabled' || instance?.websocketEnable === 'true';
 
   const [chats, setChats] = useState<ChatSummary[]>([]);
   const [chatsLoading, setChatsLoading] = useState(false);
@@ -471,7 +475,16 @@ export default function Messages() {
         <Button variant="outline" size="sm" onClick={() => void manualRefresh()} disabled={refreshing}>
           <RefreshCw className={refreshing ? 'animate-spin' : ''} /> Atualizar
         </Button>
-        {wsBadge}
+        {wsEnabled ? (
+          wsBadge
+        ) : (
+          <span
+            className="inline-flex items-center gap-1 text-xs text-amber-600"
+            title="Esta instância está com o WebSocket desabilitado, então o servidor não publica eventos em tempo real. Habilite em Instâncias → Configurar → WebSocket = Habilitado."
+          >
+            <WifiOff className="h-3.5 w-3.5" /> Tempo real desabilitado na instância
+          </span>
+        )}
       </div>
 
       <div className="grid min-h-0 flex-1 lg:grid-cols-[320px_1fr]">
