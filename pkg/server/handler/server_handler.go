@@ -136,23 +136,24 @@ func (s *serverHandler) Stats(ctx *gin.Context) {
 	// RSS/peak come from /proc/self and the container's own cgroup, NOT the host.
 	system["process"] = processStats()
 
-	// Host context, clearly labelled as the whole machine (may include other
-	// workloads) so it is not mistaken for this service's usage.
-	host := gin.H{}
+	// Host context: the whole machine (may include other workloads), reported
+	// FLAT as system.loadAvg*/hostMem* because that is the documented shape
+	// (pkg/docmodels.SystemStats) and what both the manager SPA and
+	// manager/dist/dashboard.html read. These were briefly nested under
+	// system.host, which silently broke the dashboard's "RAM do host" and
+	// "Carga (1m)" cards on every platform ("host indisponível" /
+	// "load indisponível"); keep them flat.
 	if l1, l5, l15, ok := readLoadAvg(); ok {
-		host["loadAvg1"] = l1
-		host["loadAvg5"] = l5
-		host["loadAvg15"] = l15
+		system["loadAvg1"] = l1
+		system["loadAvg5"] = l5
+		system["loadAvg15"] = l15
 	}
 	if totalKB, availKB, ok := readHostMem(); ok {
-		host["memTotalMB"] = totalKB / 1024.0
-		host["memAvailableMB"] = availKB / 1024.0
+		system["hostMemTotalMB"] = totalKB / 1024.0
+		system["hostMemAvailableMB"] = availKB / 1024.0
 		if totalKB > 0 {
-			host["memUsedPct"] = (1 - availKB/totalKB) * 100
+			system["hostMemUsedPct"] = (1 - availKB/totalKB) * 100
 		}
-	}
-	if len(host) > 0 {
-		system["host"] = host
 	}
 
 	messages := gin.H{"total": 0}

@@ -207,6 +207,47 @@ func TestStatsIncludesVersion(t *testing.T) {
 	}
 }
 
+// The dashboard's "RAM do host" and "Carga (1m)" cards read the HOST metrics
+// flat off `system` (see pkg/docmodels.SystemStats and the manager frontend).
+// A refactor once nested them under system.host, which made both cards show
+// "host indisponível"/"load indisponível" on every platform. Pin the flat shape.
+func TestStatsReportsFlatHostMetrics(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	h := &serverHandler{version: "x", startTime: time.Now()}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	h.Stats(c)
+
+	var body struct {
+		System map[string]any `json:"system"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if _, nested := body.System["host"]; nested {
+		t.Fatal("host metrics must stay flat (system.hostMemTotalMB/loadAvg1), not nested under system.host")
+	}
+
+	// The host readers are Linux-only; assert the flat keys whenever they
+	// succeed so this also guards the naming, not just the reader.
+	if _, _, _, ok := readLoadAvg(); ok {
+		for _, k := range []string{"loadAvg1", "loadAvg5", "loadAvg15"} {
+			if _, present := body.System[k]; !present {
+				t.Fatalf("system.%s missing; the dashboard reads it flat", k)
+			}
+		}
+	}
+	if _, _, ok := readHostMem(); ok {
+		for _, k := range []string{"hostMemTotalMB", "hostMemAvailableMB", "hostMemUsedPct"} {
+			if _, present := body.System[k]; !present {
+				t.Fatalf("system.%s missing; the dashboard reads it flat", k)
+			}
+		}
+	}
+}
+
 func TestStatsResolvesAndMergesTopSources(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	h := &serverHandler{
