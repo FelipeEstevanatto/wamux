@@ -95,7 +95,7 @@ func init() {
 	}
 }
 
-func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.Config, conn *amqp.Connection, exPath string, messageRepository message_repository.MessageRepository) *gin.Engine {
+func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.Config, conn *amqp.Connection, exPath string, messageRepository message_repository.MessageRepository) (*gin.Engine, whatsmeow_service.WhatsmeowService) {
 	killChannel := safemap.New[chan bool]()
 	clientPointer := safemap.New[*whatsmeow.Client]()
 
@@ -402,7 +402,9 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		websocket_producer.ServeWs(c.Writer, c.Request, instanceId, websocketProducer)
 	})
 
-	return r
+	// Return the service alongside the engine so main can drain its persistence
+	// pool during shutdown (the service is otherwise unreachable from main).
+	return r, whatsmeowService
 }
 
 // migrate brings the schema up to date in two phases:
@@ -620,7 +622,7 @@ func main() {
 	defer stopWorkers()
 	message_cleanup.NewCleaner(messageRepository, cfg.MessageRetentionDays).Start(workersCtx)
 
-	r := setupRouter(db, authDB, sqliteDB, cfg, conn, exPath, messageRepository)
+	r, whatsmeowService := setupRouter(db, authDB, sqliteDB, cfg, conn, exPath, messageRepository)
 
 	srv := &http.Server{
 		Addr:    ":" + os.Getenv("SERVER_PORT"),
@@ -653,6 +655,14 @@ func main() {
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		applog.Logger.LogError("[SHUTDOWN] Server forced to shutdown: %v", err)
+	}
+
+	// Drain the message-persistence pool: messages still in the batching window
+	// (up to 20ms) would otherwise be lost on a clean shutdown. Event handlers
+	// may still submit while this runs; those fall back to an inline write.
+	if whatsmeowService != nil {
+		whatsmeowService.StopPersistence()
+		applog.Logger.LogInfo("[SHUTDOWN] Persistence queue drained")
 	}
 
 	applog.Logger.LogInfo("[SHUTDOWN] Server exited")
