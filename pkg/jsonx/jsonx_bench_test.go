@@ -11,7 +11,7 @@ import (
 func samplePayload() map[string]any {
 	return map[string]any{
 		"event":         "Message",
-		"instanceToken": "916cd701-fc04-4f4e-816d-a9bb1d53c84e",
+		"instanceToken": "00000000-0000-0000-0000-000000000000",
 		"instanceId":    "2a2ddce2-99cf-44d1-b36b-addfefeb6596",
 		"instanceName":  "Instancia 1",
 		"data": map[string]any{
