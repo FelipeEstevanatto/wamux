@@ -51,8 +51,8 @@ func (fakeMessageRepo) GetMessageByID(string) (*message_model.Message, error) { 
 func (fakeMessageRepo) GetMessageByIDForInstance(string, string) (*message_model.Message, error) {
 	return nil, nil
 }
-func (fakeMessageRepo) DeleteAllMessages() (int64, error)                     { return 0, nil }
-func (fakeMessageRepo) GetLatestMessageID(string) (string, string, error)     { return "", "", nil }
+func (fakeMessageRepo) DeleteAllMessages() (int64, error)                 { return 0, nil }
+func (fakeMessageRepo) GetLatestMessageID(string) (string, string, error) { return "", "", nil }
 func (f fakeMessageRepo) GetStats() (*message_repository.MessageStats, error) {
 	if f.stats == nil {
 		return &message_repository.MessageStats{

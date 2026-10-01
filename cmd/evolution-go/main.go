@@ -202,7 +202,17 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		config,
 		loggerWrapper,
 	)
-	sendMessageService := send_service.NewSendService(clientPointer, whatsmeowService, config, loggerWrapper, messageRepository)
+	// Observability registry. Built early so the send service can report into it;
+	// the server handler serves it at /metrics and /server/health. The whatsmeow
+	// service is the metrics provider (connections + pools) and the webhook
+	// producer reports its in-flight depth when it supports it.
+	var webhookDepth server_handler.MetricsSource
+	if dr, ok := webhookProducer.(producer_interfaces.DepthReporter); ok {
+		webhookDepth = dr
+	}
+	observability := server_handler.NewObservability(whatsmeowService, webhookDepth)
+
+	sendMessageService := send_service.NewSendService(clientPointer, whatsmeowService, config, loggerWrapper, messageRepository, observability)
 	userService := user_service.NewUserService(clientPointer, whatsmeowService, loggerWrapper)
 	messageService := message_service.NewMessageService(clientPointer, messageRepository, whatsmeowService, loggerWrapper)
 	chatService := chat_service.NewChatService(clientPointer, whatsmeowService, loggerWrapper)
@@ -306,7 +316,7 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		label_handler.NewLabelHandler(labelService),
 		newsletter_handler.NewNewsletterHandler(newsletterService),
 		pollHandler,
-		server_handler.NewServerHandler(messageRepository, version, whatsmeowService, dataDir, mediaBackend, config.DatabaseSaveMessages, config.MediaLocalStore, config.WebhookFiles, config.ClientName, configError),
+		server_handler.NewServerHandler(messageRepository, version, whatsmeowService, dataDir, mediaBackend, config.DatabaseSaveMessages, config.MediaLocalStore, config.WebhookFiles, config.ClientName, configError, observability),
 		typebot_handler.NewTypebotHandler(typebotRepository, loggerWrapper),
 	).AssignRoutes(r)
 

@@ -317,6 +317,8 @@ A few of the endpoints this fork adds or that are easy to get wrong:
 | `GET` | `/instance/overview/:instanceId` | global | Profile picture, push name, device platform, contact/chat/message counts |
 | `GET` | `/` | — | Public info banner: status, version, client name, manager/docs links, WhatsApp Web version, boot config error |
 | `GET` | `/server/ok` | — | Liveness probe (`{"status":"ok"}`) |
+| `GET` | `/server/health` | — | Readiness probe: version, uptime, instance and persistence-pool summary |
+| `GET` | `/metrics` | — | Prometheus metrics (connections, webhook depth, persistence saturation, send latency) |
 | `GET` | `/server/stats` | global | Runtime/host metrics, message aggregates, running version |
 | `GET` | `/dashboard` | — | Self-hosted dashboard page |
 | `GET` | `/chat/history` · `/chat/chats` · `/chat/media/:messageId` | instance | Read stored messages / list conversations / stream a stored attachment |
