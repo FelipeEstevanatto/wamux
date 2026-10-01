@@ -90,9 +90,15 @@ function mergeMessages(
 }
 
 function StatusTick({ status }: { status: string }) {
-  if (status === 'Read') return <CheckCheck className="h-3.5 w-3.5" />;
+  if (status === 'Read') return <CheckCheck className="h-3.5 w-3.5 text-sky-400" />;
   if (status === 'Delivered') return <CheckCheck className="h-3.5 w-3.5 opacity-70" />;
   return <Check className="h-3.5 w-3.5 opacity-70" />;
+}
+
+function humanSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function MediaContent({ message }: { message: HistoryMessage }) {
@@ -187,11 +193,33 @@ export default function Messages() {
 
   const [draft, setDraft] = useState('');
   const [attachFile, setAttachFile] = useState<File | null>(null);
+  const [attachPreview, setAttachPreview] = useState('');
   const [sending, setSending] = useState(false);
   const [newNumber, setNewNumber] = useState('');
   const [mobileThread, setMobileThread] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const objectUrlRef = useRef('');
+
+  // setAttachment swaps the pending file, revoking the previous preview URL.
+  const setAttachment = (file: File | null) => {
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlRef.current = '';
+    }
+    if (file && (file.type.startsWith('image/') || file.type.startsWith('video/'))) {
+      objectUrlRef.current = URL.createObjectURL(file);
+    }
+    setAttachFile(file);
+    setAttachPreview(objectUrlRef.current);
+  };
+
+  useEffect(
+    () => () => {
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+    },
+    []
+  );
 
   // Populate the instance list when this page is opened directly. The store is
   // otherwise only filled by the Instances/Dashboard pages, so a direct load of
@@ -366,7 +394,7 @@ export default function Messages() {
           filename: attachFile.name,
           file: attachFile,
         });
-        setAttachFile(null);
+        setAttachment(null);
       } else {
         await messagesApi.sendText(token, { number: selectedChat, text });
       }
@@ -629,11 +657,34 @@ export default function Messages() {
               </div>
 
               {attachFile && (
-                <div className="flex items-center gap-2 border-t border-border px-3 pt-2 text-xs text-muted-foreground">
-                  <Paperclip className="h-3.5 w-3.5" />
-                  <span className="truncate">{attachFile.name}</span>
-                  <button onClick={() => setAttachFile(null)} title="Remover anexo">
-                    <X className="h-3.5 w-3.5" />
+                <div className="flex items-center gap-3 border-t border-border px-3 pt-3">
+                  {attachPreview ? (
+                    attachFile.type.startsWith('video/') ? (
+                      <video
+                        src={attachPreview}
+                        className="h-14 w-14 rounded-md object-cover"
+                        muted
+                      />
+                    ) : (
+                      <img
+                        src={attachPreview}
+                        alt={attachFile.name}
+                        className="h-14 w-14 rounded-md object-cover"
+                      />
+                    )
+                  ) : (
+                    <div className="flex h-14 w-14 items-center justify-center rounded-md bg-muted">
+                      <Paperclip className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-medium">{attachFile.name}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {humanSize(attachFile.size)}
+                    </p>
+                  </div>
+                  <button onClick={() => setAttachment(null)} title="Remover anexo">
+                    <X className="h-4 w-4" />
                   </button>
                 </div>
               )}
@@ -642,7 +693,7 @@ export default function Messages() {
                   ref={fileInputRef}
                   type="file"
                   className="hidden"
-                  onChange={(e) => setAttachFile(e.target.files?.[0] ?? null)}
+                  onChange={(e) => setAttachment(e.target.files?.[0] ?? null)}
                 />
                 <Button
                   variant="outline"
