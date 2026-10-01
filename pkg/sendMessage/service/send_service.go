@@ -81,6 +81,16 @@ type sendService struct {
 	// MentionAll send fetches it twice (disappearing timer + participants) and
 	// every send to the same group paid the round trip again.
 	groupInfoCache *cache.Cache
+
+	// observer receives send-outcome events for /metrics. Optional (nil-safe):
+	// the service works without it, tests leave it unset.
+	observer SendObserver
+}
+
+// SendObserver is notified of every send attempt's outcome, for observability.
+// Implementations must be cheap and must not block (they run on the send path).
+type SendObserver interface {
+	ObserveSend(duration time.Duration, err error)
 }
 
 // userExistsCacheTTL bounds how long a resolved phone is trusted.
@@ -2999,7 +3009,15 @@ func (s *sendService) SendList(data *ListStruct, instance *instance_model.Instan
 	return message, nil
 }
 
-func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.Message, messageType string, data *SendDataStruct) (*MessageSendStruct, error) {
+func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.Message, messageType string, data *SendDataStruct) (result *MessageSendStruct, err error) {
+	start := time.Now()
+	// Report the outcome once, on every return path, without touching each one.
+	defer func() {
+		if s.observer != nil {
+			s.observer.ObserveSend(time.Since(start), err)
+		}
+	}()
+
 	s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] SendMessage called for number: %s, type: %s", instance.Id, data.Number, messageType)
 
 	recipient, err := s.validateAndCheckUserExists(data.Number, data.FormatJid, &data.Quoted.MessageID, &data.Quoted.Participant, instance)
@@ -4026,6 +4044,7 @@ func NewSendService(
 	config *config.Config,
 	loggerWrapper *logger_wrapper.LoggerManager,
 	messageRepository message_repository.MessageRepository,
+	observer SendObserver,
 ) SendService {
 	return &sendService{
 		clientPointer:     clientPointer,
@@ -4035,6 +4054,7 @@ func NewSendService(
 		messageRepository: messageRepository,
 		userExistsCache:   cache.New(userExistsCacheTTL, 2*userExistsCacheTTL),
 		groupInfoCache:    cache.New(groupInfoCacheTTL, 2*groupInfoCacheTTL),
+		observer:          observer,
 	}
 }
 

@@ -17,3 +17,9 @@ type SignedProducer interface {
 	// key produces an unsigned delivery, identical to Produce.
 	ProduceSigned(queueName string, payload []byte, webhookUrl string, userID string, hmacKey []byte) error
 }
+
+// DepthReporter is implemented by producers that can report their in-flight
+// depth, for the /metrics endpoint.
+type DepthReporter interface {
+	QueueDepth() int
+}

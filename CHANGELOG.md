@@ -59,6 +59,19 @@ Three additive features, all disabled/unchanged by default unless configured.
   batches are stored.
 
 ### 🔧 Improvements
+- **Observability** — a dependency-free Prometheus exporter at `GET /metrics`
+  and a compact readiness probe at `GET /server/health`:
+  - `evo_connections_up` / `evo_instances_total` — the "one silently failed to
+    reconnect" signal
+  - `evo_webhook_inflight` — webhook delivery back-pressure
+  - `evo_persist_queue_depth` / `_capacity` / `evo_persist_dropped_total` —
+    message-persistence saturation
+  - `evo_bg_dropped_total` — dropped background jobs
+  - `evo_sends_total` / `evo_send_failures_total` / `evo_send_latency_last_ms`
+  - `/server/health` returns JSON (`status`, `instances`, `persist`) and reports
+    `degraded` when instances are known but none are connected.
+  Both endpoints are public, like the other health routes, and expose only
+  counts — never message contents.
 - **Production hardening** —
   - **Cross-tenant isolation**: a new `GetMessageByIDForInstance` repository
     lookup scopes by `instance_id`, and `GET /message/status` plus

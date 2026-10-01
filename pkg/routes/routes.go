@@ -72,6 +72,11 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 
 	eng.GET("/", r.serverHandler.Root)
 	eng.GET("/server/ok", r.serverHandler.ServerOk)
+	// Observability. /server/health is a compact JSON readiness probe; /metrics
+	// is the Prometheus text format. Both are public (no apikey) like the other
+	// health endpoints, and expose no message contents — only counts.
+	eng.GET("/server/health", r.serverHandler.HealthHandler)
+	eng.GET("/metrics", r.serverHandler.MetricsHandler)
 
 	// Self-hosted dashboard: static page served from the same origin (no CORS),
 	// plus the system/message metrics it consumes. Auth: Global API Key.

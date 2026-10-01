@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/image/webp"
@@ -122,6 +123,32 @@ type WhatsmeowService interface {
 	// currently using (e.g. "2.3000.1048977937"), best-effort: the lookup is
 	// cached and may be empty when it could not be fetched.
 	WhatsAppWebVersion() string
+
+	// RuntimeStats reports connection and work-pool counters for /metrics and
+	// the per-instance health view.
+	RuntimeStats() RuntimeStats
+}
+
+// InstanceHealth is one instance's live connection state, for the health view.
+type InstanceHealth struct {
+	InstanceID   string `json:"instanceId"`
+	Connected    bool   `json:"connected"`
+	Reconnecting bool   `json:"reconnecting"`
+}
+
+// RuntimeStats is the process-level snapshot behind /metrics.
+type RuntimeStats struct {
+	InstancesTotal     int
+	InstancesConnected int
+	// Persist pool: queue depth and lifetime submitted/dropped counts. A rising
+	// dropped count means message persistence is saturating.
+	PersistQueueDepth    int
+	PersistSubmitted     uint64
+	PersistDropped       uint64
+	PersistQueueCapacity int
+	// Background pool (bgpool) counters.
+	BgSubmitted uint64
+	BgDropped   uint64
 }
 
 // InstanceOverview is the per-instance summary the self-hosted dashboard shows
@@ -450,6 +477,10 @@ type persistJob struct {
 
 type persistPool struct {
 	queue chan persistJob
+	// submitted/dropped are lifetime counters for /metrics. A drop is the signal
+	// that persistence is saturating (the caller falls back to an inline write).
+	submitted atomic.Uint64
+	dropped   atomic.Uint64
 }
 
 // newPersistPool starts workers goroutines draining a queue of size size.
@@ -477,10 +508,20 @@ func newPersistPool(workers, size int) *persistPool {
 func (p *persistPool) submit(job persistJob) bool {
 	select {
 	case p.queue <- job:
+		p.submitted.Add(1)
 		return true
 	default:
+		p.dropped.Add(1)
 		return false
 	}
+}
+
+// stats reports the pool's queue depth and lifetime counters.
+func (p *persistPool) stats() (depth int, submitted, dropped uint64) {
+	if p == nil {
+		return 0, 0, 0
+	}
+	return len(p.queue), p.submitted.Load(), p.dropped.Load()
 }
 
 // getGroupInfoCached resolves group metadata, reusing a recent result. Every
@@ -4029,6 +4070,33 @@ func (w whatsmeowService) WhatsAppWebVersion() string {
 		return ""
 	}
 	return fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Patch)
+}
+
+// RuntimeStats counts live connections and work-pool saturation.
+func (w whatsmeowService) RuntimeStats() RuntimeStats {
+	stats := RuntimeStats{}
+
+	if w.clientPointer != nil {
+		clients := w.clientPointer.Snapshot()
+		stats.InstancesTotal = len(clients)
+		for _, c := range clients {
+			if c != nil && c.IsConnected() {
+				stats.InstancesConnected++
+			}
+		}
+	}
+
+	depth, submitted, dropped := w.persistPool.stats()
+	stats.PersistQueueDepth = depth
+	stats.PersistSubmitted = submitted
+	stats.PersistDropped = dropped
+	stats.PersistQueueCapacity = persistQueueSize
+
+	if w.bgPool != nil {
+		stats.BgSubmitted, stats.BgDropped = w.bgPool.Stats()
+	}
+
+	return stats
 }
 
 // fetchWhatsAppWebVersionUncached performs the actual HTTP request and parse. It

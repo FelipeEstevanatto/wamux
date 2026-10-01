@@ -339,6 +339,13 @@ func (p *webhookProducer) sendWebhook(url string, body []byte, hmacKey []byte) (
 }
 
 // CreateGlobalQueues does nothing for the webhook producer.
+// QueueDepth reports how many webhook deliveries are in flight right now
+// (capacity is maxInFlight). A sustained value at capacity means the webhook
+// endpoint is slow and deliveries are backing up.
+func (p *webhookProducer) QueueDepth() int {
+	return len(p.inFlight)
+}
+
 func (p *webhookProducer) CreateGlobalQueues() error {
 	return nil
 }

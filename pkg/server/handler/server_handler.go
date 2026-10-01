@@ -25,6 +25,8 @@ type ServerHandler interface {
 	Root(ctx *gin.Context)
 	Stats(ctx *gin.Context)
 	InstanceOverview(ctx *gin.Context)
+	MetricsHandler(ctx *gin.Context)
+	HealthHandler(ctx *gin.Context)
 }
 
 // OverviewProvider is the slice of the whatsmeow service the dashboard needs to
@@ -48,6 +50,9 @@ type serverHandler struct {
 	// problem (e.g. a missing GLOBAL_API_KEY) to surface there.
 	clientName  string
 	configError string
+	// observability renders /metrics and backs /server/health. Nil when the
+	// server handler was built without the wiring (tests).
+	observability *Observability
 	// Feature flags surfaced to the manager so it can explain why some views are
 	// empty (history readback, local media previews, inbound download).
 	historyEnabled bool
@@ -349,7 +354,7 @@ func parseMeminfoKB(line string) float64 {
 	return v
 }
 
-func NewServerHandler(messageRepo message_repository.MessageRepository, version string, overview OverviewProvider, dataDir string, mediaBackend string, historyEnabled bool, mediaLocal bool, webhookFiles bool, clientName string, configError string) ServerHandler {
+func NewServerHandler(messageRepo message_repository.MessageRepository, version string, overview OverviewProvider, dataDir string, mediaBackend string, historyEnabled bool, mediaLocal bool, webhookFiles bool, clientName string, configError string, observability *Observability) ServerHandler {
 	return &serverHandler{
 		messageRepo:    messageRepo,
 		overview:       overview,
@@ -363,5 +368,6 @@ func NewServerHandler(messageRepo message_repository.MessageRepository, version 
 		webhookFiles:   webhookFiles,
 		clientName:     clientName,
 		configError:    configError,
+		observability:  observability,
 	}
 }
