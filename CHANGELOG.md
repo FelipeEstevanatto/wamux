@@ -71,7 +71,25 @@ Three additive features, all disabled/unchanged by default unless configured.
   - `/server/health` returns JSON (`status`, `instances`, `persist`) and reports
     `degraded` when instances are known but none are connected.
   Both endpoints are public, like the other health routes, and expose only
-  counts — never message contents.
+  counts — never message contents. `/metrics` includes a per-instance series
+  (`evo_instance_connected{instance="…"}`) so a scrape shows *which* instance is
+  down, not just how many.
+- **Per-tenant limits & single-writer scaling** —
+  - `MAX_INSTANCES` caps how many instances the deployment accepts (`409` past
+    the limit).
+  - `SEND_RATE_LIMIT_PER_MINUTE` and `SEND_MAX_CONCURRENT` bound `POST /send/*`
+    per instance, so one tenant cannot starve the shared pools.
+  - **Single-writer guard**: before connecting, a node takes a Postgres advisory
+    lock per instance (`pkg/ownership`). A second replica refuses to
+    double-connect ("already connected on another node") instead of racing —
+    this was the one correctness bug that made horizontal scaling unsafe.
+  - **Ownership lease + heartbeat + failover**: `instance_ownership` records
+    which node owns each instance and until when; a heartbeat renews it, and
+    after a node dies its leases expire so another node adopts the instances.
+    No manual intervention. This is the state the routing layer reads; automatic
+    request routing to the owning node is not yet wired (each node still serves
+    the instances it holds, and clients should target the owning node).
+    Single-node installs are unaffected (no Postgres ⇒ the guard is inert).
 - **Production hardening** —
   - **Cross-tenant isolation**: a new `GetMessageByIDForInstance` repository
     lookup scopes by `instance_id`, and `GET /message/status` plus

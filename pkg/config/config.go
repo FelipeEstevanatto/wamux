@@ -129,6 +129,22 @@ type Config struct {
 	// credentials combination was both unsafe and spec-invalid.
 	RateLimitPerMinute int
 	CorsAllowedOrigins []string
+
+	// Per-tenant resource limits. MaxInstances caps how many instances one
+	// deployment accepts (0 = unlimited). SendRateLimitPerMinute bounds
+	// POST /send/* per instance token (0 = unlimited). SendMaxConcurrent bounds
+	// in-flight sends per instance (0 = unlimited), so one tenant firing 1000
+	// parallel media uploads cannot occupy every send worker.
+	MaxInstances           int
+	SendRateLimitPerMinute int
+	SendMaxConcurrent      int
+
+	// Horizontal scaling / failover. NodeID identifies this process in the
+	// instance_ownership table (defaults to hostname). OwnershipLeaseTTLSeconds
+	// is how long a node's claim survives without a heartbeat before another
+	// node may adopt the instance.
+	NodeID                   string
+	OwnershipLeaseTTLSeconds int
 }
 
 // EnsureDBExists connects to postgres (without the target database) and creates it if it doesn't exist.
@@ -501,6 +517,36 @@ func Load() *Config {
 	}
 	corsAllowedOrigins := parseCSV(os.Getenv(config_env.CORS_ALLOWED_ORIGINS))
 
+	// Per-tenant resource limits. Instances and sends are bounded so one tenant
+	// cannot exhaust the shared pools or WhatsApp connections. 0 disables each.
+	maxInstances, _ := strconv.Atoi(strings.TrimSpace(os.Getenv(config_env.MAX_INSTANCES)))
+	if maxInstances < 0 {
+		maxInstances = 0
+	}
+	sendRateLimitPerMinute, _ := strconv.Atoi(strings.TrimSpace(os.Getenv(config_env.SEND_RATE_LIMIT_PER_MINUTE)))
+	if sendRateLimitPerMinute < 0 {
+		sendRateLimitPerMinute = 0
+	}
+	sendMaxConcurrent, _ := strconv.Atoi(strings.TrimSpace(os.Getenv(config_env.SEND_MAX_CONCURRENT)))
+	if sendMaxConcurrent < 0 {
+		sendMaxConcurrent = 0
+	}
+
+	// Horizontal scaling identity + lease. NodeID defaults to the hostname so a
+	// container's name is used unless the operator pins it.
+	nodeID := strings.TrimSpace(os.Getenv(config_env.NODE_ID))
+	if nodeID == "" {
+		if hostname, err := os.Hostname(); err == nil {
+			nodeID = hostname
+		} else {
+			nodeID = "node-unknown"
+		}
+	}
+	ownershipLeaseTTLSeconds, _ := strconv.Atoi(strings.TrimSpace(os.Getenv(config_env.OWNERSHIP_LEASE_TTL_SECONDS)))
+	if ownershipLeaseTTLSeconds <= 0 {
+		ownershipLeaseTTLSeconds = 60
+	}
+
 	// Typebot protections. The per-contact limit is on by default (it only
 	// affects senders bursting many messages); the per-instance send ceiling is
 	// off by default (a badly tuned value would delay legitimate replies).
@@ -569,6 +615,11 @@ func Load() *Config {
 		DatabaseMaxIdleConns:     dbMaxIdle,
 		RateLimitPerMinute:       rateLimitPerMinute,
 		CorsAllowedOrigins:       corsAllowedOrigins,
+		MaxInstances:             maxInstances,
+		SendRateLimitPerMinute:   sendRateLimitPerMinute,
+		SendMaxConcurrent:        sendMaxConcurrent,
+		NodeID:                   nodeID,
+		OwnershipLeaseTTLSeconds: ownershipLeaseTTLSeconds,
 	}
 
 	minioEnabled := os.Getenv(config_env.MINIO_ENABLED) == "true"

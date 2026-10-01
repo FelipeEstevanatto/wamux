@@ -183,6 +183,11 @@ SWAGGER_ENABLED=true        # set false to hide /swagger
 | `SSRF_PROTECTION` | Opt-in: refuse outbound fetches to loopback/private/link-local hosts | `false` |
 | `RATE_LIMIT_PER_MINUTE` | Requests per credential (instance token / admin key) or per IP; `0` disables | `600` |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated origin allowlist (`*` reflects any, no credentials); empty = same-origin only | *(empty)* |
+| `MAX_INSTANCES` | Cap on instances this deployment accepts (`0` = unlimited) | `0` |
+| `SEND_RATE_LIMIT_PER_MINUTE` | Bound `POST /send/*` per instance (`0` = unlimited) | `0` |
+| `SEND_MAX_CONCURRENT` | Bound in-flight sends per instance (`0` = unlimited) | `0` |
+| `NODE_ID` | This process's id in the ownership table (horizontal scaling) | hostname |
+| `OWNERSHIP_LEASE_TTL_SECONDS` | How long a node's instance lease survives without a heartbeat | `60` |
 | `WEBHOOK_ERROR_QUEUE_NAME` | RabbitMQ queue for permanently failed webhooks | `webhook_errors` |
 
 ---

@@ -118,7 +118,12 @@ func (i *instanceHandler) Create(ctx *gin.Context) {
 
 	createdInstance, err := i.instanceService.Create(data)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		// "instance limit reached" is a quota decision, not a server fault.
+		status := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "instance limit reached") {
+			status = http.StatusConflict
+		}
+		ctx.JSON(status, gin.H{"error": err.Error()})
 		return
 	}
 

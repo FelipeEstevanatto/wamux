@@ -40,7 +40,11 @@ import (
 // migration is one ordered step. Statements run in order; `Postgres` and
 // `SQLite` let a step diverge where the dialects differ.
 type migration struct {
-	Name     string
+	Name string
+	// AuthDB marks a migration that belongs in the AUTH database (key store +
+	// ownership) rather than the users/messages database. ApplyAuth runs only
+	// these.
+	AuthDB   bool
 	Postgres []string
 	SQLite   []string
 }
@@ -87,6 +91,37 @@ var steps = []migration{
 			`CREATE INDEX IF NOT EXISTS idx_messages_instance_message ON messages (instance_id, message_id)`,
 		},
 	},
+	{
+		// Ownership + lease record for horizontal scaling. One row per instance
+		// says which node currently owns (connects) it and until when the lease
+		// is valid. This is the table the routing/failover layer reads; the
+		// advisory lock in pkg/ownership is the correctness guard, this is the
+		// discoverable state (who is where, and for how long).
+		Name:   "0004_instance_ownership",
+		AuthDB: true,
+		Postgres: []string{
+			`CREATE TABLE IF NOT EXISTS instance_ownership (
+				instance_id   TEXT PRIMARY KEY,
+				node_id       TEXT NOT NULL,
+				locked_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				lease_expires TIMESTAMPTZ NOT NULL,
+				owner_epoch   BIGINT NOT NULL DEFAULT 1
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_instance_ownership_node ON instance_ownership (node_id)`,
+			`CREATE INDEX IF NOT EXISTS idx_instance_ownership_expiry ON instance_ownership (lease_expires)`,
+		},
+		SQLite: []string{
+			`CREATE TABLE IF NOT EXISTS instance_ownership (
+				instance_id   TEXT PRIMARY KEY,
+				node_id       TEXT NOT NULL,
+				locked_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				lease_expires TIMESTAMP NOT NULL,
+				owner_epoch   INTEGER NOT NULL DEFAULT 1
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_instance_ownership_node ON instance_ownership (node_id)`,
+			`CREATE INDEX IF NOT EXISTS idx_instance_ownership_expiry ON instance_ownership (lease_expires)`,
+		},
+	},
 }
 
 const createMigrationsTable = `
@@ -99,6 +134,24 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 // to call on every boot: applied steps are skipped. Returns the names applied in
 // this call.
 func Apply(ctx context.Context, db *sql.DB, driver string) ([]string, error) {
+	return applySteps(ctx, db, driver, steps, false)
+}
+
+// ApplyAuth runs only the migrations that target the AUTH database (the
+// whatsmeow key store + ownership/lease table), which is a separate database
+// from the users/messages schema. Both databases keep their own
+// schema_migrations table, so the version sets are independent.
+func ApplyAuth(ctx context.Context, db *sql.DB, driver string) ([]string, error) {
+	authSteps := make([]migration, 0, len(steps))
+	for _, s := range steps {
+		if s.AuthDB {
+			authSteps = append(authSteps, s)
+		}
+	}
+	return applySteps(ctx, db, driver, authSteps, false)
+}
+
+func applySteps(ctx context.Context, db *sql.DB, driver string, list []migration, _ bool) ([]string, error) {
 	if db == nil {
 		return nil, fmt.Errorf("migrations: nil database")
 	}
@@ -113,7 +166,7 @@ func Apply(ctx context.Context, db *sql.DB, driver string) ([]string, error) {
 	}
 
 	var ran []string
-	for _, step := range steps {
+	for _, step := range list {
 		if applied[step.Name] {
 			continue
 		}
