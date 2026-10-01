@@ -97,6 +97,13 @@ type Config struct {
 	// are registered. Defaults to true.
 	SwaggerEnabled bool
 
+	// PprofEnabled exposes the Go net/http/pprof handlers under /debug/pprof
+	// (CPU, heap, goroutine profiles) for benchmarking. Off by default: it
+	// exposes internals and should never be left on in production. Auth is not
+	// applied to these routes (go's handlers are mounted directly), so keep it
+	// off on any host reachable from the internet.
+	PprofEnabled bool
+
 	// Logger configurations
 	LogMaxSize    int
 	LogMaxBackups int
@@ -401,6 +408,7 @@ func Load() *Config {
 	// docs are public (no apikey), so this is the switch for locking down /swagger
 	// on an internet-facing deployment.
 	swaggerEnabled := os.Getenv(config_env.SWAGGER_ENABLED) != "false"
+	pprofEnabled := os.Getenv(config_env.PPROF_ENABLED) == "true"
 
 	rerequestFromPhone := os.Getenv(config_env.REREQUEST_FROM_PHONE)
 
@@ -590,6 +598,7 @@ func Load() *Config {
 		QrcodeMaxCount:           qrMaxCount,
 		CheckUserExists:          checkUserExists != "false", // Default true, set to false to disable
 		SwaggerEnabled:           swaggerEnabled,
+		PprofEnabled:            pprofEnabled,
 		TypebotContactRateLimit:  typebotContactRateLimit,
 		TypebotContactRateWindow: typebotContactRateWindow,
 		TypebotSendRateLimit:     typebotSendRateLimit,

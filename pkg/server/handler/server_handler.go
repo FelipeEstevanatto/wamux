@@ -12,6 +12,7 @@ import (
 
 	docmodels "github.com/evolution-foundation/evolution-go/pkg/docmodels"
 	message_repository "github.com/evolution-foundation/evolution-go/pkg/message/repository"
+	"github.com/evolution-foundation/evolution-go/pkg/procstats"
 	whatsmeow_service "github.com/evolution-foundation/evolution-go/pkg/whatsmeow/service"
 	"github.com/gin-gonic/gin"
 )
@@ -131,17 +132,27 @@ func (s *serverHandler) Stats(ctx *gin.Context) {
 		"numGC":         mem.NumGC,
 	}
 
+	// Per-process usage: the numbers that stay meaningful on a shared machine.
+	// RSS/peak come from /proc/self and the container's own cgroup, NOT the host.
+	system["process"] = processStats()
+
+	// Host context, clearly labelled as the whole machine (may include other
+	// workloads) so it is not mistaken for this service's usage.
+	host := gin.H{}
 	if l1, l5, l15, ok := readLoadAvg(); ok {
-		system["loadAvg1"] = l1
-		system["loadAvg5"] = l5
-		system["loadAvg15"] = l15
+		host["loadAvg1"] = l1
+		host["loadAvg5"] = l5
+		host["loadAvg15"] = l15
 	}
 	if totalKB, availKB, ok := readHostMem(); ok {
-		system["hostMemTotalMB"] = totalKB / 1024.0
-		system["hostMemAvailableMB"] = availKB / 1024.0
+		host["memTotalMB"] = totalKB / 1024.0
+		host["memAvailableMB"] = availKB / 1024.0
 		if totalKB > 0 {
-			system["hostMemUsedPct"] = (1 - availKB/totalKB) * 100
+			host["memUsedPct"] = (1 - availKB/totalKB) * 100
 		}
+	}
+	if len(host) > 0 {
+		system["host"] = host
 	}
 
 	messages := gin.H{"total": 0}
@@ -157,6 +168,37 @@ func (s *serverHandler) Stats(ctx *gin.Context) {
 	}
 
 	ctx.JSON(200, gin.H{"system": system, "messages": messages, "storage": s.storageStats()})
+}
+
+// processStats reports THIS service's own memory/CPU, so the dashboard is useful
+// on a machine that runs other things too. All fields are best-effort.
+func processStats() gin.H {
+	const mb = 1024.0 * 1024.0
+	s := procstats.Read()
+
+	out := gin.H{
+		"rssMB":          float64(s.RSSBytes) / mb,
+		"peakRssMB":      float64(s.PeakRSSBytes) / mb,
+		"vmSizeMB":       float64(s.VMSizeBytes) / mb,
+		"heapAllocMB":    float64(s.HeapAllocBytes) / mb,
+		"heapInuseMB":    float64(s.HeapInuseBytes) / mb,
+		"sysMB":          float64(s.SysBytes) / mb,
+		"goroutines":     s.NumGoroutines,
+		"numGC":          s.NumGC,
+		"gcPauseTotalMs": float64(s.GCPauseTotalNs) / 1e6,
+		"cpuSeconds":     s.CPUSeconds,
+	}
+	if s.Containerized {
+		out["cgroupMemoryMB"] = float64(s.CgroupMemoryBytes) / mb
+		if s.CgroupMemoryLimit > 0 {
+			out["cgroupMemoryLimitMB"] = float64(s.CgroupMemoryLimit) / mb
+			out["cgroupMemoryUsedPct"] = float64(s.CgroupMemoryBytes) / float64(s.CgroupMemoryLimit) * 100
+		}
+		if s.CgroupCPUQuota > 0 {
+			out["cgroupCpuCores"] = float64(s.CgroupCPUQuota) / 1000.0
+		}
+	}
+	return out
 }
 
 // storageStats reports disk, data-directory and database usage for the
