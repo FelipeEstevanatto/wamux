@@ -8,9 +8,16 @@ import (
 )
 
 type Instance struct {
-	Id               string    `json:"id" gorm:"type:uuid;primaryKey"`
-	Name             string    `json:"name"`
-	Token            string    `json:"token" gorm:"unique"`
+	Id    string `json:"id" gorm:"type:uuid;primaryKey"`
+	Name  string `json:"name"`
+	Token string `json:"token" gorm:"unique"`
+	// TokenHash is HMAC-SHA256(Token) under the server key: deterministic and
+	// indexable, so authentication looks the instance up by it. TokenEnc is
+	// AES-256-GCM(Token) for recovery/display. Together they replace storing the
+	// plaintext credential. Token itself is retained for backwards compatibility
+	// during migration but is cleared once encrypted (see the token migration).
+	TokenHash        string    `json:"-" gorm:"column:token_hash;index"`
+	TokenEnc         string    `json:"-" gorm:"column:token_enc;type:text"`
 	Webhook          string    `json:"webhook"`
 	RabbitmqEnable   string    `json:"rabbitmqEnable"`
 	WebSocketEnable  string    `json:"websocketEnable"`

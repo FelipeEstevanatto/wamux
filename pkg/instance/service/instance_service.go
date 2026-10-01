@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/evolution-foundation/evolution-go/pkg/safemap"
+	"github.com/evolution-foundation/evolution-go/pkg/tokencrypt"
 	"io"
 	"os"
 	"path/filepath"
@@ -32,6 +33,9 @@ import (
 
 type InstanceService interface {
 	Create(data *CreateStruct) (*instance_model.Instance, error)
+	// EncryptExistingTokens backfills any instance still storing its token in
+	// plaintext (called once at startup after an upgrade).
+	EncryptExistingTokens()
 	Connect(data *ConnectStruct, instance *instance_model.Instance) (*instance_model.Instance, string, string, error)
 	Reconnect(instance *instance_model.Instance) error
 	Disconnect(instance *instance_model.Instance) (*instance_model.Instance, error)
@@ -127,6 +131,11 @@ type instances struct {
 	// (see invalidateAuthCache), so the only staleness is a sub-second window on
 	// a concurrent write, never a deleted token.
 	authCache *cache.Cache
+
+	// tokenCodec encrypts instance tokens at rest and computes the deterministic
+	// lookup hash used by authentication. Nil only if no key could be derived
+	// (then lookups fall back to the legacy plaintext column).
+	tokenCodec *tokencrypt.Codec
 }
 
 // authCacheTTL bounds how long a token lookup may be served from memory.
@@ -325,12 +334,29 @@ func (i instances) Create(data *CreateStruct) (*instance_model.Instance, error) 
 		}
 	}
 
+	// Encrypt the token before persisting, so the plaintext credential is never
+	// written. The plaintext column is left empty for new rows.
+	if i.tokenCodec != nil {
+		instance.TokenHash = i.tokenCodec.Hash(data.Token)
+		enc, encErr := i.tokenCodec.Encrypt(data.Token)
+		if encErr != nil {
+			return nil, encErr
+		}
+		instance.TokenEnc = enc
+		instance.Token = ""
+	}
+
 	createdInstance, err := i.instanceRepository.Create(instance)
 	if err != nil {
 		return nil, err
 	}
 
 	i.invalidateAuthCache()
+	// The plaintext token was never persisted; put it back on the returned object
+	// so the API response still shows it to the caller who just created it.
+	if createdInstance != nil && createdInstance.Token == "" {
+		createdInstance.Token = data.Token
+	}
 	return createdInstance, nil
 }
 
@@ -1079,9 +1105,29 @@ func (i instances) GetInstanceByToken(token string) (*instance_model.Instance, e
 		}
 	}
 
-	instance, err := i.instanceRepository.GetInstanceByToken(token)
-	if err != nil {
-		return nil, err
+	// Prefer the encrypted path: look the instance up by the deterministic HMAC of
+	// the presented token, so the plaintext credential is never stored or queried.
+	// Fall back to the legacy plaintext column only when no codec is configured.
+	var instance *instance_model.Instance
+	var err error
+	if i.tokenCodec != nil {
+		instance, err = i.instanceRepository.GetInstanceByTokenHash(i.tokenCodec.Hash(token))
+		if err != nil || instance == nil {
+			// Rows created before encryption existed have no hash yet; try the
+			// legacy column and backfill, so the upgrade is transparent.
+			if legacy, legacyErr := i.instanceRepository.GetInstanceByToken(token); legacyErr == nil && legacy != nil {
+				if hashErr := i.backfillToken(legacy, token); hashErr != nil {
+					i.loggerWrapper.GetLogger(legacy.Id).LogWarn("[%s] Could not encrypt token on the fly: %v", legacy.Id, hashErr)
+				}
+				return legacy, nil
+			}
+			return nil, err
+		}
+	} else {
+		instance, err = i.instanceRepository.GetInstanceByToken(token)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if token != "" && i.authCache != nil && instance != nil {
@@ -1091,7 +1137,60 @@ func (i instances) GetInstanceByToken(token string) (*instance_model.Instance, e
 	return instance, nil
 }
 
-// invalidateAuthCache drops every cached token lookup. Called after any write
+// backfillToken encrypts a legacy plaintext token in place: it stores the hash
+// and ciphertext and clears the plaintext column, so the credential is no longer
+// readable in a database dump. Best-effort: a failure leaves the row usable via
+// the legacy column.
+func (i instances) backfillToken(instance *instance_model.Instance, plaintext string) error {
+	if i.tokenCodec == nil || instance == nil || plaintext == "" {
+		return nil
+	}
+	hash := i.tokenCodec.Hash(plaintext)
+	enc, err := i.tokenCodec.Encrypt(plaintext)
+	if err != nil {
+		return err
+	}
+	// Write hash + ciphertext AND blank the plaintext column in one update, so
+	// there is never a moment where the token is stored only in the clear.
+	if err := i.instanceRepository.UpdateToken(instance.Id, hash, enc); err != nil {
+		return err
+	}
+	instance.TokenHash = hash
+	instance.TokenEnc = enc
+	instance.Token = ""
+	i.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Instance token encrypted at rest", instance.Id)
+	return nil
+}
+
+// EncryptExistingTokens backfills every instance whose token is still plaintext.
+// Called once at startup so an upgraded deployment stops storing credentials in
+// the clear without waiting for each instance to authenticate again.
+func (i instances) EncryptExistingTokens() {
+	if i.tokenCodec == nil {
+		return
+	}
+	all, err := i.instanceRepository.GetAll(i.config.ClientName)
+	if err != nil {
+		i.loggerWrapper.GetLogger("startup").LogWarn("[TOKEN] Could not list instances for token encryption: %v", err)
+		return
+	}
+	migrated := 0
+	for _, inst := range all {
+		if inst == nil || inst.Token == "" {
+			continue // already encrypted (plaintext cleared) or nothing to do
+		}
+		if err := i.backfillToken(inst, inst.Token); err != nil {
+			i.loggerWrapper.GetLogger(inst.Id).LogWarn("[%s] Failed to encrypt token: %v", inst.Id, err)
+			continue
+		}
+		migrated++
+	}
+	if migrated > 0 {
+		i.invalidateAuthCache()
+		i.loggerWrapper.GetLogger("startup").LogInfo("[TOKEN] Encrypted %d instance token(s) at rest", migrated)
+	}
+}
+
 // that can change an instance row, so a rename, settings change or delete is
 // visible to the very next request rather than after authCacheTTL.
 func (i instances) invalidateAuthCache() {
@@ -1532,6 +1631,21 @@ func NewInstanceService(
 	config *config.Config,
 	loggerWrapper *logger_wrapper.LoggerManager,
 ) InstanceService {
+	// Encrypt instance tokens at rest. The key follows the same precedence as the
+	// other secrets; if none is available the codec is nil and authentication
+	// falls back to the legacy plaintext column (so an unconfigured install keeps
+	// working, just without encryption).
+	var codec *tokencrypt.Codec
+	if len(config.DataEncryptionKey) > 0 {
+		if c, err := tokencrypt.New(string(config.DataEncryptionKey)); err == nil {
+			codec = c
+		} else {
+			loggerWrapper.GetLogger("config").LogError("[CONFIG] could not build the token codec: %v", err)
+		}
+	} else {
+		loggerWrapper.GetLogger("config").LogWarn("[CONFIG] no encryption key configured; instance tokens will not be encrypted at rest")
+	}
+
 	return &instances{
 		instanceRepository: instanceRepository,
 		killChannel:        killChannel,
@@ -1540,5 +1654,6 @@ func NewInstanceService(
 		config:             config,
 		loggerWrapper:      loggerWrapper,
 		authCache:          cache.New(authCacheTTL, 2*authCacheTTL),
+		tokenCodec:         codec,
 	}
 }

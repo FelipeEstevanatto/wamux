@@ -88,6 +88,10 @@ const (
 	// Postgres connection-pool sizing.
 	DB_MAX_OPEN_CONNS = "DB_MAX_OPEN_CONNS"
 	DB_MAX_IDLE_CONNS = "DB_MAX_IDLE_CONNS"
+	// DB_POOL_BUDGET_PER_NODE caps total connections across the node's three
+	// pools; DB_NODE_COUNT divides it by the number of nodes sharing Postgres.
+	DB_POOL_BUDGET_PER_NODE = "DB_POOL_BUDGET_PER_NODE"
+	DB_NODE_COUNT           = "DB_NODE_COUNT"
 	// RATE_LIMIT_PER_MINUTE bounds HTTP requests per credential/IP (0 disables).
 	RATE_LIMIT_PER_MINUTE = "RATE_LIMIT_PER_MINUTE"
 	// CORS_ALLOWED_ORIGINS is a comma-separated allowlist ("*" reflects any).

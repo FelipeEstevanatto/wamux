@@ -29,6 +29,15 @@ func newSQLite(t *testing.T) *sql.DB {
 	if err != nil {
 		t.Fatalf("create messages: %v", err)
 	}
+
+	_, err = db.Exec(`CREATE TABLE instances (
+		id TEXT PRIMARY KEY,
+		name TEXT,
+		token TEXT
+	)`)
+	if err != nil {
+		t.Fatalf("create instances: %v", err)
+	}
 	return db
 }
 

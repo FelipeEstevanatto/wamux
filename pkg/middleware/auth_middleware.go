@@ -19,6 +19,16 @@ type middleware struct {
 	instanceService instance_service.InstanceService
 }
 
+// authCacheTTL bounds the token-hash lookup cache in the service layer.
+//
+// # TIMING
+//
+// The instance token is looked up by its deterministic HMAC-SHA256 (see
+// pkg/tokencrypt), so the database compares hashes, not the secret itself. An
+// attacker cannot learn the token byte-by-byte from timing because they would
+// have to invert HMAC to relate a timing difference to a candidate token. The
+// admin key comparison (AuthAdmin) still uses subtle.ConstantTimeCompare because
+// it compares the raw secret in-process.
 func (m middleware) Auth(ctx *gin.Context) {
 	token := ctx.GetHeader("apikey")
 	if token == "" {
@@ -56,4 +66,19 @@ func (m middleware) AuthAdmin(ctx *gin.Context) {
 
 func NewMiddleware(config *config.Config, instanceService instance_service.InstanceService) *middleware {
 	return &middleware{config: config, instanceService: instanceService}
+}
+
+// RequireAdminKey is a bare Gin middleware that requires the global API key,
+// using the same constant-time comparison as AuthAdmin. It is used for routes
+// mounted outside the normal router groups (e.g. the optional /debug/pprof
+// handlers) so they are not left unauthenticated.
+func RequireAdminKey(globalKey string) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		token := ctx.GetHeader("apikey")
+		if token == "" || subtle.ConstantTimeCompare([]byte(token), []byte(globalKey)) != 1 {
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "not authorized"})
+			return
+		}
+		ctx.Next()
+	}
 }

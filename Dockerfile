@@ -68,6 +68,19 @@ COPY --from=build /build/VERSION ./VERSION
 # fork changed (Apache-2.0 §4(b)).
 COPY --from=build /build/LICENSE /build/NOTICE /build/TRADEMARKS.md /build/FORK_NOTES.md ./
 
+# Run as an unprivileged user, not root. A non-root UID limits the blast radius
+# of any compromise: no writes outside the mounted data volume, no ability to
+# ptrace/modify other processes. The data and media directories are owned by the
+# same UID so the app can still write logs, the sqlite fallback and stored media.
+ARG UID=10001
+RUN addgroup -S -g ${UID} evo \
+    && adduser -S -u ${UID} -G evo -h /app -s /sbin/nologin evo \
+    && mkdir -p /app/data/logs /app/data/media \
+    && chown -R evo:evo /app
+
+USER evo
+
 ENV TZ=America/Sao_Paulo
+ENV LOG_DIRECTORY=/app/data/logs
 
 ENTRYPOINT ["/app/server"]

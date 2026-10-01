@@ -181,7 +181,9 @@ SWAGGER_ENABLED=true        # set false to hide /swagger
 | `WEBHOOK_HMAC_KEY` | Global HMAC key for webhook signing | — |
 | `WEBHOOK_HMAC_ENCRYPTION_KEY` | AES key encrypting per-instance HMAC keys at rest | derived from `GLOBAL_API_KEY` |
 | `SSRF_PROTECTION` | Opt-in: refuse outbound fetches to loopback/private/link-local hosts | `false` |
-| `PPROF_ENABLED` | Expose `/debug/pprof` (CPU/heap profiles) — benchmarking only, off in prod | `false` |
+| `PPROF_ENABLED` | Expose `/debug/pprof` (CPU/heap profiles, admin key required) — benchmarking only | `false` |
+| `DB_POOL_BUDGET_PER_NODE` | Total Postgres connections this node may open across its 3 pools (`0` = use `DB_MAX_OPEN_CONNS`) | `0` |
+| `DB_NODE_COUNT` | Nodes sharing Postgres; divides the pool budget | `1` |
 | `RATE_LIMIT_PER_MINUTE` | Requests per credential (instance token / admin key) or per IP; `0` disables | `600` |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated origin allowlist (`*` reflects any, no credentials); empty = same-origin only | *(empty)* |
 | `MAX_INSTANCES` | Cap on instances this deployment accepts (`0` = unlimited) | `0` |

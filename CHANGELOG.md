@@ -58,6 +58,27 @@ Three additive features, all disabled/unchanged by default unless configured.
   recovered messages only appear once message persistence is enabled and the
   batches are stored.
 
+### 🔒 Security
+- **Instance tokens encrypted at rest** (`pkg/tokencrypt`) — tokens are stored
+  as a deterministic HMAC-SHA256 (`token_hash`, for auth lookup) plus an
+  AES-256-GCM ciphertext (`token_enc`), never plaintext. Existing rows are
+  backfilled once at startup; the plaintext column is cleared. The auth lookup
+  is by hash, so the credential is not compared byte-by-byte.
+- **Container runs as a non-root user** (UID 10001) with `cap_drop: ALL` and
+  `no-new-privileges` in the compose.
+- **`/debug/pprof` requires the admin key** (and stays off unless
+  `PPROF_ENABLED=true`).
+- **CI security workflow** (`.github/workflows/security.yml`): `govulncheck`,
+  `go vet` + `go test -race`, and a gitleaks secret scan, on push/PR/weekly.
+
+### 🛡️ Resource safety
+- **Stored media serving is capped** at 64 MiB per request (`413` above it),
+  with the read bounded by a `SectionReader`.
+- **Cluster-aware DB pool budget** (`DB_POOL_BUDGET_PER_NODE`, `DB_NODE_COUNT`):
+  the three per-node pools (auth, users, key store) are divided out of a shared
+  budget so N nodes do not exhaust Postgres `max_connections` (default keeps the
+  previous 25/5).
+
 ### 🔧 Improvements
 - **Per-process resource stats & benchmarking** —
   - `GET /server/stats` now separates **this service's** usage (`system.process`:
