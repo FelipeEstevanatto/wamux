@@ -59,6 +59,17 @@ Three additive features, all disabled/unchanged by default unless configured.
   batches are stored.
 
 ### 🔧 Improvements
+- **Per-process resource stats & benchmarking** —
+  - `GET /server/stats` now separates **this service's** usage (`system.process`:
+    RSS, peak RSS, heap, goroutines, GC, CPU seconds) from clearly-labelled
+    **host** context (`system.host`). The old host-only numbers were useless on a
+    shared machine. RSS comes from `/proc/self` and the container's cgroup, so it
+    is attributable to the API even when other workloads run on the box.
+  - `PPROF_ENABLED=true` (off by default) mounts `/debug/pprof` (CPU, heap,
+    goroutine, …) using only the standard library — no new dependency.
+  - `scripts/bench.sh` drives a load against a running node (throughput + RSS
+    before/after) and `make bench` runs allocation benchmarks over the hot paths;
+    use `benchstat` to compare before/after.
 - **Observability** — a dependency-free Prometheus exporter at `GET /metrics`
   and a compact readiness probe at `GET /server/health`:
   - `evo_connections_up` / `evo_instances_total` — the "one silently failed to

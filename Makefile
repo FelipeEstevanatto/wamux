@@ -109,9 +109,17 @@ test-race: ## Roda testes verificando race conditions
 	@echo "$(GREEN)🧪 Rodando testes com race detector...$(NC)"
 	$(GO) test -race -v ./...
 
-bench: ## Roda benchmarks
+bench: ## Roda benchmarks (com alocação) nos hot paths
 	@echo "$(GREEN)⚡ Rodando benchmarks...$(NC)"
-	$(GO) test -bench=. -benchmem ./...
+	$(GO) test -run=^$$ -bench=. -benchmem ./pkg/...
+
+# Compare benchmarks before/after a change:
+#   make bench > /tmp/before.txt   (on the old build)
+#   <apply change>
+#   make bench > /tmp/after.txt
+#   benchstat /tmp/before.txt /tmp/after.txt   (go install golang.org/x/perf/cmd/benchstat@latest)
+bench-all: ## Roda benchmarks de todos os pacotes
+	$(GO) test -run=^$$ -bench=. -benchmem ./...
 
 ##@ Dependências
 

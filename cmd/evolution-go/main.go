@@ -23,6 +23,8 @@ import (
 	"gorm.io/gorm"
 	_ "modernc.org/sqlite"
 
+	"net/http/pprof"
+
 	call_handler "github.com/evolution-foundation/evolution-go/pkg/call/handler"
 	call_service "github.com/evolution-foundation/evolution-go/pkg/call/service"
 	chat_handler "github.com/evolution-foundation/evolution-go/pkg/chat/handler"
@@ -266,6 +268,16 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 
 	r := gin.Default()
 
+	// Profiling endpoints (CPU/heap/goroutine) for benchmarking. Off by default;
+	// enable with PPROF_ENABLED=true. Uses the standard library handlers, so it
+	// adds no dependency. Mounted without auth — only enable on a trusted host.
+	if config.PprofEnabled {
+		for path, handler := range pprofHandlers() {
+			r.GET(path, gin.WrapH(handler))
+		}
+		applog.Logger.LogWarn("[PPROF] /debug/pprof is enabled — do not leave this on in production")
+	}
+
 	// Abuse protection first, so it covers every route including the public
 	// passkey/license ones registered below.
 	//
@@ -378,6 +390,26 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 //
 // For a fresh database phase 1 creates the tables and phase 2 adds the indexes;
 // for an existing one both are no-ops after the first run.
+// pprofHandlers maps the standard library profiling endpoints to their paths.
+// The default net/http/pprof registrations live on http.DefaultServeMux; this
+// exposes the same handlers explicitly so they can be mounted on the Gin engine
+// only when PPROF_ENABLED=true.
+func pprofHandlers() map[string]http.Handler {
+	handlers := map[string]http.Handler{
+		"/debug/pprof/":        http.DefaultServeMux,
+		"/debug/pprof/cmdline": http.HandlerFunc(pprof.Cmdline),
+		"/debug/pprof/profile": http.HandlerFunc(pprof.Profile),
+		"/debug/pprof/symbol":  http.HandlerFunc(pprof.Symbol),
+		"/debug/pprof/trace":   http.HandlerFunc(pprof.Trace),
+	}
+	// Named profiles served by pprof.Index (e.g. /debug/pprof/heap). Gin does
+	// not fall through to DefaultServeMux, so each needs its own route.
+	for _, name := range []string{"allocs", "block", "goroutine", "heap", "mutex", "threadcreate"} {
+		handlers["/debug/pprof/"+name] = http.DefaultServeMux
+	}
+	return handlers
+}
+
 func migrate(db *gorm.DB) {
 	err := db.AutoMigrate(
 		&instance_model.Instance{},

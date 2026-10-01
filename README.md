@@ -181,6 +181,7 @@ SWAGGER_ENABLED=true        # set false to hide /swagger
 | `WEBHOOK_HMAC_KEY` | Global HMAC key for webhook signing | — |
 | `WEBHOOK_HMAC_ENCRYPTION_KEY` | AES key encrypting per-instance HMAC keys at rest | derived from `GLOBAL_API_KEY` |
 | `SSRF_PROTECTION` | Opt-in: refuse outbound fetches to loopback/private/link-local hosts | `false` |
+| `PPROF_ENABLED` | Expose `/debug/pprof` (CPU/heap profiles) — benchmarking only, off in prod | `false` |
 | `RATE_LIMIT_PER_MINUTE` | Requests per credential (instance token / admin key) or per IP; `0` disables | `600` |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated origin allowlist (`*` reflects any, no credentials); empty = same-origin only | *(empty)* |
 | `MAX_INSTANCES` | Cap on instances this deployment accepts (`0` = unlimited) | `0` |
@@ -324,6 +325,8 @@ A few of the endpoints this fork adds or that are easy to get wrong:
 | `GET` | `/server/ok` | — | Liveness probe (`{"status":"ok"}`) |
 | `GET` | `/server/health` | — | Readiness probe: version, uptime, instance and persistence-pool summary |
 | `GET` | `/metrics` | — | Prometheus metrics (connections, webhook depth, persistence saturation, send latency) |
+| `GET` | `/server/stats` | global | Runtime metrics: this process's memory/CPU + labelled host context, message aggregates |
+| `GET` | `/debug/pprof/*` | — | Go profiles (CPU/heap/goroutine) — only when `PPROF_ENABLED=true` |
 | `GET` | `/server/stats` | global | Runtime/host metrics, message aggregates, running version |
 | `GET` | `/dashboard` | — | Self-hosted dashboard page |
 | `GET` | `/chat/history` · `/chat/chats` · `/chat/media/:messageId` | instance | Read stored messages / list conversations / stream a stored attachment |

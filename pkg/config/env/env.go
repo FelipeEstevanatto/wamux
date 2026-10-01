@@ -63,6 +63,8 @@ const (
 	QRCODE_MAX_COUNT         = "QRCODE_MAX_COUNT"
 	CHECK_USER_EXISTS        = "CHECK_USER_EXISTS"
 	SWAGGER_ENABLED          = "SWAGGER_ENABLED"
+	// PPROF_ENABLED exposes /debug/pprof for profiling. Off by default.
+	PPROF_ENABLED = "PPROF_ENABLED"
 
 	// Typebot flood/loop protections, read at boot.
 	TYPEBOT_CONTACT_RATE_LIMIT  = "TYPEBOT_CONTACT_RATE_LIMIT"
