@@ -45,6 +45,10 @@ type Observability struct {
 	// library.)
 	sendLatencyLastMs *metrics.Gauge
 
+	// perInstanceConnected is 1/0 per instance id, so a scrape shows WHICH
+	// instance is down, not just how many.
+	perInstanceConnected *metrics.GaugeVec
+
 	startedAt atomic.Int64
 }
 
@@ -53,12 +57,13 @@ type Observability struct {
 func NewObservability(provider MetricsProvider, webhook MetricsSource) *Observability {
 	reg := metrics.NewRegistry()
 	o := &Observability{
-		registry:          reg,
-		provider:          provider,
-		webhook:           webhook,
-		sendsTotal:        reg.Counter("evo_sends_total", "Messages accepted for sending"),
-		sendFailures:      reg.Counter("evo_send_failures_total", "Send attempts that returned an error"),
-		sendLatencyLastMs: reg.Gauge("evo_send_latency_last_ms", "Duration of the most recent send, in milliseconds"),
+		registry:             reg,
+		provider:             provider,
+		webhook:              webhook,
+		sendsTotal:           reg.Counter("evo_sends_total", "Messages accepted for sending"),
+		sendFailures:         reg.Counter("evo_send_failures_total", "Send attempts that returned an error"),
+		sendLatencyLastMs:    reg.Gauge("evo_send_latency_last_ms", "Duration of the most recent send, in milliseconds"),
+		perInstanceConnected: reg.GaugeVec("evo_instance_connected", "Whether an instance is connected (1) or not (0)", "instance"),
 	}
 	o.startedAt.Store(time.Now().Unix())
 	return o
@@ -92,6 +97,19 @@ func (o *Observability) Render() string {
 		setGauge(o.registry, "evo_persist_queue_capacity", "Capacity of the message persistence queue", int64(s.PersistQueueCapacity))
 		setGauge(o.registry, "evo_persist_dropped_total", "Messages whose persistence queue was full (written inline instead)", int64(s.PersistDropped))
 		setGauge(o.registry, "evo_bg_dropped_total", "Background jobs dropped because the pool was full", int64(s.BgDropped))
+
+		// Per-instance series. Emit the current set and delete stale ones (an
+		// instance that was removed) so the series do not grow forever.
+		seen := make(map[string]struct{}, len(s.Instances))
+		for _, inst := range s.Instances {
+			v := int64(0)
+			if inst.Connected {
+				v = 1
+			}
+			o.perInstanceConnected.Set(inst.InstanceID, v)
+			seen[inst.InstanceID] = struct{}{}
+		}
+		o.perInstanceConnected.DeleteMissing(seen)
 	}
 
 	if o.webhook != nil {

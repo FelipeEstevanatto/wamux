@@ -50,6 +50,7 @@ import (
 	message_content "github.com/evolution-foundation/evolution-go/pkg/message/content"
 	message_model "github.com/evolution-foundation/evolution-go/pkg/message/model"
 	message_repository "github.com/evolution-foundation/evolution-go/pkg/message/repository"
+	"github.com/evolution-foundation/evolution-go/pkg/ownership"
 	"github.com/evolution-foundation/evolution-go/pkg/passkey/ceremony"
 	poll_service "github.com/evolution-foundation/evolution-go/pkg/poll/service"
 	storage_interfaces "github.com/evolution-foundation/evolution-go/pkg/storage/interfaces"
@@ -140,6 +141,9 @@ type InstanceHealth struct {
 type RuntimeStats struct {
 	InstancesTotal     int
 	InstancesConnected int
+	// Instances lists each instance's connection state so /metrics can emit a
+	// per-instance series (which one is down, not just how many).
+	Instances []InstanceHealth
 	// Persist pool: queue depth and lifetime submitted/dropped counts. A rising
 	// dropped count means message persistence is saturating.
 	PersistQueueDepth    int
@@ -204,6 +208,15 @@ type whatsmeowService struct {
 	passkeyCeremony    *ceremony.Store
 	persistPool        *persistPool
 	bgPool             *bgpool.Pool
+	// ownershipGuard guarantees one node connects an instance at a time
+	// (Postgres advisory locks). Nil/unsupported means single-node behaviour.
+	ownershipGuard *ownership.Guard
+	// ownershipHolders holds each instance's active lock so teardown can release
+	// it. Keyed by instance id.
+	ownershipHolders *safemap.Map[*ownership.Holder]
+	// ownershipStore records the visible lease (who owns what, until when) for
+	// routing/failover. Optional: nil in single-node mode.
+	ownershipStore *ownership.Store
 	// Media-retry state: pending requests (to decrypt the response) and the
 	// refreshed bytes to serve on the next download request.
 	mediaRetryPending *cache.Cache
@@ -634,6 +647,22 @@ func (w whatsmeowService) ReconnectClient(instanceId string) error {
 	w.clientPointer.Delete(instanceId)
 	w.myClientPointer.Delete(instanceId)
 	w.killChannel.Delete(instanceId)
+
+	// Release the single-writer lock so another node may take this instance.
+	if holder, exists := w.ownershipHolders.Lookup(instanceId); exists && holder != nil {
+		if err := holder.Release(context.Background()); err != nil {
+			w.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Failed to release ownership lock: %v", instanceId, err)
+		} else {
+			w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Ownership lock released", instanceId)
+		}
+		w.ownershipHolders.Delete(instanceId)
+	}
+	// Drop the visible lease too, so the instance can be adopted immediately.
+	if w.ownershipStore != nil {
+		if err := w.ownershipStore.Release(context.Background(), instanceId); err != nil {
+			w.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Failed to release ownership lease: %v", instanceId, err)
+		}
+	}
 
 	// Limpar cache de userInfo para esta instância
 	if instance, err := w.instanceRepository.GetInstanceByID(instanceId); err == nil {
@@ -3782,6 +3811,34 @@ func (w whatsmeowService) StartInstance(instanceId string) error {
 
 	w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Starting client", instance.Id)
 
+	// Single-writer guard: refuse to connect if another node already owns this
+	// instance. On a single node (or sqlite) this is a no-op and always claims.
+	if w.ownershipGuard != nil {
+		held, holder, err := w.ownershipGuard.Claim(context.Background(), instance.Id)
+		if err != nil {
+			w.loggerWrapper.GetLogger(instanceId).LogError("[%s] Ownership check failed: %v", instanceId, err)
+			return err
+		}
+		if !held.Held {
+			w.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Instance is already connected on another node (advisory lock %d held elsewhere); refusing to double-connect", instanceId, held.LockKey)
+			return fmt.Errorf("instance is owned by another node")
+		}
+		w.ownershipHolders.Set(instance.Id, holder)
+
+		// Record the visible lease for routing/failover. Best-effort: the advisory
+		// lock above is the correctness guard, this is discovery.
+		if w.ownershipStore != nil {
+			if ok, err := w.ownershipStore.Claim(context.Background(), instance.Id); err != nil {
+				w.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Could not record ownership lease: %v", instanceId, err)
+			} else if !ok {
+				w.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Ownership lease is held by another node; refusing to connect", instanceId)
+				_ = holder.Release(context.Background())
+				w.ownershipHolders.Delete(instance.Id)
+				return fmt.Errorf("instance lease owned by another node")
+			}
+		}
+	}
+
 	v := Values{map[string]string{
 		"Id":     instance.Id,
 		"Jid":    instance.Jid,
@@ -4079,10 +4136,13 @@ func (w whatsmeowService) RuntimeStats() RuntimeStats {
 	if w.clientPointer != nil {
 		clients := w.clientPointer.Snapshot()
 		stats.InstancesTotal = len(clients)
-		for _, c := range clients {
-			if c != nil && c.IsConnected() {
+		stats.Instances = make([]InstanceHealth, 0, len(clients))
+		for id, c := range clients {
+			connected := c != nil && c.IsConnected()
+			if connected {
 				stats.InstancesConnected++
 			}
+			stats.Instances = append(stats.Instances, InstanceHealth{InstanceID: id, Connected: connected})
 		}
 	}
 
@@ -4301,6 +4361,8 @@ func NewWhatsmeowService(
 	mediaStorage storage_interfaces.MediaStorage,
 	natsProducer producer_interfaces.Producer,
 	loggerWrapper *logger_wrapper.LoggerManager,
+	ownershipGuard *ownership.Guard,
+	ownershipStore *ownership.Store,
 ) WhatsmeowService {
 	// Inicializar PollService de forma segura
 	pollSvc := poll_service.NewPollService(authDB, loggerWrapper)
@@ -4313,6 +4375,9 @@ func NewWhatsmeowService(
 		pollService:        pollSvc, // NOVO: Serviço de enquetes
 		config:             config,
 		killChannel:        killChannel,
+		ownershipGuard:     ownershipGuard,
+		ownershipHolders:   safemap.New[*ownership.Holder](),
+		ownershipStore:     ownershipStore,
 		userInfoCache:      cache.New(5*time.Minute, 10*time.Minute),
 		chatNameCache:      cache.New(10*time.Minute, 15*time.Minute),
 		groupInfoCache:     cache.New(5*time.Minute, 10*time.Minute),

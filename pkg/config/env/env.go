@@ -90,4 +90,14 @@ const (
 	RATE_LIMIT_PER_MINUTE = "RATE_LIMIT_PER_MINUTE"
 	// CORS_ALLOWED_ORIGINS is a comma-separated allowlist ("*" reflects any).
 	CORS_ALLOWED_ORIGINS = "CORS_ALLOWED_ORIGINS"
+	// MAX_INSTANCES caps how many instances one deployment accepts (0 = unlimited).
+	MAX_INSTANCES = "MAX_INSTANCES"
+	// SEND_RATE_LIMIT_PER_MINUTE bounds POST /send/* per instance (0 = unlimited).
+	SEND_RATE_LIMIT_PER_MINUTE = "SEND_RATE_LIMIT_PER_MINUTE"
+	// SEND_MAX_CONCURRENT bounds in-flight sends per instance (0 = unlimited).
+	SEND_MAX_CONCURRENT = "SEND_MAX_CONCURRENT"
+	// NODE_ID identifies this process in the instance_ownership table.
+	NODE_ID = "NODE_ID"
+	// OWNERSHIP_LEASE_TTL_SECONDS is the ownership lease lifetime.
+	OWNERSHIP_LEASE_TTL_SECONDS = "OWNERSHIP_LEASE_TTL_SECONDS"
 )

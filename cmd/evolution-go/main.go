@@ -57,6 +57,7 @@ import (
 	"github.com/evolution-foundation/evolution-go/pkg/migrations"
 	newsletter_handler "github.com/evolution-foundation/evolution-go/pkg/newsletter/handler"
 	newsletter_service "github.com/evolution-foundation/evolution-go/pkg/newsletter/service"
+	"github.com/evolution-foundation/evolution-go/pkg/ownership"
 	passkey_handler "github.com/evolution-foundation/evolution-go/pkg/passkey/handler"
 	poll_handler "github.com/evolution-foundation/evolution-go/pkg/poll/handler"
 	routes "github.com/evolution-foundation/evolution-go/pkg/routes"
@@ -177,6 +178,29 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	labelRepository := label_repository.NewLabelRepository(db)
 	typebotRepository := typebot_repository.NewTypebotRepository(db)
 
+	// Single-writer guard for horizontal scaling: one node connects an instance
+	// at a time. Postgres advisory locks hold it for the life of the instance.
+	// On sqlite (single node) this is inert and every claim succeeds.
+	ownershipDriver := ""
+	if config.PostgresAuthDB != "" {
+		ownershipDriver = "postgres"
+	}
+	ownershipGuard := ownership.NewGuard(authDB, ownershipDriver)
+	// The lease store records who owns each instance (routing/failover). It needs
+	// a database; the Postgres auth handle is used for both the lock and the row.
+	ownershipStore := ownership.NewStore(authDB, config.NodeID, time.Duration(config.OwnershipLeaseTTLSeconds)*time.Second)
+
+	// Ownership heartbeat: renew this node's leases so they do not expire while
+	// it is healthy. If the process dies, renewal stops and another node can
+	// adopt the instances (failover). No-op without a database.
+	ownership.StartHeartbeat(ownershipStore, time.Duration(config.OwnershipLeaseTTLSeconds)*time.Second/3)
+
+	if ownershipGuard.Supported() {
+		applog.Logger.LogInfo("[OWNERSHIP] node=%s single-writer enabled (lease TTL %ds)", config.NodeID, config.OwnershipLeaseTTLSeconds)
+	} else {
+		applog.Logger.LogInfo("[OWNERSHIP] node=%s single-writer disabled (no Postgres); assume a single node", config.NodeID)
+	}
+
 	whatsmeowService := whatsmeow_service.NewWhatsmeowService(
 		instanceRepository,
 		authDB,
@@ -193,6 +217,8 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		mediaStorage,
 		natsProducer,
 		loggerWrapper,
+		ownershipGuard,
+		ownershipStore,
 	)
 	instanceService := instance_service.NewInstanceService(
 		instanceRepository,
@@ -470,6 +496,13 @@ func main() {
 	}
 	if authDB != nil {
 		defer authDB.Close()
+
+		// The ownership/lease table lives in the AUTH database next to the
+		// whatsmeow key store: it is about which node holds a connection, not
+		// about message history. Run only the ownership migration here.
+		if _, err := migrations.ApplyAuth(context.Background(), authDB, "postgres"); err != nil {
+			log.Fatalf("[MIGRATIONS] auth database: %v", err)
+		}
 	}
 
 	// Manter inicialização do SQLite

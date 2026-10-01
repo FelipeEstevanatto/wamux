@@ -283,6 +283,18 @@ func (i instances) Create(data *CreateStruct) (*instance_model.Instance, error) 
 		return nil, fmt.Errorf("instance already exists")
 	}
 
+	// Deployment-wide cap so a single tenant (or a runaway script) cannot create
+	// unbounded instances — each costs a WhatsApp socket and memory. 0 disables.
+	if i.config.MaxInstances > 0 {
+		existing, err := i.instanceRepository.GetAll(i.config.ClientName)
+		if err != nil {
+			return nil, fmt.Errorf("could not check the instance limit: %w", err)
+		}
+		if len(existing) >= i.config.MaxInstances {
+			return nil, fmt.Errorf("instance limit reached (%d)", i.config.MaxInstances)
+		}
+	}
+
 	instance := instance_model.Instance{
 		Id:         data.InstanceId,
 		Name:       data.Name,

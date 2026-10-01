@@ -159,6 +159,19 @@ func (g *GaugeVec) Delete(labelValue string) {
 	g.fam.mu.Unlock()
 }
 
+// DeleteMissing drops every series whose label value is not in keep. It is how a
+// per-entity gauge (one series per instance) avoids growing forever as entities
+// come and go.
+func (g *GaugeVec) DeleteMissing(keep map[string]struct{}) {
+	g.fam.mu.Lock()
+	defer g.fam.mu.Unlock()
+	for k := range g.fam.series {
+		if _, ok := keep[k]; !ok {
+			delete(g.fam.series, k)
+		}
+	}
+}
+
 func (f *labelledFamily) value(_, labelValue string) *atomic.Int64 {
 	f.mu.RLock()
 	v, ok := f.series[labelValue]

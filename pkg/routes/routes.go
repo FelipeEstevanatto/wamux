@@ -13,6 +13,7 @@ import (
 	community_handler "github.com/evolution-foundation/evolution-go/pkg/community/handler"
 	config "github.com/evolution-foundation/evolution-go/pkg/config"
 	group_handler "github.com/evolution-foundation/evolution-go/pkg/group/handler"
+	"github.com/evolution-foundation/evolution-go/pkg/httpguard"
 	instance_handler "github.com/evolution-foundation/evolution-go/pkg/instance/handler"
 	label_handler "github.com/evolution-foundation/evolution-go/pkg/label/handler"
 	message_handler "github.com/evolution-foundation/evolution-go/pkg/message/handler"
@@ -42,6 +43,7 @@ type Routes struct {
 	pollHandler             *poll_handler.PollHandler
 	serverHandler           server_handler.ServerHandler
 	typebotHandler          typebot_handler.TypebotHandler
+	sendGuard               *httpguard.SendGuard
 }
 
 func (r *Routes) AssignRoutes(eng *gin.Engine) {
@@ -136,6 +138,11 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 	routes = eng.Group("/send")
 	{
 		routes.Use(r.authMiddleware.Auth)
+		// Per-instance send limits (MAX_INSTANCES-style tenant protection):
+		// rate limit + concurrency cap, keyed by the authenticated instance.
+		if r.sendGuard != nil {
+			routes.Use(r.sendGuard.Middleware())
+		}
 		{
 			routes.POST("/text", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendText)
 			routes.POST("/link", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendLink)
@@ -341,5 +348,6 @@ func NewRouter(
 		pollHandler:             pollHandler,
 		serverHandler:           serverHandler,
 		typebotHandler:          typebotHandler,
+		sendGuard:               httpguard.NewSendGuard(config.SendRateLimitPerMinute, config.SendMaxConcurrent),
 	}
 }
