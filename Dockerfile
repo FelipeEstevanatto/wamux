@@ -48,9 +48,8 @@ RUN CGO_ENABLED=1 go build -tags "${GO_JSON_TAG}" -ldflags "-X main.version=${VE
 # fixes that 3.19.1 no longer receives.
 FROM alpine:3.24 AS final
 
-# Image metadata. This is an independent, unofficial build: the labels say so,
-# so nobody mistakes it for the official evoapicloud/evolution-go image. The CI
-# workflow adds source/revision/version on top of these.
+# Image metadata. This is an independent build; the labels mark it as such.
+# The CI workflow adds source/revision/version on top of these.
 LABEL org.opencontainers.image.title="WaMux" \
       org.opencontainers.image.description="WaMux — independent, self-hosted WhatsApp API (originally forked from Evolution Go). Not affiliated with, endorsed by, or an official release of Evolution Foundation." \
       org.opencontainers.image.url="https://github.com/FelipeEstevanatto/wamux" \

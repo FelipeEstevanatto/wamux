@@ -15,7 +15,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 import useAuth from '@/hooks/useAuth';
-import { COPYRIGHT_LINE, FORK_DISCLAIMER, FORK_OF_NAME, PRODUCT_NAME } from '@/constants/branding';
+import { COPYRIGHT_LINE, PRODUCT_NAME } from '@/constants/branding';
 
 export const Login: React.FC = () => {
   const { login, isAuthenticated, apiUrl: defaultApiUrl, apiKey: storedApiKey } = useAuth();
@@ -66,7 +66,7 @@ type LoginFormData = z.infer<typeof loginSchema>;
     setLoginError('');
 
     try {
-      // Validate the API key against the backend (no license check — this fork
+      // Validate the API key against the backend (no license check — this project
       // removed the licensing entirely).
       await login(data.apiUrl, data.apiKey);
 
@@ -195,10 +195,6 @@ type LoginFormData = z.infer<typeof loginSchema>;
             .
           </p>
           <p className="mt-3">{COPYRIGHT_LINE}</p>
-          <p className="mt-1">
-            {PRODUCT_NAME} é um fork comunitário não oficial do {FORK_OF_NAME}.
-          </p>
-          <p className="mt-1">{FORK_DISCLAIMER}</p>
         </div>
       </div>
     </div>

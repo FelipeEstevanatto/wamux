@@ -8,7 +8,7 @@ const UPDATED_AT = '24 de setembro de 2026';
  *
  * Public page linked from the login screen. Explains, in plain terms, which
  * data this self-hosted manager handles, where it is stored and who is
- * responsible for it (the operator, not the fork maintainers).
+ * responsible for it (the operator, not the maintainers).
  */
 export default function Privacy() {
   return (
@@ -20,9 +20,8 @@ export default function Privacy() {
       <LegalSection title="1. Resumo">
         <p>
           No {PRODUCT_NAME}, os dados ficam na infraestrutura de quem hospeda o
-          sistema — o operador. Este fork não ativa licenças, não envia
-          heartbeat e não faz telemetria para servidores da Evolution Foundation
-          ou dos mantenedores.
+          sistema — o operador. O software não ativa licenças, não envia
+          heartbeat e não faz telemetria para servidores de terceiros.
         </p>
       </LegalSection>
 
@@ -52,7 +51,7 @@ export default function Privacy() {
       <LegalSection title="3. Onde os dados ficam">
         <p>
           Em um banco PostgreSQL e em volumes locais do servidor do operador.
-          Nada disso é enviado aos mantenedores deste fork. Para falar com o
+          Nada disso é enviado aos mantenedores deste projeto. Para falar com o
           WhatsApp, o servidor estabelece conexão direta com a infraestrutura do
           WhatsApp/Meta, como parte do protocolo.
         </p>

@@ -1,7 +1,7 @@
 /**
  * Authentication types
  *
- * There is no license state: this fork removed the license gate entirely, so a
+ * There is no license state: this project removed the license gate entirely, so a
  * valid GLOBAL_API_KEY is all that is needed.
  */
 

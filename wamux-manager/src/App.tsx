@@ -33,7 +33,7 @@ function App() {
   const { isAuthenticated } = useAuth();
 
   // There is no license gate: a valid GLOBAL_API_KEY (isAuthenticated) is all
-  // that is required. This fork removed the licensing entirely.
+  // that is required. This project removed the licensing entirely.
   return (
     <DarkModeProvider>
       <ErrorBoundary>

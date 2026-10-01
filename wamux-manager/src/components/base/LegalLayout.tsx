@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 
-import { COPYRIGHT_LINE, FORK_DISCLAIMER } from '@/constants/branding';
+import { COPYRIGHT_LINE } from '@/constants/branding';
 
 interface LegalLayoutProps {
   title: string;
@@ -46,7 +46,6 @@ export const LegalLayout: React.FC<LegalLayoutProps> = ({
 
       <footer className="mt-8 space-y-1 text-center text-xs text-muted-foreground">
         <p>{COPYRIGHT_LINE}</p>
-        <p>{FORK_DISCLAIMER}</p>
       </footer>
     </div>
   </div>
