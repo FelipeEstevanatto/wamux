@@ -185,7 +185,7 @@ O sistema coleta métricas anônimas para melhorias:
 
 ```bash
 # Clonar repositório
-git clone https://git.evoai.app/WaMux/wamux.git
+git clone https://github.com/FelipeEstevanatto/wamux.git
 cd wamux
 
 # Configurar ambiente
@@ -239,4 +239,4 @@ Detalhes completos: [apache.org/licenses/LICENSE-2.0](http://www.apache.org/lice
 ---
 
 **Versão**: 1.0.0
-**Mantido por**: Equipe Evolution API
+**Mantido por**: Projeto WaMux

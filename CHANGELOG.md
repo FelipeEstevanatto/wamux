@@ -742,7 +742,7 @@ API/manager features, a security audit pass, and a whatsmeow API audit.
 
 - **Docker Hub**: `ghcr.io/felipeestevanatto/wamux`
 - **Documentation**: Swagger available at `/swagger/`
-- **GitHub**: [Evolution API Go](https://github.com/felipeestevanatto/wamux)
+- **GitHub**: [WaMux](..https://github.com/felipeestevanatto/wamux)
 
 ---
 

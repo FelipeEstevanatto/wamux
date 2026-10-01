@@ -61,11 +61,11 @@ O WaMux é um **gateway de API WhatsApp** escrito em Go, utilizando:
 
 ```bash
 # Via HTTPS
-git clone https://git.evoai.app/WaMux/wamux.git
+git clone https://github.com/FelipeEstevanatto/wamux.git
 cd wamux
 
 # Ou via SSH (se configurado)
-git clone git@git.evochat.com:WaMux/wamux.git
+git clone git@https://github.com/FelipeEstevanatto/wamux.git
 cd wamux
 ```
 
@@ -769,5 +769,5 @@ Após setup completo:
 
 **Dica**: Use `make help` para ver todos os comandos disponíveis!
 
-**Mantido por**: Equipe EvoAI Services  
+**Mantido por**: Equipe WaMux  
 **Versão**: 1.0.0

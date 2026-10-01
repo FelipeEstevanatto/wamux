@@ -11,7 +11,6 @@ coverage.*
 # Locally-compiled server binary that upstream accidentally committed at the
 # repo root (64MB ELF). It is a build artifact, never needed in git; the
 # Dockerfile compiles its own. Anchored so it does not hide a directory.
-/evolution-go
 /wamux
 
 # Manager SPA build output. Vite emits content-hashed filenames, so committing

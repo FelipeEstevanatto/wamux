@@ -404,4 +404,4 @@ Quando algo não funciona:
 
 ---
 
-**Mantido por**: Equipe EvoAI Services
+**Mantido por**: Equipe WaMux

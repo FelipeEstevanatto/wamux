@@ -11,7 +11,7 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Theme tokens, vendored from the EvoAI design system (see src/components/ui).
+ * Theme tokens, vendored from the `@evoapi/design-system` package (see src/components/ui).
  * `@theme inline` below maps them to Tailwind color utilities (bg-background,
  * text-primary, border-sidebar-border, ...).
  */

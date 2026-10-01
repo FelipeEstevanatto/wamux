@@ -246,7 +246,7 @@ Consulte [Guia de Contribuição](../desenvolvimento/contributing.md) para proce
 
 ### Reporte de Bugs
 
-Utilize [Issues no GitLab](https://git.evoai.app/WaMux/wamux/issues) incluindo:
+Utilize [Issues no GitHub](https://github.com/FelipeEstevanatto/wamux/issues) incluindo:
 - Versão do WaMux
 - Ambiente (Docker/local, SO)
 - Steps to reproduce
@@ -264,11 +264,11 @@ Utilize [Issues no GitLab](https://git.evoai.app/WaMux/wamux/issues) incluindo:
 - [Swagger UI](http://localhost:4000/swagger/index.html)
 
 ### Suporte
-- [Issues GitLab](https://git.evoai.app/WaMux/wamux/issues)
-- [Documentação Completa](https://git.evoai.app/WaMux/wamux/-/wikis)
+- [Issues GitLab](https://github.com/FelipeEstevanatto/wamux/issues)
+- [Documentação Completa](https://github.com/FelipeEstevanatto/wamux/-/wikis)
 
 ---
 
-**Não encontrou resposta?** Abra uma [issue](https://git.evoai.app/WaMux/wamux/issues) com sua questão.
+**Não encontrou resposta?** Abra uma [issue](https://github.com/FelipeEstevanatto/wamux/issues) com sua questão.
 
 **Documentação WaMux v1.0**
