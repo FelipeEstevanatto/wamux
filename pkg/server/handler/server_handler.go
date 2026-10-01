@@ -22,6 +22,7 @@ var _ = docmodels.Envelope{}
 
 type ServerHandler interface {
 	ServerOk(ctx *gin.Context)
+	Root(ctx *gin.Context)
 	Stats(ctx *gin.Context)
 	InstanceOverview(ctx *gin.Context)
 }
@@ -32,6 +33,7 @@ type ServerHandler interface {
 type OverviewProvider interface {
 	GetInstanceOverview(instanceId string) (*whatsmeow_service.InstanceOverview, error)
 	ResolveChats(users []string) map[string]whatsmeow_service.ChatIdentity
+	WhatsAppWebVersion() string
 }
 
 type serverHandler struct {
@@ -42,6 +44,10 @@ type serverHandler struct {
 	dataDir      string
 	mediaBackend string
 	dirUsage     dirUsage
+	// clientName is reported on GET / and configError holds a boot/config
+	// problem (e.g. a missing GLOBAL_API_KEY) to surface there.
+	clientName  string
+	configError string
 	// Feature flags surfaced to the manager so it can explain why some views are
 	// empty (history readback, local media previews, inbound download).
 	historyEnabled bool
@@ -60,6 +66,39 @@ func (s *serverHandler) ServerOk(ctx *gin.Context) {
 	ctx.JSON(200, gin.H{
 		"status": "ok",
 	})
+}
+
+// Root answers GET / with a small "is this thing on?" summary: status, version,
+// client name, manager/docs URLs and the WhatsApp Web version, plus a startup
+// error when a required config value is missing. Mirrors the Evolution API
+// health banner so a browser (or uptime check) can tell the service is running.
+// @Summary Service info
+// @Description Welcome payload: status, version, manager/documentation links and WhatsApp Web version
+// @Tags Server
+// @Produce json
+// @Success 200 {object} docmodels.RootInfo "service info"
+// @Router / [get]
+func (s *serverHandler) Root(ctx *gin.Context) {
+	info := gin.H{
+		"status":             200,
+		"message":            "Welcome to Evolution GO, it is working!",
+		"version":            s.version,
+		"clientName":         s.clientName,
+		"manager":            "/manager",
+		"documentation":      "/swagger/index.html",
+		"whatsappWebVersion": "",
+	}
+	if s.overview != nil {
+		if v := s.overview.WhatsAppWebVersion(); v != "" {
+			info["whatsappWebVersion"] = v
+		}
+	}
+	// Surface a boot/config problem without failing the whole response, so the
+	// route still acts as a liveness check while explaining what went wrong.
+	if s.configError != "" {
+		info["error"] = s.configError
+	}
+	ctx.JSON(200, info)
 }
 
 // Stats returns system metrics (Go runtime + Linux host) and message stats.
@@ -310,7 +349,7 @@ func parseMeminfoKB(line string) float64 {
 	return v
 }
 
-func NewServerHandler(messageRepo message_repository.MessageRepository, version string, overview OverviewProvider, dataDir string, mediaBackend string, historyEnabled bool, mediaLocal bool, webhookFiles bool) ServerHandler {
+func NewServerHandler(messageRepo message_repository.MessageRepository, version string, overview OverviewProvider, dataDir string, mediaBackend string, historyEnabled bool, mediaLocal bool, webhookFiles bool, clientName string, configError string) ServerHandler {
 	return &serverHandler{
 		messageRepo:    messageRepo,
 		overview:       overview,
@@ -322,5 +361,7 @@ func NewServerHandler(messageRepo message_repository.MessageRepository, version 
 		historyEnabled: historyEnabled,
 		mediaLocal:     mediaLocal,
 		webhookFiles:   webhookFiles,
+		clientName:     clientName,
+		configError:    configError,
 	}
 }

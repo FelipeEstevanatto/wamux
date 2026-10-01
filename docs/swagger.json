@@ -7,6 +7,26 @@
         "version": "1.0"
     },
     "paths": {
+        "/": {
+            "get": {
+                "description": "Welcome payload: status, version, manager/documentation links and WhatsApp Web version",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Server"
+                ],
+                "summary": "Service info",
+                "responses": {
+                    "200": {
+                        "description": "service info",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.RootInfo"
+                        }
+                    }
+                }
+            }
+        },
         "/call/reject": {
             "post": {
                 "description": "Reject call",
@@ -295,6 +315,41 @@
                     },
                     "500": {
                         "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/chat/media/{messageId}": {
+            "get": {
+                "description": "Streams the locally stored media for a message (used by the manager for previews). Requires DATABASE_SAVE_MESSAGES.",
+                "produces": [
+                    "application/octet-stream"
+                ],
+                "tags": [
+                    "Message"
+                ],
+                "summary": "Serve a stored attachment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Message ID",
+                        "name": "messageId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Media bytes",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "404": {
+                        "description": "Media not found",
                         "schema": {
                             "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
                         }
@@ -7376,6 +7431,43 @@
                 "phoneNumber": {
                     "type": "string",
                     "example": "5511999999999"
+                }
+            }
+        },
+        "github_com_evolution-foundation_evolution-go_pkg_docmodels.RootInfo": {
+            "type": "object",
+            "properties": {
+                "clientName": {
+                    "type": "string",
+                    "example": "evolution"
+                },
+                "documentation": {
+                    "type": "string",
+                    "example": "/swagger/index.html"
+                },
+                "error": {
+                    "type": "string",
+                    "example": ""
+                },
+                "manager": {
+                    "type": "string",
+                    "example": "/manager"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Welcome to Evolution GO, it is working!"
+                },
+                "status": {
+                    "type": "integer",
+                    "example": 200
+                },
+                "version": {
+                    "type": "string",
+                    "example": "0.8.1"
+                },
+                "whatsappWebVersion": {
+                    "type": "string",
+                    "example": "2.3000.1048977937"
                 }
             }
         },

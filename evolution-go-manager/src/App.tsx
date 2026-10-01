@@ -40,8 +40,11 @@ function App() {
         <BrowserRouter>
           <Suspense fallback={<PageFallback />}>
             <Routes>
-              {/* Landing Page - Public */}
+              {/* Landing Page - Public. The Go server only serves the SPA under
+                  /manager (and /manager/*), so the landing page lives at
+                  /manager when logged out and is reachable there directly. */}
               <Route path="/" element={<Home />} />
+              <Route path="/manager/home" element={<Home />} />
 
               {/* Manager Login - Public */}
               <Route

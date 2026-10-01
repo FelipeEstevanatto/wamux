@@ -287,6 +287,11 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		}
 	}
 
+	// A boot/config problem worth reporting on GET /. Empty means all good; a
+	// missing API key or database is fatal earlier in config.Load, so this only
+	// covers non-fatal misconfiguration the service still starts with.
+	configError := ""
+
 	routes.NewRouter(
 		config,
 		auth_middleware.NewMiddleware(config, instanceService),
@@ -301,7 +306,7 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		label_handler.NewLabelHandler(labelService),
 		newsletter_handler.NewNewsletterHandler(newsletterService),
 		pollHandler,
-		server_handler.NewServerHandler(messageRepository, version, whatsmeowService, dataDir, mediaBackend, config.DatabaseSaveMessages, config.MediaLocalStore, config.WebhookFiles),
+		server_handler.NewServerHandler(messageRepository, version, whatsmeowService, dataDir, mediaBackend, config.DatabaseSaveMessages, config.MediaLocalStore, config.WebhookFiles, config.ClientName, configError),
 		typebot_handler.NewTypebotHandler(typebotRepository, loggerWrapper),
 	).AssignRoutes(r)
 

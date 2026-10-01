@@ -116,6 +116,11 @@ type WhatsmeowService interface {
 	// ResolveChats turns bare message sources into display names (and the phone
 	// behind them) for the dashboard's "most active conversations" list.
 	ResolveChats(users []string) map[string]ChatIdentity
+
+	// WhatsAppWebVersion returns the WhatsApp Web client version the service is
+	// currently using (e.g. "2.3000.1048977937"), best-effort: the lookup is
+	// cached and may be empty when it could not be fetched.
+	WhatsAppWebVersion() string
 }
 
 // InstanceOverview is the per-instance summary the self-hosted dashboard shows
@@ -3988,6 +3993,16 @@ func fetchWhatsAppWebVersion() (*clientVersion, error) {
 	cachedWebVersionMu.Unlock()
 
 	return version, nil
+}
+
+// WhatsAppWebVersion returns the cached WhatsApp Web client version as a string
+// (e.g. "2.3000.1048977937"), or "" when it has never been fetched.
+func (w whatsmeowService) WhatsAppWebVersion() string {
+	v := getCachedWebVersion()
+	if v == nil {
+		return ""
+	}
+	return fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Patch)
 }
 
 // fetchWhatsAppWebVersionUncached performs the actual HTTP request and parse. It

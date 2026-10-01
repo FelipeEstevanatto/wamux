@@ -59,6 +59,11 @@ Three additive features, all disabled/unchanged by default unless configured.
   batches are stored.
 
 ### 🔧 Improvements
+- **Public info banner** — `GET /` now answers with a JSON welcome/health
+  payload (`status`, `message`, `version`, `clientName`, `manager`,
+  `documentation`, `whatsappWebVersion`, and `error` when a boot/config problem
+  was detected), mirroring the Evolution API banner. The manager landing page
+  (`/manager` → `/manager/home`) reads it to show version and service status.
 - **Webhook dead-letter queue** — webhooks that fail permanently (retries
   exhausted, or a non-retryable response) are published to RabbitMQ
   `WEBHOOK_ERROR_QUEUE_NAME` (default `webhook_errors`) with the URL, user,

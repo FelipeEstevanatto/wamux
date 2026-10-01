@@ -873,6 +873,33 @@ definitions:
         example: "5511999999999"
         type: string
     type: object
+  github_com_evolution-foundation_evolution-go_pkg_docmodels.RootInfo:
+    properties:
+      clientName:
+        example: evolution
+        type: string
+      documentation:
+        example: /swagger/index.html
+        type: string
+      error:
+        example: ""
+        type: string
+      manager:
+        example: /manager
+        type: string
+      message:
+        example: Welcome to Evolution GO, it is working!
+        type: string
+      status:
+        example: 200
+        type: integer
+      version:
+        example: 0.8.1
+        type: string
+      whatsappWebVersion:
+        example: 2.3000.1048977937
+        type: string
+    type: object
   github_com_evolution-foundation_evolution-go_pkg_docmodels.ServerOK:
     properties:
       status:
@@ -9108,6 +9135,20 @@ info:
   title: Evolution GO
   version: "1.0"
 paths:
+  /:
+    get:
+      description: 'Welcome payload: status, version, manager/documentation links
+        and WhatsApp Web version'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: service info
+          schema:
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.RootInfo'
+      summary: Service info
+      tags:
+      - Server
   /call/reject:
     post:
       consumes:
@@ -9303,6 +9344,30 @@ paths:
       summary: HistorySyncRequest a chat
       tags:
       - Chat
+  /chat/media/{messageId}:
+    get:
+      description: Streams the locally stored media for a message (used by the manager
+        for previews). Requires DATABASE_SAVE_MESSAGES.
+      parameters:
+      - description: Message ID
+        in: path
+        name: messageId
+        required: true
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: Media bytes
+          schema:
+            type: file
+        "404":
+          description: Media not found
+          schema:
+            $ref: '#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse'
+      summary: Serve a stored attachment
+      tags:
+      - Message
   /chat/mute:
     post:
       consumes:
