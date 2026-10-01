@@ -272,7 +272,7 @@ API/manager features, a security audit pass, and a whatsmeow API audit.
   instance is deleted, and compare the admin key in constant time. The proxy
   password is no longer returned by `GET /instance/proxy/:id` (it reports
   `hasPassword`; an empty password on save keeps the stored one). See
-  `FORK_NOTES.md` §3j.
+  `docs/archive/fork-history.md` §3j.
 - **Sent messages are now persisted** — previously only received messages were
   stored, so per-instance counts and `/server/stats` ignored outbound traffic.
   `SendMessage` records `Status="Sent"`, `IsFromMe` echoes are recorded as sent,
@@ -352,7 +352,7 @@ API/manager features, a security audit pass, and a whatsmeow API audit.
 - **`GET /instance/overview/:instanceId`** — the connected account's own profile
   picture, push name and local contact count (AuthAdmin). `GET /server/stats`
   now also returns `system.version`, and `/dashboard` shows the profile picture,
-  contact count, running version and a GitHub link (see `FORK_NOTES.md` §3i).
+  contact count, running version and a GitHub link (see `docs/archive/fork-history.md` §3i).
 - **Multiple webhooks per instance** — the `Webhook` field accepts a JSON array or
   a newline/comma/semicolon separated list; the payload is delivered to each URL.
 - **`POST /user/savecontact`** route aligned (with a legacy `POST /user/contacts`
@@ -386,7 +386,7 @@ API/manager features, a security audit pass, and a whatsmeow API audit.
   `ecosb2b/evo-go-v2` fork are fixed: the QR modal read the fields capitalised
   (`data.Qrcode`/`data.Code`) while the API returns lowercase, and the
   auto-refresh effect had `onRefresh`/`instance` in its deps, so the interval
-  reset before it ever fired. See `FORK_NOTES.md` §3i.
+  reset before it ever fired. See `docs/archive/fork-history.md` §3i.
 - **Animated WebP stickers** are uploaded untouched instead of being re-encoded,
   which previously failed on animated WebP and flattened static WebP.
 - **Interactive buttons/Pix** rewritten to the `native_flow` payloads WhatsApp

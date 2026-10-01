@@ -267,7 +267,7 @@ Logs incluem:
 
 - **[Debugging](../desenvolvimento/debugging.md)** - Guia completo de debugging
 - **[FAQ](./faq.md)** - Problemas comuns e soluções
-- **[Logs](../fundamentos/configuration.md#logs-e-debug)** - Configuração de logs
+- **[Logs](./environment-variables.md#logs)** - Configuração de logs
 
 ---
 
