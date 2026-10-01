@@ -4067,8 +4067,8 @@ func (s *sendService) persistSentMessage(instanceId string, sent *MessageSendStr
 		IsFromMe:        true,
 	}
 	// Store a local copy of an outbound attachment so it can be previewed from
-	// history without an object store (MinIO/S3).
-	if len(sent.MediaData) > 0 {
+	// history without an object store (MinIO/S3), when local storage is on.
+	if len(sent.MediaData) > 0 && s.config.MediaLocalStore {
 		if err := localmedia.Save(instanceId, sent.Info.ID, sent.MediaData); err == nil {
 			msg.MediaUrl = localmedia.URLPath(sent.Info.ID)
 			msg.MediaMimetype = sent.MediaMimetype

@@ -2316,10 +2316,14 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		// row, so a stored media message can be read back with its pointer.
 		// storedLocalMedia records that the bytes were saved to the local
 		// attachment store, which is used as the URL fallback (no MinIO/S3).
+		// When neither history nor the local store is enabled there is nothing
+		// to point at, so the download is skipped entirely and the media is
+		// only forwarded to the webhook (the legacy default).
 		var storedMediaURL, storedMediaMimetype string
 		var storedLocalMedia bool
+		keepMedia := mycli.config.DatabaseSaveMessages || mycli.config.MediaLocalStore
 
-		if mycli.config.WebhookFiles {
+		if mycli.config.WebhookFiles && keepMedia {
 			isMedia := false
 
 			img := evt.Message.GetImageMessage()
@@ -2511,10 +2515,12 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 					// Always keep a local copy so the manager can preview the
 					// attachment from history even without MinIO/S3 configured.
 					storedMediaMimetype = mimeType
-					if saveErr := localmedia.Save(mycli.userID, evt.Info.ID, data); saveErr == nil {
-						storedLocalMedia = true
-					} else if saveErr != localmedia.ErrNotConfigured {
-						mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Failed to store media locally - ID: %s: %v", mycli.userID, evt.Info.ID, saveErr)
+					if mycli.config.MediaLocalStore {
+						if saveErr := localmedia.Save(mycli.userID, evt.Info.ID, data); saveErr == nil {
+							storedLocalMedia = true
+						} else if saveErr != localmedia.ErrNotConfigured {
+							mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Failed to store media locally - ID: %s: %v", mycli.userID, evt.Info.ID, saveErr)
+						}
 					}
 
 					// Resolve where to store: the instance's own S3 if enabled,

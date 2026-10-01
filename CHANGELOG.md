@@ -33,16 +33,30 @@ Three additive features, all disabled/unchanged by default unless configured.
   `POST /send/media` for photo/video/audio/document), can start a new
   conversation from a typed number, applies inbound/receipt updates live over
   `/ws` (with a connection indicator), and has a refresh button with feedback.
-- **Local attachment previews** — incoming and outgoing media is also stored on
-  the data volume (`<dataDir>/media/<instanceId>/<messageId>`) and served by
+- **Local attachment previews (opt-in)** — when `MEDIA_LOCAL_STORE=true`,
+  incoming and outgoing media is also stored on the data volume
+  (`<dataDir>/media/<instanceId>/<messageId>`) and served by
   `GET /chat/media/:messageId` (instance-authenticated). This makes the manager
   render real image/video/audio previews and document links in the thread even
   without MinIO/S3; the manager fetches the path as a blob and uses an object
   URL. When an object store is configured its URL is preferred. Controlled by
-  `MEDIA_LOCAL_STORE` (**default `true`**); set it to `false` to restore the
-  previous behaviour (no local copies). Inbound copies require
-  `WEBHOOK_FILES=true`; outbound copies require `DATABASE_SAVE_MESSAGES=true`.
-  Only messages stored after upgrading have bytes available.
+  `MEDIA_LOCAL_STORE` (**default `false`**, i.e. the previous behaviour: media is
+  only forwarded to the webhook and never written to disk). Inbound copies also
+  require `WEBHOOK_FILES=true`; outbound copies require
+  `DATABASE_SAVE_MESSAGES=true`. Only messages stored while enabled have bytes
+  available.
+- **Feature-flag reporting** — `GET /server/stats` now exposes
+  `storage.historyEnabled`, `storage.mediaLocal` and `storage.webhookFiles`. The
+  manager reads them and shows an inline note when attachments are not being
+  stored (so a file showing only `[image]`/`[document]` is explained) and when
+  history readback is off.
+- **On-demand recovery (manager)** — the Messages screen can list the instance's
+  contacts (`GET /user/contacts`) to start a chat, and a **Recuperar** button
+  asks the phone for older messages of the open chat (`POST /chat/history-sync`
+  with the newest known message as the cursor, then reloads history). Inbound
+  `HistorySync` batches are still forwarded to the webhook but not persisted, so
+  recovered messages only appear once message persistence is enabled and the
+  batches are stored.
 
 ### 🔧 Improvements
 - **Webhook dead-letter queue** — webhooks that fail permanently (retries

@@ -42,6 +42,11 @@ type serverHandler struct {
 	dataDir      string
 	mediaBackend string
 	dirUsage     dirUsage
+	// Feature flags surfaced to the manager so it can explain why some views are
+	// empty (history readback, local media previews, inbound download).
+	historyEnabled bool
+	mediaLocal     bool
+	webhookFiles   bool
 }
 
 // ServerOk implements ServerHandler.
@@ -149,6 +154,12 @@ func (s *serverHandler) storageStats() gin.H {
 	if s.mediaBackend != "" {
 		storage["mediaBackend"] = s.mediaBackend
 	}
+
+	// Feature flags for the manager: when local media is off there is nothing to
+	// preview from disk, and when history is off there is nothing to read back.
+	storage["historyEnabled"] = s.historyEnabled
+	storage["mediaLocal"] = s.mediaLocal
+	storage["webhookFiles"] = s.webhookFiles
 	return storage
 }
 
@@ -299,14 +310,17 @@ func parseMeminfoKB(line string) float64 {
 	return v
 }
 
-func NewServerHandler(messageRepo message_repository.MessageRepository, version string, overview OverviewProvider, dataDir string, mediaBackend string) ServerHandler {
+func NewServerHandler(messageRepo message_repository.MessageRepository, version string, overview OverviewProvider, dataDir string, mediaBackend string, historyEnabled bool, mediaLocal bool, webhookFiles bool) ServerHandler {
 	return &serverHandler{
-		messageRepo:  messageRepo,
-		overview:     overview,
-		version:      version,
-		startTime:    time.Now(),
-		dataDir:      dataDir,
-		mediaBackend: mediaBackend,
-		dirUsage:     dirUsage{interval: time.Minute},
+		messageRepo:    messageRepo,
+		overview:       overview,
+		version:        version,
+		startTime:      time.Now(),
+		dataDir:        dataDir,
+		mediaBackend:   mediaBackend,
+		dirUsage:       dirUsage{interval: time.Minute},
+		historyEnabled: historyEnabled,
+		mediaLocal:     mediaLocal,
+		webhookFiles:   webhookFiles,
 	}
 }
