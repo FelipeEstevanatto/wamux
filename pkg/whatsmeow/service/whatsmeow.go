@@ -3779,6 +3779,73 @@ func AlternateChatJID(ctx context.Context, client *whatsmeow.Client, jid types.J
 	return types.JID{}, false
 }
 
+// Ownership retry policy. A refused claim is retried so a stale lease (a
+// previous container's hostname, a crashed peer) is adopted as soon as it
+// expires, instead of leaving the instance offline until a manual restart.
+const (
+	ownershipRetryMaxAttempts = 30
+	ownershipRetryBaseDelay   = 5 * time.Second
+	ownershipRetryMaxDelay    = 60 * time.Second
+)
+
+// claimInstance takes the advisory lock AND records the lease, retrying while
+// another node holds a live claim. It returns the last Held result (not an
+// error) when the attempts run out, and an error only on a real failure.
+//
+// Wait: this deliberately blocks StartInstance for the retry window. That wait
+// happens on the dedicated goroutine that starts one instance, not on a request
+// path or the event loop, and it is bounded.
+func (w *whatsmeowService) claimInstance(instanceID string) (ownership.Held, *ownership.Holder, error) {
+	delay := ownershipRetryBaseDelay
+	var lastHeld ownership.Held
+
+	for attempt := 1; attempt <= ownershipRetryMaxAttempts; attempt++ {
+		held, holder, err := w.ownershipGuard.Claim(context.Background(), instanceID)
+		if err != nil {
+			w.loggerWrapper.GetLogger(instanceID).LogError("[%s] Ownership check failed: %v", instanceID, err)
+			return ownership.Held{}, nil, err
+		}
+		if !held.Held {
+			lastHeld = held
+			w.loggerWrapper.GetLogger(instanceID).LogWarn("[%s] Instance is held by another node (lock %d); retry %d/%d in %s", instanceID, held.LockKey, attempt, ownershipRetryMaxAttempts, delay)
+			time.Sleep(delay)
+			if delay < ownershipRetryMaxDelay {
+				delay *= 2
+				if delay > ownershipRetryMaxDelay {
+					delay = ownershipRetryMaxDelay
+				}
+			}
+			continue
+		}
+
+		// Lock acquired. Record the visible lease; if the lease row still points
+		// at another node it will become claimable when it expires, so retry.
+		if w.ownershipStore != nil {
+			ok, err := w.ownershipStore.Claim(context.Background(), instanceID)
+			if err != nil {
+				w.loggerWrapper.GetLogger(instanceID).LogWarn("[%s] Could not record ownership lease: %v", instanceID, err)
+			} else if !ok {
+				w.loggerWrapper.GetLogger(instanceID).LogWarn("[%s] Ownership lease held by another node; retry %d/%d in %s", instanceID, attempt, ownershipRetryMaxAttempts, delay)
+				_ = holder.Release(context.Background())
+				lastHeld = ownership.Held{Held: false, LockKey: held.LockKey}
+				time.Sleep(delay)
+				if delay < ownershipRetryMaxDelay {
+					delay *= 2
+					if delay > ownershipRetryMaxDelay {
+						delay = ownershipRetryMaxDelay
+					}
+				}
+				continue
+			}
+		}
+
+		return held, holder, nil
+	}
+
+	w.loggerWrapper.GetLogger(instanceID).LogError("[%s] Gave up acquiring ownership after %d attempts; instance stays offline until the owner releases it or the service restarts", instanceID, ownershipRetryMaxAttempts)
+	return lastHeld, nil, nil
+}
+
 func (w whatsmeowService) StartInstance(instanceId string) error {
 	instance, err := w.instanceRepository.GetInstanceByID(instanceId)
 	if err != nil {
@@ -3810,34 +3877,6 @@ func (w whatsmeowService) StartInstance(instanceId string) error {
 	}
 
 	w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Starting client", instance.Id)
-
-	// Single-writer guard: refuse to connect if another node already owns this
-	// instance. On a single node (or sqlite) this is a no-op and always claims.
-	if w.ownershipGuard != nil {
-		held, holder, err := w.ownershipGuard.Claim(context.Background(), instance.Id)
-		if err != nil {
-			w.loggerWrapper.GetLogger(instanceId).LogError("[%s] Ownership check failed: %v", instanceId, err)
-			return err
-		}
-		if !held.Held {
-			w.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Instance is already connected on another node (advisory lock %d held elsewhere); refusing to double-connect", instanceId, held.LockKey)
-			return fmt.Errorf("instance is owned by another node")
-		}
-		w.ownershipHolders.Set(instance.Id, holder)
-
-		// Record the visible lease for routing/failover. Best-effort: the advisory
-		// lock above is the correctness guard, this is discovery.
-		if w.ownershipStore != nil {
-			if ok, err := w.ownershipStore.Claim(context.Background(), instance.Id); err != nil {
-				w.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Could not record ownership lease: %v", instanceId, err)
-			} else if !ok {
-				w.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Ownership lease is held by another node; refusing to connect", instanceId)
-				_ = holder.Release(context.Background())
-				w.ownershipHolders.Delete(instance.Id)
-				return fmt.Errorf("instance lease owned by another node")
-			}
-		}
-	}
 
 	v := Values{map[string]string{
 		"Id":     instance.Id,
@@ -3891,7 +3930,29 @@ func (w whatsmeowService) StartInstance(instanceId string) error {
 		}
 	}
 
-	go w.StartClient(clientData)
+	// The single-writer claim and the connection both run in the background:
+	// StartInstance must return promptly (ConnectOnStartup starts many instances
+	// in a loop), and the ownership retry can block for a while when another node
+	// holds the instance.
+	go func() {
+		// Single-writer guard: claim before connecting, retrying with backoff so a
+		// stale lease (previous container hostname, crashed peer) is adopted as
+		// soon as it expires rather than leaving the instance offline.
+		if w.ownershipGuard != nil {
+			held, holder, err := w.claimInstance(instance.Id)
+			if err != nil {
+				w.loggerWrapper.GetLogger(instanceId).LogError("[%s] Ownership check failed: %v", instanceId, err)
+				return
+			}
+			if !held.Held {
+				w.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Instance is owned by another node; not connecting", instanceId)
+				return
+			}
+			w.ownershipHolders.Set(instance.Id, holder)
+		}
+
+		w.StartClient(clientData)
+	}()
 
 	return nil
 }
