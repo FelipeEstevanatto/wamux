@@ -1,5 +1,16 @@
 # WaMux - Changelog
 
+## 0.9.2 — docs, security and cleanup
+
+- Security: removed a leaked credential (a `GLOBAL_API_KEY` and Postgres
+  password) and rewrote git history to purge it; `.env.example` now uses a
+  placeholder; gitleaks allowlists doc/env placeholders. Rotate those values if
+  used.
+- Docs: fixed broken links/ports, added `SECURITY.md`, rewrote `README.md`,
+  moved pre-fork history to `docs/changelog-upstream.md` and full engineering
+  history to `docs/archive/fork-history.md` (`FORK_NOTES.md` is now a summary).
+- No API or data changes.
+
 ## 0.9.1 — security and CI fixes
 
 - Go toolchain bumped to 1.26.8 (`go.mod` + `golang:1.26.8-alpine`), clearing 26
