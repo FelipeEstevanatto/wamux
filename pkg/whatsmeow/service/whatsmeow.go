@@ -128,6 +128,10 @@ type WhatsmeowService interface {
 	// RuntimeStats reports connection and work-pool counters for /metrics and
 	// the per-instance health view.
 	RuntimeStats() RuntimeStats
+
+	// StopPersistence drains the message-persistence pool. Call it during
+	// shutdown so messages still in the batching window are written.
+	StopPersistence()
 }
 
 // InstanceHealth is one instance's live connection state, for the health view.
@@ -499,11 +503,20 @@ type persistJob struct {
 }
 
 type persistPool struct {
-	queue chan persistJob
+	// mu guards queue/stopped so a submit racing with Stop can never send on
+	// the closed channel (which would panic during shutdown). submit only takes
+	// the read lock, so the hot path stays cheap relative to the DB write.
+	mu      sync.RWMutex
+	stopped bool
+	queue   chan persistJob
 	// submitted/dropped are lifetime counters for /metrics. A drop is the signal
 	// that persistence is saturating (the caller falls back to an inline write).
 	submitted atomic.Uint64
 	dropped   atomic.Uint64
+	// wg tracks the workers so Stop can wait for the final flush to complete;
+	// stopOnce makes Stop idempotent.
+	wg       sync.WaitGroup
+	stopOnce sync.Once
 }
 
 // newPersistPool starts workers goroutines draining a queue of size size.
@@ -515,8 +528,12 @@ func newPersistPool(workers, size int) *persistPool {
 		size = 1
 	}
 	p := &persistPool{queue: make(chan persistJob, size)}
+	p.wg.Add(workers)
 	for i := 0; i < workers; i++ {
-		go p.worker()
+		go func() {
+			defer p.wg.Done()
+			p.worker()
+		}()
 	}
 	return p
 }
@@ -601,8 +618,16 @@ func (p *persistPool) flush(batch []persistJob) {
 	}
 }
 
-// submit enqueues a job without blocking, reporting false when the queue is full.
+// submit enqueues a job without blocking, reporting false when the queue is full
+// or the pool has been stopped (the caller then persists inline, so the message
+// is never lost).
 func (p *persistPool) submit(job persistJob) bool {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	if p.stopped {
+		p.dropped.Add(1)
+		return false
+	}
 	select {
 	case p.queue <- job:
 		p.submitted.Add(1)
@@ -611,6 +636,26 @@ func (p *persistPool) submit(job persistJob) bool {
 		p.dropped.Add(1)
 		return false
 	}
+}
+
+// stopOnce makes Stop idempotent; wg lets it wait for the final flush.
+// Stop drains the pool: closing the queue makes every worker write its pending
+// batch and exit. Without this, a clean shutdown could lose the messages still
+// sitting in the last 20 ms batching window.
+func (p *persistPool) Stop() {
+	if p == nil {
+		return
+	}
+	p.stopOnce.Do(func() {
+		// Mark stopped under the write lock before closing: any submit that
+		// acquires the read lock afterwards sees stopped and falls back to an
+		// inline write instead of sending on the closed channel.
+		p.mu.Lock()
+		p.stopped = true
+		close(p.queue)
+		p.mu.Unlock()
+	})
+	p.wg.Wait()
 }
 
 // stats reports the pool's queue depth and lifetime counters.
@@ -4302,6 +4347,13 @@ func (w whatsmeowService) RuntimeStats() RuntimeStats {
 	}
 
 	return stats
+}
+
+// StopPersistence flushes and stops the message-persistence pool.
+func (w whatsmeowService) StopPersistence() {
+	if w.persistPool != nil {
+		w.persistPool.Stop()
+	}
 }
 
 // fetchWhatsAppWebVersionUncached performs the actual HTTP request and parse. It
