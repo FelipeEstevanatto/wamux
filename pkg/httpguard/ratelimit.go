@@ -91,9 +91,8 @@ func (l *Limiter) sweepLocked(now time.Time) {
 }
 
 // ClientKey identifies the caller for limiting: the instance token when present,
-// else the admin/global key, else the client IP. Keying by credential means two
-// tenants behind one NAT do not throttle each other, while an unauthenticated
-// flood still collapses to its source IP.
+// else the client IP. The admin key is deliberately NOT its own global bucket
+// here — see Middleware, which gives it a separate one.
 func ClientKey(c *gin.Context) string {
 	if token := c.GetHeader("apikey"); token != "" {
 		return token
@@ -101,17 +100,77 @@ func ClientKey(c *gin.Context) string {
 	return c.ClientIP()
 }
 
-// Middleware returns a Gin middleware enforcing the limiter. A nil limiter is a
-// no-op passthrough. The response is a 429 with a Retry-After header so a
-// well-behaved client backs off instead of hammering.
+// HealthPaths are never rate limited. These are liveness/readiness/scrape
+// endpoints: an orchestrator, load balancer or Prometheus polls them on a fixed
+// schedule, and a burst of them is normal, not abuse. Blocking them would make
+// the service look "down" exactly when it is busiest.
+var HealthPaths = map[string]struct{}{
+	"/":                 {},
+	"/server/ok":        {},
+	"/server/health":    {},
+	"/metrics":          {},
+	"/favicon.ico":      {},
+	"/license/status":   {},
+	"/license/register": {},
+	"/license/activate": {},
+}
+
+// Middleware returns a Gin middleware enforcing the limiter, with two refinements
+// learned from running a load test:
+//
+//  1. Health/observability paths (see HealthPaths) are exempt, so a scrape never
+//     consumes a client's budget or gets a 429.
+//  2. The admin/global key gets its OWN bucket, separate from per-instance and
+//     per-IP traffic. Previously a burst of legitimate dashboard/api traffic on
+//     the admin key locked the operator out for the rest of the window — the
+//     admin key is one operator, not a tenant, and its calls (create instance,
+//     read stats) are rare and should not compete with message traffic.
+//
+// A nil limiter is a no-op passthrough.
 func Middleware(l *Limiter) gin.HandlerFunc {
+	return MiddlewareWithAdmin(l, nil, "")
+}
+
+// MiddlewareWithAdmin is Middleware with an explicit admin limiter and the
+// global admin key. Requests presenting that key are limited by `admin` (a
+// separate bucket); everything else by `l`. When admin is nil a separate admin
+// limiter is derived with a more generous limit (10x, min 600/min) so ordinary
+// operator use is never throttled.
+//
+// globalKey may be empty (then no request is treated as admin here; AuthAdmin
+// still protects the admin routes).
+func MiddlewareWithAdmin(l *Limiter, admin *Limiter, globalKey string) gin.HandlerFunc {
+	if admin == nil && l != nil {
+		adminLimit := l.limit * 10
+		if adminLimit < 600 {
+			adminLimit = 600
+		}
+		admin = NewLimiter(adminLimit, l.window)
+	}
+
 	return func(c *gin.Context) {
 		if l == nil {
 			c.Next()
 			return
 		}
 
-		ok, retryAfter := l.Allow(ClientKey(c))
+		// Health/scrape endpoints bypass the limiter entirely.
+		if _, ok := HealthPaths[c.FullPath()]; ok {
+			c.Next()
+			return
+		}
+
+		// Admin traffic (the global key) gets its own bucket, so a burst of
+		// operator/dashboard calls cannot lock the operator out and does not
+		// compete with per-instance message traffic.
+		limiter := l
+		key := ClientKey(c)
+		if globalKey != "" && key == globalKey && admin != nil {
+			limiter = admin
+			key = adminKeyPrefix + key
+		}
+
+		ok, retryAfter := limiter.Allow(key)
 		if !ok {
 			seconds := int(retryAfter.Seconds())
 			if seconds < 1 {
@@ -126,6 +185,10 @@ func Middleware(l *Limiter) gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// adminKeyPrefix namespaces admin-key buckets so they cannot collide with a
+// tenant token that happens to equal the admin key.
+const adminKeyPrefix = "admin:"
 
 // itoa avoids pulling strconv into the hot path signature; small and clear.
 func itoa(n int) string {
