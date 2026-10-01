@@ -4,9 +4,9 @@ import (
 	"io"
 	"net/http"
 
-	docmodels "github.com/evolution-foundation/evolution-go/pkg/docmodels"
-	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
-	message_service "github.com/evolution-foundation/evolution-go/pkg/message/service"
+	docmodels "github.com/felipeestevanatto/wamux/pkg/docmodels"
+	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
+	message_service "github.com/felipeestevanatto/wamux/pkg/message/service"
 	"github.com/gin-gonic/gin"
 )
 

@@ -8,7 +8,7 @@ import (
 
 // realStartChatResponse é a resposta de verdade de um startChat, capturada de
 // um Typebot em produção. Serve de âncora: a estrutura do rich text foi inferida
-// lendo a implementação em TypeScript do evolution-api, e só uma resposta real
+// lendo a implementação em TypeScript do wamux-api, e só uma resposta real
 // prova que a leitura estava certa.
 //
 // Dois detalhes deste payload já quebraram o parser uma vez:

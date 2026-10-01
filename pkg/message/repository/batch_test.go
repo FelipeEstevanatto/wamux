@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	message_model "github.com/evolution-foundation/evolution-go/pkg/message/model"
+	message_model "github.com/felipeestevanatto/wamux/pkg/message/model"
 )
 
 // A batch of content rows must go out as ONE statement, not N. This is the whole

@@ -1,6 +1,6 @@
 # Guia de Instalação
 
-Métodos de instalação do Evolution GO para diferentes ambientes.
+Métodos de instalação do WaMux para diferentes ambientes.
 
 ## Índice
 
@@ -49,17 +49,17 @@ Método mais simples e adequado para produção.
 **Opção A: Clonar repositório**
 
 ```bash
-git clone https://git.evoai.app/Evolution/evolution-go.git
-cd evolution-go
+git clone https://git.evoai.app/WaMux/wamux.git
+cd wamux
 ```
 
 **Opção B: Download direto**
 
 ```bash
-mkdir evolution-go-deploy && cd evolution-go-deploy
+mkdir wamux-deploy && cd wamux-deploy
 
-curl -o docker-compose.yml https://raw.githubusercontent.com/EvolutionAPI/evolution-go/main/docker/examples/docker-compose.yml
-curl -o init-db.sql https://raw.githubusercontent.com/EvolutionAPI/evolution-go/main/docker/examples/init-db.sql
+curl -o docker-compose.yml https://raw.githubusercontent.com/EvolutionAPI/wamux/main/docker/examples/docker-compose.yml
+curl -o init-db.sql https://raw.githubusercontent.com/EvolutionAPI/wamux/main/docker/examples/init-db.sql
 ```
 
 ### 2. Configurar API Key
@@ -103,8 +103,8 @@ Aguarde ~30 segundos para inicialização completa.
 ### 4. Verificar Logs
 
 ```bash
-# Evolution GO
-docker-compose logs -f evolution-go
+# WaMux
+docker-compose logs -f wamux
 
 # PostgreSQL
 docker-compose logs -f postgres
@@ -146,8 +146,8 @@ sudo -u postgres psql
 ```
 
 ```sql
-CREATE DATABASE evogo_auth;
-CREATE DATABASE evogo_users;
+CREATE DATABASE wamux_auth;
+CREATE DATABASE wamux_users;
 \q
 ```
 
@@ -163,8 +163,8 @@ go version
 ### 4. Clonar Repositório
 
 ```bash
-git clone https://git.evoai.app/Evolution/evolution-go.git
-cd evolution-go
+git clone https://git.evoai.app/WaMux/wamux.git
+cd wamux
 ```
 
 ### 5. Instalar Dependências
@@ -191,8 +191,8 @@ Configuração mínima:
 SERVER_PORT=4000
 GLOBAL_API_KEY=sua-chave-gerada
 
-POSTGRES_AUTH_DB=postgresql://postgres:postgres@localhost:5432/evogo_auth?sslmode=disable
-POSTGRES_USERS_DB=postgresql://postgres:postgres@localhost:5432/evogo_users?sslmode=disable
+POSTGRES_AUTH_DB=postgresql://postgres:postgres@localhost:5432/wamux_auth?sslmode=disable
+POSTGRES_USERS_DB=postgresql://postgres:postgres@localhost:5432/wamux_users?sslmode=disable
 DATABASE_SAVE_MESSAGES=false
 
 WADEBUG=DEBUG
@@ -211,13 +211,13 @@ make dev
 
 Ou:
 ```bash
-go run cmd/evolution-go/main.go -dev
+go run cmd/wamux/main.go -dev
 ```
 
 **Build produção:**
 ```bash
 make build-local
-./build/evolution-go
+./build/wamux
 ```
 
 ---
@@ -235,8 +235,8 @@ docker swarm init
 ### 2. Criar Recursos
 
 ```bash
-docker volume create evolution_go_data
-docker volume create evolution_go_logs
+docker volume create wamux_data
+docker volume create wamux_logs
 docker network create --driver overlay network_public
 ```
 
@@ -256,14 +256,14 @@ Configure:
 ### 4. Deploy
 
 ```bash
-docker stack deploy -c docker-compose.swarm.yml evolution
+docker stack deploy -c docker-compose.swarm.yml wamux
 ```
 
 ### 5. Verificar
 
 ```bash
 docker service ls
-docker service logs evolution_evolution_go -f
+docker service logs wamux_wamux -f
 ```
 
 ---
@@ -273,7 +273,7 @@ docker service logs evolution_evolution_go -f
 Incluindo RabbitMQ, MinIO e NATS.
 
 ```bash
-curl -o docker-compose-full.yml https://raw.githubusercontent.com/EvolutionAPI/evolution-go/main/docker/examples/docker-compose.full.yml
+curl -o docker-compose-full.yml https://raw.githubusercontent.com/EvolutionAPI/wamux/main/docker/examples/docker-compose.full.yml
 
 nano docker-compose-full.yml  # Configurar API Key
 
@@ -284,7 +284,7 @@ docker-compose -f docker-compose-full.yml up -d
 
 | Serviço | Porta | Função |
 |---------|-------|--------|
-| Evolution GO | 4000 | API principal |
+| WaMux | 4000 | API principal |
 | PostgreSQL | 5432 | Banco de dados |
 | RabbitMQ | 5672, 15672 | Filas de mensagens |
 | MinIO | 9000, 9001 | Storage de objetos |
@@ -292,7 +292,7 @@ docker-compose -f docker-compose-full.yml up -d
 
 **Acessos:**
 
-- Evolution GO: http://localhost:4000
+- WaMux: http://localhost:4000
 - Swagger: http://localhost:4000/swagger/index.html
 - RabbitMQ: http://localhost:15672 (admin/admin)
 - MinIO: http://localhost:9001 (minioadmin/minioadmin)
@@ -301,7 +301,7 @@ docker-compose -f docker-compose-full.yml up -d
 
 1. Acesse http://localhost:9001
 2. Login: minioadmin / minioadmin
-3. Create bucket: `evolution-media`
+3. Create bucket: `wamux-media`
 4. Configurar política de acesso
 
 ---
@@ -343,12 +343,12 @@ curl -X POST http://localhost:4000/instance/create \
 
 **Docker:**
 ```bash
-docker-compose logs -f evolution-go
+docker-compose logs -f wamux
 ```
 
 **Local:**
 ```bash
-tail -f logs/evolution-go.log
+tail -f logs/wamux.log
 ```
 
 ---
@@ -383,7 +383,7 @@ Acesso via: http://localhost:4001
 
 **Ver logs:**
 ```bash
-docker-compose logs evolution-go
+docker-compose logs wamux
 ```
 
 **Causas comuns:**
@@ -409,11 +409,11 @@ volumes:
 
 1. Acessar console: http://localhost:9001
 2. Login: minioadmin / minioadmin
-3. Criar bucket: `evolution-media`
+3. Criar bucket: `wamux-media`
 
 Ou via CLI:
 ```bash
-docker-compose exec minio mc mb /data/evolution-media
+docker-compose exec minio mc mb /data/wamux-media
 ```
 
 ---
@@ -453,16 +453,16 @@ docker-compose up -d
 docker service ls
 
 # Logs
-docker service logs evolution_evolution_go -f
+docker service logs wamux_wamux -f
 
 # Escalar
-docker service scale evolution_evolution_go=3
+docker service scale wamux_wamux=3
 
 # Atualizar
-docker service update --image evoapicloud/evolution-go:latest evolution_evolution_go
+docker service update --image ghcr.io/felipeestevanatto/wamux:latest wamux_wamux
 
 # Remover
-docker stack rm evolution
+docker stack rm wamux
 ```
 
 ---
@@ -488,4 +488,4 @@ Disponíveis em `docker/examples/`:
 
 ---
 
-**Documentação Evolution GO v1.0**
+**Documentação WaMux v1.0**

@@ -1,6 +1,6 @@
 # Debugging e Troubleshooting
 
-Guia para resolver problemas comuns no Evolution GO.
+Guia para resolver problemas comuns no WaMux.
 
 ## Índice
 
@@ -31,13 +31,13 @@ LOGTYPE=console  # ou 'file'
 make dev
 
 # Logs em arquivo
-tail -f logs/evolution-go.log
+tail -f logs/wamux.log
 
 # Docker
-docker-compose logs -f evolution-go
+docker-compose logs -f wamux
 
 # Filtrar logs de erro
-docker-compose logs evolution-go | grep ERROR
+docker-compose logs wamux | grep ERROR
 ```
 
 ### Níveis de Log
@@ -91,26 +91,26 @@ sudo systemctl start postgresql
 docker start postgres
 
 # Testar conexão
-psql -h localhost -U postgres -d evogo_auth
+psql -h localhost -U postgres -d wamux_auth
 ```
 
 ### 3. Erro: "database does not exist"
 
-**Causa**: Databases `evogo_auth` ou `evogo_users` não criados.
+**Causa**: Databases `wamux_auth` ou `wamux_users` não criados.
 
 **Solução**:
 
 ```bash
 # Criar databases
 sudo -u postgres psql << EOF
-CREATE DATABASE evogo_auth;
-CREATE DATABASE evogo_users;
+CREATE DATABASE wamux_auth;
+CREATE DATABASE wamux_users;
 EOF
 
 # Ou via Docker
 docker exec -i postgres psql -U postgres << EOF
-CREATE DATABASE evogo_auth;
-CREATE DATABASE evogo_users;
+CREATE DATABASE wamux_auth;
+CREATE DATABASE wamux_users;
 EOF
 ```
 
@@ -136,7 +136,7 @@ curl -H "apikey: SUA-CHAVE" http://localhost:4000/server/ok
 
 ```bash
 # Verificar logs
-docker-compose logs -f evolution-go | grep QR
+docker-compose logs -f wamux | grep QR
 
 # Deletar e recriar instância
 curl -X DELETE http://localhost:4000/instance/delete/NOME \
@@ -161,7 +161,7 @@ curl -X POST https://seu-webhook.com/endpoint \
   -d '{"test": true}'
 
 # Verificar logs
-docker-compose logs evolution-go | grep webhook
+docker-compose logs wamux | grep webhook
 
 # Verificar configuração
 curl http://localhost:4000/instance/connectionState/NOME \
@@ -180,7 +180,7 @@ curl http://localhost:4000/instance/connectionState/NOME \
   -H "apikey: SUA-CHAVE"
 
 # Verificar logs
-docker-compose logs -f evolution-go
+docker-compose logs -f wamux
 
 # Verificar formato do número
 # Correto: 5511999999999 (DDI + DDD + número)
@@ -194,7 +194,7 @@ docker-compose logs -f evolution-go
 ### VSCode
 
 1. Abrir `Run and Debug` (Ctrl+Shift+D)
-2. Selecionar "Launch Evolution GO"
+2. Selecionar "Launch WaMux"
 3. Adicionar breakpoints (F9)
 4. Iniciar debug (F5)
 
@@ -205,11 +205,11 @@ docker-compose logs -f evolution-go
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug Evolution GO",
+      "name": "Debug WaMux",
       "type": "go",
       "request": "launch",
       "mode": "debug",
-      "program": "${workspaceFolder}/cmd/evolution-go",
+      "program": "${workspaceFolder}/cmd/wamux",
       "args": ["-dev"],
       "showLog": true
     }
@@ -219,7 +219,7 @@ docker-compose logs -f evolution-go
 
 ### GoLand
 
-1. **Run → Debug 'Evolution GO'**
+1. **Run → Debug 'WaMux'**
 2. Adicionar breakpoints (Ctrl+F8)
 3. Debug com F5
 
@@ -231,7 +231,7 @@ docker-compose logs -f evolution-go
 
 ```bash
 # Executar com pprof
-go run cmd/evolution-go/main.go -dev &
+go run cmd/wamux/main.go -dev &
 PID=$!
 
 # Gerar CPU profile (30 segundos)
@@ -278,7 +278,7 @@ go tool pprof goroutine.prof
 
 ```sql
 -- Habilitar log de queries lentas (PostgreSQL)
-ALTER DATABASE evogo_users SET log_min_duration_statement = 1000;
+ALTER DATABASE wamux_users SET log_min_duration_statement = 1000;
 
 -- Ver queries lentas
 SELECT query, calls, total_time, mean_time
@@ -295,7 +295,7 @@ SELECT count(*) FROM pg_stat_activity;
 
 SELECT datname, usename, state, query
 FROM pg_stat_activity
-WHERE datname IN ('evogo_auth', 'evogo_users');
+WHERE datname IN ('wamux_auth', 'wamux_users');
 ```
 
 ### Índices Faltantes
@@ -347,7 +347,7 @@ sudo tcpdump -i any -A 'port 4000'
 go install github.com/go-delve/delve/cmd/dlv@latest
 
 # Debug
-dlv debug cmd/evolution-go/main.go -- -dev
+dlv debug cmd/wamux/main.go -- -dev
 
 # Comandos:
 # break main.main - Breakpoint
@@ -366,17 +366,17 @@ Importar collection Swagger:
 Conectar ao PostgreSQL:
 - Host: localhost
 - Port: 5432
-- Database: evogo_users
+- Database: wamux_users
 - Username: postgres
 
 ### 4. Docker Stats
 
 ```bash
 # Ver uso de recursos
-docker stats evolution-go
+docker stats wamux
 
 # Inspecionar container
-docker inspect evolution-go
+docker inspect wamux
 ```
 
 ---

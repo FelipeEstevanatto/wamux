@@ -3,9 +3,9 @@ package send_handler
 import (
 	"net/http"
 
-	docmodels "github.com/evolution-foundation/evolution-go/pkg/docmodels"
-	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
-	send_service "github.com/evolution-foundation/evolution-go/pkg/sendMessage/service"
+	docmodels "github.com/felipeestevanatto/wamux/pkg/docmodels"
+	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
+	send_service "github.com/felipeestevanatto/wamux/pkg/sendMessage/service"
 	"github.com/gin-gonic/gin"
 )
 

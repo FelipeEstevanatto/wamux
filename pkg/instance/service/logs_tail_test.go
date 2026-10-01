@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/evolution-foundation/evolution-go/pkg/config"
-	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
+	"github.com/felipeestevanatto/wamux/pkg/config"
+	logger_wrapper "github.com/felipeestevanatto/wamux/pkg/logger"
 )
 
 func writeLogFile(t *testing.T, dir, id string, n int, base time.Time) {

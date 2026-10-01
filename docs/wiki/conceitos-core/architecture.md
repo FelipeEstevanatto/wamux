@@ -1,6 +1,6 @@
 # Arquitetura
 
-Como o Evolution GO está organizado por dentro - explicado de forma simples.
+Como o WaMux está organizado por dentro - explicado de forma simples.
 
 ## 📋 Índice
 
@@ -15,7 +15,7 @@ Como o Evolution GO está organizado por dentro - explicado de forma simples.
 
 ## Visão Geral
 
-O Evolution GO é organizado em **3 camadas** separadas. Pense nisso como uma lanchonete:
+O WaMux é organizado em **3 camadas** separadas. Pense nisso como uma lanchonete:
 
 1. **Atendente** (Handler) - Recebe seu pedido
 2. **Cozinha** (Service) - Prepara o pedido
@@ -238,10 +238,10 @@ Tudo isso acontece em menos de 1 segundo! ⚡
 ### Estrutura Simplificada
 
 ```
-evolution-go/
+wamux/
 │
 ├── cmd/
-│   └── evolution-go/
+│   └── wamux/
 │       └── main.go          ← Arquivo principal (inicia tudo)
 │
 ├── pkg/                     ← Código principal
@@ -428,7 +428,7 @@ WhatsApp usa criptografia ponta-a-ponta:
 
 ### Horizontal (Mais Servidores)
 
-Pode ter múltiplas cópias do Evolution GO:
+Pode ter múltiplas cópias do WaMux:
 
 ```
            ┌─────────────────┐
@@ -494,7 +494,7 @@ Melhorar o servidor existente:
 
 ```
 ┌──────────────────────────────────┐
-│      Evolution GO Server         │
+│      WaMux Server         │
 ├──────────────────────────────────┤
 │                                  │
 │  ┌────────┐      ┌───────────┐  │
@@ -537,4 +537,4 @@ Melhorar o servidor existente:
 
 ---
 
-**Documentação Evolution GO v1.0**
+**Documentação WaMux v1.0**

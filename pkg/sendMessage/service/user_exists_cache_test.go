@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/evolution-foundation/evolution-go/pkg/config"
-	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
-	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
+	"github.com/felipeestevanatto/wamux/pkg/config"
+	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
+	logger_wrapper "github.com/felipeestevanatto/wamux/pkg/logger"
 	"github.com/patrickmn/go-cache"
 )
 

@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/evolution-foundation/evolution-go/pkg/config"
-	producer_interfaces "github.com/evolution-foundation/evolution-go/pkg/events/interfaces"
-	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
-	"github.com/evolution-foundation/evolution-go/pkg/webhooksign"
+	"github.com/felipeestevanatto/wamux/pkg/config"
+	producer_interfaces "github.com/felipeestevanatto/wamux/pkg/events/interfaces"
+	logger_wrapper "github.com/felipeestevanatto/wamux/pkg/logger"
+	"github.com/felipeestevanatto/wamux/pkg/webhooksign"
 )
 
 // newTestProducer builds a producer with waits short enough to test a real

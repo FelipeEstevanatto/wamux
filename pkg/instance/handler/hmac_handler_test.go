@@ -10,9 +10,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/evolution-foundation/evolution-go/pkg/config"
-	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
-	instance_service "github.com/evolution-foundation/evolution-go/pkg/instance/service"
+	"github.com/felipeestevanatto/wamux/pkg/config"
+	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
+	instance_service "github.com/felipeestevanatto/wamux/pkg/instance/service"
 )
 
 // stubInstanceService records the HMAC calls. The embedded interface satisfies

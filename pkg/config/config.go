@@ -9,17 +9,17 @@ import (
 	"strings"
 	"time"
 
-	applog "github.com/evolution-foundation/evolution-go/pkg/applog"
+	applog "github.com/felipeestevanatto/wamux/pkg/applog"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
-	config_env "github.com/evolution-foundation/evolution-go/pkg/config/env"
-	"github.com/evolution-foundation/evolution-go/pkg/webhooksign"
+	config_env "github.com/felipeestevanatto/wamux/pkg/config/env"
+	"github.com/felipeestevanatto/wamux/pkg/webhooksign"
 )
 
 // webhookHmacDerivationLabel domain-separates the webhook-key encryption key
 // derived from GLOBAL_API_KEY from any other use of that secret.
-const webhookHmacDerivationLabel = "evolution-go:webhook-hmac-encryption:v1:"
+const webhookHmacDerivationLabel = "wamux:webhook-hmac-encryption:v1:"
 
 type Config struct {
 	PostgresAuthDB       string

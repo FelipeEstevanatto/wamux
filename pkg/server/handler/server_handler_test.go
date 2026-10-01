@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	message_model "github.com/evolution-foundation/evolution-go/pkg/message/model"
-	message_repository "github.com/evolution-foundation/evolution-go/pkg/message/repository"
-	whatsmeow_service "github.com/evolution-foundation/evolution-go/pkg/whatsmeow/service"
+	message_model "github.com/felipeestevanatto/wamux/pkg/message/model"
+	message_repository "github.com/felipeestevanatto/wamux/pkg/message/repository"
+	whatsmeow_service "github.com/felipeestevanatto/wamux/pkg/whatsmeow/service"
 	"github.com/gin-gonic/gin"
 )
 
@@ -118,7 +118,7 @@ func TestRootReturnsServiceInfo(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	h := &serverHandler{
 		version:    "0.8.1",
-		clientName: "evolution",
+		clientName: "wamux",
 		overview:   fakeOverview{},
 	}
 
@@ -133,7 +133,7 @@ func TestRootReturnsServiceInfo(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	if body["version"] != "0.8.1" || body["clientName"] != "evolution" {
+	if body["version"] != "0.8.1" || body["clientName"] != "wamux" {
 		t.Fatalf("unexpected version/clientName: %+v", body)
 	}
 	if body["whatsappWebVersion"] != "2.3000.1048977937" {
@@ -352,7 +352,7 @@ func TestStatsIncludesStorage(t *testing.T) {
 		version:      "1.2.3-fork",
 		startTime:    time.Now(),
 		dataDir:      dir,
-		mediaBackend: "minio:evolution-media",
+		mediaBackend: "minio:wamux-media",
 		messageRepo:  fakeMessageRepo{dbTotal: 2 * 1024 * 1024, dbMessages: 1024 * 1024},
 		dirUsage:     dirUsage{interval: time.Minute},
 	}
@@ -384,8 +384,8 @@ func TestStatsIncludesStorage(t *testing.T) {
 	if body.Storage.DBTotalMB != 2 || body.Storage.DBMessagesMB != 1 {
 		t.Fatalf("db usage = %+v, want 2 MB total / 1 MB messages", body.Storage)
 	}
-	if !body.Storage.MediaEnabled || body.Storage.MediaBackend != "minio:evolution-media" {
-		t.Fatalf("media = %+v, want enabled minio:evolution-media", body.Storage)
+	if !body.Storage.MediaEnabled || body.Storage.MediaBackend != "minio:wamux-media" {
+		t.Fatalf("media = %+v, want enabled minio:wamux-media", body.Storage)
 	}
 }
 

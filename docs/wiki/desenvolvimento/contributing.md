@@ -1,6 +1,6 @@
 # Como Contribuir
 
-Guia para contribuir com o Evolution GO.
+Guia para contribuir com o WaMux.
 
 ## Índice
 
@@ -39,7 +39,7 @@ Contribuições são bem-vindas! Você pode contribuir:
 
 ### Antes de Reportar
 
-1. Verifique se o bug já foi reportado nas [Issues](https://git.evoai.app/Evolution/evolution-go/issues)
+1. Verifique se o bug já foi reportado nas [Issues](https://git.evoai.app/WaMux/wamux/issues)
 2. Teste na versão mais recente
 3. Colete informações: logs, versão do Go, sistema operacional
 
@@ -66,7 +66,7 @@ Se aplicável, adicione screenshots ou logs.
 **Ambiente**
 - OS: [ex: Ubuntu 22.04]
 - Go Version: [ex: 1.24.0]
-- Evolution GO Version: [ex: v1.0.0]
+- WaMux Version: [ex: v1.0.0]
 - PostgreSQL Version: [ex: 15.2]
 
 **Informações Adicionais**
@@ -103,7 +103,7 @@ Mockups, exemplos, referências, etc.
 ### Processo
 
 1. **Fork** o repositório
-2. **Clone** seu fork: `git clone https://git.evochat.com/SEU-USUARIO/evolution-go.git`
+2. **Clone** seu fork: `git clone https://git.evochat.com/SEU-USUARIO/wamux.git`
 3. **Crie branch**: `git checkout -b feature/minha-feature`
 4. **Desenvolva** e **commit** suas mudanças
 5. **Push**: `git push origin feature/minha-feature`
@@ -284,9 +284,9 @@ func (h *InstanceHandler) GetInstance(c *gin.Context) {
 
 ## Recursos Úteis
 
-- **Issues**: https://git.evoai.app/Evolution/evolution-go/issues
-- **Pull Requests**: https://git.evoai.app/Evolution/evolution-go/merge_requests
-- **Documentação**: https://git.evoai.app/Evolution/evolution-go/-/wikis
+- **Issues**: https://git.evoai.app/WaMux/wamux/issues
+- **Pull Requests**: https://git.evoai.app/WaMux/wamux/merge_requests
+- **Documentação**: https://git.evoai.app/WaMux/wamux/-/wikis
 - **Go Style Guide**: https://google.github.io/styleguide/go/
 - **Effective Go**: https://go.dev/doc/effective_go
 

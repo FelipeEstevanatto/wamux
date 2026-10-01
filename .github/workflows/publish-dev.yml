@@ -40,10 +40,10 @@ jobs:
           context: .
           platforms: linux/amd64
           push: true
-          tags: ghcr.io/felipeestevanatto/evo-gofork:dev
+          tags: ghcr.io/felipeestevanatto/wamux:dev
           labels: |
-            org.opencontainers.image.title=Evolution Go (community fork) — dev
-            org.opencontainers.image.description=Unofficial community build of Evolution Go (development channel). Not affiliated with, endorsed by, or an official release of Evolution Foundation.
+            org.opencontainers.image.title=WaMux (community fork) — dev
+            org.opencontainers.image.description=Unofficial community build of WaMux (development channel). Not affiliated with, endorsed by, or an official release of Evolution Foundation.
             org.opencontainers.image.licenses=Apache-2.0
             org.opencontainers.image.vendor=FelipeEstevanatto (community fork, not Evolution Foundation)
           cache-from: type=gha

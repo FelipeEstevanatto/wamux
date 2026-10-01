@@ -21,8 +21,9 @@ Thumbs.db
 # Build artifacts
 server
 build/
-# Stray locally-compiled binary committed at repo root (64MB) — never needed in image
+# Stray locally-compiled binary at repo root (64MB) — never needed in image
 evolution-go
+wamux
 
 # Docker
 Dockerfile
@@ -39,8 +40,8 @@ Makefile
 
 # Manager source is built in its own Dockerfile stage. Exclude local
 # install/build artifacts from the context (keep the source files themselves).
-evolution-go-manager/node_modules
-evolution-go-manager/dist
+wamux-manager/node_modules
+wamux-manager/dist
 
 # Manager/dist é necessário - serve arquivos estáticos do frontend React
 # Não excluir - precisa estar na imagem final para ser acessado via /manager

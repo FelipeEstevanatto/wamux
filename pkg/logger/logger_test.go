@@ -9,7 +9,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/evolution-foundation/evolution-go/pkg/config"
+	"github.com/felipeestevanatto/wamux/pkg/config"
 )
 
 func testLogger(t *testing.T, instanceId string) (*Logger, string) {

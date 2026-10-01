@@ -3,9 +3,9 @@ package call_handler
 import (
 	"net/http"
 
-	call_service "github.com/evolution-foundation/evolution-go/pkg/call/service"
-	docmodels "github.com/evolution-foundation/evolution-go/pkg/docmodels"
-	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
+	call_service "github.com/felipeestevanatto/wamux/pkg/call/service"
+	docmodels "github.com/felipeestevanatto/wamux/pkg/docmodels"
+	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
 	"github.com/gin-gonic/gin"
 )
 

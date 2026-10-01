@@ -34,7 +34,7 @@ import (
 	"fmt"
 	"time"
 
-	applog "github.com/evolution-foundation/evolution-go/pkg/applog"
+	applog "github.com/felipeestevanatto/wamux/pkg/applog"
 )
 
 // migration is one ordered step. Statements run in order; `Postgres` and

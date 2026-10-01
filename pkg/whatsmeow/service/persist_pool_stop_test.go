@@ -4,8 +4,8 @@ import (
 	"sync"
 	"testing"
 
-	message_model "github.com/evolution-foundation/evolution-go/pkg/message/model"
-	message_repository "github.com/evolution-foundation/evolution-go/pkg/message/repository"
+	message_model "github.com/felipeestevanatto/wamux/pkg/message/model"
+	message_repository "github.com/felipeestevanatto/wamux/pkg/message/repository"
 )
 
 // recordingRepo records which message IDs reached the database, so a test can

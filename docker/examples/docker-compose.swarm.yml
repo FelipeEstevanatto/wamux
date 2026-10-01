@@ -1,35 +1,35 @@
 # =============================================================================
-# Evolution Go (community fork) — Docker Swarm stack
+# WaMux (community fork) — Docker Swarm stack
 #
 # For a Traefik-fronted Swarm deployment. The volumes/network are declared
 # external, so create them first:
 #
 #   docker network create --driver overlay network_public
-#   docker volume create evolution_go_data
+#   docker volume create wamux_data
 #
 # The app talks to a Postgres you provide (set the POSTGRES_*_DB URLs below).
 # Adjust the Traefik host to your domain, then:
 #
-#   docker stack deploy -c docker-compose.swarm.yml evolution_go
+#   docker stack deploy -c docker-compose.swarm.yml wamux
 # =============================================================================
 
 
 services:
-  evolution_go:
-    image: ghcr.io/felipeestevanatto/evo-gofork:${EVOGO_VERSION:-dev}
+  wamux:
+    image: ghcr.io/felipeestevanatto/wamux:${WAMUX_VERSION:-dev}
     networks:
       - network_public
     environment:
       SERVER_PORT: 4000
-      CLIENT_NAME: evolution
-      OS_NAME: Evo-GoFork
+      CLIENT_NAME: wamux
+      OS_NAME: WaMux
 
       # REQUIRED: change this.
       GLOBAL_API_KEY: change-me-to-a-long-random-key
 
       # Point these at your managed Postgres.
-      POSTGRES_AUTH_DB: postgresql://evolution_user:evolution_pass@postgres:5432/evogo_auth?sslmode=disable
-      POSTGRES_USERS_DB: postgresql://evolution_user:evolution_pass@postgres:5432/evogo_users?sslmode=disable
+      POSTGRES_AUTH_DB: postgresql://wamux_user:wamux_pass@postgres:5432/wamux_auth?sslmode=disable
+      POSTGRES_USERS_DB: postgresql://wamux_user:wamux_pass@postgres:5432/wamux_users?sslmode=disable
       DATABASE_SAVE_MESSAGES: "true"
       MESSAGE_RETENTION_DAYS: "365"
 
@@ -61,7 +61,7 @@ services:
       API_AUDIO_CONVERTER_KEY: ""
 
     volumes:
-      - evolution_go_data:/app/data
+      - wamux_data:/app/data
 
     deploy:
       replicas: 1
@@ -74,17 +74,17 @@ services:
         max_attempts: 3
       labels:
         - traefik.enable=true
-        - traefik.http.routers.evolution_go.rule=Host(`evolution.example.com`)
-        - traefik.http.routers.evolution_go.entrypoints=websecure
-        - traefik.http.routers.evolution_go.tls.certresolver=letsencryptresolver
-        - traefik.http.routers.evolution_go.service=evolution_go
-        - traefik.http.services.evolution_go.loadbalancer.server.port=4000
-        - traefik.http.services.evolution_go.loadbalancer.passHostHeader=true
+        - traefik.http.routers.wamux.rule=Host(`wamux.example.com`)
+        - traefik.http.routers.wamux.entrypoints=websecure
+        - traefik.http.routers.wamux.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.wamux.service=wamux
+        - traefik.http.services.wamux.loadbalancer.server.port=4000
+        - traefik.http.services.wamux.loadbalancer.passHostHeader=true
 
 volumes:
-  evolution_go_data:
+  wamux_data:
     external: true
-    name: evolution_go_data
+    name: wamux_data
 
 networks:
   network_public:

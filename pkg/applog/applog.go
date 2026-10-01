@@ -208,7 +208,7 @@ func (c WebhookConfig) WithWebhookClient(client *http.Client) WebhookConfig {
 // and other process-level messages. It writes to stderr via the standard library
 // logger; per-instance file logging lives in pkg/logger.
 var Logger = NewLogger(
-	"evolution-go",
+	"wamux",
 	"app",
 	debugEnabled(),
 	WebhookConfig{},

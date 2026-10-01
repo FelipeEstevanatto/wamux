@@ -10,7 +10,7 @@ import (
 	"context"
 	"time"
 
-	applog "github.com/evolution-foundation/evolution-go/pkg/applog"
+	applog "github.com/felipeestevanatto/wamux/pkg/applog"
 )
 
 const (

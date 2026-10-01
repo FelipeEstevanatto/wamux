@@ -3,9 +3,9 @@ package label_handler
 import (
 	"net/http"
 
-	docmodels "github.com/evolution-foundation/evolution-go/pkg/docmodels"
-	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
-	label_service "github.com/evolution-foundation/evolution-go/pkg/label/service"
+	docmodels "github.com/felipeestevanatto/wamux/pkg/docmodels"
+	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
+	label_service "github.com/felipeestevanatto/wamux/pkg/label/service"
 	"github.com/gin-gonic/gin"
 )
 

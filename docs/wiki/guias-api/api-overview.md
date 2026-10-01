@@ -1,6 +1,6 @@
 # Visão Geral da API
 
-Guia completo para usar a API REST do Evolution GO.
+Guia completo para usar a API REST do WaMux.
 
 ## Base URL
 
@@ -199,7 +199,7 @@ Número do WhatsApp (DDI + DDD + Número)
 }
 ```
 
-O Evolution GO formata automaticamente números quando necessário.
+O WaMux formata automaticamente números quando necessário.
 
 ## Paginação
 

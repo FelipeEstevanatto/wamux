@@ -1,6 +1,6 @@
 # Variáveis de Ambiente
 
-Referência rápida de variáveis de ambiente do Evolution GO.
+Referência rápida de variáveis de ambiente do WaMux.
 
 Para documentação detalhada, consulte: [Configuração](../fundamentos/configuration.md)
 
@@ -20,7 +20,7 @@ Para documentação detalhada, consulte: [Configuração](../fundamentos/configu
 | Variável | Padrão | Descrição |
 |----------|--------|-----------|
 | `SERVER_PORT` | `4000` | Porta HTTP |
-| `CLIENT_NAME` | `evolution` | Nome identificador |
+| `CLIENT_NAME` | `wamux` | Nome identificador |
 | `OS_NAME` | `Linux` | Sistema operacional |
 
 ---
@@ -34,8 +34,8 @@ Para documentação detalhada, consulte: [Configuração](../fundamentos/configu
 
 **Formato:**
 ```env
-POSTGRES_AUTH_DB=postgresql://user:pass@host:5432/evogo_auth?sslmode=disable
-POSTGRES_USERS_DB=postgresql://user:pass@host:5432/evogo_users?sslmode=disable
+POSTGRES_AUTH_DB=postgresql://user:pass@host:5432/wamux_auth?sslmode=disable
+POSTGRES_USERS_DB=postgresql://user:pass@host:5432/wamux_users?sslmode=disable
 ```
 
 ---
@@ -128,7 +128,7 @@ MINIO_ENABLED=true
 MINIO_ENDPOINT=localhost:9000
 MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=minioadmin
-MINIO_BUCKET=evolution-media
+MINIO_BUCKET=wamux-media
 MINIO_USE_SSL=false
 MINIO_REGION=us-east-1
 ```
@@ -184,12 +184,12 @@ DATABASE_SAVE_MESSAGES=false
 
 # Servidor
 SERVER_PORT=4000
-CLIENT_NAME=evolution
+CLIENT_NAME=wamux
 OS_NAME=Linux
 
 # Banco de Dados
-POSTGRES_AUTH_DB=postgresql://postgres:senha@postgres:5432/evogo_auth?sslmode=disable
-POSTGRES_USERS_DB=postgresql://postgres:senha@postgres:5432/evogo_users?sslmode=disable
+POSTGRES_AUTH_DB=postgresql://postgres:senha@postgres:5432/wamux_auth?sslmode=disable
+POSTGRES_USERS_DB=postgresql://postgres:senha@postgres:5432/wamux_users?sslmode=disable
 
 # Logs
 WADEBUG=INFO
@@ -214,7 +214,7 @@ MINIO_ENABLED=true
 MINIO_ENDPOINT=minio:9000
 MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=minioadmin
-MINIO_BUCKET=evolution-media
+MINIO_BUCKET=wamux-media
 MINIO_USE_SSL=false
 ```
 
@@ -223,8 +223,8 @@ MINIO_USE_SSL=false
 ## Recursos
 
 - **[Configuração Detalhada](../fundamentos/configuration.md)** - Documentação completa de cada variável
-- **[.env.example](https://git.evoai.app/Evolution/evolution-go/blob/main/docker/examples/.env.example)** - Arquivo de exemplo com todas as variáveis
+- **[.env.example](https://git.evoai.app/WaMux/wamux/blob/main/docker/examples/.env.example)** - Arquivo de exemplo com todas as variáveis
 
 ---
 
-**Documentação Evolution GO v1.0**
+**Documentação WaMux v1.0**

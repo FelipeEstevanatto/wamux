@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"strings"
 
-	applog "github.com/evolution-foundation/evolution-go/pkg/applog"
-	"github.com/evolution-foundation/evolution-go/pkg/utils"
+	applog "github.com/felipeestevanatto/wamux/pkg/applog"
+	"github.com/felipeestevanatto/wamux/pkg/utils"
 	"github.com/gin-gonic/gin"
 )
 

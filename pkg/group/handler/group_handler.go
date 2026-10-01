@@ -3,9 +3,9 @@ package group_handler
 import (
 	"net/http"
 
-	docmodels "github.com/evolution-foundation/evolution-go/pkg/docmodels"
-	group_service "github.com/evolution-foundation/evolution-go/pkg/group/service"
-	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
+	docmodels "github.com/felipeestevanatto/wamux/pkg/docmodels"
+	group_service "github.com/felipeestevanatto/wamux/pkg/group/service"
+	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
 	"github.com/gin-gonic/gin"
 )
 

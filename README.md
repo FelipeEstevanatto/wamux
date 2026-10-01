@@ -1,43 +1,39 @@
-<p align="center">
-  <a href="https://evolutionfoundation.com.br">
-    <img src="./public/hover-evolution.png" alt="Evolution Foundation" />
-  </a>
-</p>
-
-<h1 align="center">Evolution Go — community fork</h1>
+<h1 align="center">WaMux</h1>
 
 <p align="center">
-  High-performance WhatsApp API built in Go, maintained as a community fork of
-  Evolution Go.
+  High-performance, self-hosted WhatsApp API built in Go on top of
+  <a href="https://github.com/tulir/whatsmeow">whatsmeow</a> — no license
+  activation, no heartbeat, no telemetry.
 </p>
 
 > ### ⚠️ Unofficial community fork
 >
-> This repository (`FelipeEstevanatto/evo-gofork`) is a **community fork** of
-> Evolution Go. It is **not affiliated with, endorsed by, or an official release
-> of Evolution Foundation**. Upstream:
-> <https://github.com/evolution-foundation/evolution-go>.
+> WaMux (`FelipeEstevanatto/wamux`) is an independent, self-hosted WhatsApp
+> API, originally forked from
+> [Evolution Go](https://github.com/evolution-foundation/evolution-go). It is
+> **not affiliated with, endorsed by, or an official release of Evolution
+> Foundation**.
 >
-> - **Container image:** `ghcr.io/felipeestevanatto/evo-gofork`
+> - **Container image:** `ghcr.io/felipeestevanatto/wamux`
 > - **What this fork changes:** [`FORK_NOTES.md`](./FORK_NOTES.md) · [`CHANGELOG.md`](./CHANGELOG.md)
 > - **Attribution & brand terms:** [`NOTICE`](./NOTICE) · [`TRADEMARKS.md`](./TRADEMARKS.md)
 
 <p align="center">
-  <a href="https://github.com/FelipeEstevanatto/evo-gofork/releases/latest"><img src="https://img.shields.io/github/v/release/FelipeEstevanatto/evo-gofork?include_prereleases&label=version&color=00ffa7" alt="Latest version" /></a>
+  <a href="https://github.com/FelipeEstevanatto/wamux/releases/latest"><img src="https://img.shields.io/github/v/release/FelipeEstevanatto/wamux?include_prereleases&label=version&color=00ffa7" alt="Latest version" /></a>
   <a href="https://opensource.org/licenses/Apache-2.0"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License: Apache 2.0" /></a>
   <a href="https://docs.evolutionfoundation.com.br"><img src="https://img.shields.io/badge/Docs-upstream-00ffa7" alt="Documentation (upstream)" /></a>
-  <a href="https://github.com/FelipeEstevanatto/evo-gofork/pkgs/container/evo-gofork"><img src="https://img.shields.io/badge/Container-ghcr.io-blue" alt="Container image (this fork)" /></a>
+  <a href="https://github.com/FelipeEstevanatto/wamux/pkgs/container/wamux"><img src="https://img.shields.io/badge/Container-ghcr.io-blue" alt="Container image (this fork)" /></a>
 </p>
 
 ---
 
 ## About
 
-**Evolution Go** is a high-performance WhatsApp API built in Go on top of
+**WaMux** is a high-performance WhatsApp API built in Go on top of
 [whatsmeow](https://github.com/tulir/whatsmeow). This fork tracks upstream `0.7.2`
 and adds, on top of it:
 
-- a **versioned manager source** (`evolution-go-manager/`) with refreshed
+- a **versioned manager source** (`wamux-manager/`) with refreshed
   dependencies, so the panel can actually be changed and built;
 - API/manager features (per-instance overview with profile picture, contact /
   chat / message counts and device platform, proxy settings, ephemeral timers,
@@ -61,18 +57,18 @@ It is an independent distribution: report issues here, not upstream.
 No clone, no build. The image is public on GHCR:
 
 ```bash
-mkdir evogo && cd evogo
+mkdir wamux && cd wamux
 
 # Compose that runs the published image
 curl -fsSL -o docker-compose.yml \
-  https://raw.githubusercontent.com/FelipeEstevanatto/evo-gofork/develop/docker/examples/docker-compose.ghcr.yml
+  https://raw.githubusercontent.com/FelipeEstevanatto/wamux/develop/docker/examples/docker-compose.ghcr.yml
 
 # Environment (set GLOBAL_API_KEY!)
 curl -fsSL -o .env \
-  https://raw.githubusercontent.com/FelipeEstevanatto/evo-gofork/develop/docker/examples/.env.example
+  https://raw.githubusercontent.com/FelipeEstevanatto/wamux/develop/docker/examples/.env.example
 
 # Image tag: `dev` (default), `0.8.1` (release) or `latest`
-sed -i "s/^EVOGO_VERSION=.*/EVOGO_VERSION=dev/" .env
+sed -i "s/^WAMUX_VERSION=.*/WAMUX_VERSION=dev/" .env
 
 docker compose pull && docker compose up -d
 ```
@@ -80,13 +76,13 @@ docker compose pull && docker compose up -d
 Or with a plain `docker run` (bring your own Postgres):
 
 ```bash
-docker run -d --name evolution_go -p 8081:8080 \
+docker run -d --name wamux -p 8081:8080 \
   -e GLOBAL_API_KEY=your-secure-api-key-here \
-  -e POSTGRES_AUTH_DB='postgresql://user:pass@host:5432/evogo_auth?sslmode=disable' \
-  -e POSTGRES_USERS_DB='postgresql://user:pass@host:5432/evogo_users?sslmode=disable' \
-  -v evolution_go_data:/app/data \
+  -e POSTGRES_AUTH_DB='postgresql://user:pass@host:5432/wamux_auth?sslmode=disable' \
+  -e POSTGRES_USERS_DB='postgresql://user:pass@host:5432/wamux_users?sslmode=disable' \
+  -v wamux_data:/app/data \
   -e LOG_DIRECTORY=/app/data/logs \
-  ghcr.io/felipeestevanatto/evo-gofork:dev
+  ghcr.io/felipeestevanatto/wamux:dev
 ```
 
 Then open:
@@ -101,8 +97,8 @@ Then open:
 ### Docker — build from source
 
 ```bash
-git clone https://github.com/FelipeEstevanatto/evo-gofork.git
-cd evo-gofork
+git clone https://github.com/FelipeEstevanatto/wamux.git
+cd wamux
 git checkout develop
 
 cp .env.example .env        # set GLOBAL_API_KEY
@@ -115,8 +111,8 @@ so frontend edits are picked up by the same command.
 ### Local development
 
 ```bash
-git clone https://github.com/FelipeEstevanatto/evo-gofork.git
-cd evo-gofork
+git clone https://github.com/FelipeEstevanatto/wamux.git
+cd wamux
 git checkout develop
 
 make setup
@@ -136,15 +132,15 @@ Create a `.env` file (see `docker/examples/.env.example` for the full list):
 ```env
 # Server
 SERVER_PORT=8080
-CLIENT_NAME=evolution
-OS_NAME=Evolution GO
+CLIENT_NAME=wamux
+OS_NAME=WaMux
 
 # Security (required)
 GLOBAL_API_KEY=your-secure-api-key-here
 
 # Database
-POSTGRES_AUTH_DB=postgresql://user:pass@localhost:5432/evogo_auth?sslmode=disable
-POSTGRES_USERS_DB=postgresql://user:pass@localhost:5432/evogo_users?sslmode=disable
+POSTGRES_AUTH_DB=postgresql://user:pass@localhost:5432/wamux_auth?sslmode=disable
+POSTGRES_USERS_DB=postgresql://user:pass@localhost:5432/wamux_users?sslmode=disable
 DATABASE_SAVE_MESSAGES=true
 
 # Logging / runtime
@@ -168,7 +164,7 @@ SWAGGER_ENABLED=true        # set false to hide /swagger
 | Variable | Description | Default |
 |---|---|---|
 | `SERVER_PORT` | Server port (inside the container) | `8080` |
-| `CLIENT_NAME` | Client identifier sent to WhatsApp | `evolution` |
+| `CLIENT_NAME` | Client identifier sent to WhatsApp | `wamux` |
 | `GLOBAL_API_KEY` | Admin key (`/instance/all`, `/server/stats`, …) | **Required** |
 | `POSTGRES_AUTH_DB` / `POSTGRES_USERS_DB` | Auth and users databases (auto-created) | — |
 | `DATABASE_SAVE_MESSAGES` | Persist messages (feeds the counts and `/server/stats`) | `false` (compose default) |
@@ -349,8 +345,8 @@ Full list: `GET /swagger/doc.json`.
 ## Manager
 
 The React panel is served at `/manager` and its **source lives in this repo** at
-`evolution-go-manager/` (React 19, Vite, Tailwind; the UI primitives are vendored
-under `evolution-go-manager/src/components/ui/`). `docker compose up --build`
+`wamux-manager/` (React 19, Vite, Tailwind; the UI primitives are vendored
+under `wamux-manager/src/components/ui/`). `docker compose up --build`
 builds it automatically; locally use `make manager-build` (it syncs into
 `manager/dist`).
 
@@ -362,9 +358,9 @@ tester and the **Sobre / About** page required by the license (see below).
 
 ## Usage notification (deployers)
 
-Evolution Go's license (`LICENSE`, additional condition **1.b**) requires any
+WaMux's license (`LICENSE`, additional condition **1.b**) requires any
 system that uses it to show a **clear, administrator-visible notification that
-Evolution Go is being utilized**, reachable from the documentation or a settings
+WaMux is being utilized**, reachable from the documentation or a settings
 page. This fork satisfies it with the manager's **Sobre / About** page
 (`/manager/about`).
 
@@ -392,10 +388,10 @@ image ships `LICENSE`, `NOTICE`, `TRADEMARKS.md` and `FORK_NOTES.md` in `/app`.
 ### Project structure
 
 ```
-evo-gofork/
-├── cmd/evolution-go/       # Application entry point
+wamux/
+├── cmd/wamux/       # Application entry point
 ├── pkg/                    # Go packages (routes, services, whatsmeow, ...)
-├── evolution-go-manager/   # Manager SPA source (React/Vite)
+├── wamux-manager/   # Manager SPA source (React/Vite)
 ├── manager/dist/           # Built manager assets served at /manager
 ├── docker/examples/        # Compose examples (incl. pull-only GHCR)
 ├── docs/                   # Generated Swagger
@@ -423,7 +419,7 @@ problems, do not open a public issue — see [`SECURITY.md`](./SECURITY.md).
 ## Acknowledgments
 
 - [whatsmeow](https://github.com/tulir/whatsmeow) by [Tulir Asokan](https://github.com/tulir) — WhatsApp protocol library
-- [Evolution Go](https://github.com/evolution-foundation/evolution-go) by Evolution Foundation — the upstream project this fork is based on
+- [Evolution Go](https://github.com/evolution-foundation/evolution-go) by Evolution Foundation — the upstream project WaMux was forked from
 - [Evolution API](https://github.com/evolution-foundation/evolution-api) — Node.js sister project
 
 ## License

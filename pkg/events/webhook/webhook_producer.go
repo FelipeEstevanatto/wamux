@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	producer_interfaces "github.com/evolution-foundation/evolution-go/pkg/events/interfaces"
-	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
-	"github.com/evolution-foundation/evolution-go/pkg/webhooksign"
+	producer_interfaces "github.com/felipeestevanatto/wamux/pkg/events/interfaces"
+	logger_wrapper "github.com/felipeestevanatto/wamux/pkg/logger"
+	"github.com/felipeestevanatto/wamux/pkg/webhooksign"
 )
 
 const (
@@ -310,7 +310,7 @@ func (p *webhookProducer) sendWebhook(url string, body []byte, hmacKey []byte) (
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "EvolutionGO-Webhook/1.0")
+	req.Header.Set("User-Agent", "WaMux-Webhook/1.0")
 	if len(hmacKey) > 0 {
 		req.Header.Set(webhooksign.SignatureHeader, webhooksign.Sign(hmacKey, body))
 	}

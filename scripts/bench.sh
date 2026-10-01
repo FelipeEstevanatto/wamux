@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# bench.sh — measure performance and memory of a running Evolution GO node.
+# bench.sh — measure performance and memory of a running WaMux node.
 #
 # WHY THIS EXISTS
 #
@@ -60,7 +60,7 @@ except Exception:
 
 # --- pre-flight ---------------------------------------------------------------
 
-say "== Evolution GO benchmark =="
+say "== WaMux benchmark =="
 say "target:     ${BASE_URL}${ENDPOINT}"
 say "requests:   ${N} (concurrency ${C})"
 if [[ -z "$API_KEY" ]]; then

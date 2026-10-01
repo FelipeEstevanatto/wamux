@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	message_model "github.com/evolution-foundation/evolution-go/pkg/message/model"
-	message_repository "github.com/evolution-foundation/evolution-go/pkg/message/repository"
+	message_model "github.com/felipeestevanatto/wamux/pkg/message/model"
+	message_repository "github.com/felipeestevanatto/wamux/pkg/message/repository"
 )
 
 // batchRecordingRepo records whether writes arrived as batches or singletons.

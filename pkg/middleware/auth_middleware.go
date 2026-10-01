@@ -4,8 +4,8 @@ import (
 	"crypto/subtle"
 	"net/http"
 
-	"github.com/evolution-foundation/evolution-go/pkg/config"
-	instance_service "github.com/evolution-foundation/evolution-go/pkg/instance/service"
+	"github.com/felipeestevanatto/wamux/pkg/config"
+	instance_service "github.com/felipeestevanatto/wamux/pkg/instance/service"
 	"github.com/gin-gonic/gin"
 )
 

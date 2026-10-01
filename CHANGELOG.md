@@ -1,4 +1,19 @@
-# Evolution GO - Changelog
+# WaMux - Changelog
+
+## 0.9.0 — renamed to WaMux
+
+Rebrand from the `evo-gofork` community fork to **WaMux** (independent project,
+originally forked from Evolution Go).
+
+- Product name, manager UI and documentation rebranded to WaMux.
+- Go module `github.com/evolution-foundation/evolution-go` →
+  `github.com/felipeestevanatto/wamux`.
+- Image `ghcr.io/felipeestevanatto/evo-gofork` →
+  `ghcr.io/felipeestevanatto/wamux`.
+- Env prefix `EVOGO_` → `WAMUX_`; databases `evogo_*` → `wamux_*`; volumes and
+  containers `evolution_go_*` → `wamux_*`.
+- Attribution to Evolution Go / Evolution Foundation retained in `LICENSE`,
+  `NOTICE` and `TRADEMARKS.md` (Apache License 2.0).
 
 ## Unreleased — `fork/community-stable`
 
@@ -211,7 +226,7 @@ Three additive features, all disabled/unchanged by default unless configured.
 
 ## 0.8.1 — `fork/community-stable`
 
-Rebrand do painel para **Evo-GoFork** (fork comunitário, não oficial), remoção
+Rebrand do painel para **WaMux** (fork comunitário, não oficial), remoção
 completa do fluxo de licença no manager, code-splitting das páginas e o
 dashboard self-hosted embutido na aba Dashboard. Fluxo de publicação separado:
 `main` gera release versionada, `develop` publica uma tag `dev` única.
@@ -357,7 +372,7 @@ API/manager features, a security audit pass, and a whatsmeow API audit.
   so a slow connect is no longer failed early and a fast one returns
   immediately.
 - **Manager frontend source is now vendored and built in-repo** — the React SPA
-  source lives at `evolution-go-manager/` (taken from upstream's `develop`
+  source lives at `wamux-manager/` (taken from upstream's `develop`
   branch, the only place it exists) and is built into `manager/dist` by
   `make manager-build` or the Dockerfile's `oven/bun` stage. Two QR bugs from the
   `ecosb2b/evo-go-v2` fork are fixed: the QR modal read the fields capitalised
@@ -388,7 +403,7 @@ API/manager features, a security audit pass, and a whatsmeow API audit.
 
 ## v0.7.2
 
-**Docker:** `evoapicloud/evolution-go:0.7.2`
+**Docker:** `ghcr.io/felipeestevanatto/wamux:0.7.2`
 
 ### 🆕 New Features
 - **Passkey (WebAuthn) pairing** — support for linking accounts that the WhatsApp
@@ -404,7 +419,7 @@ API/manager features, a security audit pass, and a whatsmeow API audit.
   `docs/wiki/guias-api/passkey-pairing.md`. Note: there is no headless bypass —
   the ceremony requires the account owner's real authenticator; the extension is
   web-only.
-- **Headless license auto-activation** — set `EVOLUTION_OPERATOR_EMAIL` to the
+- **Headless license auto-activation** — set `WAMUX_OPERATOR_EMAIL` to the
   email used in your first manual license registration; on startup the service
   silently calls `/v1/register/auto` and skips the browser flow (falls back to the
   manual flow if the email isn't registered yet).
@@ -443,22 +458,22 @@ API/manager features, a security audit pass, and a whatsmeow API audit.
 
 ## v0.7.1
 
-**Docker:** `evoapicloud/evolution-go:0.7.1`
+**Docker:** `ghcr.io/felipeestevanatto/wamux:0.7.1`
 
 ### 🆕 New Features
 - **Test-send modal in Manager** — new modal in the embedded manager UI to test message sending directly from the panel, covering text, media and interactive message types. Useful for validating an instance right after pairing without leaving the manager.
 
 ### 🔧 Improvements / CI
 - **whatsmeow-lib SHA now pinned in the public sync** — the `sync-releases` workflow previously re-cloned whatsmeow `main` on every run, so the SHA listed in the CHANGELOG could drift from what the public repos actually built against. The workflow now captures the SHA from the dev submodule and checks out that exact commit in the target, restoring release reproducibility.
-- **Repository cleanup** — dropped tracked binaries (`evolution-go`, `build/server`), IDE config (`.idea/`) and scratch files (`DIFF-COMPLETO.txt`, `API-INTERACTIVE-DOCS.txt`, `carousel-sender.html`). Expanded `.gitignore` to prevent reincidence.
+- **Repository cleanup** — dropped tracked binaries (`wamux`, `build/server`), IDE config (`.idea/`) and scratch files (`DIFF-COMPLETO.txt`, `API-INTERACTIVE-DOCS.txt`, `carousel-sender.html`). Expanded `.gitignore` to prevent reincidence.
 
 ### 📝 Docs
-- **Postman collection** — added `Set Proxy` request and multipart hints on `/send/media`; collection file renamed from `Evolution GO.postman_collection (2).json` to `Evolution GO.postman_collection.json`.
+- **Postman collection** — added `Set Proxy` request and multipart hints on `/send/media`; collection file renamed from `WaMux.postman_collection (2).json` to `WaMux.postman_collection.json`.
 - **Interactive messages docs** — additional examples and corrections.
 
 ## v0.7.0
 
-**Docker:** `evoapicloud/evolution-go:0.7.0`
+**Docker:** `ghcr.io/felipeestevanatto/wamux:0.7.0`
 
 ### 🆕 New Features
 - **Multi-platform interactive messages** — Buttons, lists and carousel working on Android, iOS and WhatsApp Web/Desktop
@@ -523,7 +538,7 @@ API/manager features, a security audit pass, and a whatsmeow API audit.
 
 ## v0.5.3
 
-**Docker:** `evoapicloud/evolution-go:0.5.3`
+**Docker:** `ghcr.io/felipeestevanatto/wamux:0.5.3`
 
 ### 🔧 Improvements
 
@@ -534,7 +549,7 @@ API/manager features, a security audit pass, and a whatsmeow API audit.
 
 ## v0.5.2
 
-**Docker:** `evoapicloud/evolution-go:0.5.2`
+**Docker:** `ghcr.io/felipeestevanatto/wamux:0.5.2`
 
 ### 🆕 New Features
 - **SetProxy Endpoint**: New endpoint `POST /instance/proxy/{instanceId}` to configure proxy for instances
@@ -561,7 +576,7 @@ API/manager features, a security audit pass, and a whatsmeow API audit.
 
 ## v0.5.1
 
-**Docker:** `evoapicloud/evolution-go:0.5.1`
+**Docker:** `ghcr.io/felipeestevanatto/wamux:0.5.1`
 
 ### 🔧 Improvements
 - **Instance Deletion**: Enhance instance deletion and media storage path resolution
@@ -571,7 +586,7 @@ API/manager features, a security audit pass, and a whatsmeow API audit.
 
 ## v0.5.0
 
-**Docker:** `evoapicloud/evolution-go:0.5.0`
+**Docker:** `ghcr.io/felipeestevanatto/wamux:0.5.0`
 
 ### 🔧 Improvements
 - **Media Storage**: Enhance media storage and logging in Whatsmeow event handling
@@ -582,7 +597,7 @@ API/manager features, a security audit pass, and a whatsmeow API audit.
 
 ## v0.4.9
 
-**Docker:** `evoapicloud/evolution-go:0.4.9`
+**Docker:** `ghcr.io/felipeestevanatto/wamux:0.4.9`
 
 ### 🔧 Improvements
 - **Connection Handling**: Add instance update test scenarios and improve connection handling
@@ -593,7 +608,7 @@ API/manager features, a security audit pass, and a whatsmeow API audit.
 
 ## v0.4.8
 
-**Docker:** `evoapicloud/evolution-go:0.4.8`
+**Docker:** `ghcr.io/felipeestevanatto/wamux:0.4.8`
 
 ### 🔧 Improvements
 - **Audio Duration**: Improve audio duration parsing in convertAudioToOpusWithDuration function
@@ -602,7 +617,7 @@ API/manager features, a security audit pass, and a whatsmeow API audit.
 
 ## v0.4.7
 
-**Docker:** `evoapicloud/evolution-go:0.4.7`
+**Docker:** `ghcr.io/felipeestevanatto/wamux:0.4.7`
 
 ### 🔧 Improvements
 - **Phone Number Formatting**: Improve phone number formatting and validation in user service
@@ -615,7 +630,7 @@ API/manager features, a security audit pass, and a whatsmeow API audit.
 
 ## v0.4.6
 
-**Docker:** `evoapicloud/evolution-go:0.4.6`
+**Docker:** `ghcr.io/felipeestevanatto/wamux:0.4.6`
 
 ### 🆕 New Features
 - **User Existence Check**: Add user existence check configuration and JID validation middleware
@@ -624,7 +639,7 @@ API/manager features, a security audit pass, and a whatsmeow API audit.
 
 ## v0.4.5
 
-**Docker:** `evoapicloud/evolution-go:0.4.5`
+**Docker:** `ghcr.io/felipeestevanatto/wamux:0.4.5`
 
 ### 🔧 Improvements
 - **Dependencies**: Update dependencies and enhance audio conversion functionality
@@ -633,7 +648,7 @@ API/manager features, a security audit pass, and a whatsmeow API audit.
 
 ## v0.4.4
 
-**Docker:** `evoapicloud/evolution-go:0.4.4`
+**Docker:** `ghcr.io/felipeestevanatto/wamux:0.4.4`
 
 ### 🆕 New Features
 - **CLAUDE.md**: Add CLAUDE.md for project documentation and enhance RabbitMQ connection handling
@@ -642,7 +657,7 @@ API/manager features, a security audit pass, and a whatsmeow API audit.
 
 ## v0.4.3
 
-**Docker:** `evoapicloud/evolution-go:0.4.3`
+**Docker:** `ghcr.io/felipeestevanatto/wamux:0.4.3`
 
 ### 🔧 Improvements
 - **PostgreSQL Connection**: Fix in PostgreSQL connection configuration for session auth
@@ -717,9 +732,9 @@ API/manager features, a security audit pass, and a whatsmeow API audit.
 
 ## 🔗 Useful Links
 
-- **Docker Hub**: `evoapicloud/evolution-go`
+- **Docker Hub**: `ghcr.io/felipeestevanatto/wamux`
 - **Documentation**: Swagger available at `/swagger/`
-- **GitHub**: [Evolution API Go](https://github.com/evolution-foundation/evolution-go)
+- **GitHub**: [Evolution API Go](https://github.com/felipeestevanatto/wamux)
 
 ---
 

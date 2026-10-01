@@ -5,11 +5,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	docmodels "github.com/evolution-foundation/evolution-go/pkg/docmodels"
-	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
-	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
-	typebot_model "github.com/evolution-foundation/evolution-go/pkg/typebot/model"
-	typebot_repository "github.com/evolution-foundation/evolution-go/pkg/typebot/repository"
+	docmodels "github.com/felipeestevanatto/wamux/pkg/docmodels"
+	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
+	logger_wrapper "github.com/felipeestevanatto/wamux/pkg/logger"
+	typebot_model "github.com/felipeestevanatto/wamux/pkg/typebot/model"
+	typebot_repository "github.com/felipeestevanatto/wamux/pkg/typebot/repository"
 )
 
 // Keep docmodels referenced so the import is not dropped: swag reads the Go

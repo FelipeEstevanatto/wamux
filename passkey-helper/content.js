@@ -1,8 +1,8 @@
 /*
- * Evolution Passkey Helper
+ * WaMux Passkey Helper
  * ------------------------
  * Executa a cerimonia WebAuthn (passkey) do WhatsApp Web no dominio correto
- * (web.whatsapp.com) para concluir um pareamento iniciado pelo Evolution GO.
+ * (web.whatsapp.com) para concluir um pareamento iniciado pelo WaMux.
  *
  * Fluxo:
  * 1. O manager/CRM abre https://web.whatsapp.com/#wapk=<payload>, onde payload
@@ -82,7 +82,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // API calls (Evolution GO passkey ceremony endpoints)
+  // API calls (WaMux passkey ceremony endpoints)
   // ---------------------------------------------------------------------------
   function apiBase(cer) {
     return String(cer.b || "").replace(/\/+$/, "");
@@ -222,7 +222,7 @@
     if (ui) return ui;
 
     var panel = el("div", PANEL_STYLE);
-    panel.id = "evo-wapk-panel";
+    panel.id = "wamux-wapk-panel";
 
     var closeBtn = el(
       "div",
@@ -450,12 +450,12 @@
           hideButton();
           showCode("");
           setDesc("Pareamento concluido com sucesso!");
-          setStatus("Pode voltar ao Evolution. Esta aba ja pode ser fechada.", "success");
+          setStatus("Pode voltar ao WaMux. Esta aba ja pode ser fechada.", "success");
           clearCeremony();
           stopPolling();
         } else {
           setDesc("Aguardando o desafio de chave de acesso do WhatsApp...");
-          setStatus("Escaneie o QR no Evolution para iniciar.");
+          setStatus("Escaneie o QR no WaMux para iniciar.");
           schedulePoll(cer);
         }
         break;

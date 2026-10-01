@@ -1,14 +1,14 @@
 # ---- Manager (React frontend) ----
-# Builds the SPA from the vendored source in evolution-go-manager/, using the
+# Builds the SPA from the vendored source in wamux-manager/, using the
 # committed package-lock.json (which pins @evoapi/design-system to 0.0.5).
 # Bun is used because it installs straight from package-lock.json and is far
 # faster than npm; the toolchain only exists in this stage.
 FROM oven/bun:1-alpine AS manager
 
 WORKDIR /manager
-COPY evolution-go-manager/package.json evolution-go-manager/bun.lock ./
+COPY wamux-manager/package.json wamux-manager/bun.lock ./
 RUN bun install --frozen-lockfile
-COPY evolution-go-manager/ ./
+COPY wamux-manager/ ./
 RUN bun run build
 
 FROM golang:1.26-alpine AS build
@@ -39,7 +39,7 @@ ARG VERSION=dev
 # drop-in and part of the standard build for this fork; drop the tag to fall back
 # to encoding/json.
 ARG GO_JSON_TAG=go_json
-RUN CGO_ENABLED=1 go build -tags "${GO_JSON_TAG}" -ldflags "-X main.version=${VERSION}" -o server ./cmd/evolution-go
+RUN CGO_ENABLED=1 go build -tags "${GO_JSON_TAG}" -ldflags "-X main.version=${VERSION}" -o server ./cmd/wamux
 
 # Runtime base is kept on the same Alpine major.minor as the build stage
 # (golang:1.26-alpine is Alpine 3.24.x). The CGO binary links dynamically against
@@ -48,13 +48,13 @@ RUN CGO_ENABLED=1 go build -tags "${GO_JSON_TAG}" -ldflags "-X main.version=${VE
 # fixes that 3.19.1 no longer receives.
 FROM alpine:3.24 AS final
 
-# Image metadata. This is an UNOFFICIAL community build: the labels say so, so
-# nobody mistakes it for the official evoapicloud/evolution-go image. The CI
+# Image metadata. This is an independent, unofficial build: the labels say so,
+# so nobody mistakes it for the official evoapicloud/evolution-go image. The CI
 # workflow adds source/revision/version on top of these.
-LABEL org.opencontainers.image.title="Evolution Go (community fork)" \
-      org.opencontainers.image.description="Unofficial community build of Evolution Go. Not affiliated with, endorsed by, or an official release of Evolution Foundation." \
-      org.opencontainers.image.url="https://github.com/FelipeEstevanatto/evo-gofork" \
-      org.opencontainers.image.source="https://github.com/FelipeEstevanatto/evo-gofork" \
+LABEL org.opencontainers.image.title="WaMux" \
+      org.opencontainers.image.description="WaMux — independent, self-hosted WhatsApp API (originally forked from Evolution Go). Not affiliated with, endorsed by, or an official release of Evolution Foundation." \
+      org.opencontainers.image.url="https://github.com/FelipeEstevanatto/wamux" \
+      org.opencontainers.image.source="https://github.com/FelipeEstevanatto/wamux" \
       org.opencontainers.image.licenses="Apache-2.0" \
       org.opencontainers.image.vendor="FelipeEstevanatto (community fork, not Evolution Foundation)"
 
@@ -77,12 +77,12 @@ COPY --from=build /build/LICENSE /build/NOTICE /build/TRADEMARKS.md /build/FORK_
 # ptrace/modify other processes. The data and media directories are owned by the
 # same UID so the app can still write logs, the sqlite fallback and stored media.
 ARG UID=10001
-RUN addgroup -S -g ${UID} evo \
-    && adduser -S -u ${UID} -G evo -h /app -s /sbin/nologin evo \
+RUN addgroup -S -g ${UID} wamux \
+    && adduser -S -u ${UID} -G wamux -h /app -s /sbin/nologin wamux \
     && mkdir -p /app/data/logs /app/data/media \
-    && chown -R evo:evo /app
+    && chown -R wamux:wamux /app
 
-USER evo
+USER wamux
 
 ENV TZ=America/Sao_Paulo
 ENV LOG_DIRECTORY=/app/data/logs

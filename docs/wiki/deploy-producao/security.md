@@ -1,6 +1,6 @@
 # Segurança e Hardening
 
-Guia de práticas de segurança para ambientes de produção do Evolution GO.
+Guia de práticas de segurança para ambientes de produção do WaMux.
 
 ## Índice
 
@@ -113,7 +113,7 @@ http {
         location / {
             limit_req zone=api_limit burst=200 nodelay;
             limit_req_status 429;
-            proxy_pass http://evolution-go:4000;
+            proxy_pass http://wamux:4000;
         }
     }
 }
@@ -128,20 +128,20 @@ http {
 ```bash
 # Criar secrets
 echo "senha_postgres" | docker secret create postgres_password -
-echo "$(uuidgen)" | docker secret create evolution_api_key -
+echo "$(uuidgen)" | docker secret create wamux_api_key -
 
 # docker-compose.swarm.yml
 services:
-  evolution-go:
+  wamux:
     secrets:
-      - evolution_api_key
+      - wamux_api_key
       - postgres_password
     environment:
-      GLOBAL_API_KEY_FILE: /run/secrets/evolution_api_key
+      GLOBAL_API_KEY_FILE: /run/secrets/wamux_api_key
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
 
 secrets:
-  evolution_api_key:
+  wamux_api_key:
     external: true
   postgres_password:
     external: true
@@ -151,10 +151,10 @@ secrets:
 
 ```bash
 # Criar secrets
-kubectl create secret generic evolution-secrets \
+kubectl create secret generic wamux-secrets \
   --from-literal=GLOBAL_API_KEY=$(uuidgen) \
   --from-literal=POSTGRES_PASSWORD=$(openssl rand -base64 32) \
-  --namespace=evolution-go
+  --namespace=wamux
 
 # Habilitar encryption at rest
 # https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/
@@ -166,12 +166,12 @@ kubectl create secret generic evolution-secrets \
         - name: GLOBAL_API_KEY
           valueFrom:
             secretKeyRef:
-              name: evolution-secrets
+              name: wamux-secrets
               key: GLOBAL_API_KEY
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: evolution-secrets
+              name: wamux-secrets
               key: POSTGRES_PASSWORD
 ```
 
@@ -187,7 +187,7 @@ auto_auth {
   method {
     type = "kubernetes"
     config = {
-      role = "evolution-go"
+      role = "wamux"
     }
   }
 }
@@ -275,7 +275,7 @@ networks:
     internal: true  # Sem acesso externo
 
 services:
-  evolution-go:
+  wamux:
     networks:
       - frontend
       - backend
@@ -294,13 +294,13 @@ services:
 ```dockerfile
 FROM alpine:3.19.1
 
-RUN addgroup -g 1000 evolution && \
-    adduser -D -u 1000 -G evolution evolution
+RUN addgroup -g 1000 wamux && \
+    adduser -D -u 1000 -G wamux wamux
 
 WORKDIR /app
-COPY --chown=evolution:evolution server .
+COPY --chown=wamux:wamux server .
 
-USER evolution
+USER wamux
 
 ENTRYPOINT ["/app/server"]
 ```
@@ -309,20 +309,20 @@ ENTRYPOINT ["/app/server"]
 
 ```yaml
 services:
-  evolution-go:
+  wamux:
     read_only: true
     tmpfs:
       - /tmp
     volumes:
-      - evolution_data:/app/dbdata
-      - evolution_logs:/app/logs
+      - wamux_data:/app/dbdata
+      - wamux_logs:/app/logs
 ```
 
 ### Security Options
 
 ```yaml
 services:
-  evolution-go:
+  wamux:
     security_opt:
       - no-new-privileges:true
       - apparmor:docker-default
@@ -337,7 +337,7 @@ services:
 
 ```yaml
 services:
-  evolution-go:
+  wamux:
     deploy:
       resources:
         limits:
@@ -358,13 +358,13 @@ services:
 
 ```bash
 # Trivy
-trivy image evoapicloud/evolution-go:latest
+trivy image ghcr.io/felipeestevanatto/wamux:latest
 
 # Apenas críticas
-trivy image --severity CRITICAL evoapicloud/evolution-go:latest
+trivy image --severity CRITICAL ghcr.io/felipeestevanatto/wamux:latest
 
 # Docker Scout
-docker scout cves evoapicloud/evolution-go:latest
+docker scout cves ghcr.io/felipeestevanatto/wamux:latest
 ```
 
 ---
@@ -378,10 +378,10 @@ docker scout cves evoapicloud/evolution-go:latest
 sudo apt-get install certbot
 
 # Gerar certificado
-sudo certbot certonly --standalone -d evolution.seudominio.com
+sudo certbot certonly --standalone -d wamux.seudominio.com
 
 # Certificados em:
-# /etc/letsencrypt/live/evolution.seudominio.com/
+# /etc/letsencrypt/live/wamux.seudominio.com/
 ```
 
 ### Configuração NGINX
@@ -390,18 +390,18 @@ sudo certbot certonly --standalone -d evolution.seudominio.com
 # Redirecionar HTTP → HTTPS
 server {
     listen 80;
-    server_name evolution.seudominio.com;
+    server_name wamux.seudominio.com;
     return 301 https://$server_name$request_uri;
 }
 
 # HTTPS
 server {
     listen 443 ssl http2;
-    server_name evolution.seudominio.com;
+    server_name wamux.seudominio.com;
 
     # Certificados
-    ssl_certificate /etc/letsencrypt/live/evolution.seudominio.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/evolution.seudominio.com/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/wamux.seudominio.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/wamux.seudominio.com/privkey.pem;
 
     # Protocolos e ciphers
     ssl_protocols TLSv1.2 TLSv1.3;
@@ -414,7 +414,7 @@ server {
     # OCSP Stapling
     ssl_stapling on;
     ssl_stapling_verify on;
-    ssl_trusted_certificate /etc/letsencrypt/live/evolution.seudominio.com/chain.pem;
+    ssl_trusted_certificate /etc/letsencrypt/live/wamux.seudominio.com/chain.pem;
 
     # Security Headers
     add_header X-Frame-Options "SAMEORIGIN" always;
@@ -426,7 +426,7 @@ server {
     server_tokens off;
 
     location / {
-        proxy_pass http://evolution-go:4000;
+        proxy_pass http://wamux:4000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -477,8 +477,8 @@ password_encryption = scram-sha-256
 # pg_hba.conf
 
 # Apenas SSL
-hostssl evogo_auth evolution 10.0.0.0/8 scram-sha-256
-hostssl evogo_users evolution 10.0.0.0/8 scram-sha-256
+hostssl wamux_auth wamux 10.0.0.0/8 scram-sha-256
+hostssl wamux_users wamux 10.0.0.0/8 scram-sha-256
 
 # Rejeitar sem SSL
 hostnossl all all 0.0.0.0/0 reject
@@ -530,10 +530,10 @@ docker exec postgres pg_dumpall -U postgres | \
 
 # Volumes
 docker run --rm \
-  -v evolution_data:/data \
+  -v wamux_data:/data \
   -v ${BACKUP_DIR}:/backup \
   alpine tar czf - -C /data . | \
-  gpg --encrypt --recipient $GPG_KEY --output "${BACKUP_DIR}/evolution_data_${TIMESTAMP}.tar.gz.gpg"
+  gpg --encrypt --recipient $GPG_KEY --output "${BACKUP_DIR}/wamux_data_${TIMESTAMP}.tar.gz.gpg"
 
 # Upload S3 com KMS
 aws s3 cp "${BACKUP_DIR}/postgres_${TIMESTAMP}.sql.gz.gpg" \
@@ -563,7 +563,7 @@ http {
     server {
         location / {
             limit_req zone=req_limit burst=20 nodelay;
-            proxy_pass http://evolution-go:4000;
+            proxy_pass http://wamux:4000;
         }
     }
 }
@@ -573,7 +573,7 @@ http {
 
 ### SQL Injection
 
-Evolution GO usa GORM (ORM) que previne SQL injection por padrão através de prepared statements.
+WaMux usa GORM (ORM) que previne SQL injection por padrão através de prepared statements.
 
 ### Brute-Force Protection (Fail2ban)
 
@@ -634,7 +634,7 @@ DELETE FROM messages WHERE timestamp < NOW() - INTERVAL '30 days';
 
 ```yaml
 services:
-  evolution-go:
+  wamux:
     logging:
       driver: "json-file"
       options:
@@ -729,4 +729,4 @@ docker export container_suspeito > filesystem_suspeito.tar
 
 ---
 
-**Documentação Evolution GO v1.0**
+**Documentação WaMux v1.0**

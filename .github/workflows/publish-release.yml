@@ -31,13 +31,13 @@ jobs:
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ghcr.io/felipeestevanatto/evo-gofork
+          images: ghcr.io/felipeestevanatto/wamux
           tags: |
             type=raw,value=${{ steps.version.outputs.version }}
             type=raw,value=latest
           labels: |
-            org.opencontainers.image.title=Evolution Go (community fork)
-            org.opencontainers.image.description=Unofficial community build of Evolution Go. Not affiliated with, endorsed by, or an official release of Evolution Foundation.
+            org.opencontainers.image.title=WaMux (community fork)
+            org.opencontainers.image.description=Unofficial community build of WaMux. Not affiliated with, endorsed by, or an official release of Evolution Foundation.
             org.opencontainers.image.licenses=Apache-2.0
             org.opencontainers.image.vendor=FelipeEstevanatto (community fork, not Evolution Foundation)
 
@@ -76,7 +76,7 @@ jobs:
             exit 0
           fi
           NOTES=".github/release-notes/${VERSION}.md"
-          TITLE="${VERSION} — Evo-GoFork (fork comunitário do Evolution Go)"
+          TITLE="${VERSION} — WaMux"
           if [ -f "$NOTES" ]; then
             gh release create "$VERSION" --target "$GITHUB_SHA" --title "$TITLE" --notes-file "$NOTES"
           else

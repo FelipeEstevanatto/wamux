@@ -1,12 +1,12 @@
 .PHONY: help dev run build test clean swagger deps docker-build docker-run install setup migrate-up migrate-down logs manager-install manager-build
 
 # Configurações
-APP_NAME=evolution-go
-MAIN_PATH=cmd/evolution-go/main.go
+APP_NAME=wamux
+MAIN_PATH=cmd/wamux/main.go
 BUILD_DIR=build
 GO=go
 # The VERSION file is the single source of truth for the release version: the
-# Dockerfile, the GHCR workflow and cmd/evolution-go/main.go all read it. (It
+# Dockerfile, the GHCR workflow and cmd/wamux/main.go all read it. (It
 # used to grep CHANGELOG.md, which started matching unrelated text like
 # "amqp091-go" and produced a broken -X main.version.)
 VERSION=$(shell cat VERSION 2>/dev/null | tr -d '[:space:]')
@@ -22,18 +22,18 @@ NC=\033[0m # No Color
 ##@ Ajuda
 
 help: ## Exibe esta mensagem de ajuda
-	@echo "$(GREEN)Evolution GO - Makefile$(NC)"
+	@echo "$(GREEN)WaMux - Makefile$(NC)"
 	@echo ""
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUso:\n  make $(YELLOW)<target>$(NC)\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  $(GREEN)%-15s$(NC) %s\n", $$1, $$2 } /^##@/ { printf "\n$(YELLOW)%s$(NC)\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
 ##@ Desenvolvimento
 
 dev: ## Roda a aplicação em modo desenvolvimento
-	@echo "$(GREEN)🚀 Rodando Evolution GO em modo desenvolvimento...$(NC)"
+	@echo "$(GREEN)🚀 Rodando WaMux em modo desenvolvimento...$(NC)"
 	$(GO) run $(LDFLAGS) $(MAIN_PATH) -dev
 
 run: ## Roda a aplicação em modo produção
-	@echo "$(GREEN)🚀 Rodando Evolution GO...$(NC)"
+	@echo "$(GREEN)🚀 Rodando WaMux...$(NC)"
 	$(GO) run $(MAIN_PATH)
 
 watch: ## Roda a aplicação com hot reload (requer air)
@@ -72,21 +72,21 @@ build-all: build build-linux build-windows ## Compila para todas as plataformas
 
 manager-install: ## Instala as dependências do manager (bun, pnpm ou npm)
 	@echo "$(GREEN)📦 Instalando dependências do manager...$(NC)"
-	@cd evolution-go-manager && \
+	@cd wamux-manager && \
 	if command -v bun >/dev/null 2>&1; then bun install --frozen-lockfile; \
 	elif command -v pnpm >/dev/null 2>&1; then pnpm install; \
 	else npm install; fi
 
 manager-build: ## Compila o manager e sincroniza com manager/dist (preserva dashboard.html)
 	@echo "$(GREEN)🔨 Compilando manager...$(NC)"
-	@cd evolution-go-manager && \
+	@cd wamux-manager && \
 	if command -v bun >/dev/null 2>&1; then bun run build; \
 	elif command -v pnpm >/dev/null 2>&1; then pnpm build; \
 	else npm run build; fi
 	rm -rf manager/dist/assets manager/dist/index.html
-	cp -r evolution-go-manager/dist/assets manager/dist/assets
-	cp evolution-go-manager/dist/index.html manager/dist/index.html
-	@echo "$(GREEN)✅ manager/dist atualizado (a partir de evolution-go-manager/) $(NC)"
+	cp -r wamux-manager/dist/assets manager/dist/assets
+	cp wamux-manager/dist/index.html manager/dist/index.html
+	@echo "$(GREEN)✅ manager/dist atualizado (a partir de wamux-manager/) $(NC)"
 
 install: build ## Compila e instala no GOPATH
 	@echo "$(GREEN)📦 Instalando $(APP_NAME)...$(NC)"

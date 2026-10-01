@@ -8,8 +8,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	group_service "github.com/evolution-foundation/evolution-go/pkg/group/service"
-	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
+	group_service "github.com/felipeestevanatto/wamux/pkg/group/service"
+	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
 	"go.mau.fi/whatsmeow/types"
 )
 

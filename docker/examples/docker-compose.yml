@@ -1,5 +1,5 @@
 # =============================================================================
-# Evolution Go (community fork) — minimal pull-only stack
+# WaMux (community fork) — minimal pull-only stack
 #
 # Same as docker-compose.ghcr.yml but with everything on one hard-coded
 # container port (4000) and no .env indirection, for a quick local run:
@@ -10,22 +10,22 @@
 # =============================================================================
 
 services:
-  evolution-go:
-    image: ghcr.io/felipeestevanatto/evo-gofork:${EVOGO_VERSION:-dev}
+  wamux:
+    image: ghcr.io/felipeestevanatto/wamux:${WAMUX_VERSION:-dev}
     restart: unless-stopped
     init: true
     ports:
       - "4000:4000"
     environment:
       SERVER_PORT: 4000
-      CLIENT_NAME: evolution
-      OS_NAME: Evo-GoFork
+      CLIENT_NAME: wamux
+      OS_NAME: WaMux
 
       # REQUIRED: change this.
       GLOBAL_API_KEY: change-me-to-a-long-random-key
 
-      POSTGRES_AUTH_DB: postgresql://evolution_user:evolution_pass@evolution-database:5432/evogo_auth?sslmode=disable
-      POSTGRES_USERS_DB: postgresql://evolution_user:evolution_pass@evolution-database:5432/evogo_users?sslmode=disable
+      POSTGRES_AUTH_DB: postgresql://wamux_user:wamux_pass@wamux-database:5432/wamux_auth?sslmode=disable
+      POSTGRES_USERS_DB: postgresql://wamux_user:wamux_pass@wamux-database:5432/wamux_users?sslmode=disable
       DATABASE_SAVE_MESSAGES: "true"
 
       CONNECT_ON_STARTUP: "true"
@@ -36,35 +36,35 @@ services:
       SWAGGER_ENABLED: "true"
 
     volumes:
-      - evolution_go_data:/app/data
+      - wamux_data:/app/data
     depends_on:
-      evolution-database:
+      wamux-database:
         condition: service_healthy
     networks:
-      - evolution_go_network
+      - wamux_network
 
-  evolution-database:
+  wamux-database:
     image: postgres:18-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: evolution_user
-      POSTGRES_PASSWORD: evolution_pass
-      POSTGRES_DB: evogo_auth
+      POSTGRES_USER: wamux_user
+      POSTGRES_PASSWORD: wamux_pass
+      POSTGRES_DB: wamux_auth
     volumes:
       # PostgreSQL 18 volume path (not /var/lib/postgresql/data).
-      - evolution_go_database:/var/lib/postgresql
+      - wamux_database:/var/lib/postgresql
     networks:
-      - evolution_go_network
+      - wamux_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U evolution_user -d evogo_auth"]
+      test: ["CMD-SHELL", "pg_isready -U wamux_user -d wamux_auth"]
       interval: 10s
       timeout: 5s
       retries: 10
 
 volumes:
-  evolution_go_data:
-  evolution_go_database:
+  wamux_data:
+  wamux_database:
 
 networks:
-  evolution_go_network:
+  wamux_network:
     driver: bridge

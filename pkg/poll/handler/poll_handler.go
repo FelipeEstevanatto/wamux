@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"net/http"
 
-	docmodels "github.com/evolution-foundation/evolution-go/pkg/docmodels"
-	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
-	poll_model "github.com/evolution-foundation/evolution-go/pkg/poll/model"
-	poll_service "github.com/evolution-foundation/evolution-go/pkg/poll/service"
+	docmodels "github.com/felipeestevanatto/wamux/pkg/docmodels"
+	logger_wrapper "github.com/felipeestevanatto/wamux/pkg/logger"
+	poll_model "github.com/felipeestevanatto/wamux/pkg/poll/model"
+	poll_service "github.com/felipeestevanatto/wamux/pkg/poll/service"
 	"github.com/gin-gonic/gin"
 )
 

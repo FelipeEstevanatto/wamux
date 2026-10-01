@@ -1,10 +1,10 @@
-# Evolution Go — `fork/community-stable`
+# WaMux — independent, self-hosted Evolution Go fork
 
-This is a self-hosted fork of
+WaMux was forked from
 [`evolution-foundation/evolution-go`](https://github.com/evolution-foundation/evolution-go)
 based on `0.7.2` (upstream commit `9337afc`).
 
-It exists for one reason: **make a self-hosted Evolution Go stable, fully
+It exists for one reason: **make a self-hosted WaMux stable, fully
 offline, and free of the vendor license/telemetry dependency** — while folding
 in the community fixes that upstream had left sitting in open PRs.
 
@@ -22,16 +22,16 @@ Two things were changed on top of `0.7.2`:
 
 | Removed | Where |
 |---|---|
-| `pkg/telemetry/` (posted every route hit to `log.evolution-api.com`) | deleted — it was dead code, never wired into the router, but it is gone |
+| `pkg/telemetry/` (posted every route hit to `log.wamux-api.com`) | deleted — it was dead code, never wired into the router, but it is gone |
 | `pkg/core/` — obfuscated license client: registration, activation, HMAC-signed heartbeat, deactivation, message telemetry bundle | deleted |
 | `core.GateMiddleware` — returned `503 LICENSE_REQUIRED` on every API call until activation | removed |
 | `core.LicenseRoutes` — `/license/register`, `/license/activate` | replaced (see below) |
 | `core.InitializeRuntime` / `StartHeartbeat` / `Shutdown` — startup activation + 30-minute heartbeat | removed from `main.go` |
-| `EVOLUTION_OPERATOR_EMAIL` headless auto-activation | removed from `.env.example` |
+| `WAMUX_OPERATOR_EMAIL` headless auto-activation | removed from `.env.example` |
 
 **Local-only compatibility stub.** The prebuilt Manager UI (`manager/dist`)
 probes `GET /license/status` and hides instance management unless it reads
-`"active"`. Three handlers now answer locally in `cmd/evolution-go/main.go`:
+`"active"`. Three handlers now answer locally in `cmd/wamux/main.go`:
 `/license/status`, `/license/register`, `/license/activate`. They always return
 `{"status":"active"}` and **never contact any server**. This keeps the UI usable
 without re-enabling activation.
@@ -46,21 +46,21 @@ This is an **unofficial community fork**. Nothing here is affiliated with,
 endorsed by, or an official release of Evolution Foundation.
 
 - **Version**: the `VERSION` file is the single source of truth (the Dockerfile,
-  the GHCR workflow and `cmd/evolution-go/main.go` all read it). It is now
+  the GHCR workflow and `cmd/wamux/main.go` all read it). It is now
   `0.8.0`; the Makefile used to grep `CHANGELOG.md`, which started matching
   unrelated text (`amqp091-go`) and produced a broken `-X main.version`.
-- **Image**: `ghcr.io/felipeestevanatto/evo-gofork`, published by
+- **Image**: `ghcr.io/felipeestevanatto/wamux`, published by
   `.github/workflows/publish_docker_image.yml` with the automatic
-  `GITHUB_TOKEN`. It is never pushed to the upstream `evoapicloud/evolution-go`
+  `GITHUB_TOKEN`. It is never pushed to the upstream `ghcr.io/felipeestevanatto/wamux`
   Docker Hub repo. OCI labels mark it unofficial.
 - **Apache-2.0 §4**: the image ships `LICENSE`, `NOTICE`, `TRADEMARKS.md` and
   this file under `/app` (the Dockerfile copies them into the final stage).
 - **Usage notification (LICENSE additional condition 1.b)**: the manager has a
   **Sobre / About** page (`/manager/about`) stating that the system uses
-  Evolution Go, reachable from the sidebar. `README.md` documents the
+  WaMux, reachable from the sidebar. `README.md` documents the
   obligation for anyone embedding this image in another product.
-- **Brand assets**: the manager keeps the Evolution Go copyright line (correct
-  attribution, previously "© Evolution GO") and adds a visible fork disclaimer.
+- **Brand assets**: the manager keeps the WaMux copyright line (correct
+  attribution, previously "© WaMux") and adds a visible fork disclaimer.
   It does **not** add the official logo. Note the tension between LICENSE
   condition 1.a (do not remove the LOGO/copyright from the console) and
   `TRADEMARKS.md` §4.2 (a *modified* UI must remove the brand assets and pick a
@@ -76,12 +76,12 @@ of a 413 MiB `.git`). History was rewritten once to drop them:
 
 | Path (removed from all history) | Was |
 |---|---|
-| `evolution-go` | 64 MiB Linux ELF at the repo root |
-| `evolution-go.exe` | 92 MiB Windows binary |
+| `wamux` | 64 MiB Linux ELF at the repo root |
+| `wamux.exe` | 92 MiB Windows binary |
 | `build/server` | 61 MiB compiled server |
-| `cmd/evolution-go/tmp/`, `cmd/evolution-go/logs/` | temp binaries and run logs |
+| `cmd/wamux/tmp/`, `cmd/wamux/logs/` | temp binaries and run logs |
 | `manager-v2/` | a superseded copy of the manager (node_modules + dist) |
-| `evolution-go-manager/node_modules/` | committed dependencies |
+| `wamux-manager/node_modules/` | committed dependencies |
 
 Pack size went from **~388 MiB to ~8 MiB**; `manager/dist` (deliberately
 committed, served by the app) and everything in the current tree were kept.
@@ -278,7 +278,7 @@ The fork does **not** implement WhatsApp voice calls beyond `POST /call/reject`
 (upstream's only call feature). If that becomes a requirement, there is a working
 reference implementation to study rather than start from zero:
 
-**[NathanAshford/evolution-go-custom](https://github.com/NathanAshford/evolution-go-custom)** —
+**[NathanAshford/wamux-custom](https://github.com/NathanAshford/wamux-custom)** —
 `pkg/voip/**` (~25k lines) plus `pkg/call/{handler,service}` routes:
 
 ```
@@ -472,7 +472,7 @@ Live-tested behaviour of the interactive message types against a real account (O
 
 ## 3h. Review of other forks / Evolution API 2.4.0-rc — hypothesis check
 
-Each fix/feature from `evolution-api` 2.4.0-rc1/rc2 (the reference Node implementation) and the Go forks was checked against this codebase. Verdicts below; "Not affected" items were tested live, not assumed.
+Each fix/feature from `wamux-api` 2.4.0-rc1/rc2 (the reference Node implementation) and the Go forks was checked against this codebase. Verdicts below; "Not affected" items were tested live, not assumed.
 
 | Item (source) | Verdict | Evidence / note |
 |---|---|---|
@@ -508,7 +508,7 @@ Two different UIs are served from the same origin:
 
 | Route | Source | Editable here? |
 |---|---|---|
-| `/manager` (+ `/manager/*`) | React SPA. Source is **vendored** at `evolution-go-manager/`; the served build is `manager/dist/index.html` + `manager/dist/assets/index-*.js`/`.css`. | **Yes** — edit `evolution-go-manager/src/`, then `make manager-build` (or let Docker rebuild it, below). |
+| `/manager` (+ `/manager/*`) | React SPA. Source is **vendored** at `wamux-manager/`; the served build is `manager/dist/index.html` + `manager/dist/assets/index-*.js`/`.css`. | **Yes** — edit `wamux-manager/src/`, then `make manager-build` (or let Docker rebuild it, below). |
 | `/dashboard` | **Hand-written** static page `manager/dist/dashboard.html` (plain HTML + vanilla JS + Chart.js from CDN), added by this fork. | **Yes** — no build step; edit the file and reload. |
 
 `/dashboard` is the fork's own operational view. It shows instance KPIs, a
@@ -517,10 +517,10 @@ conversations, an instance table (avatar + contact count) and per-instance logs,
 and it supports `?embed=1` so it can be iframed inside the Manager's Dashboard
 tab.
 
-### Manager source (`evolution-go-manager/`)
+### Manager source (`wamux-manager/`)
 
 The manager source is **not** on upstream `main` (only the compiled `manager/dist`
-is). It lives on upstream's **`develop`** branch under `evolution-go-manager/`,
+is). It lives on upstream's **`develop`** branch under `wamux-manager/`,
 and is vendored here from there (commit `706c9a4`, 2026-05-06). Keeping the same
 path upstream uses means a future `develop`→`main` merge sees identical files.
 
@@ -531,7 +531,7 @@ make manager-install   # pnpm, bun or npm — whichever is installed
 make manager-build     # builds and syncs into manager/dist (keeps dashboard.html)
 ```
 
-`make manager-build` copies `evolution-go-manager/dist/{index.html,assets}` over
+`make manager-build` copies `wamux-manager/dist/{index.html,assets}` over
 `manager/dist/` and leaves `manager/dist/dashboard.html` untouched (Vite does not
 produce it). The Dockerfile does the same in a dedicated **`oven/bun`** stage, so
 `docker compose up -d --build` rebuilds the SPA automatically; `bun install`
@@ -558,7 +558,7 @@ Two caveats, both inherited from upstream:
 
 ### Fork customisations to the manager
 
-Beyond the QR fixes above, this fork adds (all under `evolution-go-manager/src/`):
+Beyond the QR fixes above, this fork adds (all under `wamux-manager/src/`):
 
 - **Instances page** — each card shows the connected account's **profile picture**
   (falling back to initials), its **contact count**, **chat count** and **message
@@ -623,7 +623,7 @@ the instance is disconnected. WhatsApp does **not** send a phone model string
 the platform — the closest obtainable value.
 
 To add more widgets, edit `manager/dist/dashboard.html` (fork's own page) or
-`evolution-go-manager/src/` (the SPA); if a value is missing from the API, add
+`wamux-manager/src/` (the SPA); if a value is missing from the API, add
 it to `/server/stats` or `/instance/overview/:instanceId`.
 
 ### Dashboard UI: light mode, embedded theme and resolved conversation names
@@ -647,8 +647,8 @@ Three UI problems were found while testing the dashboard against a live account:
   it did not follow the manager theme. It now reads `?theme=light|dark` (the
   manager passes its current theme when embedding), listens for an
   `egogo-theme` `postMessage`, and falls back to `prefers-color-scheme` when
-  opened standalone. It is also rebranded to **Evo-GoFork** (the page still said
-  "Evolution GO") and links to this fork's repository.
+  opened standalone. It is also rebranded to **WaMux** (the page still said
+  "WaMux") and links to this fork's repository.
 
 **"Conversas mais ativas" showed raw identifiers** (`+269182931329179`,
 `+5514981170846`, `+status`). `/server/stats` now annotates each `topSources`
@@ -811,7 +811,7 @@ process-wide `*logger.Logger` and all 66 call sites invoke the library's methods
 on it directly (`applog.Logger.LogInfo(...)`). `pkg/applog` deliberately imports
 nothing internal — `pkg/config` logs through it and `pkg/logger` imports
 `pkg/config`, so anything else would cycle. Both versions emit ANSI levels and
-`LogFatal` exits; v1 adds a `[evolution-go]` prefix. v1's `CaptureExceptionFunc`
+`LogFatal` exits; v1 adds a `[wamux]` prefix. v1's `CaptureExceptionFunc`
 and `WebhookConfig` are left off so logging stays local; they can be wired from
 configuration if wanted.
 
@@ -1026,7 +1026,7 @@ contact is always a single conversation.
 ## 3p. Per-instance S3 media storage (new in this fork)
 
 WuzAPI lets each user attach their own S3 bucket with a delivery mode; upstream
-Evolution Go only had a single global MinIO config. This fork adds the same per
+WaMux only had a single global MinIO config. This fork adds the same per
 instance:
 
 - `POST /instance/s3` configures `{enabled, endpoint, region, bucket,
@@ -1060,14 +1060,14 @@ cp .env.example .env     # set GLOBAL_API_KEY (required)
 docker compose up -d --build
 ```
 
-- API: <http://localhost:8081> (override with `EVOGO_PORT`)
+- API: <http://localhost:8081> (override with `WAMUX_PORT`)
 - Swagger: <http://localhost:8081/swagger/index.html>
 - Manager: <http://localhost:8081/manager> (log in with `GLOBAL_API_KEY`)
 - Dashboard (fork's own, editable): <http://localhost:8081/dashboard> (same key; see §3i)
 - Postgres is bundled and databases are auto-created.
 
 `docker compose up --build` also builds the manager SPA from
-`evolution-go-manager/` (bun stage), so frontend edits are picked up by the same
+`wamux-manager/` (bun stage), so frontend edits are picked up by the same
 command. To build it locally instead, use `make manager-build` (§3i).
 
 Optional brokers/storage, not started by default:
@@ -1112,7 +1112,7 @@ go vet ./...
   fork does not implement the multi-message assembly it needs. `/send/carousel`
   (interactive cards with image headers) is the closest supported feature but is not
   a gallery. See `docs/wiki/guias-api/api-messages.md` for the workaround.
-- The Manager SPA source is vendored at `evolution-go-manager/`, taken from
+- The Manager SPA source is vendored at `wamux-manager/`, taken from
   upstream's `develop` branch (the only place it exists — `main` ships only the
   compiled `manager/dist`). `develop` is an older revision than the bundle
   `main` previously shipped, so the rebuilt `manager/dist` differs slightly; see

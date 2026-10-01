@@ -5,13 +5,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/evolution-foundation/evolution-go/pkg/config"
-	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
-	instance_repository "github.com/evolution-foundation/evolution-go/pkg/instance/repository"
-	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
-	send_service "github.com/evolution-foundation/evolution-go/pkg/sendMessage/service"
-	typebot_model "github.com/evolution-foundation/evolution-go/pkg/typebot/model"
-	typebot_repository "github.com/evolution-foundation/evolution-go/pkg/typebot/repository"
+	"github.com/felipeestevanatto/wamux/pkg/config"
+	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
+	instance_repository "github.com/felipeestevanatto/wamux/pkg/instance/repository"
+	logger_wrapper "github.com/felipeestevanatto/wamux/pkg/logger"
+	send_service "github.com/felipeestevanatto/wamux/pkg/sendMessage/service"
+	typebot_model "github.com/felipeestevanatto/wamux/pkg/typebot/model"
+	typebot_repository "github.com/felipeestevanatto/wamux/pkg/typebot/repository"
 )
 
 // typebotHTTPTimeout limita as chamadas ao Typebot. Sem isso, um servidor

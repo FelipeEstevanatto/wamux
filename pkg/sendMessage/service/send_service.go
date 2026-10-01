@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/evolution-foundation/evolution-go/pkg/safemap"
+	"github.com/felipeestevanatto/wamux/pkg/safemap"
 	"image"
 	"image/jpeg"
 	"image/png"
@@ -23,16 +23,16 @@ import (
 	"time"
 
 	"github.com/chai2010/webp"
-	config "github.com/evolution-foundation/evolution-go/pkg/config"
-	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
-	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
-	localmedia "github.com/evolution-foundation/evolution-go/pkg/media"
-	message_content "github.com/evolution-foundation/evolution-go/pkg/message/content"
-	message_model "github.com/evolution-foundation/evolution-go/pkg/message/model"
-	message_repository "github.com/evolution-foundation/evolution-go/pkg/message/repository"
-	"github.com/evolution-foundation/evolution-go/pkg/ssrf"
-	"github.com/evolution-foundation/evolution-go/pkg/utils"
-	whatsmeow_service "github.com/evolution-foundation/evolution-go/pkg/whatsmeow/service"
+	config "github.com/felipeestevanatto/wamux/pkg/config"
+	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
+	logger_wrapper "github.com/felipeestevanatto/wamux/pkg/logger"
+	localmedia "github.com/felipeestevanatto/wamux/pkg/media"
+	message_content "github.com/felipeestevanatto/wamux/pkg/message/content"
+	message_model "github.com/felipeestevanatto/wamux/pkg/message/model"
+	message_repository "github.com/felipeestevanatto/wamux/pkg/message/repository"
+	"github.com/felipeestevanatto/wamux/pkg/ssrf"
+	"github.com/felipeestevanatto/wamux/pkg/utils"
+	whatsmeow_service "github.com/felipeestevanatto/wamux/pkg/whatsmeow/service"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/patrickmn/go-cache"
 	"go.mau.fi/whatsmeow"
@@ -302,7 +302,7 @@ type Button struct {
 	// Code placed in the clipboard when type=copy.
 	CopyCode string `json:"copyCode,omitempty" example:"PROMO2026"`
 	// Target URL when type=url.
-	URL string `json:"url,omitempty" example:"https://evolutionapi.com"`
+	URL string `json:"url,omitempty" example:"https://wamuxapi.com"`
 	// Destination phone number (E.164) when type=call.
 	PhoneNumber string `json:"phoneNumber,omitempty" example:"+5582988898565"`
 	// ISO currency code for type=pix (e.g. BRL).
@@ -333,7 +333,7 @@ type ButtonStruct struct {
 	// Body description text (required).
 	Description string `json:"description" example:"Confira as condicoes abaixo"`
 	// Footer text (required).
-	Footer string `json:"footer" example:"Evolution GO"`
+	Footer string `json:"footer" example:"WaMux"`
 	// Buttons array. See combination rules on the parent type description.
 	Buttons []Button `json:"buttons"`
 	// Typing delay (milliseconds) applied before sending the message.
@@ -383,7 +383,7 @@ type ListStruct struct {
 	// Label of the button that opens the list. Defaults to "Ver Menu" when empty.
 	ButtonText string `json:"buttonText" example:"Abrir cardapio"`
 	// Footer text (required).
-	FooterText string `json:"footerText" example:"Evolution GO"`
+	FooterText string `json:"footerText" example:"WaMux"`
 	// Sections with rows. At least one section with one row is required.
 	Sections []Section `json:"sections"`
 	// Typing delay (milliseconds) applied before sending the message.
@@ -467,7 +467,7 @@ type CarouselStruct struct {
 	// Optional message body shown above the cards.
 	Body string `json:"body,omitempty" example:"Confira nossas novidades!"`
 	// Optional message footer shown below the cards.
-	Footer string `json:"footer,omitempty" example:"Evolution GO"`
+	Footer string `json:"footer,omitempty" example:"WaMux"`
 	// Typing delay (milliseconds) applied before sending the message.
 	Delay int32 `json:"delay,omitempty" example:"1200"`
 	// If false, skips automatic formatting/validation of `number` into a JID.
@@ -2149,7 +2149,7 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 			jsonBytes, _ := json.Marshal(map[string]string{"display_text": v.DisplayText, "id": v.Id})
 			paramsJSON = proto.String(string(jsonBytes))
 		case "copy":
-			// Payload shape captured from a real, rendering message (evolution-api v2):
+			// Payload shape captured from a real, rendering message (wamux-api v2):
 			// {"fix":true,"display_text":...,"copy_code":...} — in this order, with
 			// "fix":true and WITHOUT "id".
 			name = proto.String("cta_copy")
@@ -2224,7 +2224,7 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 		// fail to render it — WhatsApp Web shows "This message couldn't load.
 		// Open the message on your phone to view it." and the phone can drop the
 		// message entirely. The same wrapper was removed upstream in
-		// evolution-api for the same reason.
+		// wamux-api for the same reason.
 		var interactiveBody *waE2E.InteractiveMessage_Body
 		if data.Title != "" {
 			interactiveBody = &waE2E.InteractiveMessage_Body{Text: proto.String(data.Title)}
@@ -2284,7 +2284,7 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 			}
 		}
 
-		// Optional media header (equivalent to evolution-api's `thumbnailUrl`).
+		// Optional media header (equivalent to wamux-api's `thumbnailUrl`).
 		if data.ImageUrl != "" {
 			if resp, err := mediaHTTPClient.Get(data.ImageUrl); err == nil {
 				fileData, readErr := readAllLimited(resp.Body)
@@ -2541,7 +2541,7 @@ func convertGifToMP4(fileData []byte) ([]byte, error) {
 
 	// The MP4 muxer needs a seekable output, so write to a temp file rather than
 	// piping to stdout ("muxer does not support non seekable output").
-	in, err := os.CreateTemp("", "evogo-gif-in-*")
+	in, err := os.CreateTemp("", "wamux-gif-in-*")
 	if err != nil {
 		return nil, err
 	}
@@ -2552,7 +2552,7 @@ func convertGifToMP4(fileData []byte) ([]byte, error) {
 	}
 	in.Close()
 
-	out, err := os.CreateTemp("", "evogo-gif-out-*.mp4")
+	out, err := os.CreateTemp("", "wamux-gif-out-*.mp4")
 	if err != nil {
 		return nil, err
 	}
@@ -2610,7 +2610,7 @@ func probeVideo(fileData []byte) (videoMetadata, bool) {
 
 	// MP4/MOV need a seekable input (the moov atom may be at the end), so a
 	// pipe does not work: write to a temp file and probe that.
-	tmp, err := os.CreateTemp("", "evogo-probe-*")
+	tmp, err := os.CreateTemp("", "wamux-probe-*")
 	if err != nil {
 		return videoMetadata{}, false
 	}
@@ -2667,7 +2667,7 @@ func makeVideoThumbnail(fileData []byte, maxWidth int) []byte {
 	}
 
 	// Same seekability requirement as probeVideo.
-	tmp, err := os.CreateTemp("", "evogo-vthumb-*")
+	tmp, err := os.CreateTemp("", "wamux-vthumb-*")
 	if err != nil {
 		return nil
 	}
@@ -3689,7 +3689,7 @@ func (s *sendService) SendCarousel(data *CarouselStruct, instance *instance_mode
 	}
 
 	// A single card WITHOUT a media header does not render as a carousel on some
-	// clients (notably iOS). evolution-api falls back to a plain interactive
+	// clients (notably iOS). wamux-api falls back to a plain interactive
 	// message in that case, so do the same: send the card itself (body, header,
 	// buttons) as a normal interactiveMessage instead of a one-card carousel.
 	if len(cards) == 1 && !cards[0].GetHeader().GetHasMediaAttachment() {
@@ -3859,7 +3859,7 @@ func (s *sendService) SendStatusMediaUrl(data *StatusMediaStruct, instance *inst
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "Evolution-GO/1.0")
+	req.Header.Set("User-Agent", "WaMux/1.0")
 
 	httpClient := mediaHTTPClient
 	resp, err := httpClient.Do(req)

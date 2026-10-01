@@ -3,8 +3,8 @@ package websocket_producer
 import (
 	"testing"
 
-	"github.com/evolution-foundation/evolution-go/pkg/config"
-	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
+	"github.com/felipeestevanatto/wamux/pkg/config"
+	logger_wrapper "github.com/felipeestevanatto/wamux/pkg/logger"
 )
 
 // newTestProducer builds a producer backed by a real file logger (the registry

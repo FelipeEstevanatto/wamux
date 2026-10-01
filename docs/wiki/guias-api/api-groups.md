@@ -805,4 +805,4 @@ Ao criar grupo, sempre verifique o campo `failed` na resposta:
 
 ---
 
-**Documentação gerada para Evolution GO v1.0**
+**Documentação gerada para WaMux v1.0**
