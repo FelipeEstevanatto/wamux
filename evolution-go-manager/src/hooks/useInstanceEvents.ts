@@ -1,6 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import useAuth from '@/hooks/useAuth';
 import type { InstanceEvent } from '@/types/messages';
+
+export type WsStatus = 'connecting' | 'open' | 'closed';
 
 /**
  * Parses one /ws frame. The server sends `{ queue, payload }` where `payload`
@@ -31,19 +33,22 @@ function parseFrame(raw: string): InstanceEvent | null {
 }
 
 /**
- * Subscribes to one instance's events over /ws.
+ * Subscribes to one instance's events over /ws and reports the connection
+ * status.
  *
  * The socket is authenticated with the global API key (the manager's stored
  * credential) and scoped to `instanceId`, so it only receives that instance's
  * events. It reconnects with a capped backoff. `onEvent` is held in a ref so a
- * changing callback never forces a reconnect.
+ * changing callback never forces a reconnect. The returned status lets the UI
+ * warn the operator when live updates are down.
  */
 export default function useInstanceEvents(
   instanceId: string | undefined,
   onEvent: (event: InstanceEvent) => void
-): void {
+): WsStatus {
   const { apiUrl, apiKey } = useAuth();
   const handler = useRef(onEvent);
+  const [status, setStatus] = useState<WsStatus>('closed');
 
   // Keep the latest callback in the ref on every render so a changing callback
   // never forces the socket to reconnect.
@@ -52,7 +57,10 @@ export default function useInstanceEvents(
   });
 
   useEffect(() => {
-    if (!instanceId || !apiKey || !apiUrl) return;
+    if (!instanceId || !apiKey || !apiUrl) {
+      setStatus('closed');
+      return;
+    }
 
     const wsUrl = `${apiUrl.replace(/^http/, 'ws')}/ws?token=${encodeURIComponent(
       apiKey
@@ -64,10 +72,12 @@ export default function useInstanceEvents(
     let retryTimer: number | undefined;
 
     const connect = () => {
+      setStatus('connecting');
       socket = new WebSocket(wsUrl);
 
       socket.onopen = () => {
         attempt = 0;
+        setStatus('open');
       };
 
       socket.onmessage = (ev: MessageEvent<string>) => {
@@ -77,6 +87,7 @@ export default function useInstanceEvents(
 
       socket.onclose = () => {
         if (stopped) return;
+        setStatus('connecting');
         attempt = Math.min(attempt + 1, 6);
         retryTimer = window.setTimeout(connect, attempt * 1000);
       };
@@ -95,4 +106,6 @@ export default function useInstanceEvents(
       socket?.close();
     };
   }, [apiUrl, apiKey, instanceId]);
+
+  return status;
 }

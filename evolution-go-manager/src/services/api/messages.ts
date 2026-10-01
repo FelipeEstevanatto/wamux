@@ -62,3 +62,34 @@ export const sendText = async (
   );
   return response.data.data;
 };
+
+/**
+ * Send a media message as a multipart upload. POST /send/media
+ * `type` is one of image | video | audio | document | sticker.
+ */
+export const sendMedia = async (
+  instanceToken: string,
+  payload: {
+    number: string;
+    type: string;
+    caption?: string;
+    filename?: string;
+    file: File;
+  }
+): Promise<unknown> => {
+  const form = new FormData();
+  form.append('number', payload.number);
+  form.append('type', payload.type);
+  if (payload.caption) form.append('caption', payload.caption);
+  if (payload.filename) form.append('filename', payload.filename);
+  form.append('file', payload.file, payload.filename || payload.file.name);
+
+  // Do not set Content-Type: axios strips it for FormData so the browser adds
+  // the multipart boundary.
+  const response = await apiClient.post<{ message: string; data: unknown }>(
+    '/send/media',
+    form,
+    asInstance(instanceToken)
+  );
+  return response.data.data;
+};

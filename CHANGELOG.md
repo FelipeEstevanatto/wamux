@@ -26,11 +26,13 @@ Three additive features, all disabled/unchanged by default unless configured.
   (overriding the global MinIO config) with a `mediaDelivery` mode of `base64`,
   `s3` or `both`. The secret is encrypted at rest; the config is cached and
   rebuilt on change.
-- **Messages screen (manager)** — the manager's `/manager/messages` page (was a
-  stub) now lists an instance's conversations (`GET /chat/chats`), reads a
-  thread back (`GET /chat/history`) with "load older" pagination, sends text
-  (`POST /send/text`) and applies inbound/receipt updates live over `/ws`.
-  Text only for now; media is a follow-up.
+- **Messages screen (manager)** — the manager's `/manager/messages` page lists an
+  instance's conversations (`GET /chat/chats`, split into Contatos / Grupos /
+  Canais), reads a thread back (`GET /chat/history`) with "load older"
+  pagination, sends text and media (`POST /send/text`, multipart
+  `POST /send/media` for photo/video/audio/document), can start a new
+  conversation from a typed number, applies inbound/receipt updates live over
+  `/ws` (with a connection indicator), and has a refresh button with feedback.
 
 ### 🔧 Improvements
 - **Webhook dead-letter queue** — webhooks that fail permanently (retries
