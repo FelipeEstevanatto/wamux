@@ -5,7 +5,7 @@ import (
 	"log"
 	"testing"
 
-	"github.com/evolution-foundation/evolution-go/pkg/config"
+	"github.com/felipeestevanatto/wamux/pkg/config"
 )
 
 // benchLogger builds a per-instance logger backed by a throwaway directory and

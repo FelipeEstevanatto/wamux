@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/evolution-foundation/evolution-go/pkg/ssrf"
+	"github.com/felipeestevanatto/wamux/pkg/ssrf"
 )
 
 // TestMain swaps the package's outbound HTTP clients for permissive ones: the

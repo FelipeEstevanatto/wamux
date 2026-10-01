@@ -28,7 +28,7 @@ func samplePayload() map[string]any {
 				"conversation": "hello there, this is a representative message body for the benchmark",
 			},
 			"MessageType": "text",
-			"mediaUrl":    "https://minio.local/evolution-media/3EB06DB6CA32F41FC71F1F.jpg",
+			"mediaUrl":    "https://minio.local/wamux-media/3EB06DB6CA32F41FC71F1F.jpg",
 			"mimetype":    "image/jpeg",
 		},
 	}

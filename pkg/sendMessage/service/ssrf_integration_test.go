@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/evolution-foundation/evolution-go/pkg/ssrf"
+	"github.com/felipeestevanatto/wamux/pkg/ssrf"
 )
 
 // The package's outbound fetches must use the SSRF-guarded client in

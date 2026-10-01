@@ -1,5 +1,5 @@
 # =============================================================================
-# Evolution Go (community fork) — full stack
+# WaMux (community fork) — full stack
 #
 # App + Postgres + RabbitMQ + MinIO + NATS, all wired together. Use this as a
 # starting point for production; trim the services you do not need.
@@ -10,22 +10,22 @@
 # =============================================================================
 
 services:
-  evolution-go:
-    image: ghcr.io/felipeestevanatto/evo-gofork:${EVOGO_VERSION:-dev}
+  wamux:
+    image: ghcr.io/felipeestevanatto/wamux:${WAMUX_VERSION:-dev}
     restart: unless-stopped
     init: true
     ports:
       - "4000:4000"
     environment:
       SERVER_PORT: 4000
-      CLIENT_NAME: evolution
-      OS_NAME: Evo-GoFork
+      CLIENT_NAME: wamux
+      OS_NAME: WaMux
 
       # REQUIRED: change this.
       GLOBAL_API_KEY: change-me-to-a-long-random-key
 
-      POSTGRES_AUTH_DB: postgresql://evolution_user:evolution_pass@evolution-database:5432/evogo_auth?sslmode=disable
-      POSTGRES_USERS_DB: postgresql://evolution_user:evolution_pass@evolution-database:5432/evogo_users?sslmode=disable
+      POSTGRES_AUTH_DB: postgresql://wamux_user:wamux_pass@wamux-database:5432/wamux_auth?sslmode=disable
+      POSTGRES_USERS_DB: postgresql://wamux_user:wamux_pass@wamux-database:5432/wamux_users?sslmode=disable
       DATABASE_SAVE_MESSAGES: "true"
       MESSAGE_RETENTION_DAYS: "365"
 
@@ -40,7 +40,7 @@ services:
       WEBHOOK_URL: "https://your-webhook.example.com/endpoint"
 
       # RabbitMQ (server accepts AMQP_URL; the credentials live in the broker)
-      AMQP_URL: "amqp://admin:admin@evolution-rabbitmq:5672/default"
+      AMQP_URL: "amqp://admin:admin@wamux-rabbitmq:5672/default"
       AMQP_GLOBAL_ENABLED: "true"
       # Event groups published globally: MESSAGE, SEND_MESSAGE, READ_RECEIPT,
       # PRESENCE, HISTORY_SYNC, CHAT_PRESENCE, CALL, CONNECTION, LABEL, CONTACT,
@@ -49,48 +49,48 @@ services:
       AMQP_SPECIFIC_EVENTS: ""
 
       # NATS
-      NATS_URL: "nats://evolution-nats:4222"
+      NATS_URL: "nats://wamux-nats:4222"
       NATS_GLOBAL_ENABLED: "false"
       NATS_GLOBAL_EVENTS: ""
 
       # MinIO media storage
       MINIO_ENABLED: "true"
-      MINIO_ENDPOINT: "evolution-minio:9000"
+      MINIO_ENDPOINT: "wamux-minio:9000"
       MINIO_ACCESS_KEY: "minioadmin"
       MINIO_SECRET_KEY: "minioadmin"
-      MINIO_BUCKET: "evolution-media"
+      MINIO_BUCKET: "wamux-media"
       MINIO_USE_SSL: "false"
       MINIO_REGION: "us-east-1"
 
     volumes:
-      - evolution_go_data:/app/data
+      - wamux_data:/app/data
     depends_on:
-      evolution-database:
+      wamux-database:
         condition: service_healthy
-      evolution-rabbitmq:
+      wamux-rabbitmq:
         condition: service_healthy
     networks:
-      - evolution_go_network
+      - wamux_network
 
-  evolution-database:
+  wamux-database:
     image: postgres:18-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: evolution_user
-      POSTGRES_PASSWORD: evolution_pass
-      POSTGRES_DB: evogo_auth
+      POSTGRES_USER: wamux_user
+      POSTGRES_PASSWORD: wamux_pass
+      POSTGRES_DB: wamux_auth
     volumes:
       # PostgreSQL 18 volume path (not /var/lib/postgresql/data).
-      - evolution_go_database:/var/lib/postgresql
+      - wamux_database:/var/lib/postgresql
     networks:
-      - evolution_go_network
+      - wamux_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U evolution_user -d evogo_auth"]
+      test: ["CMD-SHELL", "pg_isready -U wamux_user -d wamux_auth"]
       interval: 10s
       timeout: 5s
       retries: 10
 
-  evolution-rabbitmq:
+  wamux-rabbitmq:
     # 3.13 is end-of-life; 4.x is the current supported line.
     image: rabbitmq:4.3-management-alpine
     restart: unless-stopped
@@ -101,27 +101,27 @@ services:
     ports:
       - "15672:15672"   # management UI (http://localhost:15672)
     volumes:
-      - evolution_rabbitmq_data:/var/lib/rabbitmq
+      - wamux_rabbitmq_data:/var/lib/rabbitmq
     networks:
-      - evolution_go_network
+      - wamux_network
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 15s
       timeout: 10s
       retries: 10
 
-  evolution-nats:
+  wamux-nats:
     image: nats:2.15-alpine
     restart: unless-stopped
     command: ["-js", "-m", "8222"]
     ports:
       - "8222:8222"     # monitoring (http://localhost:8222)
     volumes:
-      - evolution_nats_data:/data
+      - wamux_nats_data:/data
     networks:
-      - evolution_go_network
+      - wamux_network
 
-  evolution-minio:
+  wamux-minio:
     image: minio/minio:latest
     restart: unless-stopped
     command: server /data --console-address ":9001"
@@ -132,17 +132,17 @@ services:
       - "9000:9000"
       - "9001:9001"     # console (http://localhost:9001)
     volumes:
-      - evolution_minio_data:/data
+      - wamux_minio_data:/data
     networks:
-      - evolution_go_network
+      - wamux_network
 
 volumes:
-  evolution_go_data:
-  evolution_go_database:
-  evolution_rabbitmq_data:
-  evolution_nats_data:
-  evolution_minio_data:
+  wamux_data:
+  wamux_database:
+  wamux_rabbitmq_data:
+  wamux_nats_data:
+  wamux_minio_data:
 
 networks:
-  evolution_go_network:
+  wamux_network:
     driver: bridge

@@ -38,7 +38,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/evolution-foundation/evolution-go/pkg/webhooksign"
+	"github.com/felipeestevanatto/wamux/pkg/webhooksign"
 )
 
 // ErrNoKey is returned when no encryption key could be derived.

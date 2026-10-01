@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"strings"
 
-	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
-	"github.com/evolution-foundation/evolution-go/pkg/utils"
+	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
+	"github.com/felipeestevanatto/wamux/pkg/utils"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/appstate"
 	waSyncAction "go.mau.fi/whatsmeow/proto/waSyncAction"

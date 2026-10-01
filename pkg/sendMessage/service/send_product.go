@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
-	"github.com/evolution-foundation/evolution-go/pkg/ssrf"
+	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
+	"github.com/felipeestevanatto/wamux/pkg/ssrf"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"google.golang.org/protobuf/proto"
@@ -34,7 +34,7 @@ type ProductStruct struct {
 	// Product data shown on the card. ProductId must be the product's ID in your
 	// catalog -- get it from the official app / Commerce Manager.
 	ProductId   string `json:"productId" example:"1234567890123456"`
-	Title       string `json:"title" example:"Camiseta Evolution GO"`
+	Title       string `json:"title" example:"Camiseta WaMux"`
 	Description string `json:"description,omitempty" example:"Camiseta oficial 100% algodao"`
 	// Price in thousandths of the currency unit: R$ 10,00 => 10000.
 	Price      int64  `json:"price" example:"10000"`
@@ -50,7 +50,7 @@ type ProductStruct struct {
 	BusinessOwnerJid string `json:"businessOwnerJid,omitempty" example:"5511999999999@s.whatsapp.net"`
 
 	Body   string `json:"body,omitempty" example:"Aproveite esta oferta!"`
-	Footer string `json:"footer,omitempty" example:"Evolution GO"`
+	Footer string `json:"footer,omitempty" example:"WaMux"`
 
 	Delay        int32        `json:"delay" example:"1200"`
 	MentionedJID []string     `json:"mentionedJid" example:"5511999999999@s.whatsapp.net"`

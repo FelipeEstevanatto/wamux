@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	whatsmeow_service "github.com/evolution-foundation/evolution-go/pkg/whatsmeow/service"
+	whatsmeow_service "github.com/felipeestevanatto/wamux/pkg/whatsmeow/service"
 	"github.com/gin-gonic/gin"
 )
 

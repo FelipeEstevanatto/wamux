@@ -53,7 +53,7 @@ type Instance struct {
 	ID               string `json:"id" example:"11111111-2222-3333-4444-555555555555"`
 	Name             string `json:"name" example:"Minha Instancia"`
 	Token            string `json:"token" example:"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"`
-	Webhook          string `json:"webhook" example:"https://webhook.example.com/evolution"`
+	Webhook          string `json:"webhook" example:"https://webhook.example.com/wamux"`
 	RabbitmqEnable   string `json:"rabbitmqEnable" example:""`
 	WebsocketEnable  string `json:"websocketEnable" example:""`
 	NatsEnable       string `json:"natsEnable" example:""`
@@ -63,9 +63,9 @@ type Instance struct {
 	Expiration       int    `json:"expiration" example:"0"`
 	DisconnectReason string `json:"disconnect_reason" example:""`
 	Events           string `json:"events" example:"MESSAGE"`
-	OSName           string `json:"os_name" example:"Evolution GO"`
+	OSName           string `json:"os_name" example:"WaMux"`
 	Proxy            string `json:"proxy" example:""`
-	ClientName       string `json:"client_name" example:"evolution"`
+	ClientName       string `json:"client_name" example:"wamux"`
 	CreatedAt        string `json:"createdAt" example:"2026-01-15T10:30:00.000000-03:00"`
 	AlwaysOnline     bool   `json:"alwaysOnline" example:"false"`
 	RejectCall       bool   `json:"rejectCall" example:"false"`
@@ -494,9 +494,9 @@ type ServerOK struct {
 // RootInfo is the GET / payload: a small welcome/health banner.
 type RootInfo struct {
 	Status              int    `json:"status" example:"200"`
-	Message             string `json:"message" example:"Welcome to Evolution GO, it is working!"`
+	Message             string `json:"message" example:"Welcome to WaMux, it is working!"`
 	Version             string `json:"version" example:"0.8.1"`
-	ClientName          string `json:"clientName" example:"evolution"`
+	ClientName          string `json:"clientName" example:"wamux"`
 	Manager             string `json:"manager" example:"/manager"`
 	Documentation       string `json:"documentation" example:"/swagger/index.html"`
 	WhatsappWebVersion  string `json:"whatsappWebVersion" example:"2.3000.1048977937"`

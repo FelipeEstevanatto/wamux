@@ -1,6 +1,6 @@
 # Banco de Dados
 
-Sistema de armazenamento de dados do Evolution GO usando bancos separados para diferentes finalidades.
+Sistema de armazenamento de dados do WaMux usando bancos separados para diferentes finalidades.
 
 ## 📋 Índice
 
@@ -16,10 +16,10 @@ Sistema de armazenamento de dados do Evolution GO usando bancos separados para d
 
 ## Visão Geral
 
-O Evolution GO usa **dois bancos de dados separados**. Pense nisso como ter dois armários diferentes:
+O WaMux usa **dois bancos de dados separados**. Pense nisso como ter dois armários diferentes:
 
-1. **Banco Auth** (`evogo_auth`): Guarda os dados técnicos do WhatsApp
-2. **Banco Users** (`evogo_users`): Guarda os dados da sua aplicação
+1. **Banco Auth** (`wamux_auth`): Guarda os dados técnicos do WhatsApp
+2. **Banco Users** (`wamux_users`): Guarda os dados da sua aplicação
 
 ### Tipos de Banco Suportados
 
@@ -218,15 +218,15 @@ Se você deletar a instância `abc-123`:
 
 ```env
 # Banco Auth (Dados do WhatsApp)
-POSTGRES_AUTH_DB=postgresql://user:pass@localhost:5432/evogo_auth
+POSTGRES_AUTH_DB=postgresql://user:pass@localhost:5432/wamux_auth
 
 # Banco Users (Dados da API)
-POSTGRES_USERS_DB=postgresql://user:pass@localhost:5432/evogo_users
+POSTGRES_USERS_DB=postgresql://user:pass@localhost:5432/wamux_users
 ```
 
 ### Criação Automática de Tabelas
 
-Quando você inicia o Evolution GO pela primeira vez:
+Quando você inicia o WaMux pela primeira vez:
 
 1. Sistema verifica se as tabelas existem
 2. Se não existir, cria automaticamente
@@ -245,10 +245,10 @@ Isso se chama **Auto-Migration** (migração automática).
 
 ```bash
 # Backup do banco Auth (CRÍTICO!)
-pg_dump -U postgres evogo_auth > backup_auth_$(date +%Y%m%d).sql
+pg_dump -U postgres wamux_auth > backup_auth_$(date +%Y%m%d).sql
 
 # Backup do banco Users
-pg_dump -U postgres evogo_users > backup_users_$(date +%Y%m%d).sql
+pg_dump -U postgres wamux_users > backup_users_$(date +%Y%m%d).sql
 ```
 
 💡 O backup do **Auth** é mais crítico pois contém as chaves de criptografia!
@@ -314,7 +314,7 @@ AND updated_at < NOW() - INTERVAL '30 days';
 
 **Soluções**:
 1. Verifique quantas conexões o PostgreSQL permite
-2. Reduza o número de conexões máximas no Evolution GO
+2. Reduza o número de conexões máximas no WaMux
 3. Aumente o limite no PostgreSQL
 
 ```bash
@@ -363,7 +363,7 @@ ORDER BY pg_total_relation_size(tablename::text) DESC;
 ```
 ┌────────────────────────┐         ┌────────────────────────┐
 │   Banco Auth           │         │   Banco Users          │
-│   (evogo_auth)         │         │   (evogo_users)        │
+│   (wamux_auth)         │         │   (wamux_users)        │
 ├────────────────────────┤         ├────────────────────────┤
 │                        │         │                        │
 │ WhatsApp               │         │ Sua Aplicação          │
@@ -378,7 +378,7 @@ ORDER BY pg_total_relation_size(tablename::text) DESC;
          ▲                                   ▲
          │                                   │
          └───────── Gerenciado por ──────────┘
-                   Evolution GO
+                   WaMux
 ```
 
 ### Fluxo de Dados
@@ -422,4 +422,4 @@ ORDER BY pg_total_relation_size(tablename::text) DESC;
 
 ---
 
-**Documentação Evolution GO v1.0**
+**Documentação WaMux v1.0**

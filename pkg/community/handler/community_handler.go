@@ -3,9 +3,9 @@ package community_handler
 import (
 	"net/http"
 
-	community_service "github.com/evolution-foundation/evolution-go/pkg/community/service"
-	docmodels "github.com/evolution-foundation/evolution-go/pkg/docmodels"
-	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
+	community_service "github.com/felipeestevanatto/wamux/pkg/community/service"
+	docmodels "github.com/felipeestevanatto/wamux/pkg/docmodels"
+	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
 	"github.com/gin-gonic/gin"
 )
 

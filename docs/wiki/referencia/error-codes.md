@@ -141,7 +141,7 @@ docker-compose ps postgres
 docker-compose logs postgres
 
 # Testar conectividade
-docker-compose exec evolution-go nc -zv postgres 5432
+docker-compose exec wamux nc -zv postgres 5432
 ```
 
 **Resolução**:
@@ -198,7 +198,7 @@ docker-compose exec evolution-go nc -zv postgres 5432
 **Diagnóstico**:
 ```bash
 # Verificar logs detalhados
-docker-compose logs -f evolution-go
+docker-compose logs -f wamux
 
 # Verificar status da instância
 curl -H "apikey: SUA-CHAVE" \
@@ -219,13 +219,13 @@ WADEBUG=DEBUG
 
 ```bash
 # Docker Compose
-docker-compose logs -f evolution-go
+docker-compose logs -f wamux
 
 # Docker (container específico)
-docker logs -f evolution-go --tail=100
+docker logs -f wamux --tail=100
 
 # Arquivo (se LOGTYPE=file)
-tail -f logs/evolution-go.log
+tail -f logs/wamux.log
 ```
 
 ### Logs Estruturados
@@ -271,4 +271,4 @@ Logs incluem:
 
 ---
 
-**Documentação Evolution GO v1.0**
+**Documentação WaMux v1.0**

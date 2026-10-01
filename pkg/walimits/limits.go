@@ -8,7 +8,7 @@
 // Both limits are what produce WhatsApp error 463 when messaging a cold
 // contact: an active reachout timelock, or an exhausted new-chat quota.
 //
-// Ported from NathanAshford/evolution-go-custom.
+// Ported from NathanAshford/wamux-custom.
 package walimits
 
 import (

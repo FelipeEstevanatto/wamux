@@ -78,7 +78,7 @@ func (g *Guard) Supported() bool {
 // and makes the value reproducible across nodes (the only requirement).
 func lockKey(instanceID string) int64 {
 	h := fnv.New64a()
-	_, _ = h.Write([]byte("evo:instance:" + instanceID))
+	_, _ = h.Write([]byte("wamux:instance:" + instanceID))
 	return int64(h.Sum64())
 }
 

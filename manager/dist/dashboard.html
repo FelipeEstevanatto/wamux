@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Evo-GoFork — Dashboard</title>
+<title>WaMux — Dashboard</title>
 <script>
   // Applied before first paint so a light theme does not flash dark. The manager
   // passes ?theme=light|dark when embedding; standalone it follows the OS.
@@ -118,7 +118,7 @@
 
 <script>
 const LS_KEY="egogo_dash_key", LS_BASE="egogo_dash_base";
-const FORK_REPO="https://github.com/FelipeEstevanatto/evo-gofork";
+const FORK_REPO="https://github.com/FelipeEstevanatto/wamux";
 const $=(s,el=document)=>el.querySelector(s);
 const state={base:localStorage.getItem(LS_BASE)||"",key:localStorage.getItem(LS_KEY)||"",instances:[],selected:null,timer:null,interval:15,charts:{},overview:{},lastByDay:null};
 
@@ -138,8 +138,8 @@ function fmtDate(s){if(!s)return"—";const d=new Date(s);return isNaN(d)?s:d.to
 function renderGate(msg){
   document.getElementById("app").innerHTML=`
   <div class="gate">
-    <h2 style="color:var(--accent)">Evo-GoFork — Dashboard</h2>
-    <div class="muted" style="margin:-4px 0 14px">fork não oficial do Evolution Go</div>
+    <h2 style="color:var(--accent)">WaMux — Dashboard</h2>
+    <div class="muted" style="margin:-4px 0 14px">fork não oficial do WaMux</div>
     <div class="card">
       <label>Global API Key</label>
       <input id="g-key" type="password" placeholder="sua GLOBAL_API_KEY" value="${esc(state.key)}"/>
@@ -160,7 +160,7 @@ function renderGate(msg){
 function shell(){
   document.getElementById("app").innerHTML=`
   <header>
-    <span class="logo">Evo-GoFork</span>
+    <span class="logo">WaMux</span>
     <span class="muted">Dashboard · fork não oficial</span>
     <span class="badge" title="Versão em execução">v<span id="ver">—</span></span>
     <a class="link" href="${FORK_REPO}" target="_blank" rel="noopener" title="Repositório deste fork">GitHub</a>

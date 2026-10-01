@@ -1,6 +1,6 @@
 # Armazenamento de Mídia
 
-Sistema de armazenamento de arquivos de mídia do Evolution GO. Suporta MinIO, Amazon S3 e outros serviços compatíveis com S3.
+Sistema de armazenamento de arquivos de mídia do WaMux. Suporta MinIO, Amazon S3 e outros serviços compatíveis com S3.
 
 ## 📋 Índice
 
@@ -16,7 +16,7 @@ Sistema de armazenamento de arquivos de mídia do Evolution GO. Suporta MinIO, A
 
 ## Visão Geral
 
-O Evolution GO armazena arquivos de mídia (imagens, vídeos, áudios, documentos) em **object storage** compatível com S3. Isso inclui serviços como MinIO, Amazon S3, Backblaze B2, DigitalOcean Spaces e outros.
+O WaMux armazena arquivos de mídia (imagens, vídeos, áudios, documentos) em **object storage** compatível com S3. Isso inclui serviços como MinIO, Amazon S3, Backblaze B2, DigitalOcean Spaces e outros.
 
 ### Por que Object Storage?
 
@@ -42,7 +42,7 @@ O Evolution GO armazena arquivos de mídia (imagens, vídeos, áudios, documento
        │
        ▼
 ┌──────────────┐
-│ Evolution GO │ Recebe arquivo
+│ WaMux │ Recebe arquivo
 └──────┬───────┘
        │
        ▼
@@ -65,7 +65,7 @@ O Evolution GO armazena arquivos de mídia (imagens, vídeos, áudios, documento
                 ▼
         ┌──────────────┐
         │  Bucket      │
-        │  evolution-  │
+        │  wamux-  │
         │  go-medias/  │
         └──────────────┘
 ```
@@ -85,7 +85,7 @@ MINIO_ACCESS_KEY=sua-access-key
 MINIO_SECRET_KEY=sua-secret-key
 
 # Bucket
-MINIO_BUCKET=evolution-go-media
+MINIO_BUCKET=wamux-media
 
 # Região (para AWS S3)
 MINIO_REGION=us-east-1
@@ -103,13 +103,13 @@ docker run -d   --name minio   -p 9000:9000   -p 9001:9001   -e MINIO_ROOT_USER=
 # Criar bucket via mc (MinIO Client)
 docker run --rm   --network host   minio/mc alias set local http://localhost:9000 admin password
 
-docker run --rm   --network host   minio/mc mb local/evolution-go-media
+docker run --rm   --network host   minio/mc mb local/wamux-media
 
 # .env
 MINIO_ENDPOINT=localhost:9000
 MINIO_ACCESS_KEY=admin
 MINIO_SECRET_KEY=password
-MINIO_BUCKET=evolution-go-media
+MINIO_BUCKET=wamux-media
 MINIO_REGION=us-east-1
 MINIO_USE_SSL=false
 ```
@@ -122,7 +122,7 @@ MINIO_USE_SSL=false
 MINIO_ENDPOINT=s3.amazonaws.com
 MINIO_ACCESS_KEY=AKIAIOSFODNN7EXAMPLE
 MINIO_SECRET_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-MINIO_BUCKET=meu-bucket-evolution
+MINIO_BUCKET=meu-bucket-wamux
 MINIO_REGION=us-east-1
 MINIO_USE_SSL=true
 ```
@@ -159,7 +159,7 @@ Arquivos são armazenados com estrutura organizada:
 
 ```
 bucket-name/
-└── evolution-go-medias/
+└── wamux-medias/
     ├── image-abc123.jpg
     ├── video-def456.mp4
     ├── audio-ghi789.ogg
@@ -168,12 +168,12 @@ bucket-name/
 
 ### Caminho dos Arquivos
 
-Todos os arquivos são armazenados automaticamente no diretório `evolution-go-medias/`:
+Todos os arquivos são armazenados automaticamente no diretório `wamux-medias/`:
 
 **Exemplos**:
-- Arquivo: `photo-123.jpg` → Caminho: `evolution-go-medias/photo-123.jpg`
-- Arquivo: `video-456.mp4` → Caminho: `evolution-go-medias/video-456.mp4`
-- Arquivo: `document-789.pdf` → Caminho: `evolution-go-medias/document-789.pdf`
+- Arquivo: `photo-123.jpg` → Caminho: `wamux-medias/photo-123.jpg`
+- Arquivo: `video-456.mp4` → Caminho: `wamux-medias/video-456.mp4`
+- Arquivo: `document-789.pdf` → Caminho: `wamux-medias/document-789.pdf`
 
 ---
 
@@ -191,11 +191,11 @@ Todos os arquivos são armazenados automaticamente no diretório `evolution-go-m
 
 ### Como Funcionam
 
-Quando você armazena ou solicita acesso a um arquivo, o Evolution GO gera automaticamente uma URL presignada com validade de 7 dias.
+Quando você armazena ou solicita acesso a um arquivo, o WaMux gera automaticamente uma URL presignada com validade de 7 dias.
 
 **Exemplo de URL presignada**:
 ```
-https://s3.amazonaws.com/evolution-go-media/evolution-go-medias/photo-123.jpg?
+https://s3.amazonaws.com/wamux-media/wamux-medias/photo-123.jpg?
 X-Amz-Algorithm=AWS4-HMAC-SHA256&
 X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20250111%2Fus-east-1%2Fs3%2Faws4_request&
 X-Amz-Date=20250111T100000Z&
@@ -311,7 +311,7 @@ MINIO_USE_SSL=true
 ### 1. Upload de Mídia
 
 Quando o WhatsApp recebe uma imagem, vídeo ou documento:
-1. O Evolution GO baixa o arquivo
+1. O WaMux baixa o arquivo
 2. Armazena automaticamente no object storage configurado
 3. Gera uma URL presignada de acesso
 4. A URL é incluída na resposta da API ou evento
@@ -346,7 +346,7 @@ Gere nomes únicos para cada arquivo para evitar sobrescrever arquivos existente
 
 ### 2. Configure Content-Type Correto
 
-O Evolution GO configura automaticamente o Content-Type baseado na extensão do arquivo:
+O WaMux configura automaticamente o Content-Type baseado na extensão do arquivo:
 - `.jpg`, `.jpeg` → `image/jpeg`
 - `.png` → `image/png`
 - `.mp4` → `video/mp4`
@@ -362,7 +362,7 @@ O Evolution GO configura automaticamente o Content-Type baseado na extensão do 
     {
       "Id": "delete-old-media",
       "Status": "Enabled",
-      "Prefix": "evolution-go-medias/",
+      "Prefix": "wamux-medias/",
       "Expiration": {
         "Days": 30
       }
@@ -373,7 +373,7 @@ O Evolution GO configura automaticamente o Content-Type baseado na extensão do 
 
 **MinIO**:
 ```bash
-mc ilm add local/evolution-go-media   --prefix "evolution-go-medias/"   --expiry-days 30
+mc ilm add local/wamux-media   --prefix "wamux-medias/"   --expiry-days 30
 ```
 
 ### 4. Use CDN para Distribuição
@@ -381,7 +381,7 @@ mc ilm add local/evolution-go-media   --prefix "evolution-go-medias/"   --expiry
 **CloudFront (AWS)**:
 1. Crie distribuição CloudFront
 2. Aponte origin para bucket S3
-3. URLs ficam: `https://d123456.cloudfront.net/evolution-go-medias/photo.jpg`
+3. URLs ficam: `https://d123456.cloudfront.net/wamux-medias/photo.jpg`
 
 **DigitalOcean Spaces CDN** (automático):
 ```
@@ -395,7 +395,7 @@ https://bucket-name.nyc3.cdn.digitaloceanspaces.com/file.jpg
 aws s3 ls s3://bucket-name --recursive --summarize | grep "Total Size"
 
 # MinIO
-mc du local/evolution-go-media
+mc du local/wamux-media
 ```
 
 ### 6. Comprima Imagens Quando Possível
@@ -435,10 +435,10 @@ mc ls test
 **Solução**:
 ```bash
 # Criar bucket
-mc mb test/evolution-go-media
+mc mb test/wamux-media
 
 # Ou via AWS CLI
-aws s3 mb s3://evolution-go-media
+aws s3 mb s3://wamux-media
 ```
 
 ### URLs retornam 403 Forbidden
@@ -471,4 +471,4 @@ aws s3 mb s3://evolution-go-media
 
 ---
 
-**Documentação gerada para Evolution GO v1.0**
+**Documentação gerada para WaMux v1.0**

@@ -3,12 +3,12 @@ package newsletter_service
 import (
 	"context"
 	"errors"
-	"github.com/evolution-foundation/evolution-go/pkg/safemap"
+	"github.com/felipeestevanatto/wamux/pkg/safemap"
 	"time"
 
-	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
-	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
-	whatsmeow_service "github.com/evolution-foundation/evolution-go/pkg/whatsmeow/service"
+	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
+	logger_wrapper "github.com/felipeestevanatto/wamux/pkg/logger"
+	whatsmeow_service "github.com/felipeestevanatto/wamux/pkg/whatsmeow/service"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types"
 )

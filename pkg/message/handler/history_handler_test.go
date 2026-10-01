@@ -8,10 +8,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
-	message_model "github.com/evolution-foundation/evolution-go/pkg/message/model"
-	message_repository "github.com/evolution-foundation/evolution-go/pkg/message/repository"
-	message_service "github.com/evolution-foundation/evolution-go/pkg/message/service"
+	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
+	message_model "github.com/felipeestevanatto/wamux/pkg/message/model"
+	message_repository "github.com/felipeestevanatto/wamux/pkg/message/repository"
+	message_service "github.com/felipeestevanatto/wamux/pkg/message/service"
 )
 
 // stubMessageService records the calls the history handlers make. The embedded

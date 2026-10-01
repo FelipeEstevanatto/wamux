@@ -6,8 +6,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
-	instance_repository "github.com/evolution-foundation/evolution-go/pkg/instance/repository"
+	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
+	instance_repository "github.com/felipeestevanatto/wamux/pkg/instance/repository"
 )
 
 // Motivos de pausa automática. Vão no campo PausedReason da sessão e no evento

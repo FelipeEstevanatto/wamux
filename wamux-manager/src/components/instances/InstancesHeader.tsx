@@ -1,0 +1,56 @@
+/**
+ * Instances Header Component
+ * Header for instances page with search and actions
+ */
+
+import { Plus } from 'lucide-react';
+import BaseHeader, { type HeaderAction } from '../base/BaseHeader';
+
+interface InstancesHeaderProps {
+  totalCount: number;
+  selectedCount: number;
+  searchValue: string;
+  onSearchChange: (value: string) => void;
+  onNewInstance: () => void;
+  onRefresh: () => void;
+  isRefreshing?: boolean;
+  onClearSelection: () => void;
+}
+
+export default function InstancesHeader({
+  totalCount,
+  selectedCount,
+  searchValue,
+  onSearchChange,
+  onNewInstance,
+  onRefresh,
+  isRefreshing = false,
+  onClearSelection,
+}: InstancesHeaderProps) {
+  const primaryAction: HeaderAction = {
+    label: 'Nova Instância',
+    icon: <Plus className="h-4 w-4" />,
+    onClick: onNewInstance,
+  };
+
+  return (
+    <BaseHeader
+      title="Instâncias"
+      subtitle="Gerencie suas instâncias WhatsApp do WaMux"
+      totalCount={totalCount}
+      selectedCount={selectedCount}
+      searchValue={searchValue}
+      onSearchChange={onSearchChange}
+      searchPlaceholder="Buscar instâncias..."
+      primaryAction={primaryAction}
+      refreshAction={{
+        onClick: onRefresh,
+        isRefreshing,
+        title: 'Atualizar instâncias',
+      }}
+      onClearSelection={onClearSelection}
+      showFilters={false}
+      className="mb-4"
+    />
+  );
+}

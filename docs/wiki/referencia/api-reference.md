@@ -1,6 +1,6 @@
 # Referência da API
 
-Referência rápida de endpoints disponíveis na API Evolution GO.
+Referência rápida de endpoints disponíveis na API WaMux.
 
 ## Autenticação
 
@@ -181,4 +181,4 @@ http://localhost:4000
 
 **Total de endpoints disponíveis: 79**
 
-**Documentação Evolution GO v1.0**
+**Documentação WaMux v1.0**

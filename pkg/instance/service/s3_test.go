@@ -3,12 +3,12 @@ package instance_service
 import (
 	"testing"
 
-	"github.com/evolution-foundation/evolution-go/pkg/config"
-	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
-	instance_repository "github.com/evolution-foundation/evolution-go/pkg/instance/repository"
-	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
-	"github.com/evolution-foundation/evolution-go/pkg/webhooksign"
-	whatsmeow_service "github.com/evolution-foundation/evolution-go/pkg/whatsmeow/service"
+	"github.com/felipeestevanatto/wamux/pkg/config"
+	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
+	instance_repository "github.com/felipeestevanatto/wamux/pkg/instance/repository"
+	logger_wrapper "github.com/felipeestevanatto/wamux/pkg/logger"
+	"github.com/felipeestevanatto/wamux/pkg/webhooksign"
+	whatsmeow_service "github.com/felipeestevanatto/wamux/pkg/whatsmeow/service"
 )
 
 // s3Repo is a minimal InstanceRepository for the S3 config path.

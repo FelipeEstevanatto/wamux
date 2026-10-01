@@ -21,7 +21,7 @@
 //
 // Import this package instead of encoding/json in code on the message path:
 //
-//	import "github.com/evolution-foundation/evolution-go/pkg/jsonx"
+//	import "github.com/felipeestevanatto/wamux/pkg/jsonx"
 //	b, err := jsonx.Marshal(payload)
 //
 // The default build (`go build ./...`) uses the stdlib; build the binary with

@@ -33,7 +33,7 @@ func captureStdLog(t *testing.T) *bytes.Buffer {
 
 func TestLogLevelsEmitExpectedPrefixes(t *testing.T) {
 	buf := captureStdLog(t)
-	l := NewLogger("evolution-go", "app", true, WebhookConfig{})
+	l := NewLogger("wamux", "app", true, WebhookConfig{})
 
 	l.LogInfo("hello %s", "world")
 	l.LogWarn("careful")
@@ -41,7 +41,7 @@ func TestLogLevelsEmitExpectedPrefixes(t *testing.T) {
 
 	out := buf.String()
 	for _, want := range []string{
-		"[evolution-go]",
+		"[wamux]",
 		"[INFO]",
 		"[WARN]",
 		"[ERR]",
@@ -108,7 +108,7 @@ func TestWebhookDelivery(t *testing.T) {
 	defer srv.Close()
 
 	cfg := WebhookConfig{URL: srv.URL, SendError: true, SendWarn: true}.WithWebhookClient(srv.Client())
-	l := NewLogger("evolution-go", "app", false, cfg)
+	l := NewLogger("wamux", "app", false, cfg)
 
 	l.LogWarn("warn msg")
 	l.LogError("error msg")
@@ -117,7 +117,7 @@ func TestWebhookDelivery(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("expected 2 webhook calls, got %d: %+v", len(got), got)
 	}
-	if got[0]["serviceName"] != "evolution-go" || got[0]["level"] != "WARN" || got[0]["message"] != "warn msg" {
+	if got[0]["serviceName"] != "wamux" || got[0]["level"] != "WARN" || got[0]["message"] != "warn msg" {
 		t.Fatalf("unexpected warn payload: %+v", got[0])
 	}
 	if got[1]["level"] != "ERR" || got[1]["message"] != "error msg" {

@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
+	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )

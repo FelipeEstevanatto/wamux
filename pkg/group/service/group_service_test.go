@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/evolution-foundation/evolution-go/pkg/utils"
+	"github.com/felipeestevanatto/wamux/pkg/utils"
 	"go.mau.fi/whatsmeow/types"
 )
 

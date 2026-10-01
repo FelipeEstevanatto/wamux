@@ -537,4 +537,4 @@ Labels são **privadas** - apenas você vê suas labels. O destinatário não v�
 
 ---
 
-**Documentação gerada para Evolution GO v1.0**
+**Documentação gerada para WaMux v1.0**

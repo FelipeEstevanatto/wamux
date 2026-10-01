@@ -5,8 +5,8 @@ import (
 	"strings"
 	"sync"
 
-	applog "github.com/evolution-foundation/evolution-go/pkg/applog"
-	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
+	applog "github.com/felipeestevanatto/wamux/pkg/applog"
+	logger_wrapper "github.com/felipeestevanatto/wamux/pkg/logger"
 	"github.com/gorilla/websocket"
 )
 

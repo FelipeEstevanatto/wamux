@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	typebot_model "github.com/evolution-foundation/evolution-go/pkg/typebot/model"
+	typebot_model "github.com/felipeestevanatto/wamux/pkg/typebot/model"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )

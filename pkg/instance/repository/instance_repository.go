@@ -3,17 +3,17 @@ package instance_repository
 import (
 	"fmt"
 
-	applog "github.com/evolution-foundation/evolution-go/pkg/applog"
-	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
-	"github.com/evolution-foundation/evolution-go/pkg/tokencrypt"
+	applog "github.com/felipeestevanatto/wamux/pkg/applog"
+	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
+	"github.com/felipeestevanatto/wamux/pkg/tokencrypt"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	label_model "github.com/evolution-foundation/evolution-go/pkg/label/model"
-	label_repository "github.com/evolution-foundation/evolution-go/pkg/label/repository"
+	label_model "github.com/felipeestevanatto/wamux/pkg/label/model"
+	label_repository "github.com/felipeestevanatto/wamux/pkg/label/repository"
 
-	message_model "github.com/evolution-foundation/evolution-go/pkg/message/model"
-	message_repository "github.com/evolution-foundation/evolution-go/pkg/message/repository"
+	message_model "github.com/felipeestevanatto/wamux/pkg/message/model"
+	message_repository "github.com/felipeestevanatto/wamux/pkg/message/repository"
 )
 
 type InstanceRepository interface {

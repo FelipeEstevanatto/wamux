@@ -11,7 +11,7 @@ package instance_service
 // Testing never touches the instance's live connection, so it is safe to run on
 // a connected instance.
 //
-// Ported from NathanAshford/evolution-go-custom.
+// Ported from NathanAshford/wamux-custom.
 
 import (
 	"context"
@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/evolution-foundation/evolution-go/pkg/utils"
+	"github.com/felipeestevanatto/wamux/pkg/utils"
 )
 
 // proxyProbeTimeout bounds the whole check. A proxy that needs longer than this

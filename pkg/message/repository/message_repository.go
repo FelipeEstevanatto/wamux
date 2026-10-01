@@ -6,8 +6,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	applog "github.com/evolution-foundation/evolution-go/pkg/applog"
-	message_model "github.com/evolution-foundation/evolution-go/pkg/message/model"
+	applog "github.com/felipeestevanatto/wamux/pkg/applog"
+	message_model "github.com/felipeestevanatto/wamux/pkg/message/model"
 	"github.com/patrickmn/go-cache"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"

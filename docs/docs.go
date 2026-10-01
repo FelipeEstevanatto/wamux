@@ -29,7 +29,7 @@ const docTemplate = `{
                     "200": {
                         "description": "service info",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.RootInfo"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.RootInfo"
                         }
                     }
                 }
@@ -55,7 +55,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_call_service.RejectCallStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_call_service.RejectCallStruct"
                         }
                     }
                 ],
@@ -63,19 +63,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -101,7 +101,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_chat_service.BodyStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_chat_service.BodyStruct"
                         }
                     }
                 ],
@@ -111,13 +111,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ChatActionResult"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ChatActionResult"
                                         }
                                     }
                                 }
@@ -127,13 +127,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -161,13 +161,13 @@ const docTemplate = `{
                     "200": {
                         "description": "Conversations",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -193,7 +193,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_chat_service.EphemeralStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_chat_service.EphemeralStruct"
                         }
                     }
                 ],
@@ -201,19 +201,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -254,19 +254,19 @@ const docTemplate = `{
                     "200": {
                         "description": "Messages, newest first",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -292,7 +292,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_chat_service.HistorySyncRequestStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_chat_service.HistorySyncRequestStruct"
                         }
                     }
                 ],
@@ -302,13 +302,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.HistorySyncResult"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.HistorySyncResult"
                                         }
                                     }
                                 }
@@ -318,13 +318,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -359,7 +359,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Media not found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -385,7 +385,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_chat_service.BodyStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_chat_service.BodyStruct"
                         }
                     }
                 ],
@@ -395,13 +395,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ChatActionResult"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ChatActionResult"
                                         }
                                     }
                                 }
@@ -411,13 +411,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -443,7 +443,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_chat_service.BodyStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_chat_service.BodyStruct"
                         }
                     }
                 ],
@@ -453,13 +453,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ChatActionResult"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ChatActionResult"
                                         }
                                     }
                                 }
@@ -469,13 +469,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -501,7 +501,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_chat_service.BodyStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_chat_service.BodyStruct"
                         }
                     }
                 ],
@@ -511,13 +511,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ChatActionResult"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ChatActionResult"
                                         }
                                     }
                                 }
@@ -527,13 +527,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -559,7 +559,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_chat_service.BodyStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_chat_service.BodyStruct"
                         }
                     }
                 ],
@@ -569,13 +569,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ChatActionResult"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ChatActionResult"
                                         }
                                     }
                                 }
@@ -585,13 +585,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -617,7 +617,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_chat_service.BodyStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_chat_service.BodyStruct"
                         }
                     }
                 ],
@@ -627,13 +627,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ChatActionResult"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ChatActionResult"
                                         }
                                     }
                                 }
@@ -643,13 +643,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -675,7 +675,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_community_service.AddParticipantStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_community_service.AddParticipantStruct"
                         }
                     }
                 ],
@@ -685,13 +685,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.CommunityMutation"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.CommunityMutation"
                                         }
                                     }
                                 }
@@ -701,13 +701,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -733,7 +733,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_community_service.CreateCommunityStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_community_service.CreateCommunityStruct"
                         }
                     }
                 ],
@@ -743,13 +743,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Community"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Community"
                                         }
                                     }
                                 }
@@ -759,13 +759,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -791,7 +791,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_community_service.AddParticipantStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_community_service.AddParticipantStruct"
                         }
                     }
                 ],
@@ -801,13 +801,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.CommunityMutation"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.CommunityMutation"
                                         }
                                     }
                                 }
@@ -817,13 +817,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -849,7 +849,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_group_service.CreateGroupStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_group_service.CreateGroupStruct"
                         }
                     }
                 ],
@@ -859,13 +859,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.GroupCreateResult"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.GroupCreateResult"
                                         }
                                     }
                                 }
@@ -875,13 +875,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -907,7 +907,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_group_service.SetGroupDescriptionStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_group_service.SetGroupDescriptionStruct"
                         }
                     }
                 ],
@@ -915,19 +915,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -953,7 +953,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_group_service.GetGroupInfoStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_group_service.GetGroupInfoStruct"
                         }
                     }
                 ],
@@ -963,13 +963,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Group"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Group"
                                         }
                                     }
                                 }
@@ -979,13 +979,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1011,7 +1011,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_group_service.GetGroupInviteLinkStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_group_service.GetGroupInviteLinkStruct"
                         }
                     }
                 ],
@@ -1021,7 +1021,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
@@ -1037,13 +1037,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1069,7 +1069,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_group_service.JoinGroupStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_group_service.JoinGroupStruct"
                         }
                     }
                 ],
@@ -1077,19 +1077,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1115,7 +1115,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_group_service.LeaveGroupStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_group_service.LeaveGroupStruct"
                         }
                     }
                 ],
@@ -1123,19 +1123,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1160,7 +1160,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
@@ -1168,7 +1168,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Group"
+                                                "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Group"
                                             }
                                         }
                                     }
@@ -1179,7 +1179,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1204,7 +1204,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
@@ -1212,7 +1212,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Group"
+                                                "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Group"
                                             }
                                         }
                                     }
@@ -1223,7 +1223,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1249,7 +1249,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_group_service.SetGroupNameStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_group_service.SetGroupNameStruct"
                         }
                     }
                 ],
@@ -1257,19 +1257,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1295,7 +1295,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_group_service.AddParticipantStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_group_service.AddParticipantStruct"
                         }
                     }
                 ],
@@ -1303,19 +1303,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1341,7 +1341,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_group_service.SetGroupPhotoStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_group_service.SetGroupPhotoStruct"
                         }
                     }
                 ],
@@ -1351,7 +1351,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
@@ -1367,13 +1367,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1399,7 +1399,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_group_service.GetGroupRequestParticipantsStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_group_service.GetGroupRequestParticipantsStruct"
                         }
                     }
                 ],
@@ -1407,19 +1407,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1445,7 +1445,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_group_service.UpdateGroupSettingsStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_group_service.UpdateGroupSettingsStruct"
                         }
                     }
                 ],
@@ -1453,19 +1453,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1491,7 +1491,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_group_service.UpdateGroupRequestParticipantsStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_group_service.UpdateGroupRequestParticipantsStruct"
                         }
                     }
                 ],
@@ -1499,19 +1499,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1536,7 +1536,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
@@ -1544,7 +1544,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Instance"
+                                                "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Instance"
                                             }
                                         }
                                     }
@@ -1555,7 +1555,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1581,7 +1581,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_instance_service.ConnectStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_instance_service.ConnectStruct"
                         }
                     }
                 ],
@@ -1591,13 +1591,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.QRCode"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.QRCode"
                                         }
                                     }
                                 }
@@ -1607,13 +1607,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1639,7 +1639,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_instance_service.CreateStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_instance_service.CreateStruct"
                         }
                     }
                 ],
@@ -1649,13 +1649,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Instance"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Instance"
                                         }
                                     }
                                 }
@@ -1665,13 +1665,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1703,19 +1703,19 @@ const docTemplate = `{
                     "200": {
                         "description": "Instance deleted successfully",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1738,13 +1738,13 @@ const docTemplate = `{
                     "200": {
                         "description": "Instance disconnected successfully",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1777,7 +1777,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_instance_service.ForceReconnectStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_instance_service.ForceReconnectStruct"
                         }
                     }
                 ],
@@ -1785,19 +1785,19 @@ const docTemplate = `{
                     "200": {
                         "description": "Instance force reconnected successfully",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1819,13 +1819,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_instance_service.HmacConfigStatus"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_instance_service.HmacConfigStatus"
                                         }
                                     }
                                 }
@@ -1835,7 +1835,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1869,7 +1869,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
@@ -1885,13 +1885,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1909,13 +1909,13 @@ const docTemplate = `{
                     "200": {
                         "description": "Key deleted",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -1949,13 +1949,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Instance"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Instance"
                                         }
                                     }
                                 }
@@ -1965,13 +1965,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2005,13 +2005,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Limits"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Limits"
                                         }
                                     }
                                 }
@@ -2021,13 +2021,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2050,13 +2050,13 @@ const docTemplate = `{
                     "200": {
                         "description": "Instance logged out successfully",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2111,20 +2111,20 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.LogEntry"
+                                "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.LogEntry"
                             }
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2157,7 +2157,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_instance_service.RenameStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_instance_service.RenameStruct"
                         }
                     }
                 ],
@@ -2167,13 +2167,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Instance"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Instance"
                                         }
                                     }
                                 }
@@ -2183,13 +2183,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2220,13 +2220,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.InstanceOverview"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.InstanceOverview"
                                         }
                                     }
                                 }
@@ -2236,13 +2236,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2268,7 +2268,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_instance_service.PairStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_instance_service.PairStruct"
                         }
                     }
                 ],
@@ -2278,13 +2278,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.PairResult"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.PairResult"
                                         }
                                     }
                                 }
@@ -2294,13 +2294,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2334,13 +2334,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ProxyGet"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ProxyGet"
                                         }
                                     }
                                 }
@@ -2350,13 +2350,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2387,7 +2387,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_instance_service.SetProxyStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_instance_service.SetProxyStruct"
                         }
                     }
                 ],
@@ -2397,13 +2397,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ProxySet"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ProxySet"
                                         }
                                     }
                                 }
@@ -2413,13 +2413,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2449,19 +2449,19 @@ const docTemplate = `{
                     "200": {
                         "description": "Proxy deleted successfully",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2493,19 +2493,19 @@ const docTemplate = `{
                     "200": {
                         "description": "Proxy reconnected successfully",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2537,7 +2537,7 @@ const docTemplate = `{
                         "name": "proxy",
                         "in": "body",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_instance_service.ProxyConfig"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_instance_service.ProxyConfig"
                         }
                     }
                 ],
@@ -2545,19 +2545,19 @@ const docTemplate = `{
                     "200": {
                         "description": "Proxy test result",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_instance_service.ProxyTestResult"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_instance_service.ProxyTestResult"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2582,13 +2582,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.QRCode"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.QRCode"
                                         }
                                     }
                                 }
@@ -2598,7 +2598,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2621,13 +2621,13 @@ const docTemplate = `{
                     "200": {
                         "description": "Instance reconnected successfully",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2647,13 +2647,13 @@ const docTemplate = `{
                     "200": {
                         "description": "Configuration",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2677,7 +2677,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_instance_service.S3ConfigStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_instance_service.S3ConfigStruct"
                         }
                     }
                 ],
@@ -2685,19 +2685,19 @@ const docTemplate = `{
                     "200": {
                         "description": "Configured",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2715,13 +2715,13 @@ const docTemplate = `{
                     "200": {
                         "description": "Cleared",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2746,7 +2746,7 @@ const docTemplate = `{
                         "name": "request",
                         "in": "body",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_instance_service.S3ConfigStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_instance_service.S3ConfigStruct"
                         }
                     }
                 ],
@@ -2754,19 +2754,19 @@ const docTemplate = `{
                     "200": {
                         "description": "Reachable",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2791,13 +2791,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ConnectionStatus"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ConnectionStatus"
                                         }
                                     }
                                 }
@@ -2807,7 +2807,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2836,25 +2836,25 @@ const docTemplate = `{
                     "200": {
                         "description": "Advanced settings retrieved successfully",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_instance_model.AdvancedSettings"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_instance_model.AdvancedSettings"
                         }
                     },
                     "400": {
                         "description": "Invalid instance ID",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2885,7 +2885,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_instance_model.AdvancedSettings"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_instance_model.AdvancedSettings"
                         }
                     }
                 ],
@@ -2893,25 +2893,25 @@ const docTemplate = `{
                     "200": {
                         "description": "Advanced settings updated successfully",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_instance_model.AdvancedSettings"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_instance_model.AdvancedSettings"
                         }
                     },
                     "400": {
                         "description": "Invalid request data",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2937,7 +2937,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_label_service.ChatLabelStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_label_service.ChatLabelStruct"
                         }
                     }
                 ],
@@ -2945,19 +2945,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -2983,7 +2983,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_label_service.EditLabelStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_label_service.EditLabelStruct"
                         }
                     }
                 ],
@@ -2991,19 +2991,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3028,14 +3028,14 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Label"
+                                "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Label"
                             }
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3061,7 +3061,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_label_service.MessageLabelStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_label_service.MessageLabelStruct"
                         }
                     }
                 ],
@@ -3069,19 +3069,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3107,7 +3107,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_message_service.MessageStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_message_service.MessageStruct"
                         }
                     }
                 ],
@@ -3117,13 +3117,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageMutationResult"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.MessageMutationResult"
                                         }
                                     }
                                 }
@@ -3133,13 +3133,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3165,7 +3165,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_message_service.DownloadMediaStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_message_service.DownloadMediaStruct"
                         }
                     }
                 ],
@@ -3175,13 +3175,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.DownloadMedia"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.DownloadMedia"
                                         }
                                     }
                                 }
@@ -3191,13 +3191,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3223,7 +3223,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_message_service.EditMessageStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_message_service.EditMessageStruct"
                         }
                     }
                 ],
@@ -3233,13 +3233,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageMutationResult"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.MessageMutationResult"
                                         }
                                     }
                                 }
@@ -3249,13 +3249,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3281,7 +3281,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_message_service.MarkPlayedStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_message_service.MarkPlayedStruct"
                         }
                     }
                 ],
@@ -3291,13 +3291,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageActionResult"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.MessageActionResult"
                                         }
                                     }
                                 }
@@ -3307,13 +3307,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3339,7 +3339,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_message_service.MarkReadStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_message_service.MarkReadStruct"
                         }
                     }
                 ],
@@ -3349,13 +3349,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageActionResult"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.MessageActionResult"
                                         }
                                     }
                                 }
@@ -3365,13 +3365,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3397,7 +3397,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_message_service.ChatPresenceStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_message_service.ChatPresenceStruct"
                         }
                     }
                 ],
@@ -3407,13 +3407,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageActionResult"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.MessageActionResult"
                                         }
                                     }
                                 }
@@ -3423,13 +3423,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3455,7 +3455,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_message_service.ReactStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_message_service.ReactStruct"
                         }
                     }
                 ],
@@ -3465,13 +3465,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.MessageSend"
                                         }
                                     }
                                 }
@@ -3481,13 +3481,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3513,7 +3513,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_message_service.MessageStatusStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_message_service.MessageStatusStruct"
                         }
                     }
                 ],
@@ -3523,13 +3523,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageStatus"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.MessageStatus"
                                         }
                                     }
                                 }
@@ -3539,13 +3539,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3571,7 +3571,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_message_service.SubscribePresenceStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_message_service.SubscribePresenceStruct"
                         }
                     }
                 ],
@@ -3579,19 +3579,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3617,7 +3617,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_newsletter_service.CreateNewsletterStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_newsletter_service.CreateNewsletterStruct"
                         }
                     }
                 ],
@@ -3627,13 +3627,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Newsletter"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Newsletter"
                                         }
                                     }
                                 }
@@ -3643,13 +3643,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3675,7 +3675,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_newsletter_service.GetNewsletterStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_newsletter_service.GetNewsletterStruct"
                         }
                     }
                 ],
@@ -3685,13 +3685,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Newsletter"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Newsletter"
                                         }
                                     }
                                 }
@@ -3701,13 +3701,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3733,7 +3733,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_newsletter_service.GetNewsletterInviteStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_newsletter_service.GetNewsletterInviteStruct"
                         }
                     }
                 ],
@@ -3743,13 +3743,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Newsletter"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Newsletter"
                                         }
                                     }
                                 }
@@ -3759,13 +3759,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3790,7 +3790,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
@@ -3798,7 +3798,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Newsletter"
+                                                "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Newsletter"
                                             }
                                         }
                                     }
@@ -3809,7 +3809,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3835,7 +3835,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_newsletter_service.GetNewsletterMessagesStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_newsletter_service.GetNewsletterMessagesStruct"
                         }
                     }
                 ],
@@ -3845,7 +3845,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
@@ -3853,7 +3853,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterMessage"
+                                                "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.NewsletterMessage"
                                             }
                                         }
                                     }
@@ -3864,13 +3864,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3896,7 +3896,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_newsletter_service.GetNewsletterStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_newsletter_service.GetNewsletterStruct"
                         }
                     }
                 ],
@@ -3904,19 +3904,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3924,7 +3924,7 @@ const docTemplate = `{
         },
         "/passkey-ceremony/{token}": {
             "get": {
-                "description": "Returns the current WebAuthn passkey-pairing ceremony state for a token. PUBLIC endpoint (no apikey) — access is gated by the opaque short-lived ceremony token. Polled by the Evolution Passkey Helper browser extension.",
+                "description": "Returns the current WebAuthn passkey-pairing ceremony state for a token. PUBLIC endpoint (no apikey) — access is gated by the opaque short-lived ceremony token. Polled by the WaMux Passkey Helper browser extension.",
                 "produces": [
                     "application/json"
                 ],
@@ -3945,25 +3945,25 @@ const docTemplate = `{
                     "200": {
                         "description": "Ceremony state ({stage, skipHandoffUX, publicKey?, code?, error?})",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.PasskeyCeremony"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.PasskeyCeremony"
                         }
                     },
                     "400": {
                         "description": "token is required",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "ceremony not found or expired",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "503": {
                         "description": "passkey ceremony unavailable",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -3992,31 +3992,31 @@ const docTemplate = `{
                     "200": {
                         "description": "ok",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.PasskeyOK"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.PasskeyOK"
                         }
                     },
                     "400": {
                         "description": "token is required",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "ceremony not found or expired",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "503": {
                         "description": "passkey ceremony unavailable",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4057,31 +4057,31 @@ const docTemplate = `{
                     "200": {
                         "description": "ok",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.PasskeyOK"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.PasskeyOK"
                         }
                     },
                     "400": {
                         "description": "token is required / invalid body",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "ceremony not found or expired",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "503": {
                         "description": "passkey ceremony unavailable",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4113,25 +4113,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_poll_model.PollResults"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_poll_model.PollResults"
                         }
                     },
                     "400": {
                         "description": "pollMessageId is required",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "No votes found for this poll",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Failed to fetch poll results",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4157,7 +4157,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.ButtonStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.ButtonStruct"
                         }
                     }
                 ],
@@ -4167,13 +4167,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.MessageSend"
                                         }
                                     }
                                 }
@@ -4183,13 +4183,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4215,7 +4215,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.CarouselStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.CarouselStruct"
                         }
                     }
                 ],
@@ -4225,13 +4225,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.MessageSend"
                                         }
                                     }
                                 }
@@ -4241,13 +4241,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4273,7 +4273,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.ContactStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.ContactStruct"
                         }
                     }
                 ],
@@ -4283,13 +4283,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.MessageSend"
                                         }
                                     }
                                 }
@@ -4299,13 +4299,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4331,7 +4331,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.EventStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.EventStruct"
                         }
                     }
                 ],
@@ -4341,13 +4341,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.MessageSend"
                                         }
                                     }
                                 }
@@ -4357,13 +4357,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4389,7 +4389,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.LinkStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.LinkStruct"
                         }
                     }
                 ],
@@ -4399,13 +4399,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.MessageSend"
                                         }
                                     }
                                 }
@@ -4415,13 +4415,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4447,7 +4447,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.ListStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.ListStruct"
                         }
                     }
                 ],
@@ -4457,13 +4457,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.MessageSend"
                                         }
                                     }
                                 }
@@ -4473,13 +4473,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4505,7 +4505,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.LocationStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.LocationStruct"
                         }
                     }
                 ],
@@ -4515,13 +4515,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.MessageSend"
                                         }
                                     }
                                 }
@@ -4531,13 +4531,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4563,7 +4563,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.MediaStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.MediaStruct"
                         }
                     }
                 ],
@@ -4573,13 +4573,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.MessageSend"
                                         }
                                     }
                                 }
@@ -4589,13 +4589,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4621,7 +4621,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.PollStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.PollStruct"
                         }
                     }
                 ],
@@ -4631,13 +4631,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.MessageSend"
                                         }
                                     }
                                 }
@@ -4647,13 +4647,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4679,7 +4679,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.ProductStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.ProductStruct"
                         }
                     }
                 ],
@@ -4689,13 +4689,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.MessageSend"
                                         }
                                     }
                                 }
@@ -4705,13 +4705,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4770,13 +4770,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.MessageSend"
                                         }
                                     }
                                 }
@@ -4786,13 +4786,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4818,7 +4818,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.StatusTextStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.StatusTextStruct"
                         }
                     }
                 ],
@@ -4828,13 +4828,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.MessageSend"
                                         }
                                     }
                                 }
@@ -4844,13 +4844,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4876,7 +4876,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.StickerStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.StickerStruct"
                         }
                     }
                 ],
@@ -4886,13 +4886,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.MessageSend"
                                         }
                                     }
                                 }
@@ -4902,13 +4902,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4934,7 +4934,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.TextStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.TextStruct"
                         }
                     }
                 ],
@@ -4944,13 +4944,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.MessageSend"
                                         }
                                     }
                                 }
@@ -4960,13 +4960,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -4986,7 +4986,7 @@ const docTemplate = `{
                     "200": {
                         "description": "status",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ServerOK"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ServerOK"
                         }
                     }
                 }
@@ -5006,7 +5006,7 @@ const docTemplate = `{
                     "200": {
                         "description": "system and messages",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ServerStats"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ServerStats"
                         }
                     }
                 }
@@ -5027,14 +5027,14 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_typebot_model.Typebot"
+                                "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_typebot_model.Typebot"
                             }
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -5057,7 +5057,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_typebot_model.TypebotRequest"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_typebot_model.TypebotRequest"
                         }
                     }
                 ],
@@ -5065,19 +5065,19 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_typebot_model.Typebot"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_typebot_model.Typebot"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -5119,25 +5119,25 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.TypebotStatusChange"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.TypebotStatusChange"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "No session for that contact",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -5158,14 +5158,14 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_typebot_model.TypebotSession"
+                                "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_typebot_model.TypebotSession"
                             }
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -5193,13 +5193,13 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.TypebotSuccess"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.TypebotSuccess"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -5244,19 +5244,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.TypebotSuccess"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.TypebotSuccess"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -5288,7 +5288,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_typebot_model.TypebotRequest"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_typebot_model.TypebotRequest"
                         }
                     }
                 ],
@@ -5296,19 +5296,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_typebot_model.Typebot"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_typebot_model.Typebot"
                         }
                     },
                     "404": {
                         "description": "Not found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -5334,13 +5334,13 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.TypebotSuccess"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.TypebotSuccess"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -5366,7 +5366,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_label_service.ChatLabelStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_label_service.ChatLabelStruct"
                         }
                     }
                 ],
@@ -5374,19 +5374,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -5412,7 +5412,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_label_service.MessageLabelStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_label_service.MessageLabelStruct"
                         }
                     }
                 ],
@@ -5420,19 +5420,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -5458,7 +5458,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_user_service.GetAvatarStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_user_service.GetAvatarStruct"
                         }
                     }
                 ],
@@ -5468,13 +5468,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Avatar"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Avatar"
                                         }
                                     }
                                 }
@@ -5484,25 +5484,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "429": {
                         "description": "WhatsApp rate limit",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "504": {
                         "description": "WhatsApp query timeout",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -5528,7 +5528,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_user_service.BlockStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_user_service.BlockStruct"
                         }
                     }
                 ],
@@ -5538,13 +5538,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Blocklist"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Blocklist"
                                         }
                                     }
                                 }
@@ -5554,13 +5554,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -5585,13 +5585,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Blocklist"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Blocklist"
                                         }
                                     }
                                 }
@@ -5601,7 +5601,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -5627,7 +5627,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_user_service.CheckUserStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_user_service.CheckUserStruct"
                         }
                     }
                 ],
@@ -5637,13 +5637,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.CheckUserCollection"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.CheckUserCollection"
                                         }
                                     }
                                 }
@@ -5653,13 +5653,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -5684,7 +5684,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
@@ -5692,7 +5692,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Contact"
+                                                "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Contact"
                                             }
                                         }
                                     }
@@ -5703,7 +5703,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -5729,7 +5729,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_user_service.CheckUserStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_user_service.CheckUserStruct"
                         }
                     }
                 ],
@@ -5739,13 +5739,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.UserCollection"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.UserCollection"
                                         }
                                     }
                                 }
@@ -5755,25 +5755,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "429": {
                         "description": "WhatsApp rate limit",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "504": {
                         "description": "WhatsApp query timeout",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -5799,7 +5799,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_user_service.ResolveLidStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_user_service.ResolveLidStruct"
                         }
                     }
                 ],
@@ -5809,13 +5809,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ResolveLid"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ResolveLid"
                                         }
                                     }
                                 }
@@ -5825,13 +5825,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -5856,13 +5856,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Privacy"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Privacy"
                                         }
                                     }
                                 }
@@ -5872,7 +5872,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -5896,7 +5896,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_user_service.PrivacyStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_user_service.PrivacyStruct"
                         }
                     }
                 ],
@@ -5906,13 +5906,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Privacy"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Privacy"
                                         }
                                     }
                                 }
@@ -5922,7 +5922,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -5948,7 +5948,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_user_service.SetProfileNameStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_user_service.SetProfileNameStruct"
                         }
                     }
                 ],
@@ -5958,13 +5958,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ProfileName"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ProfileName"
                                         }
                                     }
                                 }
@@ -5974,13 +5974,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -6006,7 +6006,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_user_service.SetProfilePictureStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_user_service.SetProfilePictureStruct"
                         }
                     }
                 ],
@@ -6016,13 +6016,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ProfilePicture"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ProfilePicture"
                                         }
                                     }
                                 }
@@ -6032,13 +6032,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -6064,7 +6064,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_user_service.SetProfileStatusStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_user_service.SetProfileStatusStruct"
                         }
                     }
                 ],
@@ -6074,13 +6074,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ProfileStatus"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ProfileStatus"
                                         }
                                     }
                                 }
@@ -6090,13 +6090,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -6122,7 +6122,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_user_service.SaveContactStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_user_service.SaveContactStruct"
                         }
                     }
                 ],
@@ -6130,19 +6130,19 @@ const docTemplate = `{
                     "200": {
                         "description": "success",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -6168,7 +6168,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_user_service.BlockStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_user_service.BlockStruct"
                         }
                     }
                 ],
@@ -6178,13 +6178,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope"
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.Blocklist"
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Blocklist"
                                         }
                                     }
                                 }
@@ -6194,13 +6194,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Error on validation",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     }
                 }
@@ -6208,7 +6208,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "github_com_evolution-foundation_evolution-go_pkg_call_service.RejectCallStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_call_service.RejectCallStruct": {
             "type": "object",
             "properties": {
                 "callCreator": {
@@ -6220,7 +6220,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_chat_service.BodyStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_chat_service.BodyStruct": {
             "type": "object",
             "properties": {
                 "chat": {
@@ -6229,7 +6229,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_chat_service.EphemeralStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_chat_service.EphemeralStruct": {
             "type": "object",
             "properties": {
                 "chat": {
@@ -6243,7 +6243,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_chat_service.HistorySyncRequestStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_chat_service.HistorySyncRequestStruct": {
             "type": "object",
             "properties": {
                 "count": {
@@ -6255,7 +6255,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_community_service.AddParticipantStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_community_service.AddParticipantStruct": {
             "type": "object",
             "properties": {
                 "communityJid": {
@@ -6273,7 +6273,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_community_service.CreateCommunityStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_community_service.CreateCommunityStruct": {
             "type": "object",
             "properties": {
                 "communityName": {
@@ -6282,7 +6282,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.Avatar": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.Avatar": {
             "type": "object",
             "properties": {
                 "direct_path": {
@@ -6307,7 +6307,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.Blocklist": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.Blocklist": {
             "type": "object",
             "properties": {
                 "DHash": {
@@ -6325,7 +6325,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.ChatActionResult": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.ChatActionResult": {
             "type": "object",
             "properties": {
                 "timestamp": {
@@ -6334,7 +6334,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.CheckUser": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.CheckUser": {
             "type": "object",
             "properties": {
                 "IsInWhatsapp": {
@@ -6360,18 +6360,18 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.CheckUserCollection": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.CheckUserCollection": {
             "type": "object",
             "properties": {
                 "Users": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.CheckUser"
+                        "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.CheckUser"
                     }
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.Community": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.Community": {
             "type": "object",
             "properties": {
                 "JID": {
@@ -6384,7 +6384,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.CommunityMutation": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.CommunityMutation": {
             "type": "object",
             "properties": {
                 "JID": {
@@ -6409,7 +6409,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.ConnectionStatus": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.ConnectionStatus": {
             "type": "object",
             "properties": {
                 "Connected": {
@@ -6426,7 +6426,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.Contact": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.Contact": {
             "type": "object",
             "properties": {
                 "BusinessName": {
@@ -6455,7 +6455,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.DownloadMedia": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.DownloadMedia": {
             "type": "object",
             "properties": {
                 "base64": {
@@ -6464,7 +6464,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.Envelope": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope": {
             "type": "object",
             "properties": {
                 "data": {},
@@ -6474,7 +6474,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.ErrorResponse": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse": {
             "type": "object",
             "properties": {
                 "error": {
@@ -6483,7 +6483,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.Group": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.Group": {
             "type": "object",
             "properties": {
                 "AddressingMode": {
@@ -6585,7 +6585,7 @@ const docTemplate = `{
                 "Participants": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.GroupParticipant"
+                        "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.GroupParticipant"
                     }
                 },
                 "Suspended": {
@@ -6618,7 +6618,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.GroupCreateResult": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.GroupCreateResult": {
             "type": "object",
             "properties": {
                 "added": {
@@ -6654,7 +6654,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.GroupParticipant": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.GroupParticipant": {
             "type": "object",
             "properties": {
                 "AddRequest": {},
@@ -6688,7 +6688,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.HistorySyncResult": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.HistorySyncResult": {
             "type": "object",
             "properties": {
                 "ID": {
@@ -6701,7 +6701,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.Instance": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.Instance": {
             "type": "object",
             "properties": {
                 "alwaysOnline": {
@@ -6710,7 +6710,7 @@ const docTemplate = `{
                 },
                 "client_name": {
                     "type": "string",
-                    "example": "evolution"
+                    "example": "wamux"
                 },
                 "connected": {
                     "type": "boolean",
@@ -6762,7 +6762,7 @@ const docTemplate = `{
                 },
                 "os_name": {
                     "type": "string",
-                    "example": "Evolution GO"
+                    "example": "WaMux"
                 },
                 "proxy": {
                     "type": "string",
@@ -6790,7 +6790,7 @@ const docTemplate = `{
                 },
                 "webhook": {
                     "type": "string",
-                    "example": "https://webhook.example.com/evolution"
+                    "example": "https://webhook.example.com/wamux"
                 },
                 "websocketEnable": {
                     "type": "string",
@@ -6798,7 +6798,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.InstanceOverview": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.InstanceOverview": {
             "type": "object",
             "properties": {
                 "chatsCount": {
@@ -6831,7 +6831,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.Label": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.Label": {
             "type": "object",
             "properties": {
                 "color": {
@@ -6856,18 +6856,18 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.Limits": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.Limits": {
             "type": "object",
             "properties": {
                 "newChatCapping": {
-                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.NewChatCapping"
+                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.NewChatCapping"
                 },
                 "reachoutTimelock": {
-                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.ReachoutTimelock"
+                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ReachoutTimelock"
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.LogEntry": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.LogEntry": {
             "type": "object",
             "properties": {
                 "instance_id": {
@@ -6888,7 +6888,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageActionResult": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.MessageActionResult": {
             "type": "object",
             "properties": {
                 "timestamp": {
@@ -6897,7 +6897,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageBody": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.MessageBody": {
             "type": "object",
             "properties": {
                 "conversation": {
@@ -6906,7 +6906,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageInfo": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.MessageInfo": {
             "type": "object",
             "properties": {
                 "Chat": {
@@ -6935,7 +6935,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageMutationResult": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.MessageMutationResult": {
             "type": "object",
             "properties": {
                 "messageId": {
@@ -6948,18 +6948,18 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageSend": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.MessageSend": {
             "type": "object",
             "properties": {
                 "Info": {
-                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageInfo"
+                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.MessageInfo"
                 },
                 "Message": {
-                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageBody"
+                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.MessageBody"
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageStats": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.MessageStats": {
             "type": "object",
             "properties": {
                 "byDay": {
@@ -7024,11 +7024,11 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageStatus": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.MessageStatus": {
             "type": "object",
             "properties": {
                 "result": {
-                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageStatusRow"
+                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.MessageStatusRow"
                 },
                 "timestamp": {
                     "type": "string",
@@ -7036,7 +7036,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageStatusRow": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.MessageStatusRow": {
             "type": "object",
             "properties": {
                 "id": {
@@ -7065,7 +7065,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.NewChatCapping": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.NewChatCapping": {
             "type": "object",
             "properties": {
                 "cappingStatus": {
@@ -7086,7 +7086,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.Newsletter": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.Newsletter": {
             "type": "object",
             "properties": {
                 "id": {
@@ -7094,17 +7094,17 @@ const docTemplate = `{
                     "example": "120363000000000000@newsletter"
                 },
                 "state": {
-                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterState"
+                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.NewsletterState"
                 },
                 "thread_metadata": {
-                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterThreadMetadata"
+                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.NewsletterThreadMetadata"
                 },
                 "viewer_metadata": {
-                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterViewerMetadata"
+                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.NewsletterViewerMetadata"
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterMedia": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.NewsletterMedia": {
             "type": "object",
             "properties": {
                 "direct_path": {
@@ -7126,7 +7126,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterMessage": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.NewsletterMessage": {
             "type": "object",
             "properties": {
                 "id": {
@@ -7152,7 +7152,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterSettings": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.NewsletterSettings": {
             "type": "object",
             "properties": {
                 "reaction_codes": {
@@ -7166,7 +7166,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterState": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.NewsletterState": {
             "type": "object",
             "properties": {
                 "type": {
@@ -7175,7 +7175,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterTextField": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.NewsletterTextField": {
             "type": "object",
             "properties": {
                 "id": {
@@ -7192,7 +7192,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterThreadMetadata": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.NewsletterThreadMetadata": {
             "type": "object",
             "properties": {
                 "creation_time": {
@@ -7200,23 +7200,23 @@ const docTemplate = `{
                     "example": "1790227149"
                 },
                 "description": {
-                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterTextField"
+                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.NewsletterTextField"
                 },
                 "invite": {
                     "type": "string",
                     "example": "0029Vb8UfYvBadmcTuuhZC28"
                 },
                 "name": {
-                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterTextField"
+                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.NewsletterTextField"
                 },
                 "picture": {
-                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterMedia"
+                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.NewsletterMedia"
                 },
                 "preview": {
-                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterMedia"
+                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.NewsletterMedia"
                 },
                 "settings": {
-                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterSettings"
+                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.NewsletterSettings"
                 },
                 "subscribers_count": {
                     "type": "string",
@@ -7228,7 +7228,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.NewsletterViewerMetadata": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.NewsletterViewerMetadata": {
             "type": "object",
             "properties": {
                 "mute": {
@@ -7241,7 +7241,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.PairResult": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.PairResult": {
             "type": "object",
             "properties": {
                 "pairingCode": {
@@ -7250,7 +7250,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.PasskeyCeremony": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.PasskeyCeremony": {
             "type": "object",
             "properties": {
                 "code": {
@@ -7272,7 +7272,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.PasskeyOK": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.PasskeyOK": {
             "type": "object",
             "properties": {
                 "ok": {
@@ -7281,7 +7281,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.Privacy": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.Privacy": {
             "type": "object",
             "properties": {
                 "CallAdd": {
@@ -7326,7 +7326,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.ProfileName": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.ProfileName": {
             "type": "object",
             "properties": {
                 "name": {
@@ -7335,7 +7335,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.ProfilePicture": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.ProfilePicture": {
             "type": "object",
             "properties": {
                 "image": {
@@ -7344,7 +7344,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.ProfileStatus": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.ProfileStatus": {
             "type": "object",
             "properties": {
                 "status": {
@@ -7353,7 +7353,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.ProxyGet": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.ProxyGet": {
             "type": "object",
             "properties": {
                 "hasPassword": {
@@ -7378,7 +7378,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.ProxySet": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.ProxySet": {
             "type": "object",
             "properties": {
                 "hasAuth": {
@@ -7399,7 +7399,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.QRCode": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.QRCode": {
             "type": "object",
             "properties": {
                 "qrcode": {
@@ -7408,7 +7408,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.ReachoutTimelock": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.ReachoutTimelock": {
             "type": "object",
             "properties": {
                 "enforcementType": {
@@ -7425,7 +7425,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.ResolveLid": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.ResolveLid": {
             "type": "object",
             "properties": {
                 "jid": {
@@ -7442,12 +7442,12 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.RootInfo": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.RootInfo": {
             "type": "object",
             "properties": {
                 "clientName": {
                     "type": "string",
-                    "example": "evolution"
+                    "example": "wamux"
                 },
                 "documentation": {
                     "type": "string",
@@ -7463,7 +7463,7 @@ const docTemplate = `{
                 },
                 "message": {
                     "type": "string",
-                    "example": "Welcome to Evolution GO, it is working!"
+                    "example": "Welcome to WaMux, it is working!"
                 },
                 "status": {
                     "type": "integer",
@@ -7479,7 +7479,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.ServerOK": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.ServerOK": {
             "type": "object",
             "properties": {
                 "status": {
@@ -7488,21 +7488,21 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.ServerStats": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.ServerStats": {
             "type": "object",
             "properties": {
                 "messages": {
-                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.MessageStats"
+                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.MessageStats"
                 },
                 "storage": {
-                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.StorageStats"
+                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.StorageStats"
                 },
                 "system": {
-                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.SystemStats"
+                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.SystemStats"
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.StorageStats": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.StorageStats": {
             "type": "object",
             "properties": {
                 "dataDir": {
@@ -7551,7 +7551,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.SystemStats": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.SystemStats": {
             "type": "object",
             "properties": {
                 "goVersion": {
@@ -7616,7 +7616,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.TypebotStatusChange": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.TypebotStatusChange": {
             "type": "object",
             "properties": {
                 "remoteJid": {
@@ -7633,7 +7633,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.TypebotSuccess": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.TypebotSuccess": {
             "type": "object",
             "properties": {
                 "success": {
@@ -7642,18 +7642,18 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.UserCollection": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.UserCollection": {
             "type": "object",
             "properties": {
                 "Users": {
                     "type": "object",
                     "additionalProperties": {
-                        "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_docmodels.UserInfo"
+                        "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.UserInfo"
                     }
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_docmodels.UserInfo": {
+        "github_com_felipeestevanatto_wamux_pkg_docmodels.UserInfo": {
             "type": "object",
             "properties": {
                 "Devices": {
@@ -7685,7 +7685,7 @@ const docTemplate = `{
                 "VerifiedName": {}
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_group_service.AddParticipantStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_group_service.AddParticipantStruct": {
             "type": "object",
             "properties": {
                 "action": {
@@ -7710,7 +7710,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_group_service.CreateGroupStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_group_service.CreateGroupStruct": {
             "type": "object",
             "properties": {
                 "groupName": {
@@ -7729,7 +7729,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_group_service.GetGroupInfoStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_group_service.GetGroupInfoStruct": {
             "type": "object",
             "properties": {
                 "groupJid": {
@@ -7738,7 +7738,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_group_service.GetGroupInviteLinkStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_group_service.GetGroupInviteLinkStruct": {
             "type": "object",
             "properties": {
                 "groupJid": {
@@ -7751,7 +7751,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_group_service.GetGroupRequestParticipantsStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_group_service.GetGroupRequestParticipantsStruct": {
             "type": "object",
             "properties": {
                 "groupJid": {
@@ -7759,7 +7759,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_group_service.JoinGroupStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_group_service.JoinGroupStruct": {
             "type": "object",
             "properties": {
                 "code": {
@@ -7768,7 +7768,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_group_service.LeaveGroupStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_group_service.LeaveGroupStruct": {
             "type": "object",
             "properties": {
                 "groupJid": {
@@ -7776,7 +7776,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_group_service.SetGroupDescriptionStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_group_service.SetGroupDescriptionStruct": {
             "type": "object",
             "properties": {
                 "description": {
@@ -7789,7 +7789,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_group_service.SetGroupNameStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_group_service.SetGroupNameStruct": {
             "type": "object",
             "properties": {
                 "groupJid": {
@@ -7802,7 +7802,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_group_service.SetGroupPhotoStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_group_service.SetGroupPhotoStruct": {
             "type": "object",
             "properties": {
                 "groupJid": {
@@ -7815,7 +7815,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_group_service.UpdateGroupRequestParticipantsStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_group_service.UpdateGroupRequestParticipantsStruct": {
             "type": "object",
             "properties": {
                 "action": {
@@ -7833,7 +7833,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_group_service.UpdateGroupSettingsStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_group_service.UpdateGroupSettingsStruct": {
             "type": "object",
             "properties": {
                 "action": {
@@ -7847,7 +7847,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_instance_model.AdvancedSettings": {
+        "github_com_felipeestevanatto_wamux_pkg_instance_model.AdvancedSettings": {
             "type": "object",
             "properties": {
                 "alwaysOnline": {
@@ -7876,7 +7876,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_instance_service.ConnectStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_instance_service.ConnectStruct": {
             "type": "object",
             "properties": {
                 "immediate": {
@@ -7905,11 +7905,11 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_instance_service.CreateStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_instance_service.CreateStruct": {
             "type": "object",
             "properties": {
                 "advancedSettings": {
-                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_instance_model.AdvancedSettings"
+                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_instance_model.AdvancedSettings"
                 },
                 "instanceId": {
                     "type": "string"
@@ -7918,14 +7918,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "proxy": {
-                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_instance_service.ProxyConfig"
+                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_instance_service.ProxyConfig"
                 },
                 "token": {
                     "type": "string"
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_instance_service.ForceReconnectStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_instance_service.ForceReconnectStruct": {
             "type": "object",
             "properties": {
                 "number": {
@@ -7933,7 +7933,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_instance_service.HmacConfigStatus": {
+        "github_com_felipeestevanatto_wamux_pkg_instance_service.HmacConfigStatus": {
             "type": "object",
             "properties": {
                 "configured": {
@@ -7946,7 +7946,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_instance_service.PairStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_instance_service.PairStruct": {
             "type": "object",
             "properties": {
                 "phone": {
@@ -7960,7 +7960,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_instance_service.ProxyConfig": {
+        "github_com_felipeestevanatto_wamux_pkg_instance_service.ProxyConfig": {
             "type": "object",
             "properties": {
                 "host": {
@@ -7980,7 +7980,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_instance_service.ProxyTestResult": {
+        "github_com_felipeestevanatto_wamux_pkg_instance_service.ProxyTestResult": {
             "type": "object",
             "properties": {
                 "anonymous": {
@@ -8021,7 +8021,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_instance_service.RenameStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_instance_service.RenameStruct": {
             "type": "object",
             "properties": {
                 "name": {
@@ -8029,7 +8029,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_instance_service.S3ConfigStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_instance_service.S3ConfigStruct": {
             "type": "object",
             "properties": {
                 "accessKey": {
@@ -8070,7 +8070,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_instance_service.SetProxyStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_instance_service.SetProxyStruct": {
             "type": "object",
             "required": [
                 "host",
@@ -8094,7 +8094,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_label_service.ChatLabelStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_label_service.ChatLabelStruct": {
             "type": "object",
             "properties": {
                 "jid": {
@@ -8107,7 +8107,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_label_service.EditLabelStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_label_service.EditLabelStruct": {
             "type": "object",
             "properties": {
                 "color": {
@@ -8128,7 +8128,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_label_service.MessageLabelStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_label_service.MessageLabelStruct": {
             "type": "object",
             "properties": {
                 "jid": {
@@ -8145,7 +8145,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_message_service.ChatPresenceStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_message_service.ChatPresenceStruct": {
             "type": "object",
             "properties": {
                 "delay": {
@@ -8167,7 +8167,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_message_service.DownloadMediaStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_message_service.DownloadMediaStruct": {
             "type": "object",
             "properties": {
                 "chat": {
@@ -8196,7 +8196,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_message_service.EditMessageStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_message_service.EditMessageStruct": {
             "type": "object",
             "properties": {
                 "chat": {
@@ -8213,7 +8213,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_message_service.MarkPlayedStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_message_service.MarkPlayedStruct": {
             "type": "object",
             "properties": {
                 "id": {
@@ -8231,7 +8231,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_message_service.MarkReadStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_message_service.MarkReadStruct": {
             "type": "object",
             "properties": {
                 "id": {
@@ -8249,7 +8249,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_message_service.MessageStatusStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_message_service.MessageStatusStruct": {
             "type": "object",
             "properties": {
                 "id": {
@@ -8258,7 +8258,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_message_service.MessageStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_message_service.MessageStruct": {
             "type": "object",
             "properties": {
                 "chat": {
@@ -8271,7 +8271,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_message_service.ReactStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_message_service.ReactStruct": {
             "type": "object",
             "properties": {
                 "fromMe": {
@@ -8296,7 +8296,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_message_service.SubscribePresenceStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_message_service.SubscribePresenceStruct": {
             "type": "object",
             "properties": {
                 "number": {
@@ -8305,7 +8305,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_newsletter_service.CreateNewsletterStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_newsletter_service.CreateNewsletterStruct": {
             "type": "object",
             "properties": {
                 "description": {
@@ -8318,7 +8318,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_newsletter_service.GetNewsletterInviteStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_newsletter_service.GetNewsletterInviteStruct": {
             "type": "object",
             "properties": {
                 "key": {
@@ -8327,7 +8327,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_newsletter_service.GetNewsletterMessagesStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_newsletter_service.GetNewsletterMessagesStruct": {
             "type": "object",
             "properties": {
                 "before_id": {
@@ -8343,7 +8343,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_newsletter_service.GetNewsletterStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_newsletter_service.GetNewsletterStruct": {
             "type": "object",
             "properties": {
                 "jid": {
@@ -8351,7 +8351,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_poll_model.PollResults": {
+        "github_com_felipeestevanatto_wamux_pkg_poll_model.PollResults": {
             "type": "object",
             "properties": {
                 "optionCounts": {
@@ -8379,18 +8379,18 @@ const docTemplate = `{
                 "voters": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_poll_model.VoterInfo"
+                        "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_poll_model.VoterInfo"
                     }
                 },
                 "votes": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_poll_model.PollVote"
+                        "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_poll_model.PollVote"
                     }
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_poll_model.PollVote": {
+        "github_com_felipeestevanatto_wamux_pkg_poll_model.PollVote": {
             "type": "object",
             "properties": {
                 "companyId": {
@@ -8449,7 +8449,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_poll_model.VoterInfo": {
+        "github_com_felipeestevanatto_wamux_pkg_poll_model.VoterInfo": {
             "type": "object",
             "properties": {
                 "jid": {
@@ -8479,7 +8479,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.Button": {
+        "github_com_felipeestevanatto_wamux_pkg_sendMessage_service.Button": {
             "type": "object",
             "properties": {
                 "copyCode": {
@@ -8544,18 +8544,18 @@ const docTemplate = `{
                 "url": {
                     "description": "Target URL when type=url.",
                     "type": "string",
-                    "example": "https://evolutionapi.com"
+                    "example": "https://wamuxapi.com"
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.ButtonStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_sendMessage_service.ButtonStruct": {
             "type": "object",
             "properties": {
                 "buttons": {
                     "description": "Buttons array. See combination rules on the parent type description.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.Button"
+                        "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.Button"
                     }
                 },
                 "delay": {
@@ -8571,7 +8571,7 @@ const docTemplate = `{
                 "footer": {
                     "description": "Footer text (required).",
                     "type": "string",
-                    "example": "Evolution GO"
+                    "example": "WaMux"
                 },
                 "formatJid": {
                     "description": "If false, skips automatic formatting/validation of ` + "`" + `number` + "`" + ` into a JID.",
@@ -8607,7 +8607,7 @@ const docTemplate = `{
                     "description": "Quoted (reply-to) context.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.QuotedStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.QuotedStruct"
                         }
                     ]
                 },
@@ -8623,7 +8623,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.CarouselButtonStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_sendMessage_service.CarouselButtonStruct": {
             "type": "object",
             "properties": {
                 "copyCode": {
@@ -8658,7 +8658,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.CarouselCardBodyStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_sendMessage_service.CarouselCardBodyStruct": {
             "type": "object",
             "properties": {
                 "text": {
@@ -8668,7 +8668,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.CarouselCardHeaderStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_sendMessage_service.CarouselCardHeaderStruct": {
             "type": "object",
             "properties": {
                 "imageUrl": {
@@ -8693,14 +8693,14 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.CarouselCardStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_sendMessage_service.CarouselCardStruct": {
             "type": "object",
             "properties": {
                 "body": {
                     "description": "Card body text (required).",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.CarouselCardBodyStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.CarouselCardBodyStruct"
                         }
                     ]
                 },
@@ -8708,7 +8708,7 @@ const docTemplate = `{
                     "description": "Buttons shown on the card. See CarouselButtonStruct for combination rules.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.CarouselButtonStruct"
+                        "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.CarouselButtonStruct"
                     }
                 },
                 "footer": {
@@ -8720,13 +8720,13 @@ const docTemplate = `{
                     "description": "Card header (media + title/subtitle).",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.CarouselCardHeaderStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.CarouselCardHeaderStruct"
                         }
                     ]
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.CarouselStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_sendMessage_service.CarouselStruct": {
             "type": "object",
             "properties": {
                 "body": {
@@ -8738,7 +8738,7 @@ const docTemplate = `{
                     "description": "Cards displayed in order. At least one card is required.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.CarouselCardStruct"
+                        "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.CarouselCardStruct"
                     }
                 },
                 "delay": {
@@ -8749,7 +8749,7 @@ const docTemplate = `{
                 "footer": {
                     "description": "Optional message footer shown below the cards.",
                     "type": "string",
-                    "example": "Evolution GO"
+                    "example": "WaMux"
                 },
                 "formatJid": {
                     "description": "If false, skips automatic formatting/validation of ` + "`" + `number` + "`" + ` into a JID.",
@@ -8765,13 +8765,13 @@ const docTemplate = `{
                     "description": "Quoted (reply-to) context.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.QuotedStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.QuotedStruct"
                         }
                     ]
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.ContactStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_sendMessage_service.ContactStruct": {
             "type": "object",
             "properties": {
                 "delay": {
@@ -8804,14 +8804,14 @@ const docTemplate = `{
                     "example": "5511999999999"
                 },
                 "quoted": {
-                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.QuotedStruct"
+                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.QuotedStruct"
                 },
                 "vcard": {
-                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_utils.VCardStruct"
+                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_utils.VCardStruct"
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.EventLocationStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_sendMessage_service.EventLocationStruct": {
             "type": "object",
             "properties": {
                 "address": {
@@ -8832,7 +8832,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.EventStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_sendMessage_service.EventStruct": {
             "type": "object",
             "properties": {
                 "delay": {
@@ -8877,7 +8877,7 @@ const docTemplate = `{
                     "example": "https://call.whatsapp.com/video/AbCdEf123456"
                 },
                 "location": {
-                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.EventLocationStruct"
+                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.EventLocationStruct"
                 },
                 "mentionAll": {
                     "type": "boolean",
@@ -8901,7 +8901,7 @@ const docTemplate = `{
                     "example": "120363000000000000@g.us"
                 },
                 "quoted": {
-                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.QuotedStruct"
+                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.QuotedStruct"
                 },
                 "reminderOffsetSec": {
                     "type": "integer",
@@ -8918,7 +8918,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.LinkStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_sendMessage_service.LinkStruct": {
             "type": "object",
             "properties": {
                 "delay": {
@@ -8959,7 +8959,7 @@ const docTemplate = `{
                     "example": "5511999999999"
                 },
                 "quoted": {
-                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.QuotedStruct"
+                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.QuotedStruct"
                 },
                 "text": {
                     "type": "string",
@@ -8975,7 +8975,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.ListStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_sendMessage_service.ListStruct": {
             "type": "object",
             "properties": {
                 "buttonText": {
@@ -8996,7 +8996,7 @@ const docTemplate = `{
                 "footerText": {
                     "description": "Footer text (required).",
                     "type": "string",
-                    "example": "Evolution GO"
+                    "example": "WaMux"
                 },
                 "formatJid": {
                     "description": "If false, skips automatic formatting/validation of ` + "`" + `number` + "`" + ` into a JID.",
@@ -9027,7 +9027,7 @@ const docTemplate = `{
                     "description": "Quoted (reply-to) context.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.QuotedStruct"
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.QuotedStruct"
                         }
                     ]
                 },
@@ -9035,7 +9035,7 @@ const docTemplate = `{
                     "description": "Sections with rows. At least one section with one row is required.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.Section"
+                        "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.Section"
                     }
                 },
                 "title": {
@@ -9045,7 +9045,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.LocationStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_sendMessage_service.LocationStruct": {
             "type": "object",
             "properties": {
                 "address": {
@@ -9094,11 +9094,11 @@ const docTemplate = `{
                     "example": "5511999999999"
                 },
                 "quoted": {
-                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.QuotedStruct"
+                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.QuotedStruct"
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.MediaStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_sendMessage_service.MediaStruct": {
             "type": "object",
             "properties": {
                 "caption": {
@@ -9148,7 +9148,7 @@ const docTemplate = `{
                     "example": "5511999999999"
                 },
                 "quoted": {
-                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.QuotedStruct"
+                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.QuotedStruct"
                 },
                 "type": {
                     "type": "string",
@@ -9164,7 +9164,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.PollStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_sendMessage_service.PollStruct": {
             "type": "object",
             "properties": {
                 "delay": {
@@ -9216,11 +9216,11 @@ const docTemplate = `{
                     "example": "Vamos confirmar a reuniao?"
                 },
                 "quoted": {
-                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.QuotedStruct"
+                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.QuotedStruct"
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.ProductStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_sendMessage_service.ProductStruct": {
             "type": "object",
             "properties": {
                 "body": {
@@ -9246,7 +9246,7 @@ const docTemplate = `{
                 },
                 "footer": {
                     "type": "string",
-                    "example": "Evolution GO"
+                    "example": "WaMux"
                 },
                 "formatJid": {
                     "type": "boolean",
@@ -9293,7 +9293,7 @@ const docTemplate = `{
                     "example": "1234567890123456"
                 },
                 "quoted": {
-                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.QuotedStruct"
+                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.QuotedStruct"
                 },
                 "retailerId": {
                     "type": "string",
@@ -9301,7 +9301,7 @@ const docTemplate = `{
                 },
                 "title": {
                     "type": "string",
-                    "example": "Camiseta Evolution GO"
+                    "example": "Camiseta WaMux"
                 },
                 "url": {
                     "type": "string",
@@ -9309,7 +9309,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.QuotedStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_sendMessage_service.QuotedStruct": {
             "type": "object",
             "properties": {
                 "message": {
@@ -9327,7 +9327,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.Row": {
+        "github_com_felipeestevanatto_wamux_pkg_sendMessage_service.Row": {
             "type": "object",
             "properties": {
                 "description": {
@@ -9347,14 +9347,14 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.Section": {
+        "github_com_felipeestevanatto_wamux_pkg_sendMessage_service.Section": {
             "type": "object",
             "properties": {
                 "rows": {
                     "description": "Rows inside this section.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.Row"
+                        "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.Row"
                     }
                 },
                 "title": {
@@ -9364,7 +9364,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.StatusTextStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_sendMessage_service.StatusTextStruct": {
             "type": "object",
             "properties": {
                 "id": {
@@ -9377,7 +9377,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.StickerStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_sendMessage_service.StickerStruct": {
             "type": "object",
             "properties": {
                 "delay": {
@@ -9410,7 +9410,7 @@ const docTemplate = `{
                     "example": "5511999999999"
                 },
                 "quoted": {
-                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.QuotedStruct"
+                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.QuotedStruct"
                 },
                 "sticker": {
                     "type": "string",
@@ -9418,7 +9418,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.TextStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_sendMessage_service.TextStruct": {
             "type": "object",
             "properties": {
                 "delay": {
@@ -9455,7 +9455,7 @@ const docTemplate = `{
                     "example": "5511999999999"
                 },
                 "quoted": {
-                    "$ref": "#/definitions/github_com_evolution-foundation_evolution-go_pkg_sendMessage_service.QuotedStruct"
+                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.QuotedStruct"
                 },
                 "text": {
                     "type": "string",
@@ -9463,7 +9463,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_typebot_model.Typebot": {
+        "github_com_felipeestevanatto_wamux_pkg_typebot_model.Typebot": {
             "type": "object",
             "properties": {
                 "createdAt": {
@@ -9530,7 +9530,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_typebot_model.TypebotRequest": {
+        "github_com_felipeestevanatto_wamux_pkg_typebot_model.TypebotRequest": {
             "type": "object",
             "properties": {
                 "delayMessage": {
@@ -9575,7 +9575,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_typebot_model.TypebotSession": {
+        "github_com_felipeestevanatto_wamux_pkg_typebot_model.TypebotSession": {
             "type": "object",
             "properties": {
                 "awaitUser": {
@@ -9636,7 +9636,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_user_service.BlockStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_user_service.BlockStruct": {
             "type": "object",
             "properties": {
                 "number": {
@@ -9645,7 +9645,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_user_service.CheckUserStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_user_service.CheckUserStruct": {
             "type": "object",
             "properties": {
                 "formatJid": {
@@ -9663,7 +9663,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_user_service.GetAvatarStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_user_service.GetAvatarStruct": {
             "type": "object",
             "properties": {
                 "number": {
@@ -9676,7 +9676,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_user_service.PrivacyStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_user_service.PrivacyStruct": {
             "type": "object",
             "properties": {
                 "callAdd": {
@@ -9737,7 +9737,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_user_service.ResolveLidStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_user_service.ResolveLidStruct": {
             "type": "object",
             "properties": {
                 "groupJid": {
@@ -9750,7 +9750,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_user_service.SaveContactStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_user_service.SaveContactStruct": {
             "type": "object",
             "properties": {
                 "firstName": {
@@ -9774,7 +9774,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_user_service.SetProfileNameStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_user_service.SetProfileNameStruct": {
             "type": "object",
             "properties": {
                 "name": {
@@ -9783,7 +9783,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_user_service.SetProfilePictureStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_user_service.SetProfilePictureStruct": {
             "type": "object",
             "properties": {
                 "image": {
@@ -9792,7 +9792,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_user_service.SetProfileStatusStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_user_service.SetProfileStatusStruct": {
             "type": "object",
             "properties": {
                 "status": {
@@ -9801,7 +9801,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_evolution-foundation_evolution-go_pkg_utils.VCardStruct": {
+        "github_com_felipeestevanatto_wamux_pkg_utils.VCardStruct": {
             "type": "object",
             "properties": {
                 "fullName": {
@@ -19226,8 +19226,8 @@ var SwaggerInfo = &swag.Spec{
 	Host:             "",
 	BasePath:         "",
 	Schemes:          []string{},
-	Title:            "Evolution GO",
-	Description:      "Evolution GO - whatsmeow",
+	Title:            "WaMux",
+	Description:      "WaMux - whatsmeow",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

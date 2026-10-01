@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	docmodels "github.com/evolution-foundation/evolution-go/pkg/docmodels"
-	message_repository "github.com/evolution-foundation/evolution-go/pkg/message/repository"
-	"github.com/evolution-foundation/evolution-go/pkg/procstats"
-	whatsmeow_service "github.com/evolution-foundation/evolution-go/pkg/whatsmeow/service"
+	docmodels "github.com/felipeestevanatto/wamux/pkg/docmodels"
+	message_repository "github.com/felipeestevanatto/wamux/pkg/message/repository"
+	"github.com/felipeestevanatto/wamux/pkg/procstats"
+	whatsmeow_service "github.com/felipeestevanatto/wamux/pkg/whatsmeow/service"
 	"github.com/gin-gonic/gin"
 )
 
@@ -87,7 +87,7 @@ func (s *serverHandler) ServerOk(ctx *gin.Context) {
 func (s *serverHandler) Root(ctx *gin.Context) {
 	info := gin.H{
 		"status":             200,
-		"message":            "Welcome to Evolution GO, it is working!",
+		"message":            "Welcome to WaMux, it is working!",
 		"version":            s.version,
 		"clientName":         s.clientName,
 		"manager":            "/manager",

@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	message_model "github.com/evolution-foundation/evolution-go/pkg/message/model"
+	message_model "github.com/felipeestevanatto/wamux/pkg/message/model"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
@@ -19,7 +19,7 @@ import (
 //
 // Run:
 //
-//	EVO_BENCH_POSTGRES_DSN='postgresql://evolution_user:evolution_pass@localhost:55432/evogo_users?sslmode=disable' \
+//	EVO_BENCH_POSTGRES_DSN='postgresql://wamux_user:wamux_pass@localhost:55432/wamux_users?sslmode=disable' \
 //	  go test -run=^$ -bench='InsertMessage' -benchmem ./pkg/message/repository/ -benchtime=300x
 func benchRepo(b *testing.B) MessageRepository {
 	b.Helper()

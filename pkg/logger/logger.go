@@ -9,8 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	applog "github.com/evolution-foundation/evolution-go/pkg/applog"
-	"github.com/evolution-foundation/evolution-go/pkg/config"
+	applog "github.com/felipeestevanatto/wamux/pkg/applog"
+	"github.com/felipeestevanatto/wamux/pkg/config"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 

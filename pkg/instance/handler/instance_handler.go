@@ -7,12 +7,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	config "github.com/evolution-foundation/evolution-go/pkg/config"
-	docmodels "github.com/evolution-foundation/evolution-go/pkg/docmodels"
-	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
-	instance_service "github.com/evolution-foundation/evolution-go/pkg/instance/service"
-	"github.com/evolution-foundation/evolution-go/pkg/utils"
-	"github.com/evolution-foundation/evolution-go/pkg/webhooksign"
+	config "github.com/felipeestevanatto/wamux/pkg/config"
+	docmodels "github.com/felipeestevanatto/wamux/pkg/docmodels"
+	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
+	instance_service "github.com/felipeestevanatto/wamux/pkg/instance/service"
+	"github.com/felipeestevanatto/wamux/pkg/utils"
+	"github.com/felipeestevanatto/wamux/pkg/webhooksign"
 )
 
 type InstanceHandler interface {

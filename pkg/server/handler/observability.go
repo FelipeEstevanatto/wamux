@@ -4,8 +4,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/evolution-foundation/evolution-go/pkg/metrics"
-	whatsmeow_service "github.com/evolution-foundation/evolution-go/pkg/whatsmeow/service"
+	"github.com/felipeestevanatto/wamux/pkg/metrics"
+	whatsmeow_service "github.com/felipeestevanatto/wamux/pkg/whatsmeow/service"
 	"github.com/gin-gonic/gin"
 )
 

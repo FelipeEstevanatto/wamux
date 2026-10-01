@@ -3,13 +3,13 @@ package community_service
 import (
 	"context"
 	"errors"
-	"github.com/evolution-foundation/evolution-go/pkg/safemap"
+	"github.com/felipeestevanatto/wamux/pkg/safemap"
 	"time"
 
-	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
-	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
-	"github.com/evolution-foundation/evolution-go/pkg/utils"
-	whatsmeow_service "github.com/evolution-foundation/evolution-go/pkg/whatsmeow/service"
+	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
+	logger_wrapper "github.com/felipeestevanatto/wamux/pkg/logger"
+	"github.com/felipeestevanatto/wamux/pkg/utils"
+	whatsmeow_service "github.com/felipeestevanatto/wamux/pkg/whatsmeow/service"
 	"github.com/gin-gonic/gin"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types"

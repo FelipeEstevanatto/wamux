@@ -1,4 +1,4 @@
-module github.com/evolution-foundation/evolution-go
+module github.com/felipeestevanatto/wamux
 
 go 1.26.0
 

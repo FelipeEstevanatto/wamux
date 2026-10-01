@@ -1,12 +1,12 @@
 # =============================================================================
-# Evolution Go (community fork) — pull-only stack
+# WaMux (community fork) — pull-only stack
 #
 # Runs the published image from GHCR. Nothing to clone or build.
 #
-#   mkdir evogo && cd evogo
-#   curl -O https://raw.githubusercontent.com/FelipeEstevanatto/evo-gofork/develop/docker/examples/docker-compose.ghcr.yml
+#   mkdir wamux && cd wamux
+#   curl -O https://raw.githubusercontent.com/FelipeEstevanatto/wamux/develop/docker/examples/docker-compose.ghcr.yml
 #   mv docker-compose.ghcr.yml docker-compose.yml
-#   curl -O https://raw.githubusercontent.com/FelipeEstevanatto/evo-gofork/develop/docker/examples/.env.example
+#   curl -O https://raw.githubusercontent.com/FelipeEstevanatto/wamux/develop/docker/examples/.env.example
 #   cp .env.example .env        # then set GLOBAL_API_KEY
 #   docker compose up -d
 #
@@ -15,30 +15,30 @@
 # Manager:  http://localhost:8081/manager
 #
 # Tags: `dev` = develop branch (newest), `0.8.1` = current release, `latest`
-# follows releases. Override with EVOGO_VERSION in .env.
+# follows releases. Override with WAMUX_VERSION in .env.
 #
 # This is an UNOFFICIAL community build. See NOTICE/TRADEMARKS.md.
 # =============================================================================
 
 services:
-  evolution-go:
-    image: ghcr.io/felipeestevanatto/evo-gofork:${EVOGO_VERSION:-dev}
+  wamux:
+    image: ghcr.io/felipeestevanatto/wamux:${WAMUX_VERSION:-dev}
     restart: unless-stopped
     init: true
     ports:
       # Host port : container port. The app always listens on 8080 inside.
-      - "${EVOGO_PORT:-8081}:8080"
+      - "${WAMUX_PORT:-8081}:8080"
     environment:
       SERVER_PORT: 8080
-      CLIENT_NAME: ${CLIENT_NAME:-evolution}
-      OS_NAME: ${OS_NAME:-Evo-GoFork}
+      CLIENT_NAME: ${CLIENT_NAME:-wamux}
+      OS_NAME: ${OS_NAME:-WaMux}
 
       # REQUIRED. Admin key for /instance/all, /server/stats, the Manager, etc.
       GLOBAL_API_KEY: ${GLOBAL_API_KEY:?set GLOBAL_API_KEY in .env}
 
       # Databases (created automatically on first boot if missing).
-      POSTGRES_AUTH_DB: postgresql://${POSTGRES_USER:-evolution_user}:${POSTGRES_PASSWORD:-evolution_pass}@evolution-database:5432/evogo_auth?sslmode=disable
-      POSTGRES_USERS_DB: postgresql://${POSTGRES_USER:-evolution_user}:${POSTGRES_PASSWORD:-evolution_pass}@evolution-database:5432/evogo_users?sslmode=disable
+      POSTGRES_AUTH_DB: postgresql://${POSTGRES_USER:-wamux_user}:${POSTGRES_PASSWORD:-wamux_pass}@wamux-database:5432/wamux_auth?sslmode=disable
+      POSTGRES_USERS_DB: postgresql://${POSTGRES_USER:-wamux_user}:${POSTGRES_PASSWORD:-wamux_pass}@wamux-database:5432/wamux_users?sslmode=disable
 
       # Runtime / logging.
       DATABASE_SAVE_MESSAGES: ${DATABASE_SAVE_MESSAGES:-true}
@@ -67,38 +67,38 @@ services:
       NATS_GLOBAL_EVENTS: ${NATS_GLOBAL_EVENTS:-}
       MINIO_ENABLED: ${MINIO_ENABLED:-false}
     depends_on:
-      evolution-database:
+      wamux-database:
         condition: service_healthy
     volumes:
       # Single data volume: logs live under /app/data/logs.
-      - evolution_go_data:/app/data
+      - wamux_data:/app/data
     networks:
-      - evolution_go_network
+      - wamux_network
 
-  evolution-database:
+  wamux-database:
     # PostgreSQL 18. NOTE: the 18 image declares /var/lib/postgresql as the data
     # volume (15 used /var/lib/postgresql/data). Mounting the old path would put
     # the cluster OUTSIDE the volume and lose data on the next recreate.
     image: postgres:18-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-evolution_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-evolution_pass}
-      POSTGRES_DB: evogo_auth
+      POSTGRES_USER: ${POSTGRES_USER:-wamux_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wamux_pass}
+      POSTGRES_DB: wamux_auth
     volumes:
-      - evolution_go_database:/var/lib/postgresql
+      - wamux_database:/var/lib/postgresql
     networks:
-      - evolution_go_network
+      - wamux_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-evolution_user} -d evogo_auth"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-wamux_user} -d wamux_auth"]
       interval: 10s
       timeout: 5s
       retries: 10
 
 volumes:
-  evolution_go_data:
-  evolution_go_database:
+  wamux_data:
+  wamux_database:
 
 networks:
-  evolution_go_network:
+  wamux_network:
     driver: bridge

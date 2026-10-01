@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"strings"
 
-	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
-	typebot_model "github.com/evolution-foundation/evolution-go/pkg/typebot/model"
+	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
+	typebot_model "github.com/felipeestevanatto/wamux/pkg/typebot/model"
 )
 
 // typebotResponse é o corpo devolvido tanto pelo startChat quanto pelo

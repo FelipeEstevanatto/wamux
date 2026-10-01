@@ -3,9 +3,9 @@ package message_service
 import (
 	"testing"
 
-	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
-	message_model "github.com/evolution-foundation/evolution-go/pkg/message/model"
-	message_repository "github.com/evolution-foundation/evolution-go/pkg/message/repository"
+	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
+	message_model "github.com/felipeestevanatto/wamux/pkg/message/model"
+	message_repository "github.com/felipeestevanatto/wamux/pkg/message/repository"
 )
 
 type recordingRepo struct {

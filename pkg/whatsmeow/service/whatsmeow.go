@@ -6,8 +6,8 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"fmt"
-	json "github.com/evolution-foundation/evolution-go/pkg/jsonx"
-	"github.com/evolution-foundation/evolution-go/pkg/safemap"
+	json "github.com/felipeestevanatto/wamux/pkg/jsonx"
+	"github.com/felipeestevanatto/wamux/pkg/safemap"
 	"image/png"
 	"io"
 	"math/rand"
@@ -37,27 +37,27 @@ import (
 	"go.mau.fi/whatsmeow/types/events"
 	waLog "go.mau.fi/whatsmeow/util/log"
 
-	"github.com/evolution-foundation/evolution-go/pkg/bgpool"
-	"github.com/evolution-foundation/evolution-go/pkg/config"
-	producer_interfaces "github.com/evolution-foundation/evolution-go/pkg/events/interfaces"
-	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
-	instance_repository "github.com/evolution-foundation/evolution-go/pkg/instance/repository"
-	"github.com/evolution-foundation/evolution-go/pkg/internal/event_types"
-	label_model "github.com/evolution-foundation/evolution-go/pkg/label/model"
-	label_repository "github.com/evolution-foundation/evolution-go/pkg/label/repository"
-	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
-	localmedia "github.com/evolution-foundation/evolution-go/pkg/media"
-	message_content "github.com/evolution-foundation/evolution-go/pkg/message/content"
-	message_model "github.com/evolution-foundation/evolution-go/pkg/message/model"
-	message_repository "github.com/evolution-foundation/evolution-go/pkg/message/repository"
-	"github.com/evolution-foundation/evolution-go/pkg/ownership"
-	"github.com/evolution-foundation/evolution-go/pkg/passkey/ceremony"
-	poll_service "github.com/evolution-foundation/evolution-go/pkg/poll/service"
-	storage_interfaces "github.com/evolution-foundation/evolution-go/pkg/storage/interfaces"
-	minio_storage "github.com/evolution-foundation/evolution-go/pkg/storage/minio"
-	"github.com/evolution-foundation/evolution-go/pkg/utils"
-	"github.com/evolution-foundation/evolution-go/pkg/walimits"
-	"github.com/evolution-foundation/evolution-go/pkg/webhooksign"
+	"github.com/felipeestevanatto/wamux/pkg/bgpool"
+	"github.com/felipeestevanatto/wamux/pkg/config"
+	producer_interfaces "github.com/felipeestevanatto/wamux/pkg/events/interfaces"
+	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
+	instance_repository "github.com/felipeestevanatto/wamux/pkg/instance/repository"
+	"github.com/felipeestevanatto/wamux/pkg/internal/event_types"
+	label_model "github.com/felipeestevanatto/wamux/pkg/label/model"
+	label_repository "github.com/felipeestevanatto/wamux/pkg/label/repository"
+	logger_wrapper "github.com/felipeestevanatto/wamux/pkg/logger"
+	localmedia "github.com/felipeestevanatto/wamux/pkg/media"
+	message_content "github.com/felipeestevanatto/wamux/pkg/message/content"
+	message_model "github.com/felipeestevanatto/wamux/pkg/message/model"
+	message_repository "github.com/felipeestevanatto/wamux/pkg/message/repository"
+	"github.com/felipeestevanatto/wamux/pkg/ownership"
+	"github.com/felipeestevanatto/wamux/pkg/passkey/ceremony"
+	poll_service "github.com/felipeestevanatto/wamux/pkg/poll/service"
+	storage_interfaces "github.com/felipeestevanatto/wamux/pkg/storage/interfaces"
+	minio_storage "github.com/felipeestevanatto/wamux/pkg/storage/minio"
+	"github.com/felipeestevanatto/wamux/pkg/utils"
+	"github.com/felipeestevanatto/wamux/pkg/walimits"
+	"github.com/felipeestevanatto/wamux/pkg/webhooksign"
 )
 
 type WhatsmeowService interface {
@@ -2209,7 +2209,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		openURL := "https://web.whatsapp.com/#wapk=" + wapk
 
 		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo(
-			"[%s] Passkey required. Open this URL in a browser with the Evolution Passkey Helper extension:\n%s\n(ceremony token=%s, base=%s)",
+			"[%s] Passkey required. Open this URL in a browser with the WaMux Passkey Helper extension:\n%s\n(ceremony token=%s, base=%s)",
 			mycli.userID, openURL, token, publicBase,
 		)
 

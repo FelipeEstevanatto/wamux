@@ -16,3 +16,13 @@ This product includes software developed by external contributors:
 
 - whatsmeow (https://github.com/tulir/whatsmeow) by Tulir Asokan, used as the
   WhatsApp protocol library.
+
+---
+
+WaMux
+Copyright 2026 Felipe Estevanatto and WaMux contributors
+
+WaMux is an independent, self-hosted WhatsApp API, originally forked from
+Evolution Go (https://github.com/evolution-foundation/evolution-go). The
+Evolution Go copyright and trademark notices above are retained as required by
+the Apache License 2.0.

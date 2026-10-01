@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/evolution-foundation/evolution-go/pkg/config"
-	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
-	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
-	"github.com/evolution-foundation/evolution-go/pkg/safemap"
-	"github.com/evolution-foundation/evolution-go/pkg/webhooksign"
+	"github.com/felipeestevanatto/wamux/pkg/config"
+	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
+	logger_wrapper "github.com/felipeestevanatto/wamux/pkg/logger"
+	"github.com/felipeestevanatto/wamux/pkg/safemap"
+	"github.com/felipeestevanatto/wamux/pkg/webhooksign"
 )
 
 type stubStorage struct{}

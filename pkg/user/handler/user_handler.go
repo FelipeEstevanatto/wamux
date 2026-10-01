@@ -5,9 +5,9 @@ import (
 	"errors"
 	"net/http"
 
-	docmodels "github.com/evolution-foundation/evolution-go/pkg/docmodels"
-	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
-	user_service "github.com/evolution-foundation/evolution-go/pkg/user/service"
+	docmodels "github.com/felipeestevanatto/wamux/pkg/docmodels"
+	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
+	user_service "github.com/felipeestevanatto/wamux/pkg/user/service"
 	"github.com/gin-gonic/gin"
 	"go.mau.fi/whatsmeow"
 )

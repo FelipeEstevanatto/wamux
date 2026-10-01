@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	message_model "github.com/evolution-foundation/evolution-go/pkg/message/model"
+	message_model "github.com/felipeestevanatto/wamux/pkg/message/model"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"

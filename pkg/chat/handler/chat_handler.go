@@ -3,9 +3,9 @@ package chat_handler
 import (
 	"net/http"
 
-	chat_service "github.com/evolution-foundation/evolution-go/pkg/chat/service"
-	docmodels "github.com/evolution-foundation/evolution-go/pkg/docmodels"
-	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
+	chat_service "github.com/felipeestevanatto/wamux/pkg/chat/service"
+	docmodels "github.com/felipeestevanatto/wamux/pkg/docmodels"
+	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
 	"github.com/gin-gonic/gin"
 )
 

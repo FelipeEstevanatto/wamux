@@ -1,10 +1,10 @@
--- Script de inicialização dos bancos de dados Evolution GO
+-- Script de inicialização dos bancos de dados WaMux
 
 -- Criar database para autenticação
-CREATE DATABASE evogo_auth;
+CREATE DATABASE wamux_auth;
 
 -- Criar database para dados de usuários
-CREATE DATABASE evogo_users;
+CREATE DATABASE wamux_users;
 
 -- Mensagem de confirmação
-SELECT 'Databases evogo_auth e evogo_users criados com sucesso!' as message;
+SELECT 'Databases wamux_auth e wamux_users criados com sucesso!' as message;

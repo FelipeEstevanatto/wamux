@@ -3,7 +3,7 @@ package typebot_repository
 import (
 	"time"
 
-	typebot_model "github.com/evolution-foundation/evolution-go/pkg/typebot/model"
+	typebot_model "github.com/felipeestevanatto/wamux/pkg/typebot/model"
 	"github.com/patrickmn/go-cache"
 	"gorm.io/gorm"
 )
