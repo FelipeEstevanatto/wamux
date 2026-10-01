@@ -57,10 +57,10 @@ DATABASE_SAVE_MESSAGES=false
 Porta HTTP do servidor API.
 
 - **Tipo**: Integer
-- **Padrão**: `4000`
+- **Padrão**: `8081`
 
 ```env
-SERVER_PORT=4000
+SERVER_PORT=8081
 ```
 
 ### CLIENT_NAME
@@ -526,7 +526,7 @@ GLOBAL_API_KEY=df16caad-d0d2-41b2-bec5-75b90048a0db
 DATABASE_SAVE_MESSAGES=false
 
 # Servidor
-SERVER_PORT=4000
+SERVER_PORT=8081
 CLIENT_NAME=wamux
 OS_NAME=Linux
 

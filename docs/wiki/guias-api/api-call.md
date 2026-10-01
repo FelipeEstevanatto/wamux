@@ -60,7 +60,7 @@ apikey: SUA-CHAVE-API
 
 **Exemplo cURL**:
 ```bash
-curl -X POST http://localhost:4000/call/reject \
+curl -X POST http://localhost:8081/call/reject \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{

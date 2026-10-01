@@ -31,7 +31,7 @@ Referência de códigos de erro HTTP e mensagens da aplicação.
 
 **Resolução**:
 ```bash
-curl -H "apikey: SUA-CHAVE-API" http://localhost:4000/endpoint
+curl -H "apikey: SUA-CHAVE-API" http://localhost:8081/endpoint
 ```
 
 ---
@@ -202,7 +202,7 @@ docker-compose logs -f wamux
 
 # Verificar status da instância
 curl -H "apikey: SUA-CHAVE" \
-  "http://localhost:4000/instance/status?instanceName=NOME"
+  "http://localhost:8081/instance/status?instanceName=NOME"
 ```
 
 ---

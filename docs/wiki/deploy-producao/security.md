@@ -113,7 +113,7 @@ http {
         location / {
             limit_req zone=api_limit burst=200 nodelay;
             limit_req_status 429;
-            proxy_pass http://wamux:4000;
+            proxy_pass http://wamux:8080;
         }
     }
 }
@@ -426,7 +426,7 @@ server {
     server_tokens off;
 
     location / {
-        proxy_pass http://wamux:4000;
+        proxy_pass http://wamux:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -563,7 +563,7 @@ http {
     server {
         location / {
             limit_req zone=req_limit burst=20 nodelay;
-            proxy_pass http://wamux:4000;
+            proxy_pass http://wamux:8080;
         }
     }
 }

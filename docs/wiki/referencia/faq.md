@@ -261,7 +261,7 @@ Utilize [Issues no GitHub](https://github.com/FelipeEstevanatto/wamux/issues) in
 - [Guia de Instalação](../fundamentos/installation.md)
 - [Configuração](../fundamentos/configuration.md)
 - [Referência de API](./api-reference.md)
-- [Swagger UI](http://localhost:4000/swagger/index.html)
+- [Swagger UI](http://localhost:8081/swagger/index.html)
 
 ### Suporte
 - [Issues GitLab](https://github.com/FelipeEstevanatto/wamux/issues)

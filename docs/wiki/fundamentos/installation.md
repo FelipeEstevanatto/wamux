@@ -112,9 +112,9 @@ docker-compose logs -f postgres
 
 ### 5. Acessar Aplicação
 
-- **API**: http://localhost:4000
-- **Swagger**: http://localhost:4000/swagger/index.html
-- **Health Check**: http://localhost:4000/server/ok
+- **API**: http://localhost:8081
+- **Swagger**: http://localhost:8081/swagger/index.html
+- **Health Check**: http://localhost:8081/server/ok
 
 ---
 
@@ -188,7 +188,7 @@ nano .env
 Configuração mínima:
 
 ```env
-SERVER_PORT=4000
+SERVER_PORT=8081
 GLOBAL_API_KEY=sua-chave-gerada
 
 POSTGRES_AUTH_DB=postgresql://postgres:postgres@localhost:5432/wamux_auth?sslmode=disable
@@ -284,7 +284,7 @@ docker-compose -f docker-compose-full.yml up -d
 
 | Serviço | Porta | Função |
 |---------|-------|--------|
-| WaMux | 4000 | API principal |
+| WaMux | 8081 | API principal |
 | PostgreSQL | 5432 | Banco de dados |
 | RabbitMQ | 5672, 15672 | Filas de mensagens |
 | MinIO | 9000, 9001 | Storage de objetos |
@@ -292,8 +292,8 @@ docker-compose -f docker-compose-full.yml up -d
 
 **Acessos:**
 
-- WaMux: http://localhost:4000
-- Swagger: http://localhost:4000/swagger/index.html
+- WaMux: http://localhost:8081
+- Swagger: http://localhost:8081/swagger/index.html
 - RabbitMQ: http://localhost:15672 (admin/admin)
 - MinIO: http://localhost:9001 (minioadmin/minioadmin)
 
@@ -311,7 +311,7 @@ docker-compose -f docker-compose-full.yml up -d
 ### Health Check
 
 ```bash
-curl http://localhost:4000/server/ok
+curl http://localhost:8081/server/ok
 ```
 
 Resposta esperada:
@@ -323,12 +323,12 @@ Resposta esperada:
 
 ### Swagger UI
 
-Acesse: http://localhost:4000/swagger/index.html
+Acesse: http://localhost:8081/swagger/index.html
 
 ### Criar Instância de Teste
 
 ```bash
-curl -X POST http://localhost:4000/instance/create \
+curl -X POST http://localhost:8081/instance/create \
   -H "Content-Type: application/json" \
   -H "apikey: sua-chave-api-global" \
   -d '{
@@ -374,7 +374,7 @@ docker-compose exec postgres psql -U postgres -c "\l"
 Alterar porta no `docker-compose.yml`:
 ```yaml
 ports:
-  - "4001:4000"
+  - "4001:8080"
 ```
 
 Acesso via: http://localhost:4001

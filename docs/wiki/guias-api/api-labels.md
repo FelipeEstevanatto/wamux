@@ -49,7 +49,7 @@ apikey: SUA-CHAVE-API
 
 **Exemplo cURL**:
 ```bash
-curl -X POST http://localhost:4000/label/chat \
+curl -X POST http://localhost:8081/label/chat \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -92,7 +92,7 @@ Adiciona uma etiqueta a uma mensagem específica.
 
 **Exemplo cURL**:
 ```bash
-curl -X POST http://localhost:4000/label/message \
+curl -X POST http://localhost:8081/label/message \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -155,7 +155,7 @@ Edita nome, cor ou deleta uma label existente.
 **Exemplo cURL**:
 ```bash
 # Renomear label
-curl -X POST http://localhost:4000/label/edit \
+curl -X POST http://localhost:8081/label/edit \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -165,7 +165,7 @@ curl -X POST http://localhost:4000/label/edit \
   }'
 
 # Deletar label
-curl -X POST http://localhost:4000/label/edit \
+curl -X POST http://localhost:8081/label/edit \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -207,7 +207,7 @@ Remove uma etiqueta de um chat.
 
 **Exemplo cURL**:
 ```bash
-curl -X POST http://localhost:4000/unlabel/chat \
+curl -X POST http://localhost:8081/unlabel/chat \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -250,7 +250,7 @@ Remove uma etiqueta de uma mensagem específica.
 
 **Exemplo cURL**:
 ```bash
-curl -X POST http://localhost:4000/unlabel/message \
+curl -X POST http://localhost:8081/unlabel/message \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -308,7 +308,7 @@ apikey: SUA-CHAVE-API
 
 **Exemplo cURL**:
 ```bash
-curl -X GET http://localhost:4000/label \
+curl -X GET http://localhost:8081/label \
   -H "apikey: SUA-CHAVE-API"
 ```
 
@@ -320,13 +320,13 @@ curl -X GET http://localhost:4000/label \
 
 ```bash
 # 1. Listar labels existentes
-LABELS=$(curl -s -X GET http://localhost:4000/label \
+LABELS=$(curl -s -X GET http://localhost:8081/label \
   -H "apikey: SUA-CHAVE-API")
 
 echo $LABELS | jq '.'
 
 # 2. Criar nova label (via edição)
-curl -X POST http://localhost:4000/label/edit \
+curl -X POST http://localhost:8081/label/edit \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -340,7 +340,7 @@ curl -X POST http://localhost:4000/label/edit \
 CLIENTES=("5511999999999@s.whatsapp.net" "5511888888888@s.whatsapp.net")
 
 for cliente in "\${CLIENTES[@]}"; do
-  curl -X POST http://localhost:4000/label/chat \
+  curl -X POST http://localhost:8081/label/chat \
     -H "Content-Type: application/json" \
     -H "apikey: SUA-CHAVE-API" \
     -d "{
@@ -354,7 +354,7 @@ done
 
 ```bash
 # Etiquetar mensagem específica como "Urgente"
-curl -X POST http://localhost:4000/label/message \
+curl -X POST http://localhost:8081/label/message \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -378,7 +378,7 @@ LABELS=(
 for label_data in "\${LABELS[@]}"; do
   IFS=':' read -r id name color <<< "$label_data"
   
-  curl -X POST http://localhost:4000/label/edit \
+  curl -X POST http://localhost:8081/label/edit \
     -H "Content-Type: application/json" \
     -H "apikey: SUA-CHAVE-API" \
     -d "{
@@ -394,7 +394,7 @@ done
 
 ```bash
 # Renomear label existente
-curl -X POST http://localhost:4000/label/edit \
+curl -X POST http://localhost:8081/label/edit \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -404,7 +404,7 @@ curl -X POST http://localhost:4000/label/edit \
   }'
 
 # Deletar label obsoleta
-curl -X POST http://localhost:4000/label/edit \
+curl -X POST http://localhost:8081/label/edit \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -494,10 +494,10 @@ Limite-se a **10-15 labels** no máximo. Muitas labels dificultam a organizaçã
 Periodicamente, revise e delete labels não utilizadas:
 ```bash
 # Listar todas
-curl -s http://localhost:4000/label -H "apikey: KEY" | jq '.'
+curl -s http://localhost:8081/label -H "apikey: KEY" | jq '.'
 
 # Deletar obsoletas
-curl -X POST http://localhost:4000/label/edit \
+curl -X POST http://localhost:8081/label/edit \
   -H "Content-Type: application/json" \
   -H "apikey: KEY" \
   -d '{"labelId": "99", "name": "Old", "deleted": true}'

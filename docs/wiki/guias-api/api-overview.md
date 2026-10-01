@@ -5,7 +5,7 @@ Guia completo para usar a API REST do WaMux.
 ## Base URL
 
 ```
-http://localhost:4000
+http://localhost:8081
 ```
 
 ## Autenticação
@@ -13,7 +13,7 @@ http://localhost:4000
 Todas as requisições precisam do header `apikey`:
 
 ```bash
-curl -H "apikey: SUA-CHAVE-API" http://localhost:4000/endpoint
+curl -H "apikey: SUA-CHAVE-API" http://localhost:8081/endpoint
 ```
 
 **Tipos de API Key**:
@@ -31,7 +31,7 @@ Content-Type: application/json
 ### Exemplo de Requisição
 
 ```bash
-curl -X POST http://localhost:4000/instance/create \
+curl -X POST http://localhost:8081/instance/create \
   -H "Content-Type: application/json" \
   -H "apikey: GLOBAL_API_KEY" \
   -d '{
@@ -214,7 +214,7 @@ GET /endpoint?page=1&limit=50
 Para receber eventos em tempo real via WebSocket:
 
 ```
-ws://localhost:4000/ws?token=SUA-CHAVE-API&instanceId=minha-instancia
+ws://localhost:8081/ws?token=SUA-CHAVE-API&instanceId=minha-instancia
 ```
 
 ## Webhooks
@@ -238,7 +238,7 @@ Atualmente não há rate limiting configurado, mas é recomendado:
 Documentação interativa disponível em:
 
 ```
-http://localhost:4000/swagger/index.html
+http://localhost:8081/swagger/index.html
 ```
 
 Recursos do Swagger:
@@ -253,7 +253,7 @@ Recursos do Swagger:
 
 ```bash
 # 1. Criar instância (usa GLOBAL_API_KEY)
-curl -X POST http://localhost:4000/instance/create \
+curl -X POST http://localhost:8081/instance/create \
   -H "Content-Type: application/json" \
   -H "apikey: GLOBAL_API_KEY" \
   -d '{
@@ -262,7 +262,7 @@ curl -X POST http://localhost:4000/instance/create \
   }'
 
 # 2. Conectar (usa token da instância)
-curl -X POST http://localhost:4000/instance/connect \
+curl -X POST http://localhost:8081/instance/connect \
   -H "Content-Type: application/json" \
   -H "apikey: token-vendas-123" \
   -d '{
@@ -270,14 +270,14 @@ curl -X POST http://localhost:4000/instance/connect \
   }'
 
 # 3. Ver QR Code (usa token da instância)
-curl -X GET http://localhost:4000/instance/qr \
+curl -X GET http://localhost:8081/instance/qr \
   -H "apikey: token-vendas-123"
 ```
 
 ### Enviar Mensagem com Mídia
 
 ```bash
-curl -X POST http://localhost:4000/send/media \
+curl -X POST http://localhost:8081/send/media \
   -H "Content-Type: application/json" \
   -H "apikey: token-vendas-123" \
   -d '{
@@ -291,7 +291,7 @@ curl -X POST http://localhost:4000/send/media \
 ### Criar Grupo
 
 ```bash
-curl -X POST http://localhost:4000/group/create \
+curl -X POST http://localhost:8081/group/create \
   -H "Content-Type: application/json" \
   -H "apikey: token-vendas-123" \
   -d '{

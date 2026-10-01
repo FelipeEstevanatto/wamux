@@ -2,76 +2,57 @@
 
 <p align="center">
   High-performance, self-hosted WhatsApp API built in Go on top of
-  <a href="https://github.com/tulir/whatsmeow">whatsmeow</a> — no license
-  activation, no heartbeat, no telemetry.
+  <a href="https://github.com/tulir/whatsmeow">whatsmeow</a>.
 </p>
-
-> ### ⚠️ Unofficial community fork
->
-> WaMux (`FelipeEstevanatto/wamux`) is an independent, self-hosted WhatsApp
-> API, originally forked from
-> [Evolution Go](https://github.com/evolution-foundation/evolution-go). It is
-> **not affiliated with, endorsed by, or an official release of Evolution
-> Foundation**.
->
-> - **Container image:** `ghcr.io/felipeestevanatto/wamux`
-> - **What this fork changes:** [`FORK_NOTES.md`](./FORK_NOTES.md) · [`CHANGELOG.md`](./CHANGELOG.md)
-> - **Attribution & brand terms:** [`NOTICE`](./NOTICE) · [`TRADEMARKS.md`](./TRADEMARKS.md)
 
 <p align="center">
   <a href="https://github.com/FelipeEstevanatto/wamux/releases/latest"><img src="https://img.shields.io/github/v/release/FelipeEstevanatto/wamux?include_prereleases&label=version&color=00ffa7" alt="Latest version" /></a>
   <a href="https://opensource.org/licenses/Apache-2.0"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License: Apache 2.0" /></a>
-  <a href="https://docs.evolutionfoundation.com.br"><img src="https://img.shields.io/badge/Docs-upstream-00ffa7" alt="Documentation (upstream)" /></a>
-  <a href="https://github.com/FelipeEstevanatto/wamux/pkgs/container/wamux"><img src="https://img.shields.io/badge/Container-ghcr.io-blue" alt="Container image (this fork)" /></a>
+  <a href="https://github.com/FelipeEstevanatto/wamux/pkgs/container/wamux"><img src="https://img.shields.io/badge/Container-ghcr.io-blue" alt="Container image" /></a>
 </p>
 
 ---
 
-## About
+WaMux runs a multi-device WhatsApp session with
+[whatsmeow](https://github.com/tulir/whatsmeow) and exposes it as a **REST API**,
+a **webhook / WebSocket** event stream and a bundled **React admin panel**.
 
-**WaMux** is a high-performance WhatsApp API built in Go on top of
-[whatsmeow](https://github.com/tulir/whatsmeow). This fork tracks upstream `0.7.2`
-and adds, on top of it:
+It ships with **no license activation, no heartbeat and no telemetry**: it starts
+fully operational and never contacts a third party on its own.
 
-- a **versioned manager source** (`wamux-manager/`) with refreshed
-  dependencies, so the panel can actually be changed and built;
-- API/manager features (per-instance overview with profile picture, contact /
-  chat / message counts and device platform, proxy settings, ephemeral timers,
-  Typebot, `/server/stats`, self-hosted `/dashboard`);
-- a **security audit** pass (SQL injection, vulnerable dependencies, orphaned
-  credentials, constant-time key comparison) — `govulncheck` reports **0**;
-- a **whatsmeow API audit** (media retry, `WaitForConnection`, bounded retry
-  receipts, `BuildReaction`, reconnect on `StreamError`/`KeepAliveTimeout`, more
-  webhook events);
-- **no license gate, no heartbeat and no telemetry** — see
-  [`FORK_NOTES.md`](./FORK_NOTES.md) §1.
+| | |
+|---|---|
+| **Documentation** | [`docs/wiki/`](./docs/wiki) — guides, API reference, deployment |
+| **Container image** | `ghcr.io/felipeestevanatto/wamux` |
+| **License** | Apache-2.0 — [`LICENSE`](./LICENSE) · [`NOTICE`](./NOTICE) · [`TRADEMARKS.md`](./TRADEMARKS.md) |
+| **Security** | [`SECURITY.md`](./SECURITY.md) · what changed vs. upstream: [`FORK_NOTES.md`](./FORK_NOTES.md) |
 
-It is an independent distribution: report issues here, not upstream.
+## Quick start (prebuilt image)
 
----
-
-## Quick start
-
-### Docker — pull the published image (recommended)
-
-No clone, no build. The image is public on GHCR:
+Requires Docker with the Compose plugin. No clone, no build.
 
 ```bash
 mkdir wamux && cd wamux
 
-# Compose that runs the published image
 curl -fsSL -o docker-compose.yml \
-  https://raw.githubusercontent.com/FelipeEstevanatto/wamux/develop/docker/examples/docker-compose.ghcr.yml
-
-# Environment (set GLOBAL_API_KEY!)
+  https://raw.githubusercontent.com/FelipeEstevanatto/wamux/main/docker/examples/docker-compose.ghcr.yml
 curl -fsSL -o .env \
-  https://raw.githubusercontent.com/FelipeEstevanatto/wamux/develop/docker/examples/.env.example
+  https://raw.githubusercontent.com/FelipeEstevanatto/wamux/main/docker/examples/.env.example
 
-# Image tag: `dev` (default), `0.8.1` (release) or `latest`
-sed -i "s/^WAMUX_VERSION=.*/WAMUX_VERSION=dev/" .env
-
+# Set a strong admin key (required), then start
+sed -i "s/^GLOBAL_API_KEY=.*/GLOBAL_API_KEY=$(openssl rand -hex 24)/" .env
 docker compose pull && docker compose up -d
 ```
+
+| | |
+|---|---|
+| API | <http://localhost:8081> |
+| Swagger | <http://localhost:8081/swagger/index.html> |
+| Manager | <http://localhost:8081/manager> (log in with `GLOBAL_API_KEY`) |
+| Dashboard | <http://localhost:8081/dashboard> |
+
+`WAMUX_VERSION` in `.env` selects the image tag: `latest` (newest release), a
+version such as `0.9.1`, or `dev` (develop branch).
 
 Or with a plain `docker run` (bring your own Postgres):
 
@@ -81,216 +62,67 @@ docker run -d --name wamux -p 8081:8080 \
   -e POSTGRES_AUTH_DB='postgresql://user:pass@host:5432/wamux_auth?sslmode=disable' \
   -e POSTGRES_USERS_DB='postgresql://user:pass@host:5432/wamux_users?sslmode=disable' \
   -v wamux_data:/app/data \
-  -e LOG_DIRECTORY=/app/data/logs \
-  ghcr.io/felipeestevanatto/wamux:dev
+  ghcr.io/felipeestevanatto/wamux:latest
 ```
 
-Then open:
-
-| | |
-|---|---|
-| API | <http://localhost:8081> (returns a JSON info banner) |
-| Swagger | <http://localhost:8081/swagger/index.html> |
-| Manager | <http://localhost:8081/manager> (log in with `GLOBAL_API_KEY`) |
-| Dashboard | <http://localhost:8081/dashboard> (same key) |
-
-### Docker — build from source
+## Build from source
 
 ```bash
 git clone https://github.com/FelipeEstevanatto/wamux.git
 cd wamux
-git checkout develop
-
-cp .env.example .env        # set GLOBAL_API_KEY
-docker compose up -d --build
+cp .env.example .env          # set GLOBAL_API_KEY
+docker compose up -d --build  # also builds the manager SPA (an oven/bun stage)
 ```
 
-`docker compose up --build` also builds the manager SPA (a `oven/bun` stage),
-so frontend edits are picked up by the same command.
-
-### Local development
+## Local development (no Docker for the app)
 
 ```bash
 git clone https://github.com/FelipeEstevanatto/wamux.git
 cd wamux
-git checkout develop
-
-make setup
-cp .env.example .env        # set GLOBAL_API_KEY
+make setup                    # installs deps + prepares .env
+# edit .env: GLOBAL_API_KEY and POSTGRES_* pointing at a reachable Postgres
 make dev
 ```
 
-> `make help` lists every target. The manager alone: `make manager-install` then
-> `make manager-build` (pnpm, bun or npm).
-
----
+`make help` lists every target. To build the manager alone:
+`make manager-install && make manager-build`.
 
 ## Configuration
 
-Create a `.env` file (see `docker/examples/.env.example` for the full list):
+Create a `.env` (see [`docker/examples/.env.example`](./docker/examples/.env.example)
+for the full commented list, and
+[`docs/wiki/referencia/environment-variables.md`](./docs/wiki/referencia/environment-variables.md)
+for the reference):
 
 ```env
-# Server
 SERVER_PORT=8080
 CLIENT_NAME=wamux
 OS_NAME=WaMux
 
-# Security (required)
-GLOBAL_API_KEY=your-secure-api-key-here
+GLOBAL_API_KEY=your-secure-api-key-here          # required admin key
 
-# Database
 POSTGRES_AUTH_DB=postgresql://user:pass@localhost:5432/wamux_auth?sslmode=disable
 POSTGRES_USERS_DB=postgresql://user:pass@localhost:5432/wamux_users?sslmode=disable
-DATABASE_SAVE_MESSAGES=true
-
-# Logging / runtime
-DEBUG_ENABLED=0
-LOG_TYPE=console
-CONNECT_ON_STARTUP=true
-SWAGGER_ENABLED=true        # set false to hide /swagger
-
-# Optional
-# WEBHOOK_URL=https://your-webhook-url.com/webhook
-# WEBHOOK_HMAC_KEY=               # global webhook signing key
-# WEBHOOK_HMAC_ENCRYPTION_KEY=    # encrypts per-instance keys at rest
-# WEBHOOK_ERROR_QUEUE_NAME=webhook_errors  # RabbitMQ queue for failed webhooks
-# SSRF_PROTECTION=true            # opt-in: block loopback/private/metadata fetches (default false)
-# PASSKEY_PUBLIC_URL=https://your-api.example.com
-# AMQP_URL=amqp://user:pass@rabbitmq:5672/
-# NATS_URL=nats://nats:4222
-# MINIO_ENABLED=true
+DATABASE_SAVE_MESSAGES=true                       # persist messages (feeds history + counts)
 ```
+
+A few of the most-used settings:
 
 | Variable | Description | Default |
 |---|---|---|
-| `SERVER_PORT` | Server port (inside the container) | `8080` |
-| `CLIENT_NAME` | Client identifier sent to WhatsApp | `wamux` |
-| `GLOBAL_API_KEY` | Admin key (`/instance/all`, `/server/stats`, …) | **Required** |
-| `POSTGRES_AUTH_DB` / `POSTGRES_USERS_DB` | Auth and users databases (auto-created) | — |
-| `DATABASE_SAVE_MESSAGES` | Persist messages (feeds the counts and `/server/stats`) | `false` (compose default) |
-| `WEBHOOK_FILES` | Download inbound attachments so they can be forwarded with the webhook | `false` (compose default) |
-| `MEDIA_LOCAL_STORE` | Keep attachment copies under `<dataDir>/media` for manager previews via `GET /chat/media/:messageId` | `false` |
-| `CONNECT_ON_STARTUP` | Reconnect instances that were `connected=true` on boot | `false` |
+| `GLOBAL_API_KEY` | Admin key (`/instance/all`, `/server/stats`, Manager) | **required** |
+| `DATABASE_SAVE_MESSAGES` | Persist messages (enables history readback + dashboard counts) | `false` (compose: `true`) |
+| `MESSAGE_RETENTION_DAYS` | Prune stored messages after N days (`0` = keep forever) | `365` |
+| `CONNECT_ON_STARTUP` | Reconnect paired instances on boot | `false` |
 | `SWAGGER_ENABLED` | Serve `/swagger` publicly | `true` |
-| `DEBUG_ENABLED` | `1` enables debug logging | `0` |
-| `LOG_TYPE` | `console` or `file` | `console` |
-| `WEBHOOK_HMAC_KEY` | Global HMAC key for webhook signing | — |
-| `WEBHOOK_HMAC_ENCRYPTION_KEY` | AES key encrypting per-instance HMAC keys at rest | derived from `GLOBAL_API_KEY` |
 | `SSRF_PROTECTION` | Opt-in: refuse outbound fetches to loopback/private/link-local hosts | `false` |
-| `PPROF_ENABLED` | Expose `/debug/pprof` (CPU/heap profiles, admin key required) — benchmarking only | `false` |
-| `DB_POOL_BUDGET_PER_NODE` | Total Postgres connections this node may open across its 3 pools (`0` = use `DB_MAX_OPEN_CONNS`) | `0` |
-| `DB_NODE_COUNT` | Nodes sharing Postgres; divides the pool budget | `1` |
-| `RATE_LIMIT_PER_MINUTE` | Requests per credential (instance token / admin key) or per IP; `0` disables | `600` |
-| `CORS_ALLOWED_ORIGINS` | Comma-separated origin allowlist (`*` reflects any, no credentials); empty = same-origin only | *(empty)* |
-| `MAX_INSTANCES` | Cap on instances this deployment accepts (`0` = unlimited) | `0` |
-| `SEND_RATE_LIMIT_PER_MINUTE` | Bound `POST /send/*` per instance (`0` = unlimited) | `0` |
-| `SEND_MAX_CONCURRENT` | Bound in-flight sends per instance (`0` = unlimited) | `0` |
-| `NODE_ID` | This process's id in the ownership table (horizontal scaling) | hostname |
-| `OWNERSHIP_LEASE_TTL_SECONDS` | How long a node's instance lease survives without a heartbeat | `60` |
-| `WEBHOOK_ERROR_QUEUE_NAME` | RabbitMQ queue for permanently failed webhooks | `webhook_errors` |
+| `WEBHOOK_HMAC_KEY` | Global key for webhook HMAC signing | — |
+| `RATE_LIMIT_PER_MINUTE` | Requests per credential / per IP (`0` disables) | `600` |
 
----
+RabbitMQ, NATS and MinIO settings are in the same `.env.example`.
 
-## Webhook HMAC signing
-
-Every HTTP webhook delivery can carry an `x-hmac-signature` header: the
-lowercase hex HMAC-SHA256 of the **exact request body**. Verify it before
-trusting the payload:
-
-```go
-mac := hmac.New(sha256.New, []byte(secret))
-mac.Write(body)
-expected := hex.EncodeToString(mac.Sum(nil))
-// constant-time compare against r.Header.Get("x-hmac-signature")
-```
-
-Priority: a **per-instance key** (if configured) wins over the process-global
-`WEBHOOK_HMAC_KEY`. With neither, deliveries are sent unsigned. Per-instance
-keys are encrypted at rest and are managed by the instance itself:
-
-| Method | Endpoint | Body | Description |
-|---|---|---|---|
-| `POST` | `/instance/hmac` | `{"hmacKey":"..."}` or `{"generate":true}` | Set the instance key (min 32 chars). With `generate`, the server returns a fresh key once. |
-| `GET` | `/instance/hmac` | — | `{"configured":bool,"globalFallback":bool}` |
-| `DELETE` | `/instance/hmac` | — | Remove the instance key |
-
-The key is stored AES-256-GCM encrypted with `WEBHOOK_HMAC_ENCRYPTION_KEY`
-(falling back to `GLOBAL_ENCRYPTION_KEY`, then to a key derived from
-`GLOBAL_API_KEY`, so it works with no extra configuration). Changing
-`GLOBAL_API_KEY` while using the derived key invalidates stored keys, so set an
-explicit `WEBHOOK_HMAC_ENCRYPTION_KEY` for long-lived deployments.
-
-### Webhook dead-letter queue
-
-When RabbitMQ is configured (`AMQP_URL`) and a webhook can never be delivered —
-every retry exhausted, or a non-retryable (4xx) response — the delivery is
-published to `WEBHOOK_ERROR_QUEUE_NAME` (default `webhook_errors`) as JSON with
-`url`, `userID`, the original `payload`, the last `statusCode`/`response`,
-`attemptTime` and `error`. Without RabbitMQ the failure is only logged.
-
----
-
-## SSRF protection
-
-Endpoints that fetch a caller-supplied URL (media by URL, link previews,
-stickers, avatars, group photos, button/carousel headers) can refuse to connect
-to loopback, private (RFC1918), link-local — including the `169.254.169.254`
-cloud metadata endpoint — CGNAT and multicast addresses. The check runs in the
-HTTP dialer and connects to the validated IP directly, so it also covers
-redirects and DNS rebinding.
-
-It is **opt-in for now** (`SSRF_PROTECTION=false` by default) so updating the
-fork does not break senders that fetch media from an internal host (self-hosted
-MinIO, Typebot, an internal CDN). Set `SSRF_PROTECTION=true` when all media
-comes from public hosts. The address checks themselves are unconditional once
-enabled — there is no separate allowlist yet.
-
----
-
-## Per-instance S3 storage
-
-Each instance can use its own S3-compatible bucket for inbound media, overriding
-the global MinIO config. Configured at runtime with the instance token:
-
-| Method | Endpoint | Body / result |
-|---|---|---|
-| `POST` | `/instance/s3` | `{enabled, endpoint, region, bucket, accessKey, secretKey, pathStyle, publicUrl, mediaDelivery}`. `mediaDelivery` is `base64` \| `s3` \| `both`. An empty `secretKey` on update keeps the stored one. |
-| `GET` | `/instance/s3` | Config with the secret masked (`secretKeySet`). |
-| `DELETE` | `/instance/s3` | Clear the config (revert to global MinIO / base64). |
-| `POST` | `/instance/s3/test` | Reachability check (no writes); omitted fields fall back to the stored config. |
-
-The secret is encrypted at rest (AES-256-GCM, same key material as HMAC — set
-`WEBHOOK_HMAC_ENCRYPTION_KEY`/`GLOBAL_ENCRYPTION_KEY` to keep it stable).
-`endpoint` may include a scheme (`https://…`); without one, TLS is off.
-`publicUrl` (a CDN/public base URL) is used instead of presigned URLs when set.
-`mediaDelivery` controls the webhook payload: `s3` (URL only), `base64`, or
-`both` (default). The config is cached per instance and rebuilt when it changes.
-
-Outbound/sent media is not uploaded to S3 (only inbound media is), and object
-retention is not enforced yet.
-
----
-
-## Message history readback
-
-When `DATABASE_SAVE_MESSAGES=true` (the default), inbound and outbound messages
-are persisted with their content, so a conversation can be read back over the
-API instead of only through webhooks:
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/chat/history?chat=<phone-or-JID>&limit=&before=` | Messages of one conversation, newest first. `before` pages backwards (timestamp of the oldest message already seen). |
-| `GET` | `/chat/chats?limit=` | Conversations with their newest message, status, type, count, most recent first. |
-| `GET` | `/chat/media/:messageId` | Streams a message's locally stored attachment (image/video/audio/document). Used by the manager for in-thread previews. |
-
-`chat` accepts a phone number or a full JID (including `@g.us`); it is
-normalized to the same canonical JID stored on the row. Limits default to 50 and
-are capped at 500. Each message row carries `chat_jid`, `sender_jid`,
-`message_type`, `text_content`, `media_url`, `media_mimetype`,
-`quoted_message_id` and `is_from_me`. Status-only updates (read/delivered
-receipts) never overwrite the content or reorder the message.
-
----
+> **`/swagger` is public by default.** It is not gated by `GLOBAL_API_KEY` — set
+> `SWAGGER_ENABLED=false` on an internet-facing deployment.
 
 ## Authentication
 
@@ -299,144 +131,121 @@ Two credentials, both sent in the `apikey` header:
 - **Global API key** (`GLOBAL_API_KEY`) — admin routes: `/instance/all`,
   `/instance/create`, `/instance/delete/:id`, `/server/stats`,
   `/instance/overview/:id`, `/instance/proxy/:id`, `/instance/limits/:id`.
-- **Instance token** (returned by `/instance/create`, shown in the manager) —
+- **Instance token** (returned by `/instance/create`, shown in the Manager) —
   everything scoped to one instance: `/send/*`, `/message/*`, `/chat/*`,
   `/group/*`, `/user/*`, `/typebot/*`, `/instance/connect`, `/instance/qr`.
 
-**No activation is required.** This fork starts fully operational — no license
-registration, no gate, no heartbeat to any external server.
+## Features
 
----
+- **Instances** — create, connect, pair (QR / pairing code), proxy, per-instance
+  overview (profile picture, platform, contact/chat/message counts).
+- **Messaging** — text, media, location, contact, polls, stickers, buttons,
+  lists, carousels, events and product cards; reactions, edits, deletes, presence.
+- **Events** — per-instance webhooks (with HMAC signing), RabbitMQ, NATS and a
+  WebSocket stream. See [`docs/wiki/recursos-avancados/events-system.md`](./docs/wiki/recursos-avancados/events-system.md).
+- **Media** — inbound media to MinIO/S3 (globally or per instance), optional
+  local copies for in-thread previews.
+- **History** — message persistence with readback (`GET /chat/history`,
+  `GET /chat/chats`, `GET /chat/media/:messageId`).
+- **Typebot** — optional chatbot integration (inert until configured).
+- **Manager** — React admin panel (source in [`wamux-manager/`](./wamux-manager))
+  plus a self-hosted `/dashboard`.
 
-## API
-
-Swagger UI: <http://localhost:8081/swagger/index.html> (regenerate with
-`make swagger`). The manager's **API Tester** reads the live spec, so it is
-always current.
-
-A few of the endpoints this fork adds or that are easy to get wrong:
+The full endpoint list is in the
+[API reference](./docs/wiki/referencia/api-reference.md) and the live Swagger UI
+(`/swagger`). A few notable endpoints:
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
 | `GET` | `/instance/overview/:instanceId` | global | Profile picture, push name, device platform, contact/chat/message counts |
-| `GET` | `/` | — | Public info banner: status, version, client name, manager/docs links, WhatsApp Web version, boot config error |
-| `GET` | `/server/ok` | — | Liveness probe (`{"status":"ok"}`) |
-| `GET` | `/server/health` | — | Readiness probe: version, uptime, instance and persistence-pool summary |
-| `GET` | `/metrics` | — | Prometheus metrics (connections, webhook depth, persistence saturation, send latency) |
-| `GET` | `/server/stats` | global | Runtime metrics: this process's memory/CPU + labelled host context, message aggregates |
-| `GET` | `/debug/pprof/*` | — | Go profiles (CPU/heap/goroutine) — only when `PPROF_ENABLED=true` |
 | `GET` | `/server/stats` | global | Runtime/host metrics, message aggregates, running version |
-| `GET` | `/dashboard` | — | Self-hosted dashboard page |
-| `GET` | `/chat/history` · `/chat/chats` · `/chat/media/:messageId` | instance | Read stored messages / list conversations / stream a stored attachment |
-| `POST` | `/instance/hmac` · `GET` · `DELETE` | instance | Configure webhook HMAC signing |
-| `POST` | `/instance/s3` · `GET` · `DELETE` · `POST /instance/s3/test` | instance | Per-instance S3 media storage |
-| `POST` | `/chat/ephemeral` | instance | Set/clear the disappearing-messages timer for a chat |
-| `POST` | `/send/text` · `/send/media` · `/send/button` · `/send/list` · `/send/carousel` · `/send/event` · `/send/product` | instance | Send messages |
-| `POST` | `/instance/name/:instanceId` | global | Rename an instance (id/token unchanged) |
-| `GET` | `/instance/proxy/:instanceId` | global | Get/set/test the instance proxy |
-| `GET` | `/instance/limits/:instanceId` | global | Reach-out timelock and new-chat quota (error 463) |
-| `GET` | `/instance/all` | global | List instances |
-| `GET` | `/instance/qr` | instance | QR / pairing code |
+| `GET` | `/server/health` · `/server/ok` | — | Readiness / liveness probes |
+| `GET` | `/metrics` | — | Prometheus metrics |
+| `GET` | `/chat/history` · `/chat/chats` · `/chat/media/:messageId` | instance | Stored messages / conversations / attachments |
+| `POST` | `/instance/hmac` | instance | Configure webhook HMAC signing |
+| `POST` | `/instance/s3` | instance | Per-instance S3 media storage |
+| `POST` | `/send/*` | instance | Send text, media, buttons, lists, carousels, events, products |
 
 Full list: `GET /swagger/doc.json`.
 
----
+### Webhook HMAC signing
+
+Every HTTP webhook delivery can carry an `x-hmac-signature` header: the lowercase
+hex HMAC-SHA256 of the exact request body. Configure a per-instance key with
+`POST /instance/hmac` (`GET`/`DELETE` to inspect/clear) or a global
+`WEBHOOK_HMAC_KEY`; the per-instance key wins. Keys are encrypted at rest with
+`WEBHOOK_HMAC_ENCRYPTION_KEY` (falling back to `GLOBAL_ENCRYPTION_KEY`, then to a
+key derived from `GLOBAL_API_KEY`). With no key configured, deliveries are sent
+unsigned. Failed deliveries can be routed to a RabbitMQ dead-letter queue
+(`WEBHOOK_ERROR_QUEUE_NAME`).
+
+### Per-instance S3 storage
+
+Each instance can store inbound media in its own S3-compatible bucket, overriding
+the global MinIO config: `POST /instance/s3` (`GET`, `DELETE`, `POST /instance/s3/test`).
+`mediaDelivery` selects `base64`, `s3` or `both`. The secret is encrypted at rest.
+
+### Message history readback
+
+With `DATABASE_SAVE_MESSAGES=true`, conversations can be read back over the API
+(`GET /chat/history?chat=<phone-or-JID>&limit=&before=`) instead of only through
+webhooks. Limits default to 50 and cap at 500.
+
+### SSRF protection
+
+Endpoints that fetch a caller-supplied URL can refuse loopback, private
+(RFC1918), link-local (including `169.254.169.254`), CGNAT and multicast
+addresses. It is opt-in (`SSRF_PROTECTION=true`) so senders that fetch media
+from an internal host keep working by default.
 
 ## Manager
 
-The React panel is served at `/manager` and its **source lives in this repo** at
-`wamux-manager/` (React 19, Vite, Tailwind; the UI primitives are vendored
-under `wamux-manager/src/components/ui/`). `docker compose up --build`
-builds it automatically; locally use `make manager-build` (it syncs into
-`manager/dist`).
+The React panel is served at `/manager`; its source lives in this repo at
+[`wamux-manager/`](./wamux-manager) (React 19, Vite, Tailwind). It covers instance
+management, QR/pairing, messaging, the messages screen, webhooks, proxy settings,
+a system dashboard, an API tester and the **Sobre / About** page.
 
-It shows each instance's profile picture, counts and paired-device platform,
-offers proxy settings and a token copy button, a system-wide dashboard, an API
-tester and the **Sobre / About** page required by the license (see below).
+## Documentation
 
----
+The full manual lives in [`docs/wiki/`](./docs/wiki):
 
-## Usage notification (deployers)
+| Start here | Concepts | API | Operations |
+|---|---|---|---|
+| [Introduction](./docs/wiki/fundamentos/introduction.md) | [Architecture](./docs/wiki/conceitos-core/architecture.md) | [API overview](./docs/wiki/guias-api/api-overview.md) | [Docker deploy](./docs/wiki/deploy-producao/docker-deployment.md) |
+| [Installation](./docs/wiki/fundamentos/installation.md) | [Instances](./docs/wiki/conceitos-core/instances.md) | [API reference](./docs/wiki/referencia/api-reference.md) | [Security](./docs/wiki/deploy-producao/security.md) |
+| [Quickstart](./docs/wiki/fundamentos/quickstart.md) | [Database](./docs/wiki/conceitos-core/database.md) | [Environment variables](./docs/wiki/referencia/environment-variables.md) | [Debugging](./docs/wiki/desenvolvimento/debugging.md) |
 
-WaMux's license (`LICENSE`, additional condition **1.b**) requires any
-system that uses it to show a **clear, administrator-visible notification that
-WaMux is being utilized**, reachable from the documentation or a settings
-page. This fork satisfies it with the manager's **Sobre / About** page
-(`/manager/about`).
-
-**If you embed this image (or the API) in another product**, you inherit that
-obligation for *your* users — surface an equivalent admin-visible notice. The
-image ships `LICENSE`, `NOTICE`, `TRADEMARKS.md` and `FORK_NOTES.md` in `/app`.
-
----
-
-## Stack
-
-| Component | Technology |
-|---|---|
-| Language | Go 1.26 |
-| HTTP framework | Gin |
-| WhatsApp | [whatsmeow](https://github.com/tulir/whatsmeow) |
-| Database | PostgreSQL 18 |
-| ORM | GORM |
-| Event brokers | RabbitMQ, NATS (optional) |
-| Media storage | MinIO/S3 (optional) |
-| Manager | React 19 + Vite + Tailwind |
-| Docs | Swagger/OpenAPI |
-| Container | Docker (`alpine:3.24`, ffmpeg, poppler-utils) |
-
-### Project structure
+## Project layout
 
 ```
 wamux/
-├── cmd/wamux/       # Application entry point
-├── pkg/                    # Go packages (routes, services, whatsmeow, ...)
-├── wamux-manager/   # Manager SPA source (React/Vite)
-├── manager/dist/           # Built manager assets served at /manager
-├── docker/examples/        # Compose examples (incl. pull-only GHCR)
-├── docs/                   # Generated Swagger
-├── .github/workflows/      # GHCR publish
+├── cmd/wamux/             # Application entry point
+├── pkg/                   # Go packages (routes, services, whatsmeow, ...)
+├── wamux-manager/         # Manager SPA source (React/Vite)
+├── manager/dist/          # Built manager assets served at /manager
+├── docker/examples/       # Ready-to-run compose files
+├── docs/wiki/             # Documentation
+├── docs/                  # Generated Swagger
+├── .github/workflows/     # GHCR publish + security scans
 ├── Dockerfile
 ├── Makefile
-└── VERSION                 # Single source of truth for the version
+└── VERSION                # Single source of truth for the version
 ```
 
----
+## Contributing
 
-## Telemetry
+Issues and pull requests are welcome in this repository.
 
-**None.** Upstream's license gate, heartbeat and telemetry were removed (see
-`FORK_NOTES.md` §1): nothing here contacts Evolution Foundation or any other
-third party on its own.
+- Do **not** open a public issue for security problems — see [`SECURITY.md`](./SECURITY.md).
+- Development setup and conventions: [`docs/wiki/desenvolvimento/development-guide.md`](./docs/wiki/desenvolvimento/development-guide.md) and [`docs/wiki/desenvolvimento/contributing.md`](./docs/wiki/desenvolvimento/contributing.md).
 
----
+## License & attribution
 
-## Contributing & security
-
-Issues and pull requests are welcome **in this repository**. For security
-problems, do not open a public issue — see [`SECURITY.md`](./SECURITY.md).
-
-## Acknowledgments
-
-- [whatsmeow](https://github.com/tulir/whatsmeow) by [Tulir Asokan](https://github.com/tulir) — WhatsApp protocol library
-- [Evolution Go](https://github.com/evolution-foundation/evolution-go) by Evolution Foundation — the upstream project WaMux was forked from
-- [Evolution API](https://github.com/evolution-foundation/evolution-api) — Node.js sister project
-
-## License
-
-Apache License 2.0, with Evolution Go's additional conditions (LOGO/copyright
-preservation and the Usage Notification requirement). See [`LICENSE`](./LICENSE).
-
-**This is an unofficial community fork** — not affiliated with, endorsed by, or
-an official release of Evolution Foundation. If you redistribute it or embed it
-in another product, review the additional conditions, and note the tension
-between `LICENSE` condition 1.a (do not remove the LOGO/copyright from the
-console) and `TRADEMARKS.md` §4.2 (a *modified* UI must remove the brand assets
-and use a distinct name). For any use not expressly permitted, contact
-**suporte@evofoundation.com.br** (`TRADEMARKS.md` §5).
-
-## Trademarks
-
-"Evolution Foundation", "Evolution" and "Evolution Go" are trademarks of
-Evolution Foundation. See [`TRADEMARKS.md`](./TRADEMARKS.md). Third-party
-attributions are in [`NOTICE`](./NOTICE).
+Apache License 2.0, with the additional conditions in [`LICENSE`](./LICENSE)
+(see also [`NOTICE`](./NOTICE) and [`TRADEMARKS.md`](./TRADEMARKS.md)). The code
+was originally forked from
+[Evolution Go](https://github.com/evolution-foundation/evolution-go) by Evolution
+Foundation; its copyright and trademark notices are retained. WaMux is not
+affiliated with, endorsed by, or an official release of Evolution Foundation, and
+`LICENSE` condition **1.b** requires any system that uses it to surface a clear,
+administrator-visible notice (the Manager's **Sobre / About** page satisfies it).

@@ -51,18 +51,18 @@ docker-compose logs wamux | grep ERROR
 
 ## Problemas Comuns
 
-### 1. Erro: "port 4000 already in use"
+### 1. Erro: "port 8081 already in use"
 
-**Causa**: Outra aplicação usando a porta 4000.
+**Causa**: Outra aplicação usando a porta 8081.
 
 **Solução**:
 
 ```bash
 # Verificar processo usando a porta
-lsof -i :4000
+lsof -i :8081
 
 # Ou
-netstat -tuln | grep 4000
+netstat -tuln | grep 8081
 
 # Matar processo
 kill -9 <PID>
@@ -125,7 +125,7 @@ EOF
 cat .env | grep GLOBAL_API_KEY
 
 # Testar com API key correta
-curl -H "apikey: SUA-CHAVE" http://localhost:4000/server/ok
+curl -H "apikey: SUA-CHAVE" http://localhost:8081/server/ok
 ```
 
 ### 5. QR Code não Aparece
@@ -139,10 +139,10 @@ curl -H "apikey: SUA-CHAVE" http://localhost:4000/server/ok
 docker-compose logs -f wamux | grep QR
 
 # Deletar e recriar instância
-curl -X DELETE http://localhost:4000/instance/delete/NOME \
+curl -X DELETE http://localhost:8081/instance/delete/NOME \
   -H "apikey: SUA-CHAVE"
 
-curl -X POST http://localhost:4000/instance/create \
+curl -X POST http://localhost:8081/instance/create \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE" \
   -d '{"instanceName": "NOME"}'
@@ -164,7 +164,7 @@ curl -X POST https://seu-webhook.com/endpoint \
 docker-compose logs wamux | grep webhook
 
 # Verificar configuração
-curl http://localhost:4000/instance/connectionState/NOME \
+curl http://localhost:8081/instance/connectionState/NOME \
   -H "apikey: SUA-CHAVE"
 ```
 
@@ -176,7 +176,7 @@ curl http://localhost:4000/instance/connectionState/NOME \
 
 ```bash
 # Verificar conexão
-curl http://localhost:4000/instance/connectionState/NOME \
+curl http://localhost:8081/instance/connectionState/NOME \
   -H "apikey: SUA-CHAVE"
 
 # Verificar logs
@@ -235,7 +235,7 @@ go run cmd/wamux/main.go -dev &
 PID=$!
 
 # Gerar CPU profile (30 segundos)
-curl http://localhost:4000/debug/pprof/profile?seconds=30 > cpu.prof
+curl http://localhost:8081/debug/pprof/profile?seconds=30 > cpu.prof
 
 # Analisar
 go tool pprof cpu.prof
@@ -250,7 +250,7 @@ go tool pprof cpu.prof
 
 ```bash
 # Heap snapshot
-curl http://localhost:4000/debug/pprof/heap > heap.prof
+curl http://localhost:8081/debug/pprof/heap > heap.prof
 
 # Analisar
 go tool pprof heap.prof
@@ -263,10 +263,10 @@ go tool pprof -http=:8081 heap.prof
 
 ```bash
 # Ver goroutines ativas
-curl http://localhost:4000/debug/pprof/goroutine?debug=1
+curl http://localhost:8081/debug/pprof/goroutine?debug=1
 
 # Profile de goroutines
-curl http://localhost:4000/debug/pprof/goroutine > goroutine.prof
+curl http://localhost:8081/debug/pprof/goroutine > goroutine.prof
 go tool pprof goroutine.prof
 ```
 
@@ -317,23 +317,23 @@ LIMIT 10;
 
 ```bash
 # Testar se porta está aberta
-nc -zv localhost 4000
+nc -zv localhost 8081
 
 # Testar endpoint
-curl -v http://localhost:4000/server/ok
+curl -v http://localhost:8081/server/ok
 
 # Com proxy
-curl -x http://proxy:8080 http://localhost:4000/server/ok
+curl -x http://proxy:8080 http://localhost:8081/server/ok
 ```
 
 ### Capturar Tráfego HTTP
 
 ```bash
 # tcpdump
-sudo tcpdump -i any -A 'port 4000'
+sudo tcpdump -i any -A 'port 8081'
 
 # Wireshark
-# Filtro: tcp.port == 4000
+# Filtro: tcp.port == 8081
 ```
 
 ---
@@ -359,7 +359,7 @@ dlv debug cmd/wamux/main.go -- -dev
 ### 2. Postman/Insomnia
 
 Importar collection Swagger:
-- URL: http://localhost:4000/swagger/doc.json
+- URL: http://localhost:8081/swagger/doc.json
 
 ### 3. pgAdmin / DBeaver
 
@@ -388,7 +388,7 @@ Quando algo não funciona:
 1. ✅ Verificar logs: `docker-compose logs -f`
 2. ✅ Verificar .env: variáveis corretas?
 3. ✅ Verificar PostgreSQL: está rodando?
-4. ✅ Verificar porta: 4000 livre?
+4. ✅ Verificar porta: 8081 livre?
 5. ✅ Verificar API key: está correta?
 6. ✅ Testar health check: `/server/ok`
 7. ✅ Verificar Swagger: documentação atualizada?

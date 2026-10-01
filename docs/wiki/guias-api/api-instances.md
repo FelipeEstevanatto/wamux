@@ -101,7 +101,7 @@ apikey: SUA-GLOBAL-API-KEY
 
 ### Exemplo cURL
 ```bash
-curl -X POST http://localhost:4000/instance/create   -H "Content-Type: application/json"   -H "apikey: SUA-CHAVE-API"   -d '{
+curl -X POST http://localhost:8081/instance/create   -H "Content-Type: application/json"   -H "apikey: SUA-CHAVE-API"   -d '{
     "name": "vendas",
     "token": "meu-token-seguro"
   }'
@@ -148,7 +148,7 @@ apikey: TOKEN-DA-INSTANCIA
 
 ### Exemplo cURL
 ```bash
-curl -X POST http://localhost:4000/instance/connect \
+curl -X POST http://localhost:8081/instance/connect \
   -H "Content-Type: application/json" \
   -H "apikey: token-da-instancia-vendas" \
   -d '{
@@ -188,7 +188,7 @@ apikey: TOKEN-DA-INSTANCIA
 
 ### Exemplo cURL
 ```bash
-curl "http://localhost:4000/instance/qr" \
+curl "http://localhost:8081/instance/qr" \
   -H "apikey: token-da-instancia-vendas"
 ```
 
@@ -234,7 +234,7 @@ apikey: TOKEN-DA-INSTANCIA
 
 ### Exemplo cURL
 ```bash
-curl -X POST http://localhost:4000/instance/pair \
+curl -X POST http://localhost:8081/instance/pair \
   -H "Content-Type: application/json" \
   -H "apikey: token-da-instancia-vendas" \
   -d '{"phone": "5511999999999"}'
@@ -277,7 +277,7 @@ apikey: TOKEN-DA-INSTANCIA
 
 ### Exemplo cURL
 ```bash
-curl "http://localhost:4000/instance/status" \
+curl "http://localhost:8081/instance/status" \
   -H "apikey: token-da-instancia-vendas"
 ```
 
@@ -322,7 +322,7 @@ apikey: SUA-GLOBAL-API-KEY
 
 ### Exemplo cURL
 ```bash
-curl "http://localhost:4000/instance/all" \
+curl "http://localhost:8081/instance/all" \
   -H "apikey: SUA-GLOBAL-API-KEY"
 ```
 
@@ -363,7 +363,7 @@ apikey: SUA-GLOBAL-API-KEY
 
 ### Exemplo cURL
 ```bash
-curl "http://localhost:4000/instance/info/vendas" \
+curl "http://localhost:8081/instance/info/vendas" \
   -H "apikey: SUA-GLOBAL-API-KEY"
 ```
 
@@ -399,7 +399,7 @@ apikey: TOKEN-DA-INSTANCIA
 
 ### Exemplo cURL
 ```bash
-curl -X POST http://localhost:4000/instance/disconnect \
+curl -X POST http://localhost:8081/instance/disconnect \
   -H "Content-Type: application/json" \
   -H "apikey: token-da-instancia-vendas" \
   -d '{}'
@@ -435,7 +435,7 @@ apikey: TOKEN-DA-INSTANCIA
 
 ### Exemplo cURL
 ```bash
-curl -X POST http://localhost:4000/instance/reconnect \
+curl -X POST http://localhost:8081/instance/reconnect \
   -H "Content-Type: application/json" \
   -H "apikey: token-da-instancia-vendas" \
   -d '{}'
@@ -473,7 +473,7 @@ apikey: TOKEN-DA-INSTANCIA
 
 ### Exemplo cURL
 ```bash
-curl -X DELETE http://localhost:4000/instance/logout \
+curl -X DELETE http://localhost:8081/instance/logout \
   -H "Content-Type: application/json" \
   -H "apikey: token-da-instancia-vendas" \
   -d '{}'
@@ -506,7 +506,7 @@ apikey: SUA-GLOBAL-API-KEY
 
 ### Exemplo cURL
 ```bash
-curl -X DELETE "http://localhost:4000/instance/delete/vendas" \
+curl -X DELETE "http://localhost:8081/instance/delete/vendas" \
   -H "apikey: SUA-GLOBAL-API-KEY"
 ```
 
@@ -551,7 +551,7 @@ apikey: SUA-GLOBAL-API-KEY
 
 ### Exemplo cURL
 ```bash
-curl -X POST "http://localhost:4000/instance/proxy/vendas" \
+curl -X POST "http://localhost:8081/instance/proxy/vendas" \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-GLOBAL-API-KEY" \
   -d '{
@@ -587,7 +587,7 @@ apikey: SUA-GLOBAL-API-KEY
 
 ### Exemplo cURL
 ```bash
-curl -X DELETE "http://localhost:4000/instance/proxy/vendas" \
+curl -X DELETE "http://localhost:8081/instance/proxy/vendas" \
   -H "apikey: SUA-GLOBAL-API-KEY"
 ```
 
@@ -624,7 +624,7 @@ apikey: SUA-GLOBAL-API-KEY
 
 ### Exemplo cURL
 ```bash
-curl -X POST "http://localhost:4000/instance/forcereconnect/vendas" \
+curl -X POST "http://localhost:8081/instance/forcereconnect/vendas" \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-GLOBAL-API-KEY" \
   -d '{"number": "5511999999999"}'
@@ -668,7 +668,7 @@ apikey: SUA-GLOBAL-API-KEY
 
 ### Exemplo cURL
 ```bash
-curl "http://localhost:4000/instance/logs/vendas?start_date=2025-01-01&limit=50" \
+curl "http://localhost:8081/instance/logs/vendas?start_date=2025-01-01&limit=50" \
   -H "apikey: SUA-GLOBAL-API-KEY"
 ```
 
@@ -727,7 +727,7 @@ apikey: SUA-GLOBAL-API-KEY
 
 ### Exemplo cURL
 ```bash
-curl -X PUT "http://localhost:4000/instance/vendas/advanced-settings" \
+curl -X PUT "http://localhost:8081/instance/vendas/advanced-settings" \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-GLOBAL-API-KEY" \
   -d '{
@@ -742,7 +742,7 @@ curl -X PUT "http://localhost:4000/instance/vendas/advanced-settings" \
 
 ### 1. Criar Instância (Administrativo)
 ```bash
-curl -X POST http://localhost:4000/instance/create \
+curl -X POST http://localhost:8081/instance/create \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-GLOBAL-API-KEY" \
   -d '{
@@ -753,7 +753,7 @@ curl -X POST http://localhost:4000/instance/create \
 
 ### 2. Conectar (Usando Token da Instância)
 ```bash
-curl -X POST http://localhost:4000/instance/connect \
+curl -X POST http://localhost:8081/instance/connect \
   -H "Content-Type: application/json" \
   -H "apikey: token-vendas-123" \
   -d '{
@@ -764,7 +764,7 @@ curl -X POST http://localhost:4000/instance/connect \
 
 ### 3. Obter QR Code
 ```bash
-curl "http://localhost:4000/instance/qr" \
+curl "http://localhost:8081/instance/qr" \
   -H "apikey: token-vendas-123"
 ```
 
@@ -774,7 +774,7 @@ Abra o WhatsApp → Aparelhos conectados → Conectar um aparelho → Escanear Q
 
 ### 5. Verificar Status
 ```bash
-curl "http://localhost:4000/instance/status" \
+curl "http://localhost:8081/instance/status" \
   -H "apikey: token-vendas-123"
 ```
 
@@ -850,4 +850,4 @@ curl "http://localhost:4000/instance/status" \
 
 ---
 
-**Dica**: Use o Swagger em `http://localhost:4000/swagger/index.html` para testar os endpoints interativamente!
+**Dica**: Use o Swagger em `http://localhost:8081/swagger/index.html` para testar os endpoints interativamente!

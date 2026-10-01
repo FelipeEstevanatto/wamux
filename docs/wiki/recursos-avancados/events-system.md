@@ -102,7 +102,7 @@ WEBHOOK_URL=https://meu-servidor.com/webhook
 
 **Por instância** (via Connect):
 ```bash
-curl -X POST http://localhost:4000/instance/connect \
+curl -X POST http://localhost:8081/instance/connect \
   -H "apikey: token-da-instancia" \
   -H "Content-Type: application/json" \
   -d '{
@@ -453,7 +453,7 @@ Envia eventos através de uma conexão WebSocket persistente. Ideal para dashboa
 Recebe apenas eventos de uma instância:
 
 ```
-ws://localhost:4000/ws?token=TOKEN_DA_INSTANCIA&instanceId=vendas
+ws://localhost:8081/ws?token=TOKEN_DA_INSTANCIA&instanceId=vendas
 ```
 
 #### 2. Conexão Broadcast
@@ -461,7 +461,7 @@ ws://localhost:4000/ws?token=TOKEN_DA_INSTANCIA&instanceId=vendas
 Recebe eventos de **todas as instâncias**:
 
 ```
-ws://localhost:4000/ws?token=GLOBAL_API_KEY
+ws://localhost:8081/ws?token=GLOBAL_API_KEY
 ```
 
 ### Gerenciamento de Conexões
@@ -479,7 +479,7 @@ O WaMux gerencia automaticamente as conexões WebSocket:
 // Conectar a instância específica
 const token = 'token-da-instancia-vendas';
 const instanceId = 'vendas';
-const ws = new WebSocket(`ws://localhost:4000/ws?token=${token}&instanceId=${instanceId}`);
+const ws = new WebSocket(`ws://localhost:8081/ws?token=${token}&instanceId=${instanceId}`);
 
 ws.onopen = () => {
     console.log('WebSocket conectado!');
@@ -518,7 +518,7 @@ import websockets
 import json
 
 async def listen_events():
-    uri = "ws://localhost:4000/ws?token=TOKEN&instanceId=vendas"
+    uri = "ws://localhost:8081/ws?token=TOKEN&instanceId=vendas"
     
     async with websockets.connect(uri) as websocket:
         print("WebSocket conectado!")
@@ -558,13 +558,13 @@ NATS_ENABLED=true
 
 # ===== WEBSOCKET =====
 # WebSocket é habilitado automaticamente
-# Acesse: ws://localhost:4000/ws
+# Acesse: ws://localhost:8081/ws
 ```
 
 ### Configuração por Instância
 
 ```bash
-curl -X POST http://localhost:4000/instance/connect \
+curl -X POST http://localhost:8081/instance/connect \
   -H "apikey: token-da-instancia-vendas" \
   -H "Content-Type: application/json" \
   -d '{
@@ -799,7 +799,7 @@ NATS_ENABLED=true
 ```
 
 ```bash
-curl -X POST http://localhost:4000/instance/connect \
+curl -X POST http://localhost:8081/instance/connect \
   -H "apikey: token-vendas" \
   -H "Content-Type: application/json" \
   -d '{
@@ -831,7 +831,7 @@ curl -X POST http://localhost:4000/instance/connect \
 WEBHOOK_URL=https://meu-dominio.com/webhook
 
 # Conectar instância
-curl -X POST http://localhost:4000/instance/connect \
+curl -X POST http://localhost:8081/instance/connect \
   -H "Content-Type: application/json" \
   -H "apikey: token-bot-123" \
   -d '{
@@ -870,7 +870,7 @@ python rabbitmq-consumer.py
     <div id="messages"></div>
 
     <script>
-        const ws = new WebSocket('ws://localhost:4000/ws?token=GLOBAL_API_KEY');
+        const ws = new WebSocket('ws://localhost:8081/ws?token=GLOBAL_API_KEY');
         
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
@@ -1024,7 +1024,7 @@ curl -X POST https://seu-webhook.com/endpoint   -H "Content-Type: application/js
 **Solução (Nginx)**:
 ```nginx
 location /ws {
-    proxy_pass http://localhost:4000;
+    proxy_pass http://localhost:8080;
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "upgrade";
@@ -1039,7 +1039,7 @@ location /ws {
 - [Armazenamento de Mídia](./media-storage.md) - MinIO/S3 para arquivos
 - [Conexão QR Code](./qrcode-connection.md) - Processo de autenticação
 - [Multi-Dispositivo](./multi-device.md) - Suporte Multi-Device
-- [API de Webhooks](../guias-api/api-webhooks.md) - Configurar webhooks via API
+- [ReferÃªncia da API](../referencia/api-reference.md) - Todos os endpoints
 
 ---
 

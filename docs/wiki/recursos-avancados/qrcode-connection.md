@@ -298,7 +298,7 @@ GET /instance/qr?instanceName=vendas
 
 **Conectar**:
 ```javascript
-const ws = new WebSocket('ws://localhost:4000/ws?token=TOKEN&instanceId=vendas');
+const ws = new WebSocket('ws://localhost:8081/ws?token=TOKEN&instanceId=vendas');
 
 ws.onmessage = (event) => {
     const data = JSON.parse(event.data);
@@ -532,7 +532,7 @@ POST /instance/reconnect
 **Solução**: Use WebSocket para receber QR em tempo real.
 
 ```javascript
-const ws = new WebSocket('ws://localhost:4000/ws?token=TOKEN&instanceId=vendas');
+const ws = new WebSocket('ws://localhost:8081/ws?token=TOKEN&instanceId=vendas');
 
 ws.onmessage = (event) => {
     const data = JSON.parse(event.data);
@@ -598,7 +598,7 @@ setInterval(() => {
 
 **✅ Bom** (WebSocket):
 ```javascript
-const ws = new WebSocket('ws://localhost:4000/ws?token=TOKEN&instanceId=vendas');
+const ws = new WebSocket('ws://localhost:8081/ws?token=TOKEN&instanceId=vendas');
 ws.onmessage = (event) => {
     const data = JSON.parse(event.data);
     if (data.queue === 'qrcode') showQR(data.payload.qrcode);

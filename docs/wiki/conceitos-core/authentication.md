@@ -199,7 +199,7 @@ apikey: sua-chave-aqui
 
 **1. Criando uma instância (usa API Key Global)**:
 ```bash
-curl -X POST http://localhost:4000/instance/create \
+curl -X POST http://localhost:8081/instance/create \
   -H "Content-Type: application/json" \
   -H "apikey: minha-chave-global" \
   -d '{"name": "vendas", "token": "token-vendas"}'
@@ -207,7 +207,7 @@ curl -X POST http://localhost:4000/instance/create \
 
 **2. Enviando mensagem (usa Token da Instância)**:
 ```bash
-curl -X POST http://localhost:4000/send/text \
+curl -X POST http://localhost:8081/send/text \
   -H "Content-Type: application/json" \
   -H "apikey: token-vendas" \
   -d '{
@@ -218,7 +218,7 @@ curl -X POST http://localhost:4000/send/text \
 
 **3. Com JavaScript**:
 ```javascript
-fetch('http://localhost:4000/send/text', {
+fetch('http://localhost:8081/send/text', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
@@ -371,7 +371,7 @@ echo "GLOBAL_API_KEY=$(openssl rand -base64 32)" >> .env
 docker-compose up -d
 
 # 3. Crie sua primeira instância
-curl -X POST http://localhost:4000/instance/create \
+curl -X POST http://localhost:8081/instance/create \
   -H "apikey: $(grep GLOBAL_API_KEY .env | cut -d '=' -f2)" \
   -H "Content-Type: application/json" \
   -d '{"name": "vendas"}'
@@ -383,12 +383,12 @@ curl -X POST http://localhost:4000/instance/create \
 
 ```bash
 # Vendas
-curl -X POST http://localhost:4000/send/text \
+curl -X POST http://localhost:8081/send/text \
   -H "apikey: token-vendas" \
   -d '{"number": "5511111111", "text": "Equipe vendas"}'
 
 # Suporte
-curl -X POST http://localhost:4000/send/text \
+curl -X POST http://localhost:8081/send/text \
   -H "apikey: token-suporte" \
   -d '{"number": "5522222222", "text": "Equipe suporte"}'
 ```
@@ -409,13 +409,13 @@ Cada instância é independente e usa seu próprio token!
 **Como resolver**:
 ```bash
 # Verifique se o header está sendo enviado
-curl -v http://localhost:4000/send/text
+curl -v http://localhost:8081/send/text
 
 # Confirme o valor no .env
 cat .env | grep GLOBAL_API_KEY
 
 # Liste suas instâncias para ver os tokens
-curl -H "apikey: sua-chave-global" http://localhost:4000/instance/all
+curl -H "apikey: sua-chave-global" http://localhost:8081/instance/all
 ```
 
 ### Token não funciona após reiniciar

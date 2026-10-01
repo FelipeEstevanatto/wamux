@@ -75,7 +75,7 @@ apikey: SUA-CHAVE-API
 
 **Exemplo cURL**:
 ```bash
-curl -X POST http://localhost:4000/community/create \
+curl -X POST http://localhost:8081/community/create \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -131,7 +131,7 @@ Adiciona (vincula) grupos existentes a uma comunidade.
 
 **Exemplo cURL**:
 ```bash
-curl -X POST http://localhost:4000/community/add \
+curl -X POST http://localhost:8081/community/add \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -184,7 +184,7 @@ Remove (desvincula) grupos de uma comunidade.
 
 **Exemplo cURL**:
 ```bash
-curl -X POST http://localhost:4000/community/remove \
+curl -X POST http://localhost:8081/community/remove \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{

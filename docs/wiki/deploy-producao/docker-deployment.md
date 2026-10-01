@@ -33,7 +33,7 @@ Guia de deploy do WaMux usando Docker, Docker Compose, Swarm e Kubernetes.
 │  ┌──────────────┐      ┌──────────────┐      ┌──────────────┐ │
 │  │ WaMux │◄────►│  PostgreSQL  │      │  RabbitMQ    │ │
 │  │   (API)      │      │   (Auth DB)  │      │  (Events)    │ │
-│  │  Port: 4000  │      │   (Users DB) │      │  Port: 5672  │ │
+│  │  Port: 8080  │      │   (Users DB) │      │  Port: 5672  │ │
 │  └──────┬───────┘      └──────────────┘      └──────────────┘ │
 │         │                                                       │
 │         │              ┌──────────────┐      ┌──────────────┐ │
@@ -72,9 +72,9 @@ services:
     container_name: wamux
     restart: unless-stopped
     ports:
-      - "4000:4000"
+      - "8081:8080"
     environment:
-      SERVER_PORT: 4000
+      SERVER_PORT: 8080
       CLIENT_NAME: "wamux"
       GLOBAL_API_KEY: "SUBSTITUA-POR-UUID-FORTE"
 
@@ -142,7 +142,7 @@ docker-compose up -d
 
 # Verificar
 docker-compose logs -f wamux
-curl http://localhost:4000/server/ok
+curl http://localhost:8081/server/ok
 ```
 
 ### Setup Completo
@@ -157,9 +157,9 @@ services:
     image: ghcr.io/felipeestevanatto/wamux:latest
     restart: unless-stopped
     ports:
-      - "4000:4000"
+      - "8081:8080"
     environment:
-      SERVER_PORT: 4000
+      SERVER_PORT: 8080
       GLOBAL_API_KEY: "SUA-CHAVE-AQUI"
 
       POSTGRES_AUTH_DB: "postgresql://postgres:senha@postgres:5432/wamux_auth?sslmode=disable"
@@ -238,8 +238,8 @@ volumes:
 ```
 
 **Acessos:**
-- WaMux: http://localhost:4000
-- Swagger: http://localhost:4000/swagger/index.html
+- WaMux: http://localhost:8081
+- Swagger: http://localhost:8081/swagger/index.html
 - RabbitMQ: http://localhost:15672 (admin/admin)
 - MinIO: http://localhost:9001 (minioadmin/minioadmin)
 
@@ -253,7 +253,7 @@ WAMUX_VERSION=latest
 POSTGRES_VERSION=15-alpine
 
 # Portas
-WAMUX_PORT=4000
+WAMUX_PORT=8081
 POSTGRES_PORT=5432
 
 # Credenciais
@@ -273,7 +273,7 @@ services:
   wamux:
     image: ghcr.io/felipeestevanatto/wamux:${WAMUX_VERSION:-latest}
     ports:
-      - "${WAMUX_PORT:-4000}:4000"
+      - "${WAMUX_PORT:-8081}:8080"
     environment:
       GLOBAL_API_KEY: "${GLOBAL_API_KEY}"
 ```
@@ -284,7 +284,7 @@ services:
 services:
   wamux:
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4000/server/ok"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/server/ok"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -369,7 +369,7 @@ services:
     networks:
       - network_public
     environment:
-      SERVER_PORT: 4000
+      SERVER_PORT: 8080
       GLOBAL_API_KEY: "sua-chave-api"
       POSTGRES_AUTH_DB: "postgresql://user:pass@postgres:5432/wamux_auth"
       POSTGRES_USERS_DB: "postgresql://user:pass@postgres:5432/wamux_users"
@@ -401,7 +401,7 @@ services:
         - traefik.http.routers.wamux.rule=Host(`wamux.domain.com`)
         - traefik.http.routers.wamux.entrypoints=websecure
         - traefik.http.routers.wamux.tls.certresolver=letsencrypt
-        - traefik.http.services.wamux.loadbalancer.server.port=4000
+        - traefik.http.services.wamux.loadbalancer.server.port=8080
 
 volumes:
   wamux_data:
@@ -464,7 +464,7 @@ metadata:
   name: wamux-config
   namespace: wamux
 data:
-  SERVER_PORT: "4000"
+  SERVER_PORT: "8080"
   CLIENT_NAME: "wamux"
   WADEBUG: "INFO"
   LOGTYPE: "console"
@@ -505,7 +505,7 @@ spec:
       - name: wamux
         image: ghcr.io/felipeestevanatto/wamux:latest
         ports:
-        - containerPort: 4000
+        - containerPort: 8080
         env:
         - name: SERVER_PORT
           valueFrom:
@@ -527,13 +527,13 @@ spec:
         livenessProbe:
           httpGet:
             path: /server/ok
-            port: 4000
+            port: 8080
           initialDelaySeconds: 30
           periodSeconds: 10
         readinessProbe:
           httpGet:
             path: /server/ok
-            port: 4000
+            port: 8080
           initialDelaySeconds: 10
           periodSeconds: 5
         volumeMounts:
@@ -564,8 +564,8 @@ spec:
   selector:
     app: wamux
   ports:
-  - port: 4000
-    targetPort: 4000
+  - port: 8080
+    targetPort: 8080
 ```
 
 #### Ingress
@@ -595,7 +595,7 @@ spec:
           service:
             name: wamux-service
             port:
-              number: 4000
+              number: 8080
 ```
 
 #### HorizontalPodAutoscaler

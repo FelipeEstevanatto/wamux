@@ -4,9 +4,6 @@
 
 **Gateway de API WhatsApp de alta performance desenvolvido em Go**
 
-[![Documentação: 100%](https://img.shields.io/badge/Documenta%C3%A7%C3%A3o-100%25-success?style=flat-square)]()
-[![Endpoints: 79](https://img.shields.io/badge/Endpoints-79-blue?style=flat-square)]()
-[![Guias: 30](https://img.shields.io/badge/Guias-30-informational?style=flat-square)]()
 
 </div>
 
@@ -87,7 +84,7 @@ Referência completa de todos os endpoints disponíveis.
 | [**Chamadas**](./guias-api/api-call.md) | 1 | Rejeitar chamadas recebidas |
 | [**Comunidades**](./guias-api/api-community.md) | 3 | Criar e gerenciar comunidades |
 | [**Newsletters**](./guias-api/api-newsletter.md) | 6 | Canais do WhatsApp |
-| [**Webhooks**](./guias-api/api-webhooks.md) | - | Configurar eventos em tempo real |
+| [**Webhooks**](./recursos-avancados/events-system.md) | - | Configurar eventos em tempo real |
 
 ### 🚀 Recursos Avançados
 
@@ -142,7 +139,7 @@ Consulta rápida para desenvolvedores.
 ### 🔗 Links Importantes
 - 🌐 [Repositório Oficial](https://github.com/FelipeEstevanatto/wamux)
 - 📚 [Biblioteca Whatsmeow](https://github.com/tulir/whatsmeow)
-- 🔧 [API Swagger](http://localhost:4000/swagger/index.html) (quando servidor estiver rodando)
+- 🔧 [API Swagger](http://localhost:8081/swagger/index.html) (quando servidor estiver rodando)
 - 🐛 [Reportar Issues](https://github.com/FelipeEstevanatto/wamux/issues)
 
 ### 💬 Suporte
