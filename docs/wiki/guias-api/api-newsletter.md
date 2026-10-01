@@ -82,7 +82,7 @@ apikey: SUA-CHAVE-API
 
 **Exemplo cURL**:
 ```bash
-curl -X POST http://localhost:4000/newsletter/create \
+curl -X POST http://localhost:8081/newsletter/create \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -140,7 +140,7 @@ apikey: SUA-CHAVE-API
 
 **Exemplo cURL**:
 ```bash
-curl -X GET http://localhost:4000/newsletter/list \
+curl -X GET http://localhost:8081/newsletter/list \
   -H "apikey: SUA-CHAVE-API"
 ```
 
@@ -198,7 +198,7 @@ Obtém informações detalhadas de um canal específico.
 
 **Exemplo cURL**:
 ```bash
-curl -X POST http://localhost:4000/newsletter/info \
+curl -X POST http://localhost:8081/newsletter/info \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -255,7 +255,7 @@ https://whatsapp.com/channel/ABC123XYZ
 
 **Exemplo cURL**:
 ```bash
-curl -X POST http://localhost:4000/newsletter/link \
+curl -X POST http://localhost:8081/newsletter/link \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -295,7 +295,7 @@ Inscreve-se (segue) um canal do WhatsApp.
 
 **Exemplo cURL**:
 ```bash
-curl -X POST http://localhost:4000/newsletter/subscribe \
+curl -X POST http://localhost:8081/newsletter/subscribe \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -373,7 +373,7 @@ Obtém mensagens de um canal.
 **Exemplo cURL**:
 ```bash
 # Buscar últimas 20 mensagens
-curl -X POST http://localhost:4000/newsletter/messages \
+curl -X POST http://localhost:8081/newsletter/messages \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -382,7 +382,7 @@ curl -X POST http://localhost:4000/newsletter/messages \
   }'
 
 # Buscar 20 mensagens anteriores (paginação)
-curl -X POST http://localhost:4000/newsletter/messages \
+curl -X POST http://localhost:8081/newsletter/messages \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -400,7 +400,7 @@ curl -X POST http://localhost:4000/newsletter/messages \
 
 ```bash
 # 1. Criar canal
-NEWSLETTER_JID=$(curl -s -X POST http://localhost:4000/newsletter/create \
+NEWSLETTER_JID=$(curl -s -X POST http://localhost:8081/newsletter/create \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -411,7 +411,7 @@ NEWSLETTER_JID=$(curl -s -X POST http://localhost:4000/newsletter/create \
 echo "Canal criado: $NEWSLETTER_JID"
 
 # 2. Obter informações
-curl -X POST http://localhost:4000/newsletter/info \
+curl -X POST http://localhost:8081/newsletter/info \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d "{"jid": "$NEWSLETTER_JID"}"
@@ -480,7 +480,7 @@ Para buscar mensagens publicadas em um canal:
 Para enviar mensagens no seu canal, use a **API de Mensagens** normal, passando o JID do canal:
 
 ```bash
-curl -X POST http://localhost:4000/send/text \
+curl -X POST http://localhost:8081/send/text \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{

@@ -234,7 +234,7 @@ go install github.com/cespare/reflex@latest
 Para documentação completa da API e guias detalhados:
 
 - **[Documentação Oficial](./docs/wiki/README.md)** - Guias, tutoriais e referência
-- **[API Swagger](http://localhost:4000/swagger/index.html)** - Documentação interativa (quando servidor estiver rodando)
+- **[API Swagger](http://localhost:8081/swagger/index.html)** - Documentação interativa (quando servidor estiver rodando)
 
 ## ❓ Problemas Comuns
 
@@ -253,7 +253,7 @@ go install github.com/cosmtrek/air@latest
 go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 ```
 
-### Porta 4000 já em uso
+### Porta 8081 já em uso
 ```bash
 # Mude a porta no .env
 SERVER_PORT=8080

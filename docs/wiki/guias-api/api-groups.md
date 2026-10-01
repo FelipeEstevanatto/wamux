@@ -77,7 +77,7 @@ apikey: SUA-CHAVE-API
 
 **Exemplo cURL**:
 ```bash
-curl -X GET http://localhost:4000/group/list \
+curl -X GET http://localhost:8081/group/list \
   -H "apikey: SUA-CHAVE-API"
 ```
 
@@ -134,7 +134,7 @@ Obtém informações detalhadas de um grupo específico.
 
 **Exemplo cURL**:
 ```bash
-curl -X POST http://localhost:4000/group/info \
+curl -X POST http://localhost:8081/group/info \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -178,7 +178,7 @@ Obtém ou regenera o link de convite do grupo.
 **Exemplo cURL**:
 ```bash
 # Obter link existente
-curl -X POST http://localhost:4000/group/invitelink \
+curl -X POST http://localhost:8081/group/invitelink \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -187,7 +187,7 @@ curl -X POST http://localhost:4000/group/invitelink \
   }'
 
 # Gerar novo link
-curl -X POST http://localhost:4000/group/invitelink \
+curl -X POST http://localhost:8081/group/invitelink \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -253,7 +253,7 @@ Cria um novo grupo WhatsApp.
 
 **Exemplo cURL**:
 ```bash
-curl -X POST http://localhost:4000/group/create \
+curl -X POST http://localhost:8081/group/create \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -314,7 +314,7 @@ Adiciona, remove ou promove participantes do grupo.
 
 ```bash
 # Adicionar participantes
-curl -X POST http://localhost:4000/group/participant \
+curl -X POST http://localhost:8081/group/participant \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -324,7 +324,7 @@ curl -X POST http://localhost:4000/group/participant \
   }'
 
 # Remover participantes
-curl -X POST http://localhost:4000/group/participant \
+curl -X POST http://localhost:8081/group/participant \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -334,7 +334,7 @@ curl -X POST http://localhost:4000/group/participant \
   }'
 
 # Promover a admin
-curl -X POST http://localhost:4000/group/participant \
+curl -X POST http://localhost:8081/group/participant \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -344,7 +344,7 @@ curl -X POST http://localhost:4000/group/participant \
   }'
 
 # Remover admin (rebaixar)
-curl -X POST http://localhost:4000/group/participant \
+curl -X POST http://localhost:8081/group/participant \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -407,7 +407,7 @@ O campo `data` contém o ID da nova foto.
 **Exemplo cURL**:
 ```bash
 # Com URL
-curl -X POST http://localhost:4000/group/photo \
+curl -X POST http://localhost:8081/group/photo \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -416,7 +416,7 @@ curl -X POST http://localhost:4000/group/photo \
   }'
 
 # Com base64
-curl -X POST http://localhost:4000/group/photo \
+curl -X POST http://localhost:8081/group/photo \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -459,7 +459,7 @@ Altera o nome do grupo.
 
 **Exemplo cURL**:
 ```bash
-curl -X POST http://localhost:4000/group/name \
+curl -X POST http://localhost:8081/group/name \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -502,7 +502,7 @@ Altera a descrição do grupo.
 
 **Exemplo cURL**:
 ```bash
-curl -X POST http://localhost:4000/group/description \
+curl -X POST http://localhost:8081/group/description \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -549,7 +549,7 @@ apikey: SUA-CHAVE-API
 
 **Exemplo cURL**:
 ```bash
-curl -X GET http://localhost:4000/group/myall \
+curl -X GET http://localhost:8081/group/myall \
   -H "apikey: SUA-CHAVE-API"
 ```
 
@@ -606,7 +606,7 @@ Erros comuns:
 **Exemplo cURL**:
 ```bash
 # Com código
-curl -X POST http://localhost:4000/group/join \
+curl -X POST http://localhost:8081/group/join \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -614,7 +614,7 @@ curl -X POST http://localhost:4000/group/join \
   }'
 
 # Com URL completa
-curl -X POST http://localhost:4000/group/join \
+curl -X POST http://localhost:8081/group/join \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -654,7 +654,7 @@ Sai de um grupo WhatsApp.
 
 **Exemplo cURL**:
 ```bash
-curl -X POST http://localhost:4000/group/leave \
+curl -X POST http://localhost:8081/group/leave \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -670,7 +670,7 @@ curl -X POST http://localhost:4000/group/leave \
 
 ```bash
 # 1. Criar grupo
-GROUP_JID=$(curl -X POST http://localhost:4000/group/create \
+GROUP_JID=$(curl -X POST http://localhost:8081/group/create \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -679,7 +679,7 @@ GROUP_JID=$(curl -X POST http://localhost:4000/group/create \
   }' | jq -r '.data.jid')
 
 # 2. Adicionar foto
-curl -X POST http://localhost:4000/group/photo \
+curl -X POST http://localhost:8081/group/photo \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d "{
@@ -688,7 +688,7 @@ curl -X POST http://localhost:4000/group/photo \
   }"
 
 # 3. Adicionar descrição
-curl -X POST http://localhost:4000/group/description \
+curl -X POST http://localhost:8081/group/description \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d "{
@@ -697,7 +697,7 @@ curl -X POST http://localhost:4000/group/description \
   }"
 
 # 4. Obter link de convite
-curl -X POST http://localhost:4000/group/invitelink \
+curl -X POST http://localhost:8081/group/invitelink \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d "{
@@ -710,7 +710,7 @@ curl -X POST http://localhost:4000/group/invitelink \
 
 ```bash
 # Adicionar novos membros
-curl -X POST http://localhost:4000/group/participant \
+curl -X POST http://localhost:8081/group/participant \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -720,7 +720,7 @@ curl -X POST http://localhost:4000/group/participant \
   }'
 
 # Promover a admin
-curl -X POST http://localhost:4000/group/participant \
+curl -X POST http://localhost:8081/group/participant \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -752,7 +752,7 @@ curl -X POST http://localhost:4000/group/participant \
 Sempre verifique se você é admin antes de tentar alterar configurações:
 ```bash
 # 1. Obter info do grupo
-INFO=$(curl -s -X POST http://localhost:4000/group/info \
+INFO=$(curl -s -X POST http://localhost:8081/group/info \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{"groupJid": "120363XXXXXXXXXX@g.us"}')
@@ -765,13 +765,13 @@ echo $INFO | jq '.data.Participants[] | select(.IsAdmin == true)'
 Valide números antes de adicionar ao grupo:
 ```bash
 # 1. Verificar se número existe
-curl -X POST http://localhost:4000/user/check \
+curl -X POST http://localhost:8081/user/check \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{"number": ["5511999999999"]}'
 
 # 2. Se IsInWhatsapp=true, adicionar ao grupo
-curl -X POST http://localhost:4000/group/participant \
+curl -X POST http://localhost:8081/group/participant \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{

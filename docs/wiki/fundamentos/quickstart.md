@@ -17,7 +17,7 @@ Se ainda não instalou, consulte o [Guia de Instalação](./installation.md).
 Confirme que o servidor está respondendo:
 
 ```bash
-curl http://localhost:4000/server/ok
+curl http://localhost:8081/server/ok
 ```
 
 **Resposta esperada:**
@@ -34,7 +34,7 @@ curl http://localhost:4000/server/ok
 Uma instância representa uma conexão única do WhatsApp. Crie sua primeira:
 
 ```bash
-curl -X POST http://localhost:4000/instance/create \
+curl -X POST http://localhost:8081/instance/create \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-GLOBAL-API-KEY" \
   -d '{
@@ -70,7 +70,7 @@ A instância foi criada mas ainda não está autenticada no WhatsApp.
 ### Iniciar Conexão
 
 ```bash
-curl -X POST http://localhost:4000/instance/connect \
+curl -X POST http://localhost:8081/instance/connect \
   -H "Content-Type: application/json" \
   -H "apikey: token-secreto-da-instancia"
 ```
@@ -81,13 +81,13 @@ curl -X POST http://localhost:4000/instance/connect \
 
 **Via navegador:**
 ```
-http://localhost:4000/instance/qr
+http://localhost:8081/instance/qr
 ```
 (com o header `apikey: token-secreto-da-instancia`)
 
 **Via API:**
 ```bash
-curl "http://localhost:4000/instance/qr" \
+curl "http://localhost:8081/instance/qr" \
   -H "apikey: token-secreto-da-instancia"
 ```
 
@@ -107,7 +107,7 @@ A conexão deve ser estabelecida em aproximadamente 10 segundos.
 Confirme que a instância está conectada:
 
 ```bash
-curl "http://localhost:4000/instance/status" \
+curl "http://localhost:8081/instance/status" \
   -H "apikey: token-secreto-da-instancia"
 ```
 
@@ -138,7 +138,7 @@ curl "http://localhost:4000/instance/status" \
 ### Mensagem de Texto
 
 ```bash
-curl -X POST http://localhost:4000/send/text \
+curl -X POST http://localhost:8081/send/text \
   -H "Content-Type: application/json" \
   -H "apikey: token-secreto-da-instancia" \
   -d '{
@@ -167,7 +167,7 @@ curl -X POST http://localhost:4000/send/text \
 ### Mensagem com Mídia
 
 ```bash
-curl -X POST http://localhost:4000/send/media \
+curl -X POST http://localhost:8081/send/media \
   -H "Content-Type: application/json" \
   -H "apikey: token-secreto-da-instancia" \
   -d '{
@@ -180,7 +180,7 @@ curl -X POST http://localhost:4000/send/media \
 ### Mensagem com Documento
 
 ```bash
-curl -X POST http://localhost:4000/send/media \
+curl -X POST http://localhost:8081/send/media \
   -H "Content-Type: application/json" \
   -H "apikey: token-secreto-da-instancia" \
   -d '{
@@ -197,7 +197,7 @@ curl -X POST http://localhost:4000/send/media \
 ### Listar Instâncias
 
 ```bash
-curl "http://localhost:4000/instance/all" \
+curl "http://localhost:8081/instance/all" \
   -H "apikey: SUA-GLOBAL-API-KEY"
 ```
 
@@ -206,7 +206,7 @@ curl "http://localhost:4000/instance/all" \
 ### Detalhes da Instância
 
 ```bash
-curl "http://localhost:4000/instance/info/uuid-da-instancia" \
+curl "http://localhost:8081/instance/info/uuid-da-instancia" \
   -H "apikey: SUA-GLOBAL-API-KEY"
 ```
 
@@ -215,7 +215,7 @@ curl "http://localhost:4000/instance/info/uuid-da-instancia" \
 ### Desconectar
 
 ```bash
-curl -X POST http://localhost:4000/instance/disconnect \
+curl -X POST http://localhost:8081/instance/disconnect \
   -H "Content-Type: application/json" \
   -H "apikey: token-secreto-da-instancia"
 ```
@@ -223,7 +223,7 @@ curl -X POST http://localhost:4000/instance/disconnect \
 ### Reconectar (novo QR Code)
 
 ```bash
-curl -X POST http://localhost:4000/instance/reconnect \
+curl -X POST http://localhost:8081/instance/reconnect \
   -H "Content-Type: application/json" \
   -H "apikey: token-secreto-da-instancia"
 ```
@@ -231,7 +231,7 @@ curl -X POST http://localhost:4000/instance/reconnect \
 ### Deletar
 
 ```bash
-curl -X DELETE "http://localhost:4000/instance/delete/uuid-da-instancia" \
+curl -X DELETE "http://localhost:8081/instance/delete/uuid-da-instancia" \
   -H "apikey: SUA-GLOBAL-API-KEY"
 ```
 
@@ -244,7 +244,7 @@ curl -X DELETE "http://localhost:4000/instance/delete/uuid-da-instancia" \
 Acesse a interface Swagger para explorar e testar todos os endpoints:
 
 ```
-http://localhost:4000/swagger/index.html
+http://localhost:8081/swagger/index.html
 ```
 
 **Passos:**
@@ -262,7 +262,7 @@ http://localhost:4000/swagger/index.html
 QR Code possui validade limitada (~60 segundos). Se expirar:
 
 ```bash
-curl -X POST http://localhost:4000/instance/reconnect \
+curl -X POST http://localhost:8081/instance/reconnect \
   -H "Content-Type: application/json" \
   -H "apikey: token-secreto-da-instancia"
 ```
@@ -273,7 +273,7 @@ Verifique se está usando o token correto:
 
 ```bash
 # Listar todas as instâncias
-curl "http://localhost:4000/instance/all" \
+curl "http://localhost:8081/instance/all" \
   -H "apikey: SUA-GLOBAL-API-KEY"
 ```
 
@@ -283,7 +283,7 @@ curl "http://localhost:4000/instance/all" \
 
 1. **Status da conexão:**
 ```bash
-curl "http://localhost:4000/instance/status" \
+curl "http://localhost:8081/instance/status" \
   -H "apikey: token-secreto-da-instancia"
 ```
 Status deve ser `open`.
@@ -315,15 +315,15 @@ Confirme a chave configurada no `docker-compose.yml` ou `.env`.
 
 - **[API de Mensagens](../guias-api/api-messages.md)** - Todos os tipos de mensagens
 - **[API de Grupos](../guias-api/api-groups.md)** - Gerenciamento de grupos
-- **[API de Usuários](../guias-api/api-users.md)** - Perfis e contatos
+- **[API de Usuários](../guias-api/api-user.md)** - Perfis e contatos
 - **[Referência Completa](../guias-api/api-overview.md)** - Todos os endpoints
 
 ### Recursos Avançados
 
 - **[Sistema de Eventos](../recursos-avancados/events-system.md)** - Webhooks e filas
-- **[Webhooks](../recursos-avancados/webhooks.md)** - Receber notificações
-- **[RabbitMQ](../recursos-avancados/rabbitmq.md)** - Processamento assíncrono
-- **[MinIO/S3](../recursos-avancados/minio.md)** - Armazenamento de mídia
+- **[Webhooks](../recursos-avancados/events-system.md)** - Receber notificações
+- **[RabbitMQ](../recursos-avancados/events-system.md)** - Processamento assíncrono
+- **[MinIO/S3](../recursos-avancados/media-storage.md)** - Armazenamento de mídia
 
 ### Deploy e Segurança
 

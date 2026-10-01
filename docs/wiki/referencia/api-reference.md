@@ -13,7 +13,7 @@ apikey: SUA-CHAVE-API
 ## Base URL
 
 ```
-http://localhost:4000
+http://localhost:8081
 ```
 
 ---
@@ -166,7 +166,7 @@ http://localhost:4000
 
 ### Documentação Interativa
 
-- **Swagger UI**: http://localhost:4000/swagger/index.html (quando servidor estiver rodando)
+- **Swagger UI**: http://localhost:8081/swagger/index.html (quando servidor estiver rodando)
 - Teste endpoints diretamente no navegador
 - Visualize payloads de request/response
 - Documentação completa com exemplos

@@ -894,7 +894,7 @@ definitions:
         example: 200
         type: integer
       version:
-        example: 0.8.1
+        example: 0.9.1
         type: string
       whatsappWebVersion:
         example: 2.3000.1048977937
@@ -996,7 +996,7 @@ definitions:
         example: 6789
         type: integer
       version:
-        example: 0.8.1
+        example: 0.9.1
         type: string
     type: object
   github_com_felipeestevanatto_wamux_pkg_docmodels.TypebotStatusChange:

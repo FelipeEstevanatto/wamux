@@ -198,7 +198,7 @@ docker-compose up -d
 make dev
 ```
 
-O servidor estará disponível em `http://localhost:4000` com documentação Swagger em `/swagger/index.html`.
+O servidor estará disponível em `http://localhost:8081` com documentação Swagger em `/swagger/index.html`.
 
 ## Diferencial
 

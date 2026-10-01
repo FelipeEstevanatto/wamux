@@ -169,7 +169,7 @@ Verifica se um número existe no WhatsApp e retorna o JID correto para mensagens
 
 **Exemplo cURL**:
 ```bash
-curl -X POST http://localhost:4000/user/check \
+curl -X POST http://localhost:8081/user/check \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -288,7 +288,7 @@ apikey: SUA-CHAVE-API
 
 **Exemplo cURL**:
 ```bash
-curl -X GET http://localhost:4000/user/contacts \
+curl -X GET http://localhost:8081/user/contacts \
   -H "apikey: SUA-CHAVE-API"
 ```
 
@@ -332,7 +332,7 @@ apikey: SUA-CHAVE-API
 
 **Exemplo cURL**:
 ```bash
-curl -X GET http://localhost:4000/user/privacy \
+curl -X GET http://localhost:8081/user/privacy \
   -H "apikey: SUA-CHAVE-API"
 ```
 
@@ -389,7 +389,7 @@ Define as configurações de privacidade da conta.
 
 **Exemplo cURL**:
 ```bash
-curl -X POST http://localhost:4000/user/privacy \
+curl -X POST http://localhost:8081/user/privacy \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -445,7 +445,7 @@ Bloqueia um contato no WhatsApp.
 
 **Exemplo cURL**:
 ```bash
-curl -X POST http://localhost:4000/user/block \
+curl -X POST http://localhost:8081/user/block \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -493,7 +493,7 @@ Desbloqueia um contato previamente bloqueado.
 
 **Exemplo cURL**:
 ```bash
-curl -X POST http://localhost:4000/user/unblock \
+curl -X POST http://localhost:8081/user/unblock \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -536,7 +536,7 @@ apikey: SUA-CHAVE-API
 
 **Exemplo cURL**:
 ```bash
-curl -X GET http://localhost:4000/user/blocklist \
+curl -X GET http://localhost:8081/user/blocklist \
   -H "apikey: SUA-CHAVE-API"
 ```
 
@@ -577,7 +577,7 @@ Define a foto de perfil da conta WhatsApp.
 
 **Exemplo cURL**:
 ```bash
-curl -X POST http://localhost:4000/user/profilePicture \
+curl -X POST http://localhost:8081/user/profilePicture \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -618,7 +618,7 @@ Define o nome de exibição da conta WhatsApp.
 
 **Exemplo cURL**:
 ```bash
-curl -X POST http://localhost:4000/user/profileName \
+curl -X POST http://localhost:8081/user/profileName \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -659,7 +659,7 @@ Define o recado (status) da conta WhatsApp.
 
 **Exemplo cURL**:
 ```bash
-curl -X POST http://localhost:4000/user/profileStatus \
+curl -X POST http://localhost:8081/user/profileStatus \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -677,7 +677,7 @@ Sempre verifique se o número existe antes de tentar enviar mensagem:
 
 ```bash
 # 1. Verificar número
-curl -X POST http://localhost:4000/user/check \
+curl -X POST http://localhost:8081/user/check \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -685,7 +685,7 @@ curl -X POST http://localhost:4000/user/check \
   }'
 
 # 2. Se IsInWhatsapp=true, use RemoteJID para enviar
-curl -X POST http://localhost:4000/send/text \
+curl -X POST http://localhost:8081/send/text \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -698,7 +698,7 @@ curl -X POST http://localhost:4000/send/text \
 ### Configurar Privacidade Máxima
 
 ```bash
-curl -X POST http://localhost:4000/user/privacy \
+curl -X POST http://localhost:8081/user/privacy \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -716,19 +716,19 @@ curl -X POST http://localhost:4000/user/privacy \
 
 ```bash
 # 1. Foto de perfil
-curl -X POST http://localhost:4000/user/profilePicture \
+curl -X POST http://localhost:8081/user/profilePicture \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{"image": "https://exemplo.com/logo.jpg"}'
 
 # 2. Nome
-curl -X POST http://localhost:4000/user/profileName \
+curl -X POST http://localhost:8081/user/profileName \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{"name": "Empresa LTDA"}'
 
 # 3. Status
-curl -X POST http://localhost:4000/user/profileStatus \
+curl -X POST http://localhost:8081/user/profileStatus \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{"status": "Atendimento 24h - (11) 99999-9999"}'

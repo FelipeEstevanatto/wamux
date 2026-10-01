@@ -1,8 +1,9 @@
-# WaMux — independent, self-hosted Evolution Go fork
+# WaMux — engineering notes
 
-WaMux was forked from
+WaMux was originally forked from
 [`evolution-foundation/evolution-go`](https://github.com/evolution-foundation/evolution-go)
-based on `0.7.2` (upstream commit `9337afc`).
+at `0.7.2` (upstream commit `9337afc`). This document records what changed and
+why. For the running list of releases, see [`CHANGELOG.md`](./CHANGELOG.md).
 
 It exists for one reason: **make a self-hosted WaMux stable, fully
 offline, and free of the vendor license/telemetry dependency** — while folding

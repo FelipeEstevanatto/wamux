@@ -7471,7 +7471,7 @@ const docTemplate = `{
                 },
                 "version": {
                     "type": "string",
-                    "example": "0.8.1"
+                    "example": "0.9.1"
                 },
                 "whatsappWebVersion": {
                     "type": "string",
@@ -7612,7 +7612,7 @@ const docTemplate = `{
                 },
                 "version": {
                     "type": "string",
-                    "example": "0.8.1"
+                    "example": "0.9.1"
                 }
             }
         },

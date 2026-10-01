@@ -495,7 +495,7 @@ type ServerOK struct {
 type RootInfo struct {
 	Status              int    `json:"status" example:"200"`
 	Message             string `json:"message" example:"Welcome to WaMux, it is working!"`
-	Version             string `json:"version" example:"0.8.1"`
+	Version             string `json:"version" example:"0.9.1"`
 	ClientName          string `json:"clientName" example:"wamux"`
 	Manager             string `json:"manager" example:"/manager"`
 	Documentation       string `json:"documentation" example:"/swagger/index.html"`
@@ -553,7 +553,7 @@ type SystemStats struct {
 	NumCPU             int     `json:"numCpu" example:"16"`
 	NumGC              int     `json:"numGC" example:"60"`
 	UptimeSeconds      int64   `json:"uptimeSeconds" example:"6789"`
-	Version            string  `json:"version" example:"0.8.1"`
+	Version            string  `json:"version" example:"0.9.1"`
 }
 
 // ServerStats is the /server/stats payload.

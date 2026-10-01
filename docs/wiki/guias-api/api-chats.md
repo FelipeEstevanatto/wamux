@@ -52,7 +52,7 @@ apikey: SUA-CHAVE-API
 **Exemplo cURL**:
 ```bash
 # Fixar chat individual
-curl -X POST http://localhost:4000/chat/pin \
+curl -X POST http://localhost:8081/chat/pin \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -60,7 +60,7 @@ curl -X POST http://localhost:4000/chat/pin \
   }'
 
 # Fixar grupo
-curl -X POST http://localhost:4000/chat/pin \
+curl -X POST http://localhost:8081/chat/pin \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -101,7 +101,7 @@ Remove a fixação de uma conversa.
 
 **Exemplo cURL**:
 ```bash
-curl -X POST http://localhost:4000/chat/unpin \
+curl -X POST http://localhost:8081/chat/unpin \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -144,7 +144,7 @@ Move uma conversa para o arquivo.
 
 **Exemplo cURL**:
 ```bash
-curl -X POST http://localhost:4000/chat/archive \
+curl -X POST http://localhost:8081/chat/archive \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -185,7 +185,7 @@ Restaura uma conversa arquivada para a lista principal.
 
 **Exemplo cURL**:
 ```bash
-curl -X POST http://localhost:4000/chat/unarchive \
+curl -X POST http://localhost:8081/chat/unarchive \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -228,7 +228,7 @@ Silencia notificações de uma conversa por 1 hora.
 
 **Exemplo cURL**:
 ```bash
-curl -X POST http://localhost:4000/chat/mute \
+curl -X POST http://localhost:8081/chat/mute \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -269,7 +269,7 @@ Remove o silenciamento de uma conversa.
 
 **Exemplo cURL**:
 ```bash
-curl -X POST http://localhost:4000/chat/unmute \
+curl -X POST http://localhost:8081/chat/unmute \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -327,7 +327,7 @@ Solicita sincronização de histórico de mensagens antigas (WhatsApp Multi-Devi
 
 **Exemplo cURL**:
 ```bash
-curl -X POST http://localhost:4000/chat/history-sync \
+curl -X POST http://localhost:8081/chat/history-sync \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -350,13 +350,13 @@ curl -X POST http://localhost:4000/chat/history-sync \
 
 ```bash
 # 1. Fixar conversas importantes
-curl -X POST http://localhost:4000/chat/pin \
+curl -X POST http://localhost:8081/chat/pin \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{"chat": "5511999999999@s.whatsapp.net"}'
 
 # 2. Arquivar conversas antigas
-curl -X POST http://localhost:4000/chat/archive \
+curl -X POST http://localhost:8081/chat/archive \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{"chat": "5511888888888@s.whatsapp.net"}'
@@ -366,13 +366,13 @@ curl -X POST http://localhost:4000/chat/archive \
 
 ```bash
 # Silenciar grupo temporariamente (1 hora)
-curl -X POST http://localhost:4000/chat/mute \
+curl -X POST http://localhost:8081/chat/mute \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{"chat": "120363XXXXXXXXXX@g.us"}'
 
 # Reativar notificações
-curl -X POST http://localhost:4000/chat/unmute \
+curl -X POST http://localhost:8081/chat/unmute \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{"chat": "120363XXXXXXXXXX@g.us"}'
@@ -385,7 +385,7 @@ curl -X POST http://localhost:4000/chat/unmute \
 CHATS=("5511111111111@s.whatsapp.net" "5511222222222@s.whatsapp.net" "5511333333333@s.whatsapp.net")
 
 for chat in "\${CHATS[@]}"; do
-  curl -X POST http://localhost:4000/chat/archive \
+  curl -X POST http://localhost:8081/chat/archive \
     -H "Content-Type: application/json" \
     -H "apikey: SUA-CHAVE-API" \
     -d "{"chat": "$chat"}"
@@ -446,11 +446,11 @@ Use com cuidado - sincronizar histórico consome recursos. Recomendações:
 ### Para Combinar
 ```bash
 # Arquivar E silenciar (para "esconder" completamente)
-curl -X POST http://localhost:4000/chat/archive ...
-curl -X POST http://localhost:4000/chat/mute ...
+curl -X POST http://localhost:8081/chat/archive ...
+curl -X POST http://localhost:8081/chat/mute ...
 
 # Fixar (automaticamente desarquiva)
-curl -X POST http://localhost:4000/chat/pin ...
+curl -X POST http://localhost:8081/chat/pin ...
 ```
 
 ---

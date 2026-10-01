@@ -88,7 +88,7 @@ apikey: SUA-CHAVE-API
 Máximo 3 botões. Não pode misturar com outros tipos.
 
 ```bash
-curl -X POST http://localhost:4000/send/button \
+curl -X POST http://localhost:8081/send/button \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -109,7 +109,7 @@ curl -X POST http://localhost:4000/send/button \
 Podem ser combinados entre si livremente.
 
 ```bash
-curl -X POST http://localhost:4000/send/button \
+curl -X POST http://localhost:8081/send/button \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -130,7 +130,7 @@ curl -X POST http://localhost:4000/send/button \
 Deve ser enviado **sozinho**, sem outros botões.
 
 ```bash
-curl -X POST http://localhost:4000/send/button \
+curl -X POST http://localhost:8081/send/button \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -246,7 +246,7 @@ apikey: SUA-CHAVE-API
 ### Exemplo 1: Cardápio Digital
 
 ```bash
-curl -X POST http://localhost:4000/send/list \
+curl -X POST http://localhost:8081/send/list \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -286,7 +286,7 @@ curl -X POST http://localhost:4000/send/list \
 ### Exemplo 2: Menu de Serviços
 
 ```bash
-curl -X POST http://localhost:4000/send/list \
+curl -X POST http://localhost:8081/send/list \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -411,7 +411,7 @@ apikey: SUA-CHAVE-API
 ### Exemplo 1: Catálogo de Produtos
 
 ```bash
-curl -X POST http://localhost:4000/send/carousel \
+curl -X POST http://localhost:8081/send/carousel \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{
@@ -462,7 +462,7 @@ curl -X POST http://localhost:4000/send/carousel \
 ### Exemplo 2: Planos de Serviço
 
 ```bash
-curl -X POST http://localhost:4000/send/carousel \
+curl -X POST http://localhost:8081/send/carousel \
   -H "Content-Type: application/json" \
   -H "apikey: SUA-CHAVE-API" \
   -d '{

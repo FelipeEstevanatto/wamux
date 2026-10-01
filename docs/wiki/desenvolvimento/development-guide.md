@@ -130,7 +130,7 @@ nano .env
 
 ```env
 # Servidor
-SERVER_PORT=4000
+SERVER_PORT=8081
 CLIENT_NAME=wamux-dev
 
 # API Key (gere uma segura)
@@ -277,7 +277,7 @@ go run cmd/wamux/main.go -dev
 [GIN-debug] GET    /server/ok                --> main.main.func1 (3 handlers)
 [GIN-debug] POST   /instance/create          --> wamux/pkg/instance.(*InstanceHandler).Create-fm (4 handlers)
 ...
-[GIN-debug] Listening and serving HTTP on :4000
+[GIN-debug] Listening and serving HTTP on :8080
 ```
 
 ### Build e Executar
@@ -308,9 +308,9 @@ docker-compose logs -f wamux
 
 ### Acessar a Aplicação
 
-- **API Base**: http://localhost:4000
-- **Health Check**: http://localhost:4000/server/ok
-- **Swagger UI**: http://localhost:4000/swagger/index.html
+- **API Base**: http://localhost:8081
+- **Health Check**: http://localhost:8081/server/ok
+- **Swagger UI**: http://localhost:8081/swagger/index.html
 
 ---
 
@@ -680,16 +680,16 @@ make dev
 
 ```bash
 # Testar health check
-curl http://localhost:4000/server/ok
+curl http://localhost:8081/server/ok
 
 # Criar instância
-curl -X POST http://localhost:4000/instance/create \
+curl -X POST http://localhost:8081/instance/create \
   -H "Content-Type: application/json" \
   -H "apikey: dev-key-12345" \
   -d '{"instanceName": "teste"}'
 
 # Verificar Swagger
-open http://localhost:4000/swagger/index.html
+open http://localhost:8081/swagger/index.html
 ```
 
 ### 4. Formatar e Lint
