@@ -23,7 +23,7 @@ func newInstanceMockRepo(t *testing.T) (*instanceRepository, sqlmock.Sqlmock) {
 	if err != nil {
 		t.Fatalf("open gorm: %v", err)
 	}
-	return NewInstanceRepository(gormDB).(*instanceRepository), mock
+	return NewInstanceRepository(gormDB, nil).(*instanceRepository), mock
 }
 
 // UpdateConnectSettings must emit a partial UPDATE: only the columns present in
@@ -57,8 +57,8 @@ func TestUpdateRemainsFullRow(t *testing.T) {
 
 	// Match the whole column list to document that Update is a full-row Save.
 	// (hmac_key sits before the advanced-settings columns; the per-instance S3
-	// columns follow them.)
-	mock.ExpectExec(`UPDATE "instances" SET "name"=\$1,.*"s3_media_delivery"=\$32 WHERE "id" = \$33`).
+	// columns follow them. token_hash/token_enc were added with token encryption.)
+	mock.ExpectExec(`UPDATE "instances" SET "name"=\$1,.*"token_hash"=\$3,"token_enc"=\$4,.*"s3_media_delivery"=\$34 WHERE "id" = \$35`).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	inst := &instance_model.Instance{Id: "11111111-1111-1111-1111-111111111111", Name: "n", Token: "t"}

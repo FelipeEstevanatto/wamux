@@ -5,6 +5,7 @@ import (
 
 	applog "github.com/evolution-foundation/evolution-go/pkg/applog"
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
+	"github.com/evolution-foundation/evolution-go/pkg/tokencrypt"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
@@ -20,6 +21,11 @@ type InstanceRepository interface {
 	GetInstanceByID(instanceId string) (*instance_model.Instance, error)
 	GetConnectedInstanceByID(instanceId string) (*instance_model.Instance, error)
 	GetInstanceByToken(token string) (*instance_model.Instance, error)
+	// GetInstanceByTokenHash looks an instance up by the deterministic HMAC of
+	// its token, so the plaintext credential need not be stored or compared.
+	GetInstanceByTokenHash(tokenHash string) (*instance_model.Instance, error)
+	// UpdateToken rewrites an instance's token columns (hash + ciphertext).
+	UpdateToken(instanceId, tokenHash, tokenEnc string) error
 	GetInstanceByName(name string) (*instance_model.Instance, error)
 	Update(*instance_model.Instance) error
 	UpdateConnected(userId string, status bool, disconnectReason string) error
@@ -44,6 +50,31 @@ type instanceRepository struct {
 	db          *gorm.DB
 	labelRepo   label_repository.LabelRepository
 	messageRepo message_repository.MessageRepository
+	// tokenCodec decrypts the stored token ciphertext into the in-memory Token
+	// field on every read, so callers keep using it normally while the database
+	// only ever holds the hash + ciphertext. Nil keeps the legacy plaintext path.
+	tokenCodec *tokencrypt.Codec
+}
+
+// hydrate decrypts the at-rest token into the in-memory field. Best-effort: a row
+// written before encryption existed already has Token populated and no TokenEnc,
+// so it passes through unchanged.
+func (i *instanceRepository) hydrate(instance *instance_model.Instance) {
+	if instance == nil || i.tokenCodec == nil {
+		return
+	}
+	if instance.Token != "" || instance.TokenEnc == "" {
+		return
+	}
+	if plaintext, err := i.tokenCodec.Decrypt(instance.TokenEnc); err == nil {
+		instance.Token = plaintext
+	}
+}
+
+func (i *instanceRepository) hydrateAll(list []*instance_model.Instance) {
+	for _, inst := range list {
+		i.hydrate(inst)
+	}
 }
 
 func (i *instanceRepository) Create(instance instance_model.Instance) (*instance_model.Instance, error) {
@@ -60,7 +91,28 @@ func (i *instanceRepository) GetInstanceByToken(token string) (*instance_model.I
 		return nil, err
 	}
 
+	i.hydrate(&instance)
 	return &instance, nil
+}
+
+// GetInstanceByTokenHash finds the instance whose stored token hash matches.
+func (i *instanceRepository) GetInstanceByTokenHash(tokenHash string) (*instance_model.Instance, error) {
+	var instance instance_model.Instance
+	err := i.db.Where("token_hash = ?", tokenHash).First(&instance).Error
+	if err != nil {
+		return nil, err
+	}
+
+	i.hydrate(&instance)
+	return &instance, nil
+}
+
+// UpdateToken rewrites the token columns for an instance.
+func (i *instanceRepository) UpdateToken(instanceId, tokenHash, tokenEnc string) error {
+	return i.db.Model(&instance_model.Instance{}).
+		Where("id = ?", instanceId).
+		Updates(map[string]interface{}{"token_hash": tokenHash, "token_enc": tokenEnc}).
+		Error
 }
 
 func (i *instanceRepository) GetInstanceByName(name string) (*instance_model.Instance, error) {
@@ -70,6 +122,7 @@ func (i *instanceRepository) GetInstanceByName(name string) (*instance_model.Ins
 		return nil, err
 	}
 
+	i.hydrate(&instance)
 	return &instance, nil
 }
 
@@ -85,6 +138,7 @@ func (i *instanceRepository) GetInstanceByID(instanceId string) (*instance_model
 		return nil, err
 	}
 
+	i.hydrate(&instance)
 	return &instance, nil
 }
 
@@ -95,6 +149,7 @@ func (i *instanceRepository) GetConnectedInstanceByID(instanceId string) (*insta
 		return nil, err
 	}
 
+	i.hydrate(&instance)
 	return &instance, nil
 }
 
@@ -166,6 +221,7 @@ func (i *instanceRepository) GetAllConnectedInstances() ([]*instance_model.Insta
 		return nil, err
 	}
 
+	i.hydrateAll(instances)
 	return instances, nil
 }
 
@@ -176,6 +232,7 @@ func (i *instanceRepository) GetAllConnectedInstancesByClientName(clientName str
 		return nil, err
 	}
 
+	i.hydrateAll(instances)
 	return instances, nil
 }
 
@@ -192,6 +249,7 @@ func (i *instanceRepository) GetAllPairedInstances() ([]*instance_model.Instance
 		return nil, err
 	}
 
+	i.hydrateAll(instances)
 	return instances, nil
 }
 
@@ -202,6 +260,7 @@ func (i *instanceRepository) GetAllPairedInstancesByClientName(clientName string
 		return nil, err
 	}
 
+	i.hydrateAll(instances)
 	return instances, nil
 }
 
@@ -212,6 +271,7 @@ func (i *instanceRepository) GetAll(clientName string) ([]*instance_model.Instan
 		return nil, err
 	}
 
+	i.hydrateAll(instances)
 	return instances, nil
 }
 
@@ -310,8 +370,9 @@ func buildAdvancedSettingsUpdates(settings *instance_model.AdvancedSettings) map
 	return updates
 }
 
-func NewInstanceRepository(db *gorm.DB) InstanceRepository {
+func NewInstanceRepository(db *gorm.DB, tokenCodec *tokencrypt.Codec) InstanceRepository {
 	return &instanceRepository{
-		db: db,
+		db:         db,
+		tokenCodec: tokenCodec,
 	}
 }

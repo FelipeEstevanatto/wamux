@@ -68,6 +68,7 @@ import (
 	server_handler "github.com/evolution-foundation/evolution-go/pkg/server/handler"
 	storage_interfaces "github.com/evolution-foundation/evolution-go/pkg/storage/interfaces"
 	minio_storage "github.com/evolution-foundation/evolution-go/pkg/storage/minio"
+	tokencrypt "github.com/evolution-foundation/evolution-go/pkg/tokencrypt"
 	typebot_handler "github.com/evolution-foundation/evolution-go/pkg/typebot/handler"
 	typebot_model "github.com/evolution-foundation/evolution-go/pkg/typebot/model"
 	typebot_repository "github.com/evolution-foundation/evolution-go/pkg/typebot/repository"
@@ -176,7 +177,19 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		}
 	}
 
-	instanceRepository := instance_repository.NewInstanceRepository(db)
+	// Token codec: encrypts instance API tokens at rest and provides the
+	// deterministic hash used for auth lookup. Derived from the same encryption
+	// key as the other secrets; nil when none is configured (legacy plaintext).
+	var instanceTokenCodec *tokencrypt.Codec
+	if len(config.DataEncryptionKey) > 0 {
+		if c, err := tokencrypt.New(string(config.DataEncryptionKey)); err == nil {
+			instanceTokenCodec = c
+		} else {
+			applog.Logger.LogWarn("[TOKEN] Could not build token codec: %v", err)
+		}
+	}
+
+	instanceRepository := instance_repository.NewInstanceRepository(db, instanceTokenCodec)
 	labelRepository := label_repository.NewLabelRepository(db)
 	typebotRepository := typebot_repository.NewTypebotRepository(db)
 
@@ -230,6 +243,10 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		config,
 		loggerWrapper,
 	)
+
+	// One-time upgrade: encrypt any instance token still stored in plaintext.
+	instanceService.EncryptExistingTokens()
+
 	// Observability registry. Built early so the send service can report into it;
 	// the server handler serves it at /metrics and /server/health. The whatsmeow
 	// service is the metrics provider (connections + pools) and the webhook
@@ -270,12 +287,13 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 
 	// Profiling endpoints (CPU/heap/goroutine) for benchmarking. Off by default;
 	// enable with PPROF_ENABLED=true. Uses the standard library handlers, so it
-	// adds no dependency. Mounted without auth — only enable on a trusted host.
+	// adds no dependency. Gated behind the admin key so enabling it for a
+	// benchmark does not expose internals to anyone who can reach the port.
 	if config.PprofEnabled {
 		for path, handler := range pprofHandlers() {
-			r.GET(path, gin.WrapH(handler))
+			r.GET(path, auth_middleware.RequireAdminKey(config.GlobalApiKey), gin.WrapH(handler))
 		}
-		applog.Logger.LogWarn("[PPROF] /debug/pprof is enabled — do not leave this on in production")
+		applog.Logger.LogWarn("[PPROF] /debug/pprof is enabled (admin key required) — do not leave this on in production")
 	}
 
 	// Abuse protection first, so it covers every route including the public

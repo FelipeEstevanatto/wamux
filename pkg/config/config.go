@@ -129,6 +129,16 @@ type Config struct {
 	DatabaseMaxOpenConns int
 	DatabaseMaxIdleConns int
 
+	// DBPoolBudgetPerNode and DBNodeCount let the pool sizing account for a
+	// cluster: Postgres max_connections is shared, and this process opens THREE
+	// pools (auth, users, whatsmeow key store). DBPoolBudgetPerNode (when > 0)
+	// caps the TOTAL connections this node may open across the three pools;
+	// DBNodeCount is how many nodes share the database, so the effective budget
+	// is budget/nodeCount and each pool gets a third. 0 keeps the raw
+	// DB_MAX_OPEN_CONNS values (backwards compatible).
+	DBPoolBudgetPerNode int
+	DBNodeCount         int
+
 	// HTTP-layer abuse protection. RateLimitPerMinute bounds requests per
 	// credential (instance token / admin key) or per IP when unauthenticated;
 	// 0 disables it. CorsAllowedOrigins is an allowlist ("*" opts into
@@ -513,6 +523,42 @@ func Load() *Config {
 		os.Getenv(config_env.DB_MAX_IDLE_CONNS),
 	)
 
+	// Cluster-aware pool budget. This process opens THREE Postgres pools (auth,
+	// users, whatsmeow key store), so on a multi-node deployment a fixed 25 each
+	// quickly exhausts Postgres max_connections: N nodes ask for 75*N. When
+	// DB_POOL_BUDGET_PER_NODE is set, cap the total across the node's pools and
+	// divide it by the node count; each pool then gets a third. Unset (0) keeps
+	// the historical behaviour.
+	dbPoolBudget := 0
+	nodeCount := 1
+	if raw := strings.TrimSpace(os.Getenv(config_env.DB_POOL_BUDGET_PER_NODE)); raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil && n > 0 {
+			dbPoolBudget = n
+		}
+	}
+	if raw := strings.TrimSpace(os.Getenv(config_env.DB_NODE_COUNT)); raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil && n > 1 {
+			nodeCount = n
+		}
+	}
+	if dbPoolBudget > 0 {
+		perNode := dbPoolBudget / nodeCount
+		if perNode < 3 {
+			perNode = 3 // at least one connection per pool
+		}
+		perPool := perNode / 3
+		if perPool < 1 {
+			perPool = 1
+		}
+		if perPool < dbMaxOpen {
+			applog.Logger.LogWarn("[CONFIG] DB pool capped by budget: DB_MAX_OPEN_CONNS=%d -> %d (budget %d/node over %d node(s), 3 pools)", dbMaxOpen, perPool, dbPoolBudget, nodeCount)
+			dbMaxOpen = perPool
+		}
+		if dbMaxIdle > dbMaxOpen {
+			dbMaxIdle = dbMaxOpen
+		}
+	}
+
 	// HTTP abuse protection. Default 600/min per credential is generous enough
 	// for a busy integration yet still bounds brute force and floods; a
 	// self-hosted install can raise or zero it. CORS defaults to same-origin.
@@ -605,7 +651,7 @@ func Load() *Config {
 		QrcodeMaxCount:           qrMaxCount,
 		CheckUserExists:          checkUserExists != "false", // Default true, set to false to disable
 		SwaggerEnabled:           swaggerEnabled,
-		PprofEnabled:            pprofEnabled,
+		PprofEnabled:             pprofEnabled,
 		TypebotContactRateLimit:  typebotContactRateLimit,
 		TypebotContactRateWindow: typebotContactRateWindow,
 		TypebotSendRateLimit:     typebotSendRateLimit,
@@ -629,6 +675,8 @@ func Load() *Config {
 		MessageRetentionDays:     messageRetentionDays,
 		DatabaseMaxOpenConns:     dbMaxOpen,
 		DatabaseMaxIdleConns:     dbMaxIdle,
+		DBPoolBudgetPerNode:      dbPoolBudget,
+		DBNodeCount:              nodeCount,
 		RateLimitPerMinute:       rateLimitPerMinute,
 		CorsAllowedOrigins:       corsAllowedOrigins,
 		MaxInstances:             maxInstances,

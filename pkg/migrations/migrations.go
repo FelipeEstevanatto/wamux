@@ -122,6 +122,23 @@ var steps = []migration{
 			`CREATE INDEX IF NOT EXISTS idx_instance_ownership_expiry ON instance_ownership (lease_expires)`,
 		},
 	},
+	{
+		// Instance API tokens encrypted at rest. token_hash lets auth look the
+		// instance up without the plaintext; token_enc keeps a reversible copy.
+		// The Go-side backfill (EncryptExistingTokens) fills them and blanks the
+		// plaintext column for rows that predate encryption.
+		Name: "0005_instance_token_hash_enc",
+		Postgres: []string{
+			`ALTER TABLE instances ADD COLUMN IF NOT EXISTS token_hash TEXT`,
+			`ALTER TABLE instances ADD COLUMN IF NOT EXISTS token_enc TEXT`,
+			`CREATE INDEX IF NOT EXISTS idx_instances_token_hash ON instances (token_hash)`,
+		},
+		SQLite: []string{
+			`ALTER TABLE instances ADD COLUMN token_hash TEXT`,
+			`ALTER TABLE instances ADD COLUMN token_enc TEXT`,
+			`CREATE INDEX IF NOT EXISTS idx_instances_token_hash ON instances (token_hash)`,
+		},
+	},
 }
 
 const createMigrationsTable = `

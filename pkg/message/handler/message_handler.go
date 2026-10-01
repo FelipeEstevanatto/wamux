@@ -1,6 +1,7 @@
 package message_handler
 
 import (
+	"io"
 	"net/http"
 
 	docmodels "github.com/evolution-foundation/evolution-go/pkg/docmodels"
@@ -569,10 +570,25 @@ func (m *messageHandler) ServeMedia(ctx *gin.Context) {
 	}
 	defer file.Close()
 
+	// Cap what a single request may stream. Stored media is bounded by the
+	// inbound download limit, but a bug or a hand-placed file must not let one
+	// authenticated caller pull arbitrary bytes. ServeContent honours Range, so
+	// a video player still works within the cap.
+	const maxServeBytes int64 = 64 << 20 // 64 MiB
+	size := info.Size()
+	if size > maxServeBytes {
+		ctx.JSON(http.StatusRequestEntityTooLarge, gin.H{
+			"error": "stored media exceeds the serving limit",
+		})
+		return
+	}
+
 	if contentType != "" {
 		ctx.Header("Content-Type", contentType)
 	}
-	http.ServeContent(ctx.Writer, ctx.Request, messageID, info.ModTime(), file)
+	// A SectionReader bounds the range to [0, size): even if the file grows while
+	// it is served, no more than the size at open time is read.
+	http.ServeContent(ctx.Writer, ctx.Request, messageID, info.ModTime(), io.NewSectionReader(file, 0, size))
 }
 
 func NewMessageHandler(
