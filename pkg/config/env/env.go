@@ -16,15 +16,15 @@ const (
 	// MEDIA_LOCAL_STORE keeps a copy of message attachments on the data volume
 	// so the manager can preview them without MinIO/S3. Disable to restore the
 	// previous behaviour (no local copies written).
-	MEDIA_LOCAL_STORE      = "MEDIA_LOCAL_STORE"
-	CONNECT_ON_STARTUP     = "CONNECT_ON_STARTUP"
-	REREQUEST_FROM_PHONE   = "REREQUEST_FROM_PHONE"
-	OS_NAME                = "OS_NAME"
-	AMQP_URL               = "AMQP_URL"
-	AMQP_GLOBAL_ENABLED    = "AMQP_GLOBAL_ENABLED"
-	AMQP_GLOBAL_EVENTS     = "AMQP_GLOBAL_EVENTS"
-	AMQP_SPECIFIC_EVENTS   = "AMQP_SPECIFIC_EVENTS"
-	WEBHOOK_URL            = "WEBHOOK_URL"
+	MEDIA_LOCAL_STORE    = "MEDIA_LOCAL_STORE"
+	CONNECT_ON_STARTUP   = "CONNECT_ON_STARTUP"
+	REREQUEST_FROM_PHONE = "REREQUEST_FROM_PHONE"
+	OS_NAME              = "OS_NAME"
+	AMQP_URL             = "AMQP_URL"
+	AMQP_GLOBAL_ENABLED  = "AMQP_GLOBAL_ENABLED"
+	AMQP_GLOBAL_EVENTS   = "AMQP_GLOBAL_EVENTS"
+	AMQP_SPECIFIC_EVENTS = "AMQP_SPECIFIC_EVENTS"
+	WEBHOOK_URL          = "WEBHOOK_URL"
 	// WEBHOOK_HMAC_KEY is a process-global webhook signing key. It is used for
 	// instances that have no per-instance key configured.
 	WEBHOOK_HMAC_KEY = "WEBHOOK_HMAC_KEY"
@@ -86,4 +86,8 @@ const (
 	// Postgres connection-pool sizing.
 	DB_MAX_OPEN_CONNS = "DB_MAX_OPEN_CONNS"
 	DB_MAX_IDLE_CONNS = "DB_MAX_IDLE_CONNS"
+	// RATE_LIMIT_PER_MINUTE bounds HTTP requests per credential/IP (0 disables).
+	RATE_LIMIT_PER_MINUTE = "RATE_LIMIT_PER_MINUTE"
+	// CORS_ALLOWED_ORIGINS is a comma-separated allowlist ("*" reflects any).
+	CORS_ALLOWED_ORIGINS = "CORS_ALLOWED_ORIGINS"
 )

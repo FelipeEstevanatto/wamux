@@ -121,6 +121,14 @@ type Config struct {
 	// max_connections / a pooler to match).
 	DatabaseMaxOpenConns int
 	DatabaseMaxIdleConns int
+
+	// HTTP-layer abuse protection. RateLimitPerMinute bounds requests per
+	// credential (instance token / admin key) or per IP when unauthenticated;
+	// 0 disables it. CorsAllowedOrigins is an allowlist ("*" opts into
+	// reflecting any origin); empty means same-origin only — the old `*` +
+	// credentials combination was both unsafe and spec-invalid.
+	RateLimitPerMinute int
+	CorsAllowedOrigins []string
 }
 
 // EnsureDBExists connects to postgres (without the target database) and creates it if it doesn't exist.
@@ -481,6 +489,18 @@ func Load() *Config {
 		os.Getenv(config_env.DB_MAX_IDLE_CONNS),
 	)
 
+	// HTTP abuse protection. Default 600/min per credential is generous enough
+	// for a busy integration yet still bounds brute force and floods; a
+	// self-hosted install can raise or zero it. CORS defaults to same-origin.
+	rateLimitPerMinute, _ := strconv.Atoi(strings.TrimSpace(os.Getenv(config_env.RATE_LIMIT_PER_MINUTE)))
+	if rateLimitPerMinute < 0 {
+		rateLimitPerMinute = 0
+	}
+	if _, set := os.LookupEnv(config_env.RATE_LIMIT_PER_MINUTE); !set {
+		rateLimitPerMinute = 600
+	}
+	corsAllowedOrigins := parseCSV(os.Getenv(config_env.CORS_ALLOWED_ORIGINS))
+
 	// Typebot protections. The per-contact limit is on by default (it only
 	// affects senders bursting many messages); the per-instance send ceiling is
 	// off by default (a badly tuned value would delay legitimate replies).
@@ -547,6 +567,8 @@ func Load() *Config {
 		MessageRetentionDays:     messageRetentionDays,
 		DatabaseMaxOpenConns:     dbMaxOpen,
 		DatabaseMaxIdleConns:     dbMaxIdle,
+		RateLimitPerMinute:       rateLimitPerMinute,
+		CorsAllowedOrigins:       corsAllowedOrigins,
 	}
 
 	minioEnabled := os.Getenv(config_env.MINIO_ENABLED) == "true"
@@ -613,6 +635,25 @@ func parseDBPoolConfig(openRaw, idleRaw string) (int, int) {
 		idle = open
 	}
 	return open, idle
+}
+
+// parseCSV splits a comma-separated env value, trimming spaces and dropping
+// empties, so an unset or blank variable yields a nil (empty) slice.
+func parseCSV(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func panicIfEmpty(key, value string) {

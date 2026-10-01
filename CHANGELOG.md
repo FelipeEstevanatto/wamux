@@ -59,6 +59,28 @@ Three additive features, all disabled/unchanged by default unless configured.
   batches are stored.
 
 ### 🔧 Improvements
+- **Production hardening** —
+  - **Cross-tenant isolation**: a new `GetMessageByIDForInstance` repository
+    lookup scopes by `instance_id`, and `GET /message/status` plus
+    `GET /chat/media/:messageId` now use it, so a known message id from one
+    tenant can no longer be read with another tenant's token. Covered by
+    isolation tests.
+  - **HTTP rate limiting**: per-credential (instance token / admin key) or
+    per-IP token bucket (`RATE_LIMIT_PER_MINUTE`, default 600/min, `0` disables)
+    with `429` + `Retry-After`, protecting `apikey` brute force and `POST
+    /send/*` floods.
+  - **CORS allowlist**: replaced the `Access-Control-Allow-Origin: *` +
+    credentials combination (spec-invalid and unsafe) with a configurable
+    allowlist (`CORS_ALLOWED_ORIGINS`); empty means same-origin only.
+  - **Bounded background work**: fire-and-forget event work (poll votes, account
+    limit refresh, app-state recovery, auto-read) now runs through a fixed-size
+    `bgpool` worker pool instead of an unbounded goroutine per event.
+  - **One DB pool source of truth**: `DB_MAX_OPEN_CONNS` / `DB_MAX_IDLE_CONNS`
+    now size the Postgres auth pool and the whatsmeow key store too (they were
+    hardcoded to 25/5).
+  - **Versioned migrations**: schema changes now run through ordered, recorded
+    steps in `schema_migrations` (with idempotent, reviewable SQL) after the
+    additive `AutoMigrate` bootstrap.
 - **Public info banner** — `GET /` now answers with a JSON welcome/health
   payload (`status`, `message`, `version`, `clientName`, `manager`,
   `documentation`, `whatsappWebVersion`, and `error` when a boot/config problem
