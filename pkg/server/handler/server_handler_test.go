@@ -47,6 +47,7 @@ type fakeMessageRepo struct {
 }
 
 func (fakeMessageRepo) InsertMessage(message_model.Message) error             { return nil }
+func (fakeMessageRepo) InsertMessages([]message_model.Message) error          { return nil }
 func (fakeMessageRepo) GetMessageByID(string) (*message_model.Message, error) { return nil, nil }
 func (fakeMessageRepo) GetMessageByIDForInstance(string, string) (*message_model.Message, error) {
 	return nil, nil

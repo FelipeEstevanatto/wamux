@@ -99,17 +99,35 @@ func (c *Codec) Decrypt(ciphertext string) (string, error) {
 }
 
 // LooksEncrypted reports whether s looks like a stored ciphertext rather than a
-// plaintext token. Tokens are operator-chosen strings often containing dashes or
-// dots (UUIDs, etc.); AES-GCM ciphertext rendered as base64 is a long run of
-// only [A-Za-z0-9+/=]. This heuristic lets startup detect rows written before
-// encryption existed so they can be migrated once.
+// plaintext token. Tokens are operator-chosen and almost always contain a dash
+// or underscore (UUIDs); AES-GCM ciphertext rendered as standard base64 can too,
+// so the discriminator is the UUID-shaped/dash form plus the minimum length.
+//
+// This is only used by the startup backfill to decide whether a row still holds
+// plaintext; when in doubt it re-encrypts (idempotent), so a false "not
+// encrypted" is harmless.
 func LooksEncrypted(s string) bool {
 	// base64 of nonce(12)+ciphertext+tag(16) is >= 28 bytes -> >= 40 base64 chars.
 	if len(s) < 40 || !isLikelyBase64(s) {
 		return false
 	}
-	// A plaintext token this long would still almost always contain a separator.
-	return !strings.ContainsAny(s, "-_.:@/ ")
+	// UUID-style tokens are exactly 36 chars (rejected by the length check) or
+	// shorter; a long dash-form token is the ambiguous case and we treat it as
+	// NOT encrypted so it gets backfilled.
+	return !looksLikeUUIDish(s)
+}
+
+// looksLikeUUIDish reports whether s has the 8-4-4-4-12 dash grouping of a UUID.
+func looksLikeUUIDish(s string) bool {
+	if len(s) != 36 {
+		return false
+	}
+	for _, i := range []int{8, 13, 18, 23} {
+		if s[i] != '-' {
+			return false
+		}
+	}
+	return true
 }
 
 func isLikelyBase64(s string) bool {

@@ -113,6 +113,21 @@ bench: ## Roda benchmarks (com alocação) nos hot paths
 	@echo "$(GREEN)⚡ Rodando benchmarks...$(NC)"
 	$(GO) test -run=^$$ -bench=. -benchmem ./pkg/...
 
+# Persistence benchmarks against a real Postgres (single vs batched inserts).
+# Point it at any reachable database; the benchmark creates the schema and
+# cleans up its own rows.
+bench-persist: ## Benchmarks de persistência (single vs batch) contra Postgres
+	@echo "$(GREEN)⚡ Benchmarks de persistência...$(NC)"
+	EVO_BENCH_POSTGRES_DSN="$${EVO_BENCH_POSTGRES_DSN:?set EVO_BENCH_POSTGRES_DSN}" \
+		$(GO) test -run=^$$ -bench='InsertMessage' -benchmem ./pkg/message/repository/ -benchtime=300x
+
+# JSON benchmarks: stdlib vs the go_json build tag.
+bench-json: ## Compara encoding/json vs goccy/go-json
+	@echo "-- encoding/json --"
+	$(GO) test -run=^$$ -bench='Marshal|Unmarshal' -benchmem ./pkg/jsonx/
+	@echo "-- go_json --"
+	$(GO) test -tags go_json -run=^$$ -bench='Marshal|Unmarshal' -benchmem ./pkg/jsonx/
+
 # Compare benchmarks before/after a change:
 #   make bench > /tmp/before.txt   (on the old build)
 #   <apply change>
