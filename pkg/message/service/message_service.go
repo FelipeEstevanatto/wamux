@@ -13,8 +13,8 @@ import (
 	"time"
 
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
-	localmedia "github.com/evolution-foundation/evolution-go/pkg/media"
 	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
+	localmedia "github.com/evolution-foundation/evolution-go/pkg/media"
 	message_model "github.com/evolution-foundation/evolution-go/pkg/message/model"
 	message_repository "github.com/evolution-foundation/evolution-go/pkg/message/repository"
 	"github.com/evolution-foundation/evolution-go/pkg/utils"
@@ -626,9 +626,14 @@ func (m *messageService) GetMessageStatus(data *MessageStatusStruct, instance *i
 
 	var ts time.Time
 
-	result, err := m.messageRepository.GetMessageByID(data.Id)
+	// Tenant-scoped: an instance may only read its own messages, even though it
+	// knows the (globally unique) message id.
+	result, err := m.messageRepository.GetMessageByIDForInstance(instance.Id, data.Id)
 	if err != nil {
 		return nil, "", err
+	}
+	if result == nil {
+		return nil, "", errors.New("message not found")
 	}
 
 	return result, ts.String(), nil
@@ -837,11 +842,13 @@ func (m *messageService) GetStoredMedia(messageID string, instance *instance_mod
 	if m.messageRepository == nil {
 		return nil, nil, "", errors.New("media not found")
 	}
-	msg, err := m.messageRepository.GetMessageByID(messageID)
+	// Tenant-scoped lookup: the repository enforces the instance filter, so a
+	// message id from another tenant can never be opened here.
+	msg, err := m.messageRepository.GetMessageByIDForInstance(instance.Id, messageID)
 	if err != nil {
 		return nil, nil, "", err
 	}
-	if msg == nil || msg.InstanceId != instance.Id {
+	if msg == nil {
 		return nil, nil, "", errors.New("media not found")
 	}
 	file, info, err := localmedia.Open(instance.Id, messageID)

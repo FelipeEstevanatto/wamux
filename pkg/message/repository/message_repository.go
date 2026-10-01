@@ -15,6 +15,11 @@ import (
 type MessageRepository interface {
 	InsertMessage(message message_model.Message) error
 	GetMessageByID(messageID string) (*message_model.Message, error)
+	// GetMessageByIDForInstance is the tenant-safe lookup: it returns the message
+	// only when it belongs to instanceId. Handlers that serve one instance must
+	// use this, never GetMessageByID, so a message id from tenant A cannot be
+	// read with tenant B's token.
+	GetMessageByIDForInstance(instanceId, messageID string) (*message_model.Message, error)
 	DeleteAllMessages() (int64, error)
 	GetLatestMessageID(source string) (string, string, error)
 	GetStats() (*MessageStats, error)
@@ -192,6 +197,26 @@ func (m *messageRepository) InsertMessage(message message_model.Message) error {
 func (m *messageRepository) GetMessageByID(messageID string) (*message_model.Message, error) {
 	var message message_model.Message
 	err := m.db.Where("message_id = ?", messageID).First(&message).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &message, nil
+}
+
+// GetMessageByIDForInstance returns the message only when its instance_id
+// matches. A blank instanceId is rejected outright — an unscoped lookup is the
+// exact mistake this method exists to prevent, so it must never silently fall
+// back to "return anything".
+func (m *messageRepository) GetMessageByIDForInstance(instanceId, messageID string) (*message_model.Message, error) {
+	if instanceId == "" || messageID == "" {
+		return nil, nil
+	}
+	var message message_model.Message
+	err := m.db.Where("instance_id = ? AND message_id = ?", instanceId, messageID).First(&message).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil

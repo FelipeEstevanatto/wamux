@@ -36,6 +36,7 @@ import (
 	"go.mau.fi/whatsmeow/types/events"
 	waLog "go.mau.fi/whatsmeow/util/log"
 
+	"github.com/evolution-foundation/evolution-go/pkg/bgpool"
 	"github.com/evolution-foundation/evolution-go/pkg/config"
 	producer_interfaces "github.com/evolution-foundation/evolution-go/pkg/events/interfaces"
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
@@ -175,6 +176,7 @@ type whatsmeowService struct {
 	loggerWrapper      *logger_wrapper.LoggerManager
 	passkeyCeremony    *ceremony.Store
 	persistPool        *persistPool
+	bgPool             *bgpool.Pool
 	// Media-retry state: pending requests (to decrypt the response) and the
 	// refreshed bytes to serve on the next download request.
 	mediaRetryPending *cache.Cache
@@ -235,6 +237,9 @@ type MyClient struct {
 	qrcodeCount        int
 	passkeyCeremony    *ceremony.Store
 	persistPool        *persistPool
+	// bgPool bounds the fire-and-forget event work (poll votes, limit refresh,
+	// auto-read, …) so a burst cannot spawn unbounded goroutines.
+	bgPool             *bgpool.Pool
 	appStateRecoveryMu sync.Mutex
 	appStateRecovery   map[appstate.WAPatchName]appStateRecoveryAttempt
 	nctSaltSyncMu      sync.Mutex
@@ -366,7 +371,7 @@ func (mycli *MyClient) handleAppStateSyncError(evt *events.AppStateSyncError) {
 		return
 	}
 
-	go func() {
+	recoverAppState := func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
@@ -399,7 +404,8 @@ func (mycli *MyClient) handleAppStateSyncError(evt *events.AppStateSyncError) {
 			"[%s] App-state recovery request sent for %s",
 			mycli.userID, evt.Name,
 		)
-	}()
+	}
+	mycli.bgPool.Go(recoverAppState)
 }
 
 func (mycli *MyClient) persistMessageAsync(message message_model.Message) {
@@ -722,8 +728,18 @@ func (w whatsmeowService) getSharedSQLStoreContainer() (*sqlstore.Container, err
 		h.err = fmt.Errorf("failed to open sqlite auth store: %w", err)
 		return nil, h.err
 	}
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(5)
+	// Size the key store pool from the same DB_MAX_* knobs as the GORM pools so
+	// there is one source of truth. Fall back to the historical 25/5 when unset
+	// (a bare config in a test).
+	poolOpen, poolIdle := w.config.DatabaseMaxOpenConns, w.config.DatabaseMaxIdleConns
+	if poolOpen <= 0 {
+		poolOpen = 25
+	}
+	if poolIdle <= 0 {
+		poolIdle = 5
+	}
+	db.SetMaxOpenConns(poolOpen)
+	db.SetMaxIdleConns(poolIdle)
 	db.SetConnMaxLifetime(5 * time.Minute)
 	db.SetConnMaxIdleTime(1 * time.Minute)
 	container := sqlstore.NewWithDB(db, "sqlite", dbLog)
@@ -973,7 +989,7 @@ func (mycli *MyClient) logAccountLimits() {
 	if client == nil {
 		return
 	}
-	go func() {
+	refresh := func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
 
@@ -1008,7 +1024,8 @@ func (mycli *MyClient) logAccountLimits() {
 		if got {
 			accountLimitsCache.Set(mycli.userID, entry, cache.DefaultExpiration)
 		}
-	}()
+	}
+	mycli.bgPool.Go(refresh)
 }
 
 // History-sync depth requested from the phone when a device links (DeviceProps.HistorySyncConfig).
@@ -1219,6 +1236,7 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		qrcodeCount:        0,
 		passkeyCeremony:    w.passkeyCeremony,
 		persistPool:        w.persistPool,
+		bgPool:             w.bgPool,
 	}
 
 	mycli.eventHandlerID = mycli.WAClient.AddEventHandler(mycli.myEventHandler)
@@ -1435,6 +1453,11 @@ func processPresenceUpdates(mycli *MyClient) {
 // fan-out) and the timeout teardown; only the trigger (batch vs. per-code) and
 // the rotation/self-timer are new. Runs in its own goroutine so it never blocks
 // the whatsmeow event dispatch.
+//
+// Deliberately NOT routed through bgPool: this goroutine lives for the whole
+// pairing session (it sleeps between codes), so it would pin a shared pool
+// worker for minutes. It is naturally bounded to one per instance, which is the
+// same guarantee the pool would give.
 func (mycli *MyClient) handleQRCodes(codes []string) {
 	go func() {
 		instanceID := mycli.userID
@@ -1652,8 +1675,10 @@ func (mycli *MyClient) handlePollVote(evt *events.Message) {
 		log.LogWarn("[%s] No PN mapping for poll voter %s; storing the LID form", mycli.userID, info.Sender)
 	}
 
-	// Saving touches the database, so keep it off the event dispatch path.
-	go func() {
+	// Saving touches the database, so keep it off the event dispatch path, but
+	// run it through the bounded pool: a burst of votes must not spawn one
+	// unbounded goroutine each.
+	savePollVote := func() {
 		defer func() {
 			if r := recover(); r != nil {
 				mycli.loggerWrapper.GetLogger(userID).LogError("[%s] Panic ao salvar voto: %v", userID, r)
@@ -1683,7 +1708,8 @@ func (mycli *MyClient) handlePollVote(evt *events.Message) {
 		} else {
 			mycli.loggerWrapper.GetLogger(userID).LogInfo("[%s] Poll vote saved to database successfully", userID)
 		}
-	}()
+	}
+	mycli.bgPool.Go(savePollVote)
 }
 
 // scheduleReconnect heals a dropped or hung socket. For an already-paired device
@@ -2210,7 +2236,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 		// Auto-marca mensagens como lidas se configurado
 		if mycli.Instance.ReadMessages && !evt.Info.IsFromMe {
-			go func() {
+			mycli.bgPool.Go(func() {
 				time.Sleep(1 * time.Second) // Pequeno delay para parecer mais natural
 				err := mycli.WAClient.MarkRead(context.Background(), []types.MessageID{evt.Info.ID}, evt.Info.Timestamp, evt.Info.Chat, evt.Info.Sender)
 				if err != nil {
@@ -2218,7 +2244,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 				} else {
 					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Auto-marked message as read from %s", mycli.userID, evt.Info.Chat.String())
 				}
-			}()
+			})
 		}
 
 		// Edits arrive sealed in a secretEncryptedMessage envelope. Unwrap before typing the
@@ -4240,6 +4266,7 @@ func NewWhatsmeowService(
 		instanceS3Storage:  safemap.New[instanceS3Entry](),
 		authStore:          &sharedSQLStore{},
 		persistPool:        newPersistPool(persistWorkers, persistQueueSize),
+		bgPool:             bgpool.New(bgpool.DefaultWorkers, bgpool.DefaultQueue),
 	}
 }
 

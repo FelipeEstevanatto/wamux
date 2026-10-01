@@ -518,3 +518,48 @@ func TestDeleteMessagesOlderThanBatchesAndInvalidatesCache(t *testing.T) {
 		t.Fatalf("unmet expectations: %v", err)
 	}
 }
+
+// Cross-tenant isolation: a message id alone must not be readable. The scoped
+// lookup has to carry BOTH the instance_id and the message_id in its WHERE, so
+// tenant B can never read tenant A's row even knowing the id.
+func TestGetMessageByIDForInstanceScopesQuery(t *testing.T) {
+	repo, mock := newMockRepo(t)
+
+	mock.ExpectQuery(`SELECT \* FROM "messages" WHERE instance_id = \$1 AND message_id = \$2 ORDER BY "messages"\."id" LIMIT \$3`).
+		WithArgs("tenant-b", "shared-id", 1).
+		WillReturnRows(sqlmock.NewRows([]string{"message_id", "instance_id"}).
+			AddRow("shared-id", "tenant-b"))
+
+	msg, err := repo.GetMessageByIDForInstance("tenant-b", "shared-id")
+	if err != nil {
+		t.Fatalf("GetMessageByIDForInstance: %v", err)
+	}
+	if msg == nil || msg.InstanceId != "tenant-b" {
+		t.Fatalf("got %+v, want tenant-b's row", msg)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+// A blank instance id must never fall through to an unscoped lookup: it would
+// reintroduce exactly the leak this method exists to prevent.
+func TestGetMessageByIDForInstanceRejectsBlankInstance(t *testing.T) {
+	repo, _ := newMockRepo(t)
+
+	// No query is queued: if the implementation queried, sqlmock would fail the
+	// test on an unexpected call.
+	for _, tc := range []struct{ instance, id string }{
+		{"", "shared-id"},
+		{"tenant-b", ""},
+		{"", ""},
+	} {
+		msg, err := repo.GetMessageByIDForInstance(tc.instance, tc.id)
+		if err != nil {
+			t.Fatalf("blank input returned error: %v", err)
+		}
+		if msg != nil {
+			t.Fatalf("blank instance/message should return nil, got %+v", msg)
+		}
+	}
+}

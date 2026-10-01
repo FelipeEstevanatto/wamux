@@ -37,6 +37,7 @@ import (
 	websocket_producer "github.com/evolution-foundation/evolution-go/pkg/events/websocket"
 	group_handler "github.com/evolution-foundation/evolution-go/pkg/group/handler"
 	group_service "github.com/evolution-foundation/evolution-go/pkg/group/service"
+	"github.com/evolution-foundation/evolution-go/pkg/httpguard"
 	instance_handler "github.com/evolution-foundation/evolution-go/pkg/instance/handler"
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
 	instance_repository "github.com/evolution-foundation/evolution-go/pkg/instance/repository"
@@ -53,6 +54,7 @@ import (
 	message_repository "github.com/evolution-foundation/evolution-go/pkg/message/repository"
 	message_service "github.com/evolution-foundation/evolution-go/pkg/message/service"
 	auth_middleware "github.com/evolution-foundation/evolution-go/pkg/middleware"
+	"github.com/evolution-foundation/evolution-go/pkg/migrations"
 	newsletter_handler "github.com/evolution-foundation/evolution-go/pkg/newsletter/handler"
 	newsletter_service "github.com/evolution-foundation/evolution-go/pkg/newsletter/service"
 	passkey_handler "github.com/evolution-foundation/evolution-go/pkg/passkey/handler"
@@ -228,19 +230,17 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 
 	r := gin.Default()
 
-	// CORS middleware — must be before everything else
-	r.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, Accept, Cache-Control, X-Requested-With, apikey, ApiKey")
-		c.Writer.Header().Set("Access-Control-Expose-Headers", "Content-Length")
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(200)
-			return
-		}
-		c.Next()
-	})
+	// Abuse protection first, so it covers every route including the public
+	// passkey/license ones registered below.
+	//
+	// CORS: an allowlist (CORS_ALLOWED_ORIGINS). The previous handler echoed `*`
+	// together with credentials, which is spec-invalid and unsafe; empty config
+	// now means same-origin only.
+	r.Use(httpguard.CORSMiddleware(config.CorsAllowedOrigins))
+
+	// Rate limiting: per credential (instance token / admin key) or per client
+	// IP when unauthenticated. Stops apikey brute force and POST /send/* floods.
+	r.Use(httpguard.Middleware(httpguard.NewLimiter(config.RateLimitPerMinute, time.Minute)))
 
 	// Passkey ceremony routes — PUBLIC (called by the browser extension from the
 	// web.whatsapp.com origin, gated only by an opaque ephemeral token).
@@ -332,6 +332,16 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	return r
 }
 
+// migrate brings the schema up to date in two phases:
+//
+//  1. AutoMigrate bootstraps the desired shape. It is additive-only, which is
+//     exactly what a brand-new database needs, and it keeps the initial schema
+//     defined in one place (the models).
+//  2. The versioned migrations then apply the changes AutoMigrate cannot express
+//     (composite indexes, corrections) and record what ran in schema_migrations.
+//
+// For a fresh database phase 1 creates the tables and phase 2 adds the indexes;
+// for an existing one both are no-ops after the first run.
 func migrate(db *gorm.DB) {
 	err := db.AutoMigrate(
 		&instance_model.Instance{},
@@ -343,6 +353,17 @@ func migrate(db *gorm.DB) {
 
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Fatalf("[MIGRATIONS] could not reach the raw database handle: %v", err)
+	}
+
+	// The GORM driver here is always postgres (see config.CreateUsersDB), but
+	// the runner supports sqlite too for the store-less setups.
+	if _, err := migrations.Apply(context.Background(), sqlDB, "postgres"); err != nil {
+		log.Fatalf("[MIGRATIONS] %v", err)
 	}
 }
 
@@ -388,9 +409,17 @@ func initPostgresAuthDB(config *config.Config) (*sql.DB, error) {
 		return nil, fmt.Errorf("erro ao conectar ao banco AUTH PostgreSQL: %v", err)
 	}
 
-	// Configurar pool de conexões para evitar conexões ociosas não fechadas
-	db.SetMaxOpenConns(25)                 // Máximo de 25 conexões abertas simultaneamente
-	db.SetMaxIdleConns(5)                  // Máximo de 5 conexões ociosas no pool
+	// One source of truth for pool sizing: DB_MAX_OPEN_CONNS / DB_MAX_IDLE_CONNS,
+	// shared with the GORM pools and the whatsmeow key store.
+	poolOpen, poolIdle := config.DatabaseMaxOpenConns, config.DatabaseMaxIdleConns
+	if poolOpen <= 0 {
+		poolOpen = 25
+	}
+	if poolIdle <= 0 {
+		poolIdle = 5
+	}
+	db.SetMaxOpenConns(poolOpen)
+	db.SetMaxIdleConns(poolIdle)
 	db.SetConnMaxLifetime(5 * time.Minute) // Reconectar após 5 minutos para evitar timeouts
 	db.SetConnMaxIdleTime(1 * time.Minute) // Fechar conexões ociosas após 1 minuto
 
