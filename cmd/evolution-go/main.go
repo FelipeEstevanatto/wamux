@@ -301,7 +301,7 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		label_handler.NewLabelHandler(labelService),
 		newsletter_handler.NewNewsletterHandler(newsletterService),
 		pollHandler,
-		server_handler.NewServerHandler(messageRepository, version, whatsmeowService, dataDir, mediaBackend),
+		server_handler.NewServerHandler(messageRepository, version, whatsmeowService, dataDir, mediaBackend, config.DatabaseSaveMessages, config.MediaLocalStore, config.WebhookFiles),
 		typebot_handler.NewTypebotHandler(typebotRepository, loggerWrapper),
 	).AssignRoutes(r)
 

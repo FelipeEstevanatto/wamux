@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   Check,
   CheckCheck,
+  Info,
   MessageSquare,
   Paperclip,
   RefreshCw,
@@ -17,11 +18,21 @@ import { Button, Input, Skeleton } from '@/components/ui';
 import useInstancesStore from '@/store/instancesStore';
 import useInstanceEvents from '@/hooks/useInstanceEvents';
 import * as messagesApi from '@/services/api/messages';
+import { fetchServerStats } from '@/services/api/server';
 import type { ChatSummary, HistoryMessage } from '@/types/messages';
 
 const PAGE_SIZE = 50;
 
 type ChatKind = 'contact' | 'group' | 'channel';
+
+// Feature flags reported by GET /server/stats. When mediaLocal/history are off
+// there is nothing stored to preview or read back, and the UI says so.
+interface FeatureFlags {
+  historyEnabled: boolean;
+  mediaLocal: boolean;
+  webhookFiles: boolean;
+  loaded: boolean;
+}
 
 function jidUser(jid: string): string {
   if (!jid) return '—';
@@ -157,11 +168,30 @@ function useMediaSrc(mediaUrl: string, token: string): string {
   return src;
 }
 
-function MediaContent({ message, token }: { message: HistoryMessage; token: string }) {
+function MediaContent({
+  message,
+  token,
+  mediaLocal,
+}: {
+  message: HistoryMessage;
+  token: string;
+  mediaLocal: boolean;
+}) {
   const src = useMediaSrc(message.media_url || '', token);
 
   if (!message.media_url) {
-    return <p className="italic opacity-80">[{message.message_type || 'mídia'}]</p>;
+    const label = message.message_type || 'mídia';
+    // Explain why a file shows only a placeholder instead of a preview.
+    return (
+      <p className="italic opacity-80">
+        [{label}]
+        {!mediaLocal && (
+          <span className="ml-1 not-italic opacity-70" title="MEDIA_LOCAL_STORE=false">
+            — arquivo não armazenado (apenas enviado ao webhook)
+          </span>
+        )}
+      </p>
+    );
   }
   if (!src) {
     return <p className="italic opacity-80">Carregando {message.message_type || 'mídia'}…</p>;
@@ -196,7 +226,15 @@ function MediaContent({ message, token }: { message: HistoryMessage; token: stri
   );
 }
 
-function Bubble({ message, token }: { message: HistoryMessage; token: string }) {
+function Bubble({
+  message,
+  token,
+  mediaLocal,
+}: {
+  message: HistoryMessage;
+  token: string;
+  mediaLocal: boolean;
+}) {
   const mine = message.is_from_me;
   const isMedia =
     !!message.media_url ||
@@ -208,7 +246,7 @@ function Bubble({ message, token }: { message: HistoryMessage; token: string }) 
           mine ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
         }`}
       >
-        {isMedia && <MediaContent message={message} token={token} />}
+        {isMedia && <MediaContent message={message} token={token} mediaLocal={mediaLocal} />}
         {message.text_content && (
           <p className="break-words whitespace-pre-wrap">{message.text_content}</p>
         )}
@@ -263,6 +301,19 @@ export default function Messages() {
   const [newNumber, setNewNumber] = useState('');
   const [mobileThread, setMobileThread] = useState(false);
 
+  // Contacts picker + on-demand history recovery.
+  const [contacts, setContacts] = useState<messagesApi.Contact[]>([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const [showContacts, setShowContacts] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+
+  const [flags, setFlags] = useState<FeatureFlags>({
+    historyEnabled: true,
+    mediaLocal: true,
+    webhookFiles: true,
+    loaded: false,
+  });
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const objectUrlRef = useRef('');
 
@@ -292,6 +343,25 @@ export default function Messages() {
   useEffect(() => {
     void fetchInstances();
   }, [fetchInstances]);
+
+  // Read the server's feature flags once: they decide whether history readback
+  // and local media previews are available, and whether we warn about it.
+  useEffect(() => {
+    fetchServerStats()
+      .then((stats) => {
+        const s = stats.storage;
+        setFlags({
+          historyEnabled: s?.historyEnabled ?? true,
+          mediaLocal: s?.mediaLocal ?? true,
+          webhookFiles: s?.webhookFiles ?? true,
+          loaded: true,
+        });
+      })
+      .catch(() => {
+        // Older server without the flags: assume everything is on.
+        setFlags({ historyEnabled: true, mediaLocal: true, webhookFiles: true, loaded: true });
+      });
+  }, []);
 
   // Pick the first connected instance once one is available.
   useEffect(() => {
@@ -445,6 +515,60 @@ export default function Messages() {
     void loadThread(jid);
   };
 
+  // Load the instance's known contacts on demand for the picker.
+  const loadContacts = async () => {
+    if (!token) return;
+    setContactsLoading(true);
+    try {
+      setContacts(await messagesApi.listContacts(token));
+    } catch {
+      toast.error('Não foi possível carregar os contatos');
+    } finally {
+      setContactsLoading(false);
+    }
+  };
+
+  // Ask WhatsApp for historical messages, then reload what we have stored.
+  // Uses the newest known message of the selected chat as the cursor.
+  const recoverHistory = async () => {
+    if (!token || syncing) return;
+    if (!selectedChat) {
+      toast.error('Abra uma conversa para recuperar o histórico dela');
+      return;
+    }
+    setSyncing(true);
+    try {
+      const isGroup = selectedChat.endsWith('@g.us');
+      const newest = messages[0];
+      let messageInfo = {
+        Chat: selectedChat,
+        IsFromMe: newest?.is_from_me ?? false,
+        IsGroup: isGroup,
+        ID: newest?.message_id ?? '',
+        Timestamp: newest?.timestamp ? newest.timestamp.replace(' ', 'T') + 'Z' : new Date().toISOString(),
+      };
+      // Without a stored anchor, ask the instance for the newest message id.
+      if (!newest) {
+        const page = await messagesApi.getHistory(token, selectedChat, 1);
+        if (page[0]) {
+          messageInfo = {
+            Chat: selectedChat,
+            IsFromMe: page[0].is_from_me,
+            IsGroup: isGroup,
+            ID: page[0].message_id,
+            Timestamp: page[0].timestamp.replace(' ', 'T') + 'Z',
+          };
+        }
+      }
+      await messagesApi.requestHistorySync(token, messageInfo, PAGE_SIZE);
+      toast.success('Sincronização solicitada. As mensagens antigas chegam em instantes.');
+    } catch {
+      toast.error('Não foi possível solicitar a sincronização');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const send = async () => {
     const text = draft.trim();
     if (!token || !selectedChat || sending) return;
@@ -580,6 +704,41 @@ export default function Messages() {
         )}
       </div>
 
+      {flags.loaded && !flags.mediaLocal && (
+        <div className="flex items-start gap-2 border-b border-border bg-muted/50 px-4 py-2 text-xs text-muted-foreground">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>
+            O armazenamento local de anexos está <strong>desativado</strong>
+            {' '}(<code>MEDIA_LOCAL_STORE=false</code>
+            {!flags.historyEnabled && (
+              <>
+                {' '}e <code>DATABASE_SAVE_MESSAGES=false</code>
+              </>
+            )}
+            ). Arquivos enviados e recebidos não são guardados em disco, então não há
+            pré-visualização aqui — eles são apenas encaminhados ao webhook. Para ver
+            os arquivos, defina <code>MEDIA_LOCAL_STORE=true</code>
+            {!flags.historyEnabled && (
+              <>
+                {' '}e <code>DATABASE_SAVE_MESSAGES=true</code>
+              </>
+            )}
+            .
+          </span>
+        </div>
+      )}
+      {flags.loaded && !flags.historyEnabled && flags.mediaLocal && (
+        <div className="flex items-start gap-2 border-b border-border bg-muted/50 px-4 py-2 text-xs text-muted-foreground">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>
+            O histórico de mensagens está <strong>desativado</strong>
+            {' '}(<code>DATABASE_SAVE_MESSAGES=false</code>). As conversas e o
+            botão <strong>Recuperar</strong> não terão o que mostrar aqui. Defina{' '}
+            <code>DATABASE_SAVE_MESSAGES=true</code> para habilitar.
+          </span>
+        </div>
+      )}
+
       <div className="grid min-h-0 flex-1 lg:grid-cols-[320px_1fr]">
         {/* Conversation list */}
         <aside
@@ -614,6 +773,60 @@ export default function Messages() {
                 Abrir
               </Button>
             </div>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  const next = !showContacts;
+                  setShowContacts(next);
+                  if (next && contacts.length === 0) void loadContacts();
+                }}
+              >
+                Contatos
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="flex-1"
+                onClick={() => void recoverHistory()}
+                disabled={syncing}
+                title="Pede ao WhatsApp as mensagens antigas. Requer a opção de guardar mensagens (DATABASE_SAVE_MESSAGES) para aparecerem aqui."
+              >
+                <RefreshCw className={syncing ? 'animate-spin' : ''} /> Recuperar
+              </Button>
+            </div>
+            {showContacts && (
+              <div className="max-h-56 overflow-y-auto rounded-md border border-border">
+                {contactsLoading ? (
+                  <p className="p-2 text-xs text-muted-foreground">Carregando contatos…</p>
+                ) : contacts.length === 0 ? (
+                  <p className="p-2 text-xs text-muted-foreground">
+                    Nenhum contato conhecido ainda.
+                  </p>
+                ) : (
+                  contacts.map((c) => {
+                    const name =
+                      c.FullName || c.FirstName || c.PushName || c.BusinessName || c.Jid;
+                    return (
+                      <button
+                        key={c.Jid}
+                        type="button"
+                        className="block w-full truncate px-2 py-1.5 text-left text-sm hover:bg-muted"
+                        onClick={() => {
+                          setNewNumber(c.Jid);
+                          setShowContacts(false);
+                        }}
+                        title={c.Jid}
+                      >
+                        {name}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            )}
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
             {chatsLoading && chats.length === 0 ? (
@@ -715,7 +928,12 @@ export default function Messages() {
                 ) : (
                   <div className="flex flex-col gap-2">
                     {ordered.map((m) => (
-                      <Bubble key={m.message_id} message={m} token={token} />
+                      <Bubble
+                        key={m.message_id}
+                        message={m}
+                        token={token}
+                        mediaLocal={flags.mediaLocal}
+                      />
                     ))}
                   </div>
                 )}

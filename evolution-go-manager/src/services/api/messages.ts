@@ -114,3 +114,50 @@ export const fetchMediaObjectUrl = async (
   });
   return URL.createObjectURL(response.data as Blob);
 };
+
+export interface Contact {
+  Jid: string;
+  Found?: boolean;
+  FirstName?: string;
+  FullName?: string;
+  PushName?: string;
+  BusinessName?: string;
+}
+
+/**
+ * List the instance's known contacts (from the WhatsApp store).
+ * GET /user/contacts
+ */
+export const listContacts = async (instanceToken: string): Promise<Contact[]> => {
+  const response = await apiClient.get<{ message: string; data: Contact[] }>(
+    '/user/contacts',
+    asInstance(instanceToken)
+  );
+  return response.data.data ?? [];
+};
+
+/**
+ * Ask the phone for historical messages/chats (on-demand backfill).
+ *
+ * The API needs an anchor message: `messageInfo` identifies the newest message
+ * we already know for the chat. `count` is how many older ones to request.
+ * POST /chat/history-sync
+ */
+export const requestHistorySync = async (
+  instanceToken: string,
+  messageInfo: {
+    Chat: string;
+    IsFromMe: boolean;
+    IsGroup: boolean;
+    ID: string;
+    Timestamp: string;
+  },
+  count = 50
+): Promise<unknown> => {
+  const response = await apiClient.post<{ message: string; data: unknown }>(
+    '/chat/history-sync',
+    { messageInfo, count },
+    asInstance(instanceToken)
+  );
+  return response.data.data;
+};

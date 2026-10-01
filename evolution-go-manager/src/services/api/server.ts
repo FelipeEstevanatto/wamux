@@ -50,6 +50,10 @@ export interface ServerStorageStats {
   dbMessagesMB?: number;
   mediaEnabled?: boolean;
   mediaBackend?: string;
+  // Feature flags surfaced by the API so the manager can explain empty views.
+  historyEnabled?: boolean;
+  mediaLocal?: boolean;
+  webhookFiles?: boolean;
 }
 
 export interface ServerStats {
