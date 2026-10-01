@@ -52,7 +52,7 @@ docker compose pull && docker compose up -d
 | Dashboard | <http://localhost:8081/dashboard> |
 
 `WAMUX_VERSION` in `.env` selects the image tag: `latest` (newest release), a
-version such as `0.9.1`, or `dev` (develop branch).
+version such as `0.9.2`, or `dev` (develop branch).
 
 Or with a plain `docker run` (bring your own Postgres):
 
