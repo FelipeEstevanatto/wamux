@@ -13,6 +13,10 @@ const (
 	WA_DEBUG               = "DEBUG_ENABLED"
 	LOGTYPE                = "LOG_TYPE"
 	WEBHOOKFILES           = "WEBHOOK_FILES"
+	// MEDIA_LOCAL_STORE keeps a copy of message attachments on the data volume
+	// so the manager can preview them without MinIO/S3. Disable to restore the
+	// previous behaviour (no local copies written).
+	MEDIA_LOCAL_STORE      = "MEDIA_LOCAL_STORE"
 	CONNECT_ON_STARTUP     = "CONNECT_ON_STARTUP"
 	REREQUEST_FROM_PHONE   = "REREQUEST_FROM_PHONE"
 	OS_NAME                = "OS_NAME"

@@ -34,6 +34,9 @@ type Config struct {
 	WaDebug              string
 	LogType              string
 	WebhookFiles         bool
+	// MediaLocalStore keeps attachment copies under <dataDir>/media for manager
+	// previews. Defaults to true; set MEDIA_LOCAL_STORE=false to disable.
+	MediaLocalStore      bool
 	ConnectOnStartup     bool
 	RerequestFromPhone   bool
 	OsName               string
@@ -290,6 +293,13 @@ func Load() *Config {
 		webhookFiles = "true"
 	}
 
+	// Keep local attachment copies for the manager's previews. On by default;
+	// set MEDIA_LOCAL_STORE=false to restore the no-local-copy behaviour.
+	mediaLocalStore := os.Getenv(config_env.MEDIA_LOCAL_STORE)
+	if mediaLocalStore == "" {
+		mediaLocalStore = "true"
+	}
+
 	connectOnStartup := os.Getenv(config_env.CONNECT_ON_STARTUP)
 	if connectOnStartup == "" {
 		connectOnStartup = "false"
@@ -487,6 +497,7 @@ func Load() *Config {
 		WaDebug:                  waDebug,
 		LogType:                  logType,
 		WebhookFiles:             webhookFiles == "true",
+		MediaLocalStore:          mediaLocalStore == "true",
 		ConnectOnStartup:         connectOnStartup == "true",
 		OsName:                   osName,
 		AmqpUrl:                  amqpUrl,

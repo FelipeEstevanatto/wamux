@@ -172,6 +172,8 @@ SWAGGER_ENABLED=true        # set false to hide /swagger
 | `GLOBAL_API_KEY` | Admin key (`/instance/all`, `/server/stats`, …) | **Required** |
 | `POSTGRES_AUTH_DB` / `POSTGRES_USERS_DB` | Auth and users databases (auto-created) | — |
 | `DATABASE_SAVE_MESSAGES` | Persist messages (feeds the counts and `/server/stats`) | `true` in compose |
+| `WEBHOOK_FILES` | Download inbound attachments (needed for local copies / base64) | `true` in compose |
+| `MEDIA_LOCAL_STORE` | Keep attachment copies under `<dataDir>/media` for manager previews via `GET /chat/media/:messageId` | `true` |
 | `CONNECT_ON_STARTUP` | Reconnect instances that were `connected=true` on boot | `false` |
 | `SWAGGER_ENABLED` | Serve `/swagger` publicly | `true` |
 | `DEBUG_ENABLED` | `1` enables debug logging | `0` |

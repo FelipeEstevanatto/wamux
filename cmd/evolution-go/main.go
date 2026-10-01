@@ -279,9 +279,12 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		mediaBackend = "minio:" + config.MinioBucket
 	}
 
-	// Local attachment store (manager previews) under the data volume.
-	if err := localmedia.Configure(filepath.Join(dataDir, "media")); err != nil {
-		log.Fatal(err)
+	// Local attachment store (manager previews) under the data volume. Turned
+	// off with MEDIA_LOCAL_STORE=false, which restores the previous behaviour.
+	if config.MediaLocalStore {
+		if err := localmedia.Configure(filepath.Join(dataDir, "media")); err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	routes.NewRouter(
