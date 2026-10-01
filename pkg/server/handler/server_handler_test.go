@@ -35,6 +35,8 @@ func (f fakeOverview) ResolveChats(users []string) map[string]whatsmeow_service.
 	return out
 }
 
+func (f fakeOverview) WhatsAppWebVersion() string { return "2.3000.1048977937" }
+
 // fakeMessageRepo implements just enough of MessageRepository for the handler.
 type fakeMessageRepo struct {
 	byInstance int64
@@ -105,6 +107,56 @@ func TestInstanceOverviewHandlerReturnsProviderData(t *testing.T) {
 	}
 	if body.Data.ChatsCount != 9 {
 		t.Fatalf("chatsCount = %d, want 9", body.Data.ChatsCount)
+	}
+}
+
+func TestRootReturnsServiceInfo(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	h := &serverHandler{
+		version:    "0.8.1",
+		clientName: "evolution",
+		overview:   fakeOverview{},
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	h.Root(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", w.Code)
+	}
+	var body map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if body["version"] != "0.8.1" || body["clientName"] != "evolution" {
+		t.Fatalf("unexpected version/clientName: %+v", body)
+	}
+	if body["whatsappWebVersion"] != "2.3000.1048977937" {
+		t.Fatalf("whatsappWebVersion = %v", body["whatsappWebVersion"])
+	}
+	if body["manager"] == "" || body["documentation"] == "" {
+		t.Fatalf("missing manager/documentation links: %+v", body)
+	}
+	if _, hasErr := body["error"]; hasErr {
+		t.Fatalf("did not expect an error field: %+v", body)
+	}
+}
+
+func TestRootSurfacesConfigError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	h := &serverHandler{version: "0.8.1", configError: "GLOBAL_API_KEY is missing"}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	h.Root(c)
+
+	var body map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if body["error"] != "GLOBAL_API_KEY is missing" {
+		t.Fatalf("config error not surfaced: %+v", body)
 	}
 }
 

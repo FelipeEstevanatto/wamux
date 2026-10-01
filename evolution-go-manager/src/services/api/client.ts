@@ -42,6 +42,13 @@ apiClient.interceptors.request.use(
       }
     }
 
+    // Public endpoints (e.g. GET / on the landing page) run before login, when
+    // there is no stored apiUrl. Same-origin works because the SPA is served by
+    // the API itself.
+    if (!config.baseURL) {
+      config.baseURL = window.location.origin;
+    }
+
     return config;
   },
   (error: AxiosError) => {

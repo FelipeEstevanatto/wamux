@@ -491,6 +491,18 @@ type ServerOK struct {
 	Status string `json:"status" example:"ok"`
 }
 
+// RootInfo is the GET / payload: a small welcome/health banner.
+type RootInfo struct {
+	Status              int    `json:"status" example:"200"`
+	Message             string `json:"message" example:"Welcome to Evolution GO, it is working!"`
+	Version             string `json:"version" example:"0.8.1"`
+	ClientName          string `json:"clientName" example:"evolution"`
+	Manager             string `json:"manager" example:"/manager"`
+	Documentation       string `json:"documentation" example:"/swagger/index.html"`
+	WhatsappWebVersion  string `json:"whatsappWebVersion" example:"2.3000.1048977937"`
+	Error               string `json:"error,omitempty" example:""`
+}
+
 // MessageStats is the messages section of /server/stats.
 type MessageStats struct {
 	ByDay []struct {

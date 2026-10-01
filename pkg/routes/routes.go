@@ -83,6 +83,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 		c.File("manager/dist/index.html")
 	})
 
+	eng.GET("/", r.serverHandler.Root)
 	eng.GET("/server/ok", r.serverHandler.ServerOk)
 
 	// Self-hosted dashboard: static page served from the same origin (no CORS),

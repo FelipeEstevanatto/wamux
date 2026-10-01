@@ -93,7 +93,7 @@ Then open:
 
 | | |
 |---|---|
-| API | <http://localhost:8081> |
+| API | <http://localhost:8081> (returns a JSON info banner) |
 | Swagger | <http://localhost:8081/swagger/index.html> |
 | Manager | <http://localhost:8081/manager> (log in with `GLOBAL_API_KEY`) |
 | Dashboard | <http://localhost:8081/dashboard> (same key) |
@@ -313,6 +313,8 @@ A few of the endpoints this fork adds or that are easy to get wrong:
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
 | `GET` | `/instance/overview/:instanceId` | global | Profile picture, push name, device platform, contact/chat/message counts |
+| `GET` | `/` | — | Public info banner: status, version, client name, manager/docs links, WhatsApp Web version, boot config error |
+| `GET` | `/server/ok` | — | Liveness probe (`{"status":"ok"}`) |
 | `GET` | `/server/stats` | global | Runtime/host metrics, message aggregates, running version |
 | `GET` | `/dashboard` | — | Self-hosted dashboard page |
 | `GET` | `/chat/history` · `/chat/chats` · `/chat/media/:messageId` | instance | Read stored messages / list conversations / stream a stored attachment |
