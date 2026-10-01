@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/evolution-foundation/evolution-go/pkg/safemap"
+	"io/fs"
 	"net/http"
 	"os"
 	"sort"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
+	localmedia "github.com/evolution-foundation/evolution-go/pkg/media"
 	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
 	message_model "github.com/evolution-foundation/evolution-go/pkg/message/model"
 	message_repository "github.com/evolution-foundation/evolution-go/pkg/message/repository"
@@ -38,6 +40,10 @@ type MessageService interface {
 	// History readback.
 	GetHistory(data *HistoryQuery, instance *instance_model.Instance) ([]message_model.Message, error)
 	ListChats(instance *instance_model.Instance, limit int) ([]message_repository.ChatSummary, error)
+
+	// GetStoredMedia opens a locally stored attachment for a message, scoped to
+	// the given instance. It also returns the stored content type.
+	GetStoredMedia(messageID string, instance *instance_model.Instance) (*os.File, fs.FileInfo, string, error)
 }
 
 type messageService struct {
@@ -820,6 +826,29 @@ func (m *messageService) ListChats(instance *instance_model.Instance, limit int)
 		merged = merged[:effective]
 	}
 	return merged, nil
+}
+
+// GetStoredMedia opens a message's locally stored attachment. The message must
+// belong to the given instance so one tenant cannot read another's media.
+func (m *messageService) GetStoredMedia(messageID string, instance *instance_model.Instance) (*os.File, fs.FileInfo, string, error) {
+	if instance == nil || messageID == "" {
+		return nil, nil, "", errors.New("invalid request")
+	}
+	if m.messageRepository == nil {
+		return nil, nil, "", errors.New("media not found")
+	}
+	msg, err := m.messageRepository.GetMessageByID(messageID)
+	if err != nil {
+		return nil, nil, "", err
+	}
+	if msg == nil || msg.InstanceId != instance.Id {
+		return nil, nil, "", errors.New("media not found")
+	}
+	file, info, err := localmedia.Open(instance.Id, messageID)
+	if err != nil {
+		return nil, nil, "", err
+	}
+	return file, info, msg.MediaMimetype, nil
 }
 
 // mergeChatSummaries canonicalizes each conversation's JID and merges entries

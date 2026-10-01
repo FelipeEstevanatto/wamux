@@ -33,6 +33,14 @@ Three additive features, all disabled/unchanged by default unless configured.
   `POST /send/media` for photo/video/audio/document), can start a new
   conversation from a typed number, applies inbound/receipt updates live over
   `/ws` (with a connection indicator), and has a refresh button with feedback.
+- **Local attachment previews** — incoming and outgoing media is also stored on
+  the data volume (`<dataDir>/media/<instanceId>/<messageId>`, always on when
+  `WEBHOOK_FILES=true`) and served by `GET /chat/media/:messageId`
+  (instance-authenticated). This makes the manager render real image/video/audio
+  previews and document links in the thread even without MinIO/S3; the manager
+  fetches the path as a blob and uses an object URL. When an object store is
+  configured its URL is preferred. Only messages stored after upgrading have
+  bytes available.
 
 ### 🔧 Improvements
 - **Webhook dead-letter queue** — webhooks that fail permanently (retries

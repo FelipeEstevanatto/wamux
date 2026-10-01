@@ -211,6 +211,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			// Read stored history back (requires DATABASE_SAVE_MESSAGES).
 			routes.GET("/history", r.messageHandler.GetHistory)
 			routes.GET("/chats", r.messageHandler.ListChats)
+			routes.GET("/media/:messageId", r.messageHandler.ServeMedia)
 		}
 	}
 	routes = eng.Group("/group")

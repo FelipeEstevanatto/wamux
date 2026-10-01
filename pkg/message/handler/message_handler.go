@@ -25,6 +25,7 @@ type MessageHandler interface {
 	EditMessage(ctx *gin.Context)
 	GetHistory(ctx *gin.Context)
 	ListChats(ctx *gin.Context)
+	ServeMedia(ctx *gin.Context)
 }
 
 type messageHandler struct {
@@ -535,6 +536,43 @@ func (m *messageHandler) ListChats(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": chats})
+}
+
+// ServeMedia streams a message's locally stored attachment
+// @Summary Serve a stored attachment
+// @Description Streams the locally stored media for a message (used by the manager for previews). Requires DATABASE_SAVE_MESSAGES.
+// @Tags Message
+// @Produce application/octet-stream
+// @Param messageId path string true "Message ID"
+// @Success 200 {file} binary "Media bytes"
+// @Failure 404 {object} docmodels.ErrorResponse "Media not found"
+// @Router /chat/media/{messageId} [get]
+func (m *messageHandler) ServeMedia(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	messageID := ctx.Param("messageId")
+	if messageID == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "messageId is required"})
+		return
+	}
+
+	file, info, contentType, err := m.messageService.GetStoredMedia(messageID, instance)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "media not found"})
+		return
+	}
+	defer file.Close()
+
+	if contentType != "" {
+		ctx.Header("Content-Type", contentType)
+	}
+	http.ServeContent(ctx.Writer, ctx.Request, messageID, info.ModTime(), file)
 }
 
 func NewMessageHandler(

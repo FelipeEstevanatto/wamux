@@ -101,15 +101,77 @@ function humanSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function MediaContent({ message }: { message: HistoryMessage }) {
+// Resolved object URLs are cached so re-renders and re-mounts do not refetch.
+const mediaObjectUrlCache = new Map<string, string>();
+
+function isAbsoluteUrl(url: string): boolean {
+  return url.startsWith('http://') || url.startsWith('https://');
+}
+
+/**
+ * Resolve a message's `media_url` into something an <img>/<video>/<a> can use.
+ * Absolute object-store URLs are used as-is; API paths (`/chat/media/<id>`) are
+ * fetched with the instance token and turned into a blob URL.
+ */
+function useMediaSrc(mediaUrl: string, token: string): string {
+  const [src, setSrc] = useState(isAbsoluteUrl(mediaUrl) ? mediaUrl : '');
+
+  useEffect(() => {
+    if (!mediaUrl) {
+      setSrc('');
+      return;
+    }
+    if (isAbsoluteUrl(mediaUrl)) {
+      setSrc(mediaUrl);
+      return;
+    }
+    if (!token) return;
+
+    const cacheKey = `${token}|${mediaUrl}`;
+    const cached = mediaObjectUrlCache.get(cacheKey);
+    if (cached) {
+      setSrc(cached);
+      return;
+    }
+
+    let active = true;
+    messagesApi
+      .fetchMediaObjectUrl(token, mediaUrl)
+      .then((url) => {
+        if (!active) {
+          URL.revokeObjectURL(url);
+          return;
+        }
+        mediaObjectUrlCache.set(cacheKey, url);
+        setSrc(url);
+      })
+      .catch(() => {
+        if (active) setSrc('');
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [mediaUrl, token]);
+
+  return src;
+}
+
+function MediaContent({ message, token }: { message: HistoryMessage; token: string }) {
+  const src = useMediaSrc(message.media_url || '', token);
+
   if (!message.media_url) {
     return <p className="italic opacity-80">[{message.message_type || 'mídia'}]</p>;
   }
+  if (!src) {
+    return <p className="italic opacity-80">Carregando {message.message_type || 'mídia'}…</p>;
+  }
+
   const mime = message.media_mimetype || '';
   if (mime.startsWith('image/')) {
     return (
       <img
-        src={message.media_url}
+        src={src}
         alt={message.message_type}
         className="mb-1 max-h-72 rounded-md"
         loading="lazy"
@@ -117,11 +179,14 @@ function MediaContent({ message }: { message: HistoryMessage }) {
     );
   }
   if (mime.startsWith('video/')) {
-    return <video src={message.media_url} controls className="mb-1 max-h-72 rounded-md" />;
+    return <video src={src} controls className="mb-1 max-h-72 rounded-md" />;
+  }
+  if (mime.startsWith('audio/')) {
+    return <audio src={src} controls className="mb-1 w-64" />;
   }
   return (
     <a
-      href={message.media_url}
+      href={src}
       target="_blank"
       rel="noreferrer noopener"
       className="mb-1 inline-block underline"
@@ -131,7 +196,7 @@ function MediaContent({ message }: { message: HistoryMessage }) {
   );
 }
 
-function Bubble({ message }: { message: HistoryMessage }) {
+function Bubble({ message, token }: { message: HistoryMessage; token: string }) {
   const mine = message.is_from_me;
   const isMedia =
     !!message.media_url ||
@@ -143,7 +208,7 @@ function Bubble({ message }: { message: HistoryMessage }) {
           mine ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
         }`}
       >
-        {isMedia && <MediaContent message={message} />}
+        {isMedia && <MediaContent message={message} token={token} />}
         {message.text_content && (
           <p className="break-words whitespace-pre-wrap">{message.text_content}</p>
         )}
@@ -650,14 +715,14 @@ export default function Messages() {
                 ) : (
                   <div className="flex flex-col gap-2">
                     {ordered.map((m) => (
-                      <Bubble key={m.message_id} message={m} />
+                      <Bubble key={m.message_id} message={m} token={token} />
                     ))}
                   </div>
                 )}
               </div>
 
               {attachFile && (
-                <div className="flex items-center gap-3 border-t border-border px-3 pt-3">
+                <div className="flex items-center gap-3 border-t border-border p-3">
                   {attachPreview ? (
                     attachFile.type.startsWith('video/') ? (
                       <video
