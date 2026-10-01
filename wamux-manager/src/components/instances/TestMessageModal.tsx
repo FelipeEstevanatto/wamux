@@ -372,7 +372,7 @@ function buildPayload(
               {
                 type: 'URL',
                 displayText: 'Abrir GitHub',
-                id: 'https://github.com/EvolutionAPI',
+                id: 'https://github.com/FelipeEstevanatto/wamux',
               },
             ],
           },

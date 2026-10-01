@@ -1,7 +1,7 @@
 /**
  * Local UI primitives.
  *
- * Vendored from the EvoAI design system (shadcn/ui + Radix UI + Tailwind v4) so
+ * Vendored from the `@evoapi/design-system` package (shadcn/ui + Radix UI + Tailwind v4) so
  * the manager is self-contained: no external UI package, and every component is
  * plain, editable source. Only the primitives this app uses are included — copy
  * another file from the design system source into this directory and re-export

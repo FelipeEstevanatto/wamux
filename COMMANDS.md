@@ -130,7 +130,7 @@ make clean-all
 
 ```bash
 # 1. Clone o repositório
-git clone https://git.evoai.app/Evolution/wamux.git
+git clone https://github.com/FelipeEstevanatto/wamux.git
 cd wamux
 
 # 2. Setup completo do ambiente

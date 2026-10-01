@@ -140,10 +140,10 @@ Consulta rápida para desenvolvedores.
 - **Problemas técnicos?** Veja o guia de [Debugging](./desenvolvimento/debugging.md)
 
 ### 🔗 Links Importantes
-- 🌐 [Repositório Oficial](https://git.evoai.app/WaMux/wamux)
+- 🌐 [Repositório Oficial](https://github.com/FelipeEstevanatto/wamux)
 - 📚 [Biblioteca Whatsmeow](https://github.com/tulir/whatsmeow)
 - 🔧 [API Swagger](http://localhost:4000/swagger/index.html) (quando servidor estiver rodando)
-- 🐛 [Reportar Issues](https://git.evoai.app/WaMux/wamux/issues)
+- 🐛 [Reportar Issues](https://github.com/FelipeEstevanatto/wamux/issues)
 
 ### 💬 Suporte
 - **Issues técnicos**: Abra uma issue no repositório
@@ -164,7 +164,7 @@ Consulta rápida para desenvolvedores.
 
 <div align="center">
 
-**Mantido por EvoAI Services** • **Versão da Documentação: 1.0.0**
+**Mantido por WaMux** • **Versão da Documentação: 1.0.0**
 
 [⬆️ Voltar ao topo](#-documentação-wamux)
 

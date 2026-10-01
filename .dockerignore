@@ -22,7 +22,6 @@ Thumbs.db
 server
 build/
 # Stray locally-compiled binary at repo root (64MB) — never needed in image
-evolution-go
 wamux
 
 # Docker

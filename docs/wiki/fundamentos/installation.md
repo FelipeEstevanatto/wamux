@@ -49,7 +49,7 @@ Método mais simples e adequado para produção.
 **Opção A: Clonar repositório**
 
 ```bash
-git clone https://git.evoai.app/WaMux/wamux.git
+git clone https://github.com/FelipeEstevanatto/wamux.git
 cd wamux
 ```
 
@@ -58,8 +58,8 @@ cd wamux
 ```bash
 mkdir wamux-deploy && cd wamux-deploy
 
-curl -o docker-compose.yml https://raw.githubusercontent.com/EvolutionAPI/wamux/main/docker/examples/docker-compose.yml
-curl -o init-db.sql https://raw.githubusercontent.com/EvolutionAPI/wamux/main/docker/examples/init-db.sql
+curl -o docker-compose.yml https://raw.githubusercontent.com/FelipeEstevanatto/wamux/main/docker/examples/docker-compose.yml
+curl -o init-db.sql https://raw.githubusercontent.com/FelipeEstevanatto/wamux/main/docker/examples/init-db.sql
 ```
 
 ### 2. Configurar API Key
@@ -163,7 +163,7 @@ go version
 ### 4. Clonar Repositório
 
 ```bash
-git clone https://git.evoai.app/WaMux/wamux.git
+git clone https://github.com/FelipeEstevanatto/wamux.git
 cd wamux
 ```
 
@@ -273,7 +273,7 @@ docker service logs wamux_wamux -f
 Incluindo RabbitMQ, MinIO e NATS.
 
 ```bash
-curl -o docker-compose-full.yml https://raw.githubusercontent.com/EvolutionAPI/wamux/main/docker/examples/docker-compose.full.yml
+curl -o docker-compose-full.yml https://raw.githubusercontent.com/FelipeEstevanatto/wamux/main/docker/examples/docker-compose.full.yml
 
 nano docker-compose-full.yml  # Configurar API Key
 

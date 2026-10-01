@@ -39,7 +39,7 @@ Contribuições são bem-vindas! Você pode contribuir:
 
 ### Antes de Reportar
 
-1. Verifique se o bug já foi reportado nas [Issues](https://git.evoai.app/WaMux/wamux/issues)
+1. Verifique se o bug já foi reportado nas [Issues](https://github.com/FelipeEstevanatto/wamux/issues)
 2. Teste na versão mais recente
 3. Colete informações: logs, versão do Go, sistema operacional
 
@@ -103,7 +103,7 @@ Mockups, exemplos, referências, etc.
 ### Processo
 
 1. **Fork** o repositório
-2. **Clone** seu fork: `git clone https://git.evochat.com/SEU-USUARIO/wamux.git`
+2. **Clone** seu fork: `git clone https://github.com/SEU-USUARIO/wamux.git`
 3. **Crie branch**: `git checkout -b feature/minha-feature`
 4. **Desenvolva** e **commit** suas mudanças
 5. **Push**: `git push origin feature/minha-feature`
@@ -284,9 +284,9 @@ func (h *InstanceHandler) GetInstance(c *gin.Context) {
 
 ## Recursos Úteis
 
-- **Issues**: https://git.evoai.app/WaMux/wamux/issues
-- **Pull Requests**: https://git.evoai.app/WaMux/wamux/merge_requests
-- **Documentação**: https://git.evoai.app/WaMux/wamux/-/wikis
+- **Issues**: https://github.com/FelipeEstevanatto/wamux/issues
+- **Pull Requests**: https://github.com/FelipeEstevanatto/wamux/merge_requests
+- **Documentação**: https://github.com/FelipeEstevanatto/wamux/-/wikis
 - **Go Style Guide**: https://google.github.io/styleguide/go/
 - **Effective Go**: https://go.dev/doc/effective_go
 
@@ -294,4 +294,4 @@ func (h *InstanceHandler) GetInstance(c *gin.Context) {
 
 **Obrigado por contribuir!** 🎉
 
-**Mantido por**: Equipe EvoAI Services
+**Mantido por**: Equipe WaMux
