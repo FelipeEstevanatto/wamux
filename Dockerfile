@@ -35,7 +35,11 @@ COPY --from=manager /manager/dist/assets ./manager/dist/assets
 COPY --from=manager /manager/dist/index.html ./manager/dist/index.html
 
 ARG VERSION=dev
-RUN CGO_ENABLED=1 go build -ldflags "-X main.version=${VERSION}" -o server ./cmd/evolution-go
+# go_json selects the fast JSON encoder (goccy/go-json) via pkg/jsonx. It is a
+# drop-in and part of the standard build for this fork; drop the tag to fall back
+# to encoding/json.
+ARG GO_JSON_TAG=go_json
+RUN CGO_ENABLED=1 go build -tags "${GO_JSON_TAG}" -ldflags "-X main.version=${VERSION}" -o server ./cmd/evolution-go
 
 # Runtime base is kept on the same Alpine major.minor as the build stage
 # (golang:1.26-alpine is Alpine 3.24.x). The CGO binary links dynamically against

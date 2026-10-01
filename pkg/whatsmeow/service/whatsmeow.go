@@ -5,8 +5,8 @@ import (
 	"context"
 	"database/sql"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
+	json "github.com/evolution-foundation/evolution-go/pkg/jsonx"
 	"github.com/evolution-foundation/evolution-go/pkg/safemap"
 	"image/png"
 	"io"
@@ -476,9 +476,19 @@ func (mycli *MyClient) persistMessageAsync(message message_model.Message) {
 // A fixed-size worker pool with a bounded queue smooths that out; when the queue
 // is full the caller persists inline, which applies backpressure instead of
 // letting memory and goroutines grow without limit.
+//
+// Each worker now also COALESCES jobs into a batch before writing: draining the
+// queue opportunistically and flushing when it has persistedBatchSize messages
+// or persistedBatchWindow elapses. A history sync that used to be thousands of
+// round trips becomes tens.
 const (
 	persistWorkers   = 8
 	persistQueueSize = 4096
+	// persistedBatchSize is the max rows per statement (also the DB chunk size).
+	persistedBatchSize = 100
+	// persistedBatchWindow bounds how long a worker waits for a full batch, so a
+	// trickle of messages is still written promptly.
+	persistedBatchWindow = 20 * time.Millisecond
 )
 
 type persistJob struct {
@@ -506,15 +516,89 @@ func newPersistPool(workers, size int) *persistPool {
 	}
 	p := &persistPool{queue: make(chan persistJob, size)}
 	for i := 0; i < workers; i++ {
-		go func() {
-			for job := range p.queue {
-				if err := job.repo.InsertMessage(job.message); err != nil && job.logger != nil {
-					job.logger.GetLogger(job.instanceID).LogError("[%s] Failed to persist message %s: %v", job.instanceID, job.message.MessageID, err)
-				}
-			}
-		}()
+		go p.worker()
 	}
 	return p
+}
+
+// worker drains the queue, coalescing jobs into batches. It shares the queue
+// with the other workers, so each batch is whatever that worker managed to pull
+// — the point is fewer round trips, not perfectly balanced batches.
+func (p *persistPool) worker() {
+	batch := make([]persistJob, 0, persistedBatchSize)
+	// timer fires to flush a partial batch. Stopped while idle.
+	timer := time.NewTimer(persistedBatchWindow)
+	if !timer.Stop() {
+		<-timer.C
+	}
+	defer timer.Stop()
+
+	flush := func() {
+		if len(batch) == 0 {
+			return
+		}
+		p.flush(batch)
+		batch = batch[:0]
+	}
+
+	for {
+		select {
+		case job, ok := <-p.queue:
+			if !ok {
+				flush()
+				return
+			}
+			// Starting a fresh batch (or the first after a flush) arms the timer.
+			if len(batch) == 0 {
+				timer.Reset(persistedBatchWindow)
+			}
+			batch = append(batch, job)
+			if len(batch) >= persistedBatchSize {
+				flush()
+				if !timer.Stop() {
+					select {
+					case <-timer.C:
+					default:
+					}
+				}
+			}
+		case <-timer.C:
+			flush()
+		}
+	}
+}
+
+// flush writes a batch. Jobs may come from different repos (a bare MyClient in
+// a test uses a different one), so they are grouped per repo first. A failed
+// batch falls back to per-message inserts so one bad row cannot drop the rest.
+func (p *persistPool) flush(batch []persistJob) {
+	byRepo := make(map[message_repository.MessageRepository][]persistJob, 1)
+	for _, job := range batch {
+		byRepo[job.repo] = append(byRepo[job.repo], job)
+	}
+
+	for repo, jobs := range byRepo {
+		if repo == nil {
+			continue
+		}
+		msgs := make([]message_model.Message, len(jobs))
+		for i, job := range jobs {
+			msgs[i] = job.message
+		}
+		if err := repo.InsertMessages(msgs); err == nil {
+			continue
+		} else {
+			// Fall back to one-by-one so a single failure does not lose the batch.
+			for _, job := range jobs {
+				if e := job.repo.InsertMessage(job.message); e != nil && job.logger != nil {
+					job.logger.GetLogger(job.instanceID).LogError("[%s] Failed to persist message %s: %v", job.instanceID, job.message.MessageID, e)
+				}
+			}
+			if jobs[0].logger != nil {
+				jobs[0].logger.GetLogger(jobs[0].instanceID).LogWarn("[%s] Batch persist failed (%v); fell back to per-message inserts for %d messages", jobs[0].instanceID, err, len(jobs))
+			}
+		}
+	}
 }
 
 // submit enqueues a job without blocking, reporting false when the queue is full.

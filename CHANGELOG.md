@@ -86,6 +86,20 @@ Three additive features, all disabled/unchanged by default unless configured.
   budget so N nodes do not exhaust Postgres `max_connections` (default keeps the
   previous 25/5).
 
+### ⚡ Performance
+- **Batched message persistence** — `persistPool` now coalesces queued messages
+  into batches (up to 100 rows, flushed within a 20 ms window) instead of one
+  `INSERT` per message, and `MessageRepository.InsertMessages` groups rows by
+  their ON CONFLICT update-set so receipt semantics are preserved. Measured
+  against real Postgres: **3.54 ms → 79.7 µs per message** (~44×), which turns a
+  history sync from thousands of round trips into tens. A failed batch falls back
+  to per-message writes so nothing is lost.
+- **Selectable fast JSON** (`pkg/jsonx`) — the JSON entry point delegates to
+  `encoding/json` by default and to `goccy/go-json` with `-tags go_json` (the
+  image builds with it). Measured: Marshal **3783 → 2467 ns (−35%)**, allocs
+  **41 → 6**; Unmarshal **6193 → 2971 ns (−52%)**. No new dependency (goccy was
+  already vendored via Gin); arm64-safe (sonic was avoided).
+
 ### 🔧 Improvements
 - **Per-process resource stats & benchmarking** —
   - `GET /server/stats` now separates **this service's** usage (`system.process`:

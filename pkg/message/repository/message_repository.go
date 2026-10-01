@@ -1,6 +1,7 @@
 package message_repository
 
 import (
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -14,6 +15,11 @@ import (
 
 type MessageRepository interface {
 	InsertMessage(message message_model.Message) error
+	// InsertMessages writes a batch in as few round trips as possible. Foreign
+	// keys are not used, so rows can be grouped and inserted together; a batch
+	// with mixed update-column sets is split into homogeneous groups so the
+	// upsert semantics of InsertMessage are preserved.
+	InsertMessages(messages []message_model.Message) error
 	GetMessageByID(messageID string) (*message_model.Message, error)
 	// GetMessageByIDForInstance is the tenant-safe lookup: it returns the message
 	// only when it belongs to instanceId. Handlers that serve one instance must
@@ -192,6 +198,56 @@ func (m *messageRepository) InsertMessage(message message_model.Message) error {
 		Columns:   []clause.Column{{Name: "message_id"}},
 		DoUpdates: clause.AssignmentColumns(messageUpdateColumns(message)),
 	}).Create(&message).Error
+}
+
+// batchInsertChunk caps how many rows go in one statement. Very large INSERTs
+// hit Postgres's parameter limit (65535); a message has ~11 columns, so 500 rows
+// is ~5500 parameters, comfortably inside the limit.
+const batchInsertChunk = 500
+
+// InsertMessages upserts a batch with the same conflict semantics as
+// InsertMessage, but grouped so each group is a single statement.
+//
+// Why groups: the ON CONFLICT SET list differs between a content row (updates
+// everything) and a status-only receipt row (updates only the status). Rows are
+// therefore partitioned by their update-column signature, and each partition is
+// inserted in chunks. This keeps the receipt-reordering guarantee while cutting
+// N round trips down to (number of groups) statements.
+func (m *messageRepository) InsertMessages(messages []message_model.Message) error {
+	if len(messages) == 0 {
+		return nil
+	}
+
+	// Group by update-column signature (there are only two possibilities).
+	groups := make(map[string][]message_model.Message, 2)
+	var order []string
+	for _, msg := range messages {
+		cols := messageUpdateColumns(msg)
+		key := strings.Join(cols, ",")
+		if _, ok := groups[key]; !ok {
+			order = append(order, key)
+		}
+		groups[key] = append(groups[key], msg)
+	}
+
+	for _, key := range order {
+		group := groups[key]
+		cols := strings.Split(key, ",")
+		for start := 0; start < len(group); start += batchInsertChunk {
+			end := start + batchInsertChunk
+			if end > len(group) {
+				end = len(group)
+			}
+			chunk := group[start:end]
+			if err := m.db.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "message_id"}},
+				DoUpdates: clause.AssignmentColumns(cols),
+			}).Create(&chunk).Error; err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (m *messageRepository) GetMessageByID(messageID string) (*message_model.Message, error) {
