@@ -22,6 +22,7 @@ Para documentação detalhada, consulte: [Configuração](../fundamentos/configu
 | `SERVER_PORT` | `8081` | Porta HTTP |
 | `CLIENT_NAME` | `wamux` | Nome identificador |
 | `OS_NAME` | `Linux` | Sistema operacional |
+| `HTTP_COMPRESSION` | `true` | Compressão gzip das respostas (JSON e o painel). Defina `false` quando um proxy à frente (nginx/Traefik) já comprime, para não pagar o custo de CPU duas vezes. |
 
 ---
 
