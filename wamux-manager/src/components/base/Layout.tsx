@@ -3,6 +3,8 @@ import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import ErrorBoundary from './ErrorBoundary';
+import ConnectionBanner from './ConnectionBanner';
+import CommandPalette from './CommandPalette';
 
 // The drawer (and with it Radix Dialog) is only needed once the menu is opened,
 // so it is kept out of the initial bundle.
@@ -48,6 +50,7 @@ function Layout({ children }: LayoutProps) {
       </Suspense>
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <ConnectionBanner />
         <Header onOpenMenu={() => handleMenuOpenChange(true)} />
         <main className="flex-1 overflow-y-auto">
           <ErrorBoundary key={location.pathname}>
@@ -55,6 +58,8 @@ function Layout({ children }: LayoutProps) {
           </ErrorBoundary>
         </main>
       </div>
+
+      <CommandPalette />
     </div>
   );
 }

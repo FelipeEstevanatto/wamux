@@ -1,30 +1,18 @@
 import { useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import {
-  BookOpen,
-  ExternalLink,
-  Info,
-  LayoutDashboard,
-  MessageSquare,
-  Smartphone,
-  TerminalSquare,
-} from 'lucide-react';
+import { BookOpen, ExternalLink } from 'lucide-react';
 import { cn } from '@/utils/cn';
+import { navItems } from '@/constants/navigation';
 import useAuth from '@/hooks/useAuth';
 import useServerStats from '@/hooks/useServerStats';
 import GithubIcon from './GithubIcon';
 import { COPYRIGHT_LINE, PRODUCT_NAME, REPO } from '@/constants/branding';
 import { prefetchLikelyRoutes, prefetchRoute } from '@/utils/prefetch';
+import { useI18n } from '@/i18n/I18nContext';
 
 // Dashboard/Instâncias/Sobre are SPA routes; API Tester is also a route, and
 // Swagger is served by the Go server (outside the SPA), so it is a plain link.
-const navItems = [
-  { to: '/manager', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/manager/instances', label: 'Instâncias', icon: Smartphone },
-  { to: '/manager/messages', label: 'Mensagens', icon: MessageSquare },
-  { to: '/manager/api-tester', label: 'API Tester', icon: TerminalSquare },
-  { to: '/manager/about', label: 'Sobre', icon: Info },
-];
+// The nav items live in `@/constants/navigation` (shared with the palette).
 
 const itemClass = (isActive: boolean) =>
   cn(
@@ -40,6 +28,7 @@ const itemClass = (isActive: boolean) =>
  * close itself when an item is picked.
  */
 export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+  const { t } = useI18n();
   const { stats } = useServerStats();
   const { apiUrl } = useAuth();
   const version = stats?.system?.version;
@@ -62,7 +51,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
         onClick={onNavigate}
         onMouseEnter={() => prefetchRoute('/manager')}
         onFocus={() => prefetchRoute('/manager')}
-        title="Ir para o Dashboard"
+        title={t('sidebar.homeTitle')}
         className="flex h-16 items-center border-b border-sidebar-border px-4 transition-colors hover:bg-sidebar-accent/50"
       >
         <h2 className="text-lg font-bold leading-tight text-primary">
@@ -87,7 +76,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
                 <item.icon
                   className={cn('h-5 w-5 shrink-0', isActive && 'text-primary')}
                 />
-                <span className="font-medium">{item.label}</span>
+                <span className="font-medium">{t(item.labelKey)}</span>
               </>
             )}
           </NavLink>
@@ -99,10 +88,10 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
           rel="noreferrer noopener"
           onClick={onNavigate}
           className={itemClass(false)}
-          title="Abrir o Swagger da API em nova aba"
+          title={t('sidebar.swaggerTitle')}
         >
           <BookOpen className="h-5 w-5 shrink-0" />
-          <span className="font-medium">Swagger</span>
+          <span className="font-medium">{t('sidebar.swagger')}</span>
           <ExternalLink className="ml-auto h-3.5 w-3.5 opacity-60" />
         </a>
       </nav>
@@ -111,7 +100,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
       <div className="mt-auto space-y-2 border-t border-sidebar-border p-4">
         <div className="text-sm font-medium text-primary">{PRODUCT_NAME}</div>
         <div className="text-xs text-muted-foreground">
-          {version ? `versão ${version}` : 'versão —'}
+          {version ? t('sidebar.version', { version }) : t('sidebar.versionEmpty')}
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <a
@@ -119,10 +108,10 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
             target="_blank"
             rel="noreferrer noopener"
             className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-            title="Repositório do projeto"
+            title={t('sidebar.repoTitle')}
           >
             <GithubIcon className="h-3.5 w-3.5" />
-            GitHub
+            {t('sidebar.github')}
           </a>
         </div>
         <div className="text-[11px] text-muted-foreground">{COPYRIGHT_LINE}</div>

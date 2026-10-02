@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
+import { Skeleton } from '@/components/ui';
 import ErrorBoundary from '@/components/base/ErrorBoundary';
 import Layout from '@/components/base/Layout';
 import Home from '@/pages/Home';
@@ -22,9 +23,16 @@ const Terms = lazy(() => import('@/pages/Terms'));
 const Privacy = lazy(() => import('@/pages/Privacy'));
 
 function PageFallback() {
+  // Skeleton shaped like a typical page (title + card grid) so navigation feels
+  // instant and the layout does not jump when the chunk arrives.
   return (
-    <div className="flex h-full items-center justify-center p-10">
-      <span className="text-sm text-muted-foreground">Carregando…</span>
+    <div className="space-y-4 p-4 sm:p-6" aria-busy="true" aria-live="polite">
+      <Skeleton className="h-8 w-48" />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton key={i} className="h-40" />
+        ))}
+      </div>
     </div>
   );
 }
