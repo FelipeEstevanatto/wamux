@@ -1,11 +1,10 @@
 /**
  * Local UI primitives.
  *
- * Vendored from the `@evoapi/design-system` package (shadcn/ui + Radix UI + Tailwind v4) so
- * the manager is self-contained: no external UI package, and every component is
- * plain, editable source. Only the primitives this app uses are included — copy
- * another file from the design system source into this directory and re-export
- * it here when a new one is needed.
+ * Plain, editable source (shadcn/ui-style, built on Radix UI + Tailwind v4) so
+ * the manager is fully self-contained: no external UI package dependency. Only
+ * the primitives this app uses are included — add a new one here and re-export
+ * it when needed.
  *
  * The theme tokens live in `src/styles/globals.css`.
  */
