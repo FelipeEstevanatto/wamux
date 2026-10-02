@@ -315,6 +315,15 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		config.GlobalApiKey,
 	))
 
+	// gzip responses when the client accepts it: the JSON API, the manager SPA
+	// and its hashed assets are all compressible text, and none of it was
+	// compressed before. Registered after the limiter so a 429 is not encoded,
+	// and before the routes so it wraps every handler. Set HTTP_COMPRESSION=false
+	// to disable it (e.g. when a proxy in front already compresses).
+	if config.CompressionEnabled {
+		r.Use(httpguard.Compression())
+	}
+
 	// Passkey ceremony routes — PUBLIC (called by the browser extension from the
 	// web.whatsapp.com origin, gated only by an opaque ephemeral token).
 	passkey_handler.RegisterRoutes(r, whatsmeowService)

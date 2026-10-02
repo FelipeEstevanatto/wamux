@@ -8,8 +8,10 @@
 // gating, and the same optional webhook / exception-capture hooks — each a
 // little more robust than before (bounded webhook request, no panic on marshal).
 //
-// It deliberately imports nothing internal: pkg/config logs through it and
-// pkg/logger imports pkg/config, so anything else would create an import cycle.
+// It deliberately imports (almost) nothing internal: pkg/config logs through it
+// and pkg/logger imports pkg/config, so anything else would create an import
+// cycle. The one exception is the dependency-free pkg/config/env (constants and
+// tiny helpers), which imports nothing and so cannot cycle.
 package applog
 
 import (
@@ -20,8 +22,9 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 	"time"
+
+	config_env "github.com/felipeestevanatto/wamux/pkg/config/env"
 )
 
 // LogLevel is the severity of a log line.
@@ -213,10 +216,7 @@ var Logger = NewLogger(
 	debugEnabled(),
 	WebhookConfig{},
 )
+
 func debugEnabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("DEBUG_ENABLED"))) {
-	case "1", "true", "yes":
-		return true
-	}
-	return false
+	return config_env.Bool(config_env.WA_DEBUG, false)
 }

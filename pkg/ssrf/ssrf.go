@@ -36,9 +36,10 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
+
+	config_env "github.com/felipeestevanatto/wamux/pkg/config/env"
 )
 
 // ErrBlockedAddress is returned when a host resolves only to addresses the
@@ -81,7 +82,7 @@ func New(opts ...Option) *Guard {
 // destinations. It is evaluated per call so the toggle is honoured wherever it
 // is read from.
 func Default() *Guard {
-	enabled := strings.EqualFold(strings.TrimSpace(os.Getenv("SSRF_PROTECTION")), "true")
+	enabled := config_env.Bool(config_env.SSRF_PROTECTION, false)
 	return New(WithAllowPrivateNetworks(!enabled))
 }
 

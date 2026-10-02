@@ -147,6 +147,11 @@ type Config struct {
 	RateLimitPerMinute int
 	CorsAllowedOrigins []string
 
+	// CompressionEnabled gzip-encodes responses for clients that accept it. On
+	// by default; set HTTP_COMPRESSION=false when a proxy in front already
+	// compresses, so the body is not encoded twice.
+	CompressionEnabled bool
+
 	// Per-tenant resource limits. MaxInstances caps how many instances one
 	// deployment accepts (0 = unlimited). SendRateLimitPerMinute bounds
 	// POST /send/* per instance token (0 = unlimited). SendMaxConcurrent bounds
@@ -317,8 +322,9 @@ func Load() *Config {
 		applog.Logger.LogFatal("[CONFIG] required database configuration variables are missing. Please check your environment configuration.")
 	}
 
-	databaseSaveMessages := os.Getenv(config_env.DATABASE_SAVE_MESSAGES)
-	panicIfEmpty(config_env.DATABASE_SAVE_MESSAGES, databaseSaveMessages)
+	databaseSaveMessagesRaw := os.Getenv(config_env.DATABASE_SAVE_MESSAGES)
+	panicIfEmpty(config_env.DATABASE_SAVE_MESSAGES, databaseSaveMessagesRaw)
+	databaseSaveMessages := config_env.Bool(config_env.DATABASE_SAVE_MESSAGES, false)
 
 	globalApiKey := os.Getenv(config_env.GLOBAL_API_KEY)
 	panicIfEmpty(config_env.GLOBAL_API_KEY, globalApiKey)
@@ -329,22 +335,13 @@ func Load() *Config {
 
 	logType := os.Getenv(config_env.LOGTYPE)
 
-	webhookFiles := os.Getenv(config_env.WEBHOOKFILES)
-	if webhookFiles == "" {
-		webhookFiles = "true"
-	}
+	webhookFiles := config_env.Bool(config_env.WEBHOOKFILES, true)
 
 	// Keep local attachment copies for the manager's previews. On by default;
 	// set MEDIA_LOCAL_STORE=false to restore the no-local-copy behaviour.
-	mediaLocalStore := os.Getenv(config_env.MEDIA_LOCAL_STORE)
-	if mediaLocalStore == "" {
-		mediaLocalStore = "true"
-	}
+	mediaLocalStore := config_env.Bool(config_env.MEDIA_LOCAL_STORE, true)
 
-	connectOnStartup := os.Getenv(config_env.CONNECT_ON_STARTUP)
-	if connectOnStartup == "" {
-		connectOnStartup = "false"
-	}
+	connectOnStartup := config_env.Bool(config_env.CONNECT_ON_STARTUP, false)
 
 	osName := os.Getenv(config_env.OS_NAME)
 
@@ -355,7 +352,7 @@ func Load() *Config {
 		applog.Logger.LogFatal("[CONFIG] AMQP URL validation failed: %v", err)
 	}
 
-	amqpGlobalEnabled := os.Getenv(config_env.AMQP_GLOBAL_ENABLED)
+	amqpGlobalEnabled := config_env.Bool(config_env.AMQP_GLOBAL_ENABLED, false)
 
 	webhookUrl := os.Getenv(config_env.WEBHOOK_URL)
 
@@ -372,14 +369,10 @@ func Load() *Config {
 	proxyUsername := os.Getenv(config_env.PROXY_USERNAME)
 	proxyPassword := os.Getenv(config_env.PROXY_PASSWORD)
 
-	eventIgnoreGroup := os.Getenv(config_env.EVENT_IGNORE_GROUP)
-	eventIgnoreStatus := os.Getenv(config_env.EVENT_IGNORE_STATUS)
+	eventIgnoreGroup := config_env.Bool(config_env.EVENT_IGNORE_GROUP, false)
+	eventIgnoreStatus := config_env.Bool(config_env.EVENT_IGNORE_STATUS, false)
 	qrcodeMaxCount := os.Getenv(config_env.QRCODE_MAX_COUNT)
-	checkUserExists := os.Getenv(config_env.CHECK_USER_EXISTS)
-
-	if checkUserExists == "" {
-		checkUserExists = "true"
-	}
+	checkUserExists := config_env.Bool(config_env.CHECK_USER_EXISTS, true)
 
 	// Webhook HMAC signing. A global key is optional (it signs deliveries for
 	// instances without their own key); the encryption key always exists so
@@ -417,10 +410,10 @@ func Load() *Config {
 	// Swagger is served by default; set SWAGGER_ENABLED=false to disable it. The
 	// docs are public (no apikey), so this is the switch for locking down /swagger
 	// on an internet-facing deployment.
-	swaggerEnabled := os.Getenv(config_env.SWAGGER_ENABLED) != "false"
-	pprofEnabled := os.Getenv(config_env.PPROF_ENABLED) == "true"
+	swaggerEnabled := config_env.Bool(config_env.SWAGGER_ENABLED, true)
+	pprofEnabled := config_env.Bool(config_env.PPROF_ENABLED, false)
 
-	rerequestFromPhone := os.Getenv(config_env.REREQUEST_FROM_PHONE)
+	rerequestFromPhone := config_env.Bool(config_env.REREQUEST_FROM_PHONE, false)
 
 	// Convertendo para int com valores padrão caso estejam vazios
 	major := 0
@@ -461,7 +454,7 @@ func Load() *Config {
 	}
 
 	natsUrl := os.Getenv(config_env.NATS_URL)
-	natsGlobalEnabled := os.Getenv(config_env.NATS_GLOBAL_ENABLED)
+	natsGlobalEnabled := config_env.Bool(config_env.NATS_GLOBAL_ENABLED, false)
 	natsGlobalEvents := strings.Split(os.Getenv(config_env.NATS_GLOBAL_EVENTS), ",")
 	if len(natsGlobalEvents) == 1 && natsGlobalEvents[0] == "" {
 		natsGlobalEvents = []string{}
@@ -488,10 +481,7 @@ func Load() *Config {
 		logDirectory = "./logs" // Default logs directory
 	}
 
-	logCompress := os.Getenv(config_env.LOG_COMPRESS) == "true"
-	if os.Getenv(config_env.LOG_COMPRESS) == "" {
-		logCompress = true // Default compression enabled
-	}
+	logCompress := config_env.Bool(config_env.LOG_COMPRESS, true)
 
 	// The dashboard aggregations are whole-table scans, so they are cached for a
 	// short while by default. Set DASHBOARD_CACHE_TTL_SECONDS=0 to disable.
@@ -571,6 +561,10 @@ func Load() *Config {
 	}
 	corsAllowedOrigins := parseCSV(os.Getenv(config_env.CORS_ALLOWED_ORIGINS))
 
+	// Response compression. On unless explicitly disabled, because a proxy in
+	// front that already compresses would otherwise double-encode every body.
+	compressionEnabled := config_env.Bool(config_env.HTTP_COMPRESSION, true)
+
 	// Per-tenant resource limits. Instances and sends are bounded so one tenant
 	// cannot exhaust the shared pools or WhatsApp connections. 0 disables each.
 	maxInstances, _ := strconv.Atoi(strings.TrimSpace(os.Getenv(config_env.MAX_INSTANCES)))
@@ -619,16 +613,16 @@ func Load() *Config {
 	config := &Config{
 		PostgresAuthDB:           postgresAuthDB,
 		postgresUsersDB:          postgresUsersDB,
-		DatabaseSaveMessages:     databaseSaveMessages == "true",
+		DatabaseSaveMessages:     databaseSaveMessages,
 		GlobalApiKey:             globalApiKey,
 		WaDebug:                  waDebug,
 		LogType:                  logType,
-		WebhookFiles:             webhookFiles == "true",
-		MediaLocalStore:          mediaLocalStore == "true",
-		ConnectOnStartup:         connectOnStartup == "true",
+		WebhookFiles:             webhookFiles,
+		MediaLocalStore:          mediaLocalStore,
+		ConnectOnStartup:         connectOnStartup,
 		OsName:                   osName,
 		AmqpUrl:                  amqpUrl,
-		AmqpGlobalEnabled:        amqpGlobalEnabled == "true",
+		AmqpGlobalEnabled:        amqpGlobalEnabled,
 		WebhookUrl:               webhookUrl,
 		ClientName:               clientName,
 		ApiAudioConverter:        apiAudioConverter,
@@ -646,21 +640,21 @@ func Load() *Config {
 		ProxyPort:                proxyPort,
 		ProxyUsername:            proxyUsername,
 		ProxyPassword:            proxyPassword,
-		EventIgnoreGroup:         eventIgnoreGroup == "true",
-		EventIgnoreStatus:        eventIgnoreStatus == "true",
+		EventIgnoreGroup:         eventIgnoreGroup,
+		EventIgnoreStatus:        eventIgnoreStatus,
 		QrcodeMaxCount:           qrMaxCount,
-		CheckUserExists:          checkUserExists != "false", // Default true, set to false to disable
+		CheckUserExists:          checkUserExists, // Default true, set to false to disable
 		SwaggerEnabled:           swaggerEnabled,
 		PprofEnabled:             pprofEnabled,
 		TypebotContactRateLimit:  typebotContactRateLimit,
 		TypebotContactRateWindow: typebotContactRateWindow,
 		TypebotSendRateLimit:     typebotSendRateLimit,
 		TypebotSendRateBurst:     typebotSendRateBurst,
-		RerequestFromPhone:       rerequestFromPhone == "true",
+		RerequestFromPhone:       rerequestFromPhone,
 		AmqpGlobalEvents:         amqpGlobalEvents,
 		AmqpSpecificEvents:       amqpSpecificEvents,
 		NatsUrl:                  natsUrl,
-		NatsGlobalEnabled:        natsGlobalEnabled == "true",
+		NatsGlobalEnabled:        natsGlobalEnabled,
 		NatsGlobalEvents:         natsGlobalEvents,
 		WebhookHmacGlobalKey:     webhookHmacGlobalKey,
 		WebhookHmacEncryptionKey: webhookHmacEncryptionKey,
@@ -679,6 +673,7 @@ func Load() *Config {
 		DBNodeCount:              nodeCount,
 		RateLimitPerMinute:       rateLimitPerMinute,
 		CorsAllowedOrigins:       corsAllowedOrigins,
+		CompressionEnabled:       compressionEnabled,
 		MaxInstances:             maxInstances,
 		SendRateLimitPerMinute:   sendRateLimitPerMinute,
 		SendMaxConcurrent:        sendMaxConcurrent,
@@ -686,7 +681,7 @@ func Load() *Config {
 		OwnershipLeaseTTLSeconds: ownershipLeaseTTLSeconds,
 	}
 
-	minioEnabled := os.Getenv(config_env.MINIO_ENABLED) == "true"
+	minioEnabled := config_env.Bool(config_env.MINIO_ENABLED, false)
 	if minioEnabled {
 		config.MinioEnabled = true
 		loadMinioConfig(config)
@@ -708,7 +703,7 @@ func loadMinioConfig(config *Config) {
 	minioBucket := os.Getenv(config_env.MINIO_BUCKET)
 	panicIfEmpty(config_env.MINIO_BUCKET, minioBucket)
 
-	minioUseSSL := os.Getenv(config_env.MINIO_USE_SSL) == "true"
+	minioUseSSL := config_env.Bool(config_env.MINIO_USE_SSL, false)
 
 	minioRegion := os.Getenv(config_env.MINIO_REGION)
 
@@ -773,7 +768,7 @@ func parseCSV(raw string) []string {
 
 func panicIfEmpty(key, value string) {
 	if value == "" {
-		if os.Getenv("DEBUG_ENABLED") != "1" {
+		if !config_env.Bool(config_env.WA_DEBUG, false) {
 			applog.Logger.LogInfo("You are NOT on development mode")
 		}
 		applog.Logger.LogFatal("[CONFIG] required configuration variable is missing. Please check your environment configuration.")

@@ -11,8 +11,10 @@ const (
 	DATABASE_SAVE_MESSAGES = "DATABASE_SAVE_MESSAGES"
 	GLOBAL_API_KEY         = "GLOBAL_API_KEY"
 	WA_DEBUG               = "DEBUG_ENABLED"
-	LOGTYPE                = "LOG_TYPE"
-	WEBHOOKFILES           = "WEBHOOK_FILES"
+	// SSRF_PROTECTION, when true, refuses outbound fetches to private/loopback hosts.
+	SSRF_PROTECTION = "SSRF_PROTECTION"
+	LOGTYPE         = "LOG_TYPE"
+	WEBHOOKFILES    = "WEBHOOK_FILES"
 	// MEDIA_LOCAL_STORE keeps a copy of message attachments on the data volume
 	// so the manager can preview them without MinIO/S3. Disable to restore the
 	// previous behaviour (no local copies written).
@@ -96,6 +98,8 @@ const (
 	RATE_LIMIT_PER_MINUTE = "RATE_LIMIT_PER_MINUTE"
 	// CORS_ALLOWED_ORIGINS is a comma-separated allowlist ("*" reflects any).
 	CORS_ALLOWED_ORIGINS = "CORS_ALLOWED_ORIGINS"
+	// HTTP_COMPRESSION gzip-encodes responses; "false" disables it.
+	HTTP_COMPRESSION = "HTTP_COMPRESSION"
 	// MAX_INSTANCES caps how many instances one deployment accepts (0 = unlimited).
 	MAX_INSTANCES = "MAX_INSTANCES"
 	// SEND_RATE_LIMIT_PER_MINUTE bounds POST /send/* per instance (0 = unlimited).

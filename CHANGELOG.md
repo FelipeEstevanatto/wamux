@@ -133,6 +133,15 @@ Three additive features, all disabled/unchanged by default unless configured.
   image builds with it). Measured: Marshal **3783 → 2467 ns (−35%)**, allocs
   **41 → 6**; Unmarshal **6193 → 2971 ns (−52%)**. No new dependency (goccy was
   already vendored via Gin); arm64-safe (sonic was avoided).
+- **gzip response compression** (`pkg/httpguard.Compression`) — the JSON API and
+  the manager SPA were served uncompressed. A middleware now gzip-encodes
+  compressible responses (JSON/JS/CSS/HTML/SVG, ≥1 KB) for clients that send
+  `Accept-Encoding: gzip`, removing ~60–80% of JSON and ~65–75% of JS on the wire.
+  No new dependency. Responses are buffered up to 1 MiB and stream through
+  uncompressed beyond that (so `/chat/media/:messageId` is never held in memory),
+  already-encoded bodies and `206 Partial Content` are left alone, and WebSocket
+  upgrades are untouched. Disable with `HTTP_COMPRESSION=false` when a proxy in
+  front already compresses.
 
 ### 🔧 Improvements
 - **Per-process resource stats & benchmarking** —
