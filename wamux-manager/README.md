@@ -86,7 +86,7 @@ src/
 | Language | TypeScript 7 |
 | Build | Vite 8 |
 | Styling | Tailwind CSS 4 |
-| UI components | `@evoapi/design-system` |
+| UI components | Radix UI + Tailwind v4 (local primitives) |
 | State | Zustand |
 | HTTP | Axios |
 | Forms | React Hook Form + Zod |

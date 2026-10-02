@@ -11,9 +11,9 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Theme tokens, vendored from the `@evoapi/design-system` package (see src/components/ui).
- * `@theme inline` below maps them to Tailwind color utilities (bg-background,
- * text-primary, border-sidebar-border, ...).
+ * Theme tokens (Tailwind v4 CSS-first config). `@theme inline` below maps them
+ * to Tailwind color utilities (bg-background, text-primary, border-sidebar-border,
+ * ...).
  */
 :root {
   --background: oklch(1 0 0);

@@ -33,4 +33,22 @@ export default defineConfig({
       'zustand',
     ],
   },
+  build: {
+    target: 'es2022',
+    // Keep the vendor libraries in their own chunks so the initial download is
+    // smaller and long-lived dependencies stay cached across app deploys.
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          if (/[\\/]node_modules[\\/](react|react-dom|scheduler|react-router|react-router-dom)[\\/]/.test(id))
+            return 'vendor-react';
+          if (id.includes('@radix-ui')) return 'vendor-radix';
+          if (/[\\/]node_modules[\\/](react-hook-form|@hookform|zod)[\\/]/.test(id))
+            return 'vendor-forms';
+          return 'vendor';
+        },
+      },
+    },
+  },
 });

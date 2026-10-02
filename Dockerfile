@@ -1,7 +1,7 @@
 # ---- Manager (React frontend) ----
-# Builds the SPA from the vendored source in wamux-manager/, using the
-# committed package-lock.json (which pins @evoapi/design-system to 0.0.5).
-# Bun is used because it installs straight from package-lock.json and is far
+# Builds the SPA from the source in wamux-manager/, using the committed
+# package-lock.json. Bun is used because it installs straight from
+# package-lock.json and is far
 # faster than npm; the toolchain only exists in this stage.
 FROM oven/bun:1-alpine AS manager
 
