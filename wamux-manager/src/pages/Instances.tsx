@@ -22,9 +22,11 @@ import type { Instance } from '@/types/instance';
 import * as instancesApi from '@/services/api/instances';
 import type { ConnectConfig } from '@/services/api/instances';
 import { useNavigate } from 'react-router-dom';
+import { useI18n } from '@/i18n/I18nContext';
 
 export default function Instances() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const { instances, isLoading, fetchInstances, refreshInstances, isRefreshing, removeInstance, updateInstance, overviews, fetchOverviews } =
     useInstances();
   const [query, setQuery] = useState('');
@@ -146,11 +148,11 @@ export default function Instances() {
   const handleConnectWithConfig = useCallback(async (instance: Instance, config: ConnectConfig) => {
     try {
       if (!instance.apikey) {
-        toast.error('Token da instância não encontrado');
+        toast.error(t('instances.tokenNotFound'));
         return;
       }
 
-      toast.info(`Conectando ${instance.instanceName}...`);
+      toast.info(t('instances.connecting', { name: instance.instanceName }));
 
       // Step 1: Update advanced settings if any are provided
       const hasAdvancedSettings =
@@ -217,7 +219,9 @@ export default function Instances() {
             isOpen: true,
             instance: instanceWithQr,
           });
-          toast.success(`QR Code e Pairing Code gerados para ${instance.instanceName}!`);
+          toast.success(
+            t('instances.qrAndPairingGenerated', { name: instance.instanceName })
+          );
         } catch {
           // If QR code fails, still show pairing code
           const instanceWithPair: Instance = {
@@ -231,7 +235,9 @@ export default function Instances() {
             isOpen: true,
             instance: instanceWithPair,
           });
-          toast.success(`Pairing Code gerado para ${instance.instanceName}!`);
+          toast.success(
+            t('instances.pairingGenerated', { name: instance.instanceName })
+          );
         }
       } else {
         // Step 2: Connect instance with webhook config (QR code only)
@@ -258,10 +264,12 @@ export default function Instances() {
             isOpen: true,
             instance: instanceWithQr,
           });
-          toast.success(`QR Code gerado para ${instance.instanceName}!`);
+          toast.success(
+            t('instances.qrGenerated', { name: instance.instanceName })
+          );
         } catch (qrError) {
           console.error('Erro ao buscar QR Code:', qrError);
-          toast.error('QR Code ainda não disponível, aguarde alguns segundos...');
+          toast.error(t('instances.qrNotAvailable'));
 
           // Fallback: fetch all instances
           await fetchInstances();
@@ -281,10 +289,10 @@ export default function Instances() {
       toast.error(
         error instanceof Error
           ? error.message
-          : 'Erro ao conectar instância'
+          : t('instances.connectError')
       );
     }
-  }, [fetchInstances, instances]);
+  }, [fetchInstances, instances, t]);
 
   // The card's button only opens the confirmation; the actual logout runs from
   // the modal, so disconnecting is never a single stray click.
@@ -301,7 +309,7 @@ export default function Instances() {
     if (!instance) return;
 
     if (!instance.apikey) {
-      toast.error('Token da instância não encontrado');
+      toast.error(t('instances.tokenNotFound'));
       return;
     }
 
@@ -310,23 +318,25 @@ export default function Instances() {
     // below (and on error) reconciles with the server.
     updateInstance(instance.instanceName, { connected: false, status: 'close' });
     try {
-      toast.info(`Desconectando ${instance.instanceName}...`);
+      toast.info(t('instances.disconnecting', { name: instance.instanceName }));
       await instancesApi.logoutInstance(instance.apikey);
       await fetchInstances();
-      toast.success(`${instance.instanceName} desconectada!`);
+      toast.success(
+        t('instances.disconnectedToast', { name: instance.instanceName })
+      );
       closeDisconnectModal();
     } catch (error) {
       console.error('Erro ao desconectar instância:', error);
       toast.error(
         error instanceof Error
           ? error.message
-          : 'Erro ao desconectar instância'
+          : t('instances.disconnectError')
       );
       await fetchInstances();
     } finally {
       setIsDisconnecting(null);
     }
-  }, [disconnectModal.instance, fetchInstances, updateInstance]);
+  }, [disconnectModal.instance, fetchInstances, updateInstance, t]);
 
   const openDeleteModal = (instance: Instance) => {
     setDeleteModal({
@@ -456,12 +466,12 @@ export default function Instances() {
 
     try {
       await instancesApi.deleteInstance(instanceId);
-      toast.success(`Instância ${instanceName} removida com sucesso!`);
+      toast.success(t('instances.removed', { name: instanceName }));
       closeDeleteModal();
     } catch (e: unknown) {
       console.error('Erro ao remover instância:', e);
       toast.error(
-        (e as Error)?.message || 'Erro ao remover instância'
+        (e as Error)?.message || t('instances.removeError')
       );
 
       // Refresh list on error to restore correct state
@@ -499,9 +509,9 @@ export default function Instances() {
         ) : totalCount === 0 ? (
           <EmptyState
             icon={Layers}
-            title="Nenhuma instância encontrada"
-            description="Crie sua primeira instância para começar a usar o WaMux"
-            action={{ label: 'Nova Instância', onClick: handleNewInstance }}
+            title={t('instances.emptyTitle')}
+            description={t('instances.emptyDescription')}
+            action={{ label: t('instances.newInstance'), onClick: handleNewInstance }}
             className="h-full"
           />
         ) : (
@@ -571,13 +581,12 @@ export default function Instances() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-yellow-500 dark:text-yellow-400">
               <PowerOff className="h-5 w-5" />
-              Desconectar Instância
+              {t('instances.disconnectDialogTitle')}
             </DialogTitle>
             <DialogDescription className="text-sidebar-foreground/70 dark:text-gray-400">
-              Você está prestes a desconectar a instância{' '}
-              <strong>{disconnectModal.instance?.instanceName}</strong>. Ela
-              deixará de enviar e receber mensagens até ser reconectada pelo QR
-              Code.
+              {t('instances.disconnectDialogPrefix')}{' '}
+              <strong>{disconnectModal.instance?.instanceName}</strong>
+              {t('instances.disconnectDialogSuffix')}
             </DialogDescription>
           </DialogHeader>
 
@@ -587,7 +596,7 @@ export default function Instances() {
               onClick={closeDisconnectModal}
               className="bg-sidebar border-sidebar-border text-sidebar-foreground hover:bg-sidebar-accent dark:text-gray-400 dark:hover:bg-sidebar-accent"
             >
-              Cancelar
+              {t('common.cancel')}
             </Button>
             <Button
               variant="destructive"
@@ -596,8 +605,8 @@ export default function Instances() {
               className="bg-yellow-600 hover:bg-yellow-700 text-white dark:bg-yellow-600 dark:hover:bg-yellow-700"
             >
               {isDisconnecting === disconnectModal.instance?.instanceName
-                ? 'Desconectando...'
-                : 'Desconectar'}
+                ? t('instances.disconnectingButton')
+                : t('instances.disconnect')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -609,19 +618,19 @@ export default function Instances() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-red-400 dark:text-red-500">
               <Trash2 className="h-5 w-5" />
-              Remover Instância
+              {t('instances.deleteDialogTitle')}
             </DialogTitle>
             <DialogDescription className="text-sidebar-foreground/70 dark:text-gray-400">
-              Você está prestes a remover a instância{' '}
-              <strong>{deleteModal.instance?.instanceName}</strong>. Esta ação
-              não pode ser desfeita.
+              {t('instances.deleteDialogPrefix')}{' '}
+              <strong>{deleteModal.instance?.instanceName}</strong>
+              {t('instances.deleteDialogSuffix')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium text-sidebar-foreground dark:text-gray-400">
-                Digite o nome da instância para confirmar:
+                {t('instances.deleteConfirmLabel')}
               </label>
               <Input
                 placeholder={deleteModal.instance?.instanceName || ''}
@@ -643,7 +652,7 @@ export default function Instances() {
               onClick={closeDeleteModal}
               className="bg-sidebar border-sidebar-border text-sidebar-foreground hover:bg-sidebar-accent dark:text-gray-400 dark:hover:bg-sidebar-accent"
             >
-              Cancelar
+              {t('common.cancel')}
             </Button>
             <Button
               variant="destructive"
@@ -655,8 +664,8 @@ export default function Instances() {
               className="bg-red-600 hover:bg-red-700 text-white dark:bg-red-600 dark:hover:bg-red-700"
             >
               {isDeleting === deleteModal.instance?.instanceName
-                ? 'Removendo...'
-                : 'Remover Instância'}
+                ? t('instances.removingButton')
+                : t('instances.deleteDialogTitle')}
             </Button>
           </DialogFooter>
         </DialogContent>

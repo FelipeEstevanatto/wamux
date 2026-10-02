@@ -15,6 +15,7 @@ import {
 import { toast } from 'sonner';
 
 import { Button, Input, Skeleton } from '@/components/ui';
+import { useI18n } from '@/i18n/I18nContext';
 import useInstances from '@/hooks/useInstances';
 import useInstanceEvents from '@/hooks/useInstanceEvents';
 import * as messagesApi from '@/services/api/messages';
@@ -45,11 +46,14 @@ function chatKind(jid: string): ChatKind {
   return 'contact';
 }
 
-function chatTitle(jid: string): string {
-  if (!jid) return 'Conversa';
-  if (jid.endsWith('@g.us')) return `Grupo ${jidUser(jid)}`;
-  if (jid.endsWith('@newsletter')) return `Canal ${jidUser(jid)}`;
-  if (jid.endsWith('@lid')) return `LID ${jidUser(jid)}`;
+function chatTitle(
+  jid: string,
+  t: (key: string, vars?: Record<string, string | number>) => string
+): string {
+  if (!jid) return t('messages.chatFallback');
+  if (jid.endsWith('@g.us')) return t('messages.chatGroup', { id: jidUser(jid) });
+  if (jid.endsWith('@newsletter')) return t('messages.chatChannel', { id: jidUser(jid) });
+  if (jid.endsWith('@lid')) return t('messages.chatLid', { id: jidUser(jid) });
   return jidUser(jid);
 }
 
@@ -177,24 +181,29 @@ function MediaContent({
   token: string;
   mediaLocal: boolean;
 }) {
+  const { t } = useI18n();
   const src = useMediaSrc(message.media_url || '', token);
 
   if (!message.media_url) {
-    const label = message.message_type || 'mídia';
+    const label = message.message_type || t('messages.mediaFallback');
     // Explain why a file shows only a placeholder instead of a preview.
     return (
       <p className="italic opacity-80">
         [{label}]
         {!mediaLocal && (
           <span className="ml-1 not-italic opacity-70" title="MEDIA_LOCAL_STORE=false">
-            — arquivo não armazenado (apenas enviado ao webhook)
+            {t('messages.mediaNotStored')}
           </span>
         )}
       </p>
     );
   }
   if (!src) {
-    return <p className="italic opacity-80">Carregando {message.message_type || 'mídia'}…</p>;
+    return (
+      <p className="italic opacity-80">
+        {t('messages.mediaLoading', { type: message.message_type || t('messages.mediaFallback') })}
+      </p>
+    );
   }
 
   const mime = message.media_mimetype || '';
@@ -221,7 +230,7 @@ function MediaContent({
       rel="noreferrer noopener"
       className="mb-1 inline-block underline"
     >
-      Abrir {message.message_type || 'arquivo'}
+      {t('messages.openFile', { type: message.message_type || t('messages.fileFallback') })}
     </a>
   );
 }
@@ -264,6 +273,7 @@ function Bubble({
 }
 
 export default function Messages() {
+  const { t } = useI18n();
   const {
     instances,
     isLoading: instancesLoading,
@@ -376,7 +386,7 @@ export default function Messages() {
     try {
       setChats(await messagesApi.listChats(token));
     } catch {
-      toast.error('Não foi possível carregar as conversas');
+      toast.error(t('messages.errorLoadChats'));
     } finally {
       setChatsLoading(false);
     }
@@ -392,7 +402,7 @@ export default function Messages() {
         setMessages(page);
         setHasMore(page.length >= PAGE_SIZE);
       } catch {
-        toast.error('Não foi possível carregar o histórico');
+        toast.error(t('messages.errorLoadHistory'));
       } finally {
         setMessagesLoading(false);
       }
@@ -439,7 +449,7 @@ export default function Messages() {
       if (page.length === 0) setHasMore(false);
       else setMessages((prev) => mergeMessages(prev, page));
     } catch {
-      toast.error('Não foi possível carregar mensagens antigas');
+      toast.error(t('messages.errorLoadOlder'));
     } finally {
       setOlderLoading(false);
     }
@@ -524,7 +534,7 @@ export default function Messages() {
     try {
       setContacts(await messagesApi.listContacts(token));
     } catch {
-      toast.error('Não foi possível carregar os contatos');
+      toast.error(t('messages.errorLoadContacts'));
     } finally {
       setContactsLoading(false);
     }
@@ -535,7 +545,7 @@ export default function Messages() {
   const recoverHistory = async () => {
     if (!token || syncing) return;
     if (!selectedChat) {
-      toast.error('Abra uma conversa para recuperar o histórico dela');
+      toast.error(t('messages.errorNoChatToRecover'));
       return;
     }
     setSyncing(true);
@@ -563,9 +573,9 @@ export default function Messages() {
         }
       }
       await messagesApi.requestHistorySync(token, messageInfo, PAGE_SIZE);
-      toast.success('Sincronização solicitada. As mensagens antigas chegam em instantes.');
+      toast.success(t('messages.syncRequested'));
     } catch {
-      toast.error('Não foi possível solicitar a sincronização');
+      toast.error(t('messages.errorSync'));
     } finally {
       setSyncing(false);
     }
@@ -593,7 +603,7 @@ export default function Messages() {
       await refreshThread();
       void loadChats();
     } catch {
-      toast.error('Não foi possível enviar a mensagem');
+      toast.error(t('messages.errorSend'));
     } finally {
       setSending(false);
     }
@@ -614,11 +624,11 @@ export default function Messages() {
       (kind === 'group' ? groups : kind === 'channel' ? channels : contacts).push(c);
     }
     return [
-      { title: 'Contatos', items: contacts },
-      { title: 'Grupos', items: groups },
-      { title: 'Canais', items: channels },
+      { title: t('messages.sectionContacts'), items: contacts },
+      { title: t('messages.sectionGroups'), items: groups },
+      { title: t('messages.sectionChannels'), items: channels },
     ].filter((s) => s.items.length > 0);
-  }, [filteredChats]);
+  }, [filteredChats, t]);
 
   const ordered = useMemo(() => [...messages].reverse(), [messages]);
   const activeChat = useMemo(
@@ -637,10 +647,10 @@ export default function Messages() {
       }`}
       title={
         wsStatus === 'open'
-          ? 'Atualizações em tempo real conectadas'
+          ? t('messages.wsConnectedTitle')
           : wsStatus === 'connecting'
-            ? 'Conectando ao tempo real…'
-            : 'Tempo real offline — reconectando'
+            ? t('messages.wsConnectingTitle')
+            : t('messages.wsOfflineTitle')
       }
     >
       {wsStatus === 'open' ? (
@@ -649,17 +659,17 @@ export default function Messages() {
         <WifiOff className="h-3.5 w-3.5" />
       )}
       {wsStatus === 'open'
-        ? 'Tempo real'
+        ? t('messages.wsConnected')
         : wsStatus === 'connecting'
-          ? 'Conectando…'
-          : 'Offline'}
+          ? t('messages.wsConnecting')
+          : t('messages.wsOffline')}
     </span>
   );
 
   if (instancesLoading && instances.length === 0) {
     return (
       <div className="flex h-full items-center justify-center p-8 text-sm text-muted-foreground">
-        Carregando instâncias…
+        {t('messages.loadingInstances')}
       </div>
     );
   }
@@ -669,7 +679,7 @@ export default function Messages() {
       <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
         <MessageSquare className="h-10 w-10 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">
-          Nenhuma instância conectada. Conecte uma instância para ver as conversas.
+          {t('messages.noConnectedInstance')}
         </p>
       </div>
     );
@@ -678,7 +688,7 @@ export default function Messages() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex flex-wrap items-center gap-3 border-b border-border p-4">
-        <h1 className="text-xl font-semibold">Mensagens</h1>
+        <h1 className="text-xl font-semibold">{t('messages.title')}</h1>
         <select
           value={instanceId}
           onChange={(e) => setInstanceId(e.target.value)}
@@ -692,16 +702,16 @@ export default function Messages() {
           ))}
         </select>
         <Button variant="outline" size="sm" onClick={() => void manualRefresh()} disabled={refreshing}>
-          <RefreshCw className={refreshing ? 'animate-spin' : ''} /> Atualizar
+          <RefreshCw className={refreshing ? 'animate-spin' : ''} /> {t('messages.refresh')}
         </Button>
         {wsEnabled ? (
           wsBadge
         ) : (
           <span
             className="inline-flex items-center gap-1 text-xs text-amber-600"
-            title="Esta instância está com o WebSocket desabilitado, então o servidor não publica eventos em tempo real. Habilite em Instâncias → Configurar → WebSocket = Habilitado."
+            title={t('messages.wsDisabledTitle')}
           >
-            <WifiOff className="h-3.5 w-3.5" /> Tempo real desabilitado na instância
+            <WifiOff className="h-3.5 w-3.5" /> {t('messages.wsDisabled')}
           </span>
         )}
       </div>
@@ -710,22 +720,21 @@ export default function Messages() {
         <div className="flex items-start gap-2 border-b border-border bg-muted/50 px-4 py-2 text-xs text-muted-foreground">
           <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
-            O armazenamento local de anexos está <strong>desativado</strong>
+            {t('messages.mediaLocalDisabledPre')}
+            <strong>{t('messages.mediaLocalDisabledStrong')}</strong>
             {' '}(<code>MEDIA_LOCAL_STORE=false</code>
             {!flags.historyEnabled && (
               <>
-                {' '}e <code>DATABASE_SAVE_MESSAGES=false</code>
+                {' '}{t('messages.and')} <code>DATABASE_SAVE_MESSAGES=false</code>
               </>
             )}
-            ). Arquivos enviados e recebidos não são guardados em disco, então não há
-            pré-visualização aqui — eles são apenas encaminhados ao webhook. Para ver
-            os arquivos, defina <code>MEDIA_LOCAL_STORE=true</code>
+            {t('messages.mediaLocalDisabledMid')}<code>MEDIA_LOCAL_STORE=true</code>
             {!flags.historyEnabled && (
               <>
-                {' '}e <code>DATABASE_SAVE_MESSAGES=true</code>
+                {' '}{t('messages.and')} <code>DATABASE_SAVE_MESSAGES=true</code>
               </>
             )}
-            .
+            {t('messages.mediaLocalDisabledEnd')}
           </span>
         </div>
       )}
@@ -733,10 +742,11 @@ export default function Messages() {
         <div className="flex items-start gap-2 border-b border-border bg-muted/50 px-4 py-2 text-xs text-muted-foreground">
           <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
-            O histórico de mensagens está <strong>desativado</strong>
-            {' '}(<code>DATABASE_SAVE_MESSAGES=false</code>). As conversas e o
-            botão <strong>Recuperar</strong> não terão o que mostrar aqui. Defina{' '}
-            <code>DATABASE_SAVE_MESSAGES=true</code> para habilitar.
+            {t('messages.historyDisabledPre')}
+            <strong>{t('messages.historyDisabledStrong')}</strong>
+            {' '}(<code>DATABASE_SAVE_MESSAGES=false</code>{t('messages.historyDisabledMid')}
+            <strong>{t('messages.recover')}</strong>{t('messages.historyDisabledEnd')}
+            <code>DATABASE_SAVE_MESSAGES=true</code>{t('messages.historyDisabledSuffix')}
           </span>
         </div>
       )}
@@ -750,13 +760,13 @@ export default function Messages() {
         >
           <div className="space-y-2 border-b border-border p-3">
             <Input
-              placeholder="Filtrar conversas…"
+              placeholder={t('messages.filterPlaceholder')}
               value={chatQuery}
               onChange={(e) => setChatQuery(e.target.value)}
             />
             <div className="flex gap-2">
               <Input
-                placeholder="Nova conversa (número)"
+                placeholder={t('messages.newChatPlaceholder')}
                 value={newNumber}
                 onChange={(e) => setNewNumber(e.target.value)}
                 onKeyDown={(e) => {
@@ -772,7 +782,7 @@ export default function Messages() {
                 onClick={startConversation}
                 disabled={!newNumber.trim()}
               >
-                Abrir
+                {t('messages.open')}
               </Button>
             </div>
             <div className="flex gap-2">
@@ -786,7 +796,7 @@ export default function Messages() {
                   if (next && contacts.length === 0) void loadContacts();
                 }}
               >
-                Contatos
+                {t('messages.contacts')}
               </Button>
               <Button
                 size="sm"
@@ -794,18 +804,20 @@ export default function Messages() {
                 className="flex-1"
                 onClick={() => void recoverHistory()}
                 disabled={syncing}
-                title="Pede ao WhatsApp as mensagens antigas. Requer a opção de guardar mensagens (DATABASE_SAVE_MESSAGES) para aparecerem aqui."
+                title={t('messages.recoverTitle')}
               >
-                <RefreshCw className={syncing ? 'animate-spin' : ''} /> Recuperar
+                <RefreshCw className={syncing ? 'animate-spin' : ''} /> {t('messages.recover')}
               </Button>
             </div>
             {showContacts && (
               <div className="max-h-56 overflow-y-auto rounded-md border border-border">
                 {contactsLoading ? (
-                  <p className="p-2 text-xs text-muted-foreground">Carregando contatos…</p>
+                  <p className="p-2 text-xs text-muted-foreground">
+                    {t('messages.loadingContacts')}
+                  </p>
                 ) : contacts.length === 0 ? (
                   <p className="p-2 text-xs text-muted-foreground">
-                    Nenhum contato conhecido ainda.
+                    {t('messages.noContacts')}
                   </p>
                 ) : (
                   contacts.map((c) => {
@@ -839,7 +851,7 @@ export default function Messages() {
               </div>
             ) : sections.length === 0 ? (
               <p className="p-4 text-sm text-muted-foreground">
-                Sem conversas salvas. Inicie uma acima.
+                {t('messages.noChats')}
               </p>
             ) : (
               sections.map((section) => (
@@ -857,14 +869,14 @@ export default function Messages() {
                     >
                       <span className="flex items-center justify-between gap-2">
                         <span className="truncate text-sm font-medium">
-                          {chatTitle(c.chat_jid)}
+                          {chatTitle(c.chat_jid, t)}
                         </span>
                         <span className="shrink-0 text-[11px] text-muted-foreground">
                           {formatShort(c.last_timestamp)}
                         </span>
                       </span>
                       <span className="truncate text-xs text-muted-foreground">
-                        {c.last_from_me ? 'Você: ' : ''}
+                        {c.last_from_me ? t('messages.youPrefix') : ''}
                         {c.last_text_content || (c.last_message_type ? `[${c.last_message_type}]` : '')}
                       </span>
                     </button>
@@ -881,7 +893,7 @@ export default function Messages() {
         >
           {!selectedChat ? (
             <div className="flex flex-1 items-center justify-center p-8 text-sm text-muted-foreground">
-              Selecione uma conversa ou inicie uma nova.
+              {t('messages.selectChat')}
             </div>
           ) : (
             <>
@@ -896,10 +908,12 @@ export default function Messages() {
                 </Button>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">
-                    {chatTitle(selectedChat)}
+                    {chatTitle(selectedChat, t)}
                   </p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {activeChat ? `${activeChat.message_count} mensagens` : ''}
+                    {activeChat
+                      ? t('messages.messageCount', { count: activeChat.message_count })
+                      : ''}
                   </p>
                 </div>
               </div>
@@ -913,7 +927,7 @@ export default function Messages() {
                       onClick={() => void loadOlder()}
                       disabled={olderLoading}
                     >
-                      {olderLoading ? 'Carregando…' : 'Carregar antigas'}
+                      {olderLoading ? t('common.loading') : t('messages.loadOlder')}
                     </Button>
                   </div>
                 )}
@@ -925,7 +939,7 @@ export default function Messages() {
                   </div>
                 ) : ordered.length === 0 ? (
                   <p className="py-10 text-center text-sm text-muted-foreground">
-                    Nenhuma mensagem ainda. Envie a primeira abaixo.
+                    {t('messages.noMessages')}
                   </p>
                 ) : (
                   <div className="flex flex-col gap-2">
@@ -968,7 +982,7 @@ export default function Messages() {
                       {humanSize(attachFile.size)}
                     </p>
                   </div>
-                  <button onClick={() => setAttachment(null)} title="Remover anexo">
+                  <button onClick={() => setAttachment(null)} title={t('messages.removeAttachment')}>
                     <X className="h-4 w-4" />
                   </button>
                 </div>
@@ -984,7 +998,7 @@ export default function Messages() {
                   variant="outline"
                   size="icon"
                   onClick={() => fileInputRef.current?.click()}
-                  title="Anexar foto, vídeo ou documento"
+                  title={t('messages.attachTitle')}
                 >
                   <Paperclip />
                 </Button>
@@ -997,13 +1011,13 @@ export default function Messages() {
                       void send();
                     }
                   }}
-                  placeholder="Digite uma mensagem…"
+                  placeholder={t('messages.messagePlaceholder')}
                 />
                 <Button
                   onClick={() => void send()}
                   disabled={sending || (!draft.trim() && !attachFile)}
                 >
-                  <SendHorizontal /> Enviar
+                  <SendHorizontal /> {t('messages.send')}
                 </Button>
               </div>
             </>

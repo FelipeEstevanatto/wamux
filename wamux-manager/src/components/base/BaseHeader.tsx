@@ -15,6 +15,7 @@ import {
   Badge,
 } from '@/components/ui';
 import { Search, Filter, MoreVertical, X, RefreshCw } from 'lucide-react';
+import { useI18n } from '@/i18n/I18nContext';
 
 export interface HeaderAction {
   label: string;
@@ -63,7 +64,7 @@ export default function BaseHeader({
   subtitle,
   searchValue,
   onSearchChange,
-  searchPlaceholder = 'Buscar...',
+  searchPlaceholder,
   primaryAction,
   refreshAction,
   secondaryActions = [],
@@ -77,6 +78,7 @@ export default function BaseHeader({
   className = '',
   children,
 }: BaseHeaderProps) {
+  const { t } = useI18n();
   const hasSelection = selectedCount > 0;
   const visibleSecondaryActions = secondaryActions.filter(
     (action) => action.show !== false
@@ -107,8 +109,8 @@ export default function BaseHeader({
                 variant="outline"
                 size="icon"
                 disabled={refreshAction.isRefreshing}
-                title={refreshAction.title || 'Atualizar'}
-                aria-label={refreshAction.title || 'Atualizar'}
+                title={refreshAction.title || t('dashboard.refresh')}
+                aria-label={refreshAction.title || t('dashboard.refresh')}
                 className="bg-sidebar border-sidebar-border text-sidebar-foreground hover:bg-sidebar-accent dark:text-gray-400 dark:hover:bg-sidebar-accent"
               >
                 <RefreshCw
@@ -141,7 +143,7 @@ export default function BaseHeader({
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sidebar-foreground/60 dark:text-gray-200" />
               <Input
                 type="search"
-                placeholder={searchPlaceholder}
+                placeholder={searchPlaceholder ?? t('dashboard.searchPlaceholder')}
                 value={searchValue}
                 onChange={(e) => onSearchChange(e.target.value)}
                 className="pl-9 bg-sidebar border-sidebar-border text-sidebar-foreground placeholder:text-sidebar-foreground/50 focus:border-sidebar-border dark:text-gray-400 dark:placeholder:text-gray-400"
@@ -158,7 +160,7 @@ export default function BaseHeader({
               className="bg-sidebar border-sidebar-border text-sidebar-foreground hover:bg-sidebar-accent whitespace-nowrap dark:text-gray-400 dark:hover:bg-sidebar-accent"
             >
               <Filter className="h-4 w-4 mr-2" />
-              Filtros
+              {t('dashboard.filters')}
               {filters.length > 0 && (
                 <Badge
                   variant="secondary"
@@ -193,8 +195,8 @@ export default function BaseHeader({
                 <Button
                   variant="outline"
                   size="sm"
-                  title="Mais ações"
-                  aria-label="Mais ações"
+                  title={t('dashboard.moreActions')}
+                  aria-label={t('dashboard.moreActions')}
                   className="bg-sidebar border-sidebar-border text-sidebar-foreground hover:bg-sidebar-accent dark:text-gray-400 dark:hover:bg-sidebar-accent"
                 >
                   <MoreVertical className="h-4 w-4" />
@@ -225,7 +227,12 @@ export default function BaseHeader({
         <div className="flex items-center justify-between rounded-lg bg-sidebar-accent/50 border border-sidebar-border px-4 py-2">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-sidebar-foreground dark:text-gray-400">
-              {selectedCount} selecionado{selectedCount > 1 ? 's' : ''}
+              {selectedCount}{' '}
+              {t(
+                selectedCount > 1
+                  ? 'dashboard.selectedPlural'
+                  : 'dashboard.selectedSingular'
+              )}
             </span>
             {onClearSelection && (
               <Button
@@ -235,7 +242,7 @@ export default function BaseHeader({
                 className="h-7 px-2 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent dark:text-gray-400 dark:hover:text-gray-400 dark:hover:bg-sidebar-accent"
               >
                 <X className="h-3 w-3 mr-1" />
-                Limpar
+                {t('dashboard.clear')}
               </Button>
             )}
           </div>
@@ -272,8 +279,8 @@ export default function BaseHeader({
                 variant="ghost"
                 size="sm"
                 onClick={filter.onRemove}
-                title={`Remover filtro ${filter.label}`}
-                aria-label={`Remover filtro ${filter.label}`}
+                title={t('dashboard.removeFilter', { label: filter.label })}
+                aria-label={t('dashboard.removeFilter', { label: filter.label })}
                 className="ml-1 h-4 w-4 p-0 hover:bg-transparent text-sidebar-foreground/60 hover:text-sidebar-foreground dark:text-gray-400 dark:hover:text-gray-400"
               >
                 <X className="h-3 w-3" />

@@ -1,0 +1,118 @@
+/** Translation namespace for the Instances page + cards. Prefixed keys. */
+export const instancesNs: {
+  pt: Record<string, string>;
+  en: Record<string, string>;
+} = {
+  pt: {
+    'instances.title': 'Instâncias',
+    'instances.subtitle': 'Gerencie suas instâncias WhatsApp do WaMux',
+    'instances.searchPlaceholder': 'Buscar instâncias...',
+    'instances.refreshTitle': 'Atualizar instâncias',
+    'instances.newInstance': 'Nova Instância',
+    'instances.connected': 'Conectado',
+    'instances.disconnected': 'Desconectado',
+    'instances.status': 'Status',
+    'instances.owner': 'Proprietário',
+    'instances.device': 'Aparelho',
+    'instances.linkedDevice': 'Dispositivo vinculado',
+    'instances.linkedDeviceTitle':
+      'Nome exibido como aparelho conectado no WhatsApp',
+    'instances.client': 'Cliente',
+    'instances.contacts': 'Contatos',
+    'instances.chats': 'Conversas',
+    'instances.messages': 'Mensagens',
+    'instances.connect': 'Conectar',
+    'instances.connectTitle': 'Conectar instância',
+    'instances.disconnect': 'Desconectar',
+    'instances.disconnectTitle': 'Desconectar instância',
+    'instances.sendMessage': 'Enviar mensagem de texto',
+    'instances.testMessage': 'Testar botões, lista e carrossel',
+    'instances.settings': 'Configurações da instância',
+    'instances.deleteTitle': 'Excluir instância',
+    'instances.tokenNotFound': 'Token da instância não encontrado',
+    'instances.connecting': 'Conectando {name}...',
+    'instances.qrAndPairingGenerated':
+      'QR Code e Pairing Code gerados para {name}!',
+    'instances.pairingGenerated': 'Pairing Code gerado para {name}!',
+    'instances.qrGenerated': 'QR Code gerado para {name}!',
+    'instances.qrNotAvailable':
+      'QR Code ainda não disponível, aguarde alguns segundos...',
+    'instances.connectError': 'Erro ao conectar instância',
+    'instances.disconnecting': 'Desconectando {name}...',
+    'instances.disconnectedToast': '{name} desconectada!',
+    'instances.disconnectError': 'Erro ao desconectar instância',
+    'instances.removed': 'Instância {name} removida com sucesso!',
+    'instances.removeError': 'Erro ao remover instância',
+    'instances.emptyTitle': 'Nenhuma instância encontrada',
+    'instances.emptyDescription':
+      'Crie sua primeira instância para começar a usar o WaMux',
+    'instances.disconnectDialogTitle': 'Desconectar Instância',
+    'instances.disconnectDialogPrefix':
+      'Você está prestes a desconectar a instância',
+    'instances.disconnectDialogSuffix':
+      '. Ela deixará de enviar e receber mensagens até ser reconectada pelo QR Code.',
+    'instances.disconnectingButton': 'Desconectando...',
+    'instances.deleteDialogTitle': 'Remover Instância',
+    'instances.deleteDialogPrefix':
+      'Você está prestes a remover a instância',
+    'instances.deleteDialogSuffix': '. Esta ação não pode ser desfeita.',
+    'instances.deleteConfirmLabel': 'Digite o nome da instância para confirmar:',
+    'instances.removingButton': 'Removendo...',
+  },
+  en: {
+    'instances.title': 'Instances',
+    'instances.subtitle': 'Manage your WaMux WhatsApp instances',
+    'instances.searchPlaceholder': 'Search instances...',
+    'instances.refreshTitle': 'Refresh instances',
+    'instances.newInstance': 'New Instance',
+    'instances.connected': 'Connected',
+    'instances.disconnected': 'Disconnected',
+    'instances.status': 'Status',
+    'instances.owner': 'Owner',
+    'instances.device': 'Device',
+    'instances.linkedDevice': 'Linked device',
+    'instances.linkedDeviceTitle':
+      'Name shown as the connected device on WhatsApp',
+    'instances.client': 'Client',
+    'instances.contacts': 'Contacts',
+    'instances.chats': 'Chats',
+    'instances.messages': 'Messages',
+    'instances.connect': 'Connect',
+    'instances.connectTitle': 'Connect instance',
+    'instances.disconnect': 'Disconnect',
+    'instances.disconnectTitle': 'Disconnect instance',
+    'instances.sendMessage': 'Send text message',
+    'instances.testMessage': 'Test buttons, list and carousel',
+    'instances.settings': 'Instance settings',
+    'instances.deleteTitle': 'Delete instance',
+    'instances.tokenNotFound': 'Instance token not found',
+    'instances.connecting': 'Connecting {name}...',
+    'instances.qrAndPairingGenerated':
+      'QR Code and Pairing Code generated for {name}!',
+    'instances.pairingGenerated': 'Pairing Code generated for {name}!',
+    'instances.qrGenerated': 'QR Code generated for {name}!',
+    'instances.qrNotAvailable':
+      'QR Code not available yet, wait a few seconds...',
+    'instances.connectError': 'Error connecting instance',
+    'instances.disconnecting': 'Disconnecting {name}...',
+    'instances.disconnectedToast': '{name} disconnected!',
+    'instances.disconnectError': 'Error disconnecting instance',
+    'instances.removed': 'Instance {name} removed successfully!',
+    'instances.removeError': 'Error removing instance',
+    'instances.emptyTitle': 'No instances found',
+    'instances.emptyDescription':
+      'Create your first instance to start using WaMux',
+    'instances.disconnectDialogTitle': 'Disconnect Instance',
+    'instances.disconnectDialogPrefix':
+      'You are about to disconnect the instance',
+    'instances.disconnectDialogSuffix':
+      '. It will stop sending and receiving messages until it is reconnected via the QR Code.',
+    'instances.disconnectingButton': 'Disconnecting...',
+    'instances.deleteDialogTitle': 'Remove Instance',
+    'instances.deleteDialogPrefix':
+      'You are about to remove the instance',
+    'instances.deleteDialogSuffix': '. This action cannot be undone.',
+    'instances.deleteConfirmLabel': 'Type the instance name to confirm:',
+    'instances.removingButton': 'Removing...',
+  },
+};

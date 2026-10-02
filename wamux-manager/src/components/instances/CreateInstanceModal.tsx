@@ -24,6 +24,7 @@ import * as instancesApi from '@/services/api/instances';
 import useInstances from '@/hooks/useInstances';
 import type { CreateInstancePayload } from '@/types/instance';
 import { v4 as uuidv4 } from 'uuid';
+import { useI18n } from '@/i18n/I18nContext';
 
 interface CreateInstanceModalProps {
   open: boolean;
@@ -34,12 +35,12 @@ interface CreateInstanceModalProps {
 const createInstanceSchema = z.object({
   instanceName: z
     .string()
-    .min(1, 'Nome da instância é obrigatório')
-    .min(3, 'Nome deve ter pelo menos 3 caracteres')
-    .max(50, 'Nome deve ter no máximo 50 caracteres')
+    .min(1, 'instanceSettings.validation.nameRequired')
+    .min(3, 'instanceSettings.validation.nameMin')
+    .max(50, 'instanceSettings.validation.nameMax')
     .regex(
       /^[a-zA-Z0-9-_]+$/,
-      'Nome deve conter apenas letras, números, hífen e underscore'
+      'instanceSettings.validation.namePattern'
     ),
   token: z.string().optional(),
   proxyHost: z.string().optional(),
@@ -54,6 +55,7 @@ export default function CreateInstanceModal({
   open,
   onOpenChange,
 }: CreateInstanceModalProps) {
+  const { t } = useI18n();
   const [isLoading, setIsLoading] = useState(false);
   const [showProxyConfig, setShowProxyConfig] = useState(false);
   const { addInstance, fetchInstances } = useInstances();
@@ -99,8 +101,10 @@ export default function CreateInstanceModal({
       // Add to store
       addInstance(newInstance);
 
-      toast.success('Instância criada com sucesso!', {
-        description: `A instância "${data.instanceName}" foi criada.`,
+      toast.success(t('instanceSettings.create.success'), {
+        description: t('instanceSettings.create.successDescription', {
+          name: data.instanceName,
+        }),
       });
 
       // Refresh instances list
@@ -114,7 +118,7 @@ export default function CreateInstanceModal({
       toast.error(
         error instanceof Error
           ? error.message
-          : 'Erro ao criar instância. Tente novamente.'
+          : t('instanceSettings.create.error')
       );
     } finally {
       setIsLoading(false);
@@ -135,10 +139,10 @@ export default function CreateInstanceModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Plus className="h-5 w-5 text-primary" />
-            Nova Instância
+            {t('instanceSettings.create.title')}
           </DialogTitle>
           <DialogDescription className="text-sidebar-foreground/70">
-            Crie uma nova instância WhatsApp para gerenciar suas conversas
+            {t('instanceSettings.create.description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -146,44 +150,44 @@ export default function CreateInstanceModal({
           {/* Instance Name */}
           <div className="space-y-2">
             <Label htmlFor="instanceName">
-              Nome da Instância <span className="text-red-500">*</span>
+              {t('instanceSettings.field.instanceName')} <span className="text-red-500">*</span>
             </Label>
             <Input
               id="instanceName"
               type="text"
-              placeholder="ex: minha-instancia"
+              placeholder={t('instanceSettings.create.instanceNamePlaceholder')}
               disabled={isLoading}
               {...register('instanceName')}
               className="bg-sidebar border-sidebar-border text-sidebar-foreground placeholder:text-sidebar-foreground/50"
             />
             {errors.instanceName && (
               <p className="text-destructive text-sm">
-                {errors.instanceName.message}
+                {t(errors.instanceName.message ?? '')}
               </p>
             )}
             <p className="text-xs text-sidebar-foreground/60">
-              Use apenas letras, números, hífen (-) e underscore (_)
+              {t('instanceSettings.create.instanceNameHelp')}
             </p>
           </div>
 
           {/* Token (Optional) */}
           <div className="space-y-2">
-            <Label htmlFor="token">Token (Opcional)</Label>
+            <Label htmlFor="token">{t('instanceSettings.field.token')}</Label>
             <Input
               id="token"
               type="text"
-              placeholder="Token personalizado (UUID)"
+              placeholder={t('instanceSettings.create.tokenPlaceholder')}
               disabled={isLoading}
               {...register('token')}
               className="bg-sidebar border-sidebar-border text-sidebar-foreground placeholder:text-sidebar-foreground/50"
             />
             {errors.token && (
               <p className="text-destructive text-sm">
-                {errors.token.message}
+                {t(errors.token.message ?? '')}
               </p>
             )}
             <p className="text-xs text-sidebar-foreground/60">
-              Se não informado, será gerado um UUID automaticamente
+              {t('instanceSettings.create.tokenHelp')}
             </p>
           </div>
 
@@ -196,7 +200,7 @@ export default function CreateInstanceModal({
               disabled={isLoading}
               className="w-full justify-between bg-sidebar border-sidebar-border text-sidebar-foreground hover:bg-sidebar-accent"
             >
-              <span>Configuração de Proxy (Opcional)</span>
+              <span>{t('instanceSettings.create.proxyToggle')}</span>
               {showProxyConfig ? (
                 <ChevronUp className="h-4 w-4" />
               ) : (
@@ -208,72 +212,72 @@ export default function CreateInstanceModal({
               <div className="space-y-4 pt-2 border-t border-sidebar-border">
                 {/* Proxy Host */}
                 <div className="space-y-2">
-                  <Label htmlFor="proxyHost">Host do Proxy</Label>
+                  <Label htmlFor="proxyHost">{t('instanceSettings.field.proxyHost')}</Label>
                   <Input
                     id="proxyHost"
                     type="text"
-                    placeholder="ex: proxy.example.com"
+                    placeholder={t('instanceSettings.create.proxyHostPlaceholder')}
                     disabled={isLoading}
                     {...register('proxyHost')}
                     className="bg-sidebar border-sidebar-border text-sidebar-foreground placeholder:text-sidebar-foreground/50"
                   />
                   {errors.proxyHost && (
                     <p className="text-destructive text-sm">
-                      {errors.proxyHost.message}
+                      {t(errors.proxyHost.message ?? '')}
                     </p>
                   )}
                 </div>
 
                 {/* Proxy Port */}
                 <div className="space-y-2">
-                  <Label htmlFor="proxyPort">Porta do Proxy</Label>
+                  <Label htmlFor="proxyPort">{t('instanceSettings.field.proxyPort')}</Label>
                   <Input
                     id="proxyPort"
                     type="text"
-                    placeholder="ex: 8080"
+                    placeholder={t('instanceSettings.create.proxyPortPlaceholder')}
                     disabled={isLoading}
                     {...register('proxyPort')}
                     className="bg-sidebar border-sidebar-border text-sidebar-foreground placeholder:text-sidebar-foreground/50"
                   />
                   {errors.proxyPort && (
                     <p className="text-destructive text-sm">
-                      {errors.proxyPort.message}
+                      {t(errors.proxyPort.message ?? '')}
                     </p>
                   )}
                 </div>
 
                 {/* Proxy Username */}
                 <div className="space-y-2">
-                  <Label htmlFor="proxyUsername">Usuário (Opcional)</Label>
+                  <Label htmlFor="proxyUsername">{t('instanceSettings.field.proxyUsername')}</Label>
                   <Input
                     id="proxyUsername"
                     type="text"
-                    placeholder="Usuário do proxy"
+                    placeholder={t('instanceSettings.create.proxyUsernamePlaceholder')}
                     disabled={isLoading}
                     {...register('proxyUsername')}
                     className="bg-sidebar border-sidebar-border text-sidebar-foreground placeholder:text-sidebar-foreground/50"
                   />
                   {errors.proxyUsername && (
                     <p className="text-destructive text-sm">
-                      {errors.proxyUsername.message}
+                      {t(errors.proxyUsername.message ?? '')}
                     </p>
                   )}
                 </div>
 
                 {/* Proxy Password */}
                 <div className="space-y-2">
-                  <Label htmlFor="proxyPassword">Senha (Opcional)</Label>
+                  <Label htmlFor="proxyPassword">{t('instanceSettings.field.proxyPassword')}</Label>
                   <Input
                     id="proxyPassword"
                     type="password"
-                    placeholder="Senha do proxy"
+                    placeholder={t('instanceSettings.create.proxyPasswordPlaceholder')}
                     disabled={isLoading}
                     {...register('proxyPassword')}
                     className="bg-sidebar border-sidebar-border text-sidebar-foreground placeholder:text-sidebar-foreground/50"
                   />
                   {errors.proxyPassword && (
                     <p className="text-destructive text-sm">
-                      {errors.proxyPassword.message}
+                      {t(errors.proxyPassword.message ?? '')}
                     </p>
                   )}
                 </div>
@@ -289,18 +293,18 @@ export default function CreateInstanceModal({
               disabled={isLoading}
               className="bg-sidebar border-sidebar-border text-sidebar-foreground hover:bg-sidebar-accent"
             >
-              Cancelar
+              {t('common.cancel')}
             </Button>
             <Button type="submit" disabled={isLoading}>
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Criando...
+                  {t('instanceSettings.create.submitting')}
                 </>
               ) : (
                 <>
                   <Plus className="mr-2 h-4 w-4" />
-                  Criar Instância
+                  {t('instanceSettings.create.submit')}
                 </>
               )}
             </Button>

@@ -5,6 +5,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui';
 import type { Instance } from '@/types/instance';
+import { useI18n } from '@/i18n/I18nContext';
 
 interface ConnectConfigModalProps {
   open: boolean;
@@ -59,6 +60,7 @@ const availableEvents = [
 ];
 
 function ConnectConfigModal({ open, onClose, instance, onConfirm }: ConnectConfigModalProps) {
+  const { t } = useI18n();
   const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showEvents, setShowEvents] = useState(false);
@@ -144,7 +146,7 @@ function ConnectConfigModal({ open, onClose, instance, onConfirm }: ConnectConfi
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            Configurar Conexão - {instance.instanceName}
+            {t('modals.connectConfigTitle', { name: instance.instanceName })}
           </DialogTitle>
         </DialogHeader>
 
@@ -155,12 +157,12 @@ function ConnectConfigModal({ open, onClose, instance, onConfirm }: ConnectConfi
               htmlFor="webhookUrl"
               className="mb-1 block text-sm font-medium text-foreground"
             >
-              Webhook URL (opcional)
+              {t('modals.webhookUrlOptional')}
             </label>
             <input
               id="webhookUrl"
               type="url"
-              placeholder="https://seu-servidor.com/webhook"
+              placeholder={t('modals.webhookUrlPlaceholder')}
               {...register('webhookUrl')}
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
@@ -179,7 +181,7 @@ function ConnectConfigModal({ open, onClose, instance, onConfirm }: ConnectConfi
               className="flex items-center gap-2 text-sm font-medium text-foreground hover:text-primary"
             >
               {showEvents ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-              Eventos para Webhook ({selectedEvents.length} selecionados)
+              {t('modals.eventsForWebhook', { count: selectedEvents.length })}
             </button>
 
             {showEvents && (
@@ -190,14 +192,14 @@ function ConnectConfigModal({ open, onClose, instance, onConfirm }: ConnectConfi
                     onClick={selectAllEvents}
                     className="text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90"
                   >
-                    Selecionar ALL
+                    {t('modals.selectAllEvents')}
                   </button>
                   <button
                     type="button"
                     onClick={clearAllEvents}
                     className="text-xs px-2 py-1 rounded border border-input hover:bg-accent"
                   >
-                    Limpar
+                    {t('modals.clear')}
                   </button>
                 </div>
 
@@ -213,7 +215,7 @@ function ConnectConfigModal({ open, onClose, instance, onConfirm }: ConnectConfi
                     <div className="flex-1">
                       <span className="text-sm font-semibold text-primary">ALL</span>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        Seleciona todos os eventos (recomendado)
+                        {t('modals.allEventsHint')}
                       </p>
                     </div>
                   </label>
@@ -221,7 +223,7 @@ function ConnectConfigModal({ open, onClose, instance, onConfirm }: ConnectConfi
 
                 {/* Individual Events */}
                 <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground mb-2">Eventos Individuais:</p>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">{t('modals.individualEvents')}</p>
                   <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
                     {availableEvents.filter(e => e !== 'ALL').map((event) => (
                       <label
@@ -252,7 +254,7 @@ function ConnectConfigModal({ open, onClose, instance, onConfirm }: ConnectConfi
               htmlFor="phone"
               className="mb-1 block text-sm font-medium text-foreground"
             >
-              Telefone para Pairing Code (opcional)
+              {t('modals.phonePairingOptional')}
             </label>
             <input
               id="phone"
@@ -262,7 +264,7 @@ function ConnectConfigModal({ open, onClose, instance, onConfirm }: ConnectConfi
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              Se fornecido, será gerado um código de pareamento (pairing code)
+              {t('modals.phonePairingHint')}
             </p>
           </div>
 
@@ -274,22 +276,22 @@ function ConnectConfigModal({ open, onClose, instance, onConfirm }: ConnectConfi
               className="flex items-center gap-2 text-sm font-medium text-foreground hover:text-primary"
             >
               {showAdvanced ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-              Configurações Avançadas
+              {t('modals.advancedSettings')}
             </button>
 
             {showAdvanced && (
               <div className="mt-2 space-y-4 rounded-md border border-input p-4">
                 {/* Behavior Settings */}
                 <div className="space-y-3">
-                  <h3 className="text-sm font-semibold text-foreground">Comportamento</h3>
+                  <h3 className="text-sm font-semibold text-foreground">{t('modals.behavior')}</h3>
 
                   <div className="flex items-center justify-between">
                     <div>
                       <label htmlFor="alwaysOnline" className="text-sm font-medium text-foreground cursor-pointer">
-                        Always Online
+                        {t('modals.alwaysOnline')}
                       </label>
                       <p className="text-xs text-muted-foreground">
-                        Manter sempre online no WhatsApp
+                        {t('modals.alwaysOnlineHint')}
                       </p>
                     </div>
                     <input
@@ -303,10 +305,10 @@ function ConnectConfigModal({ open, onClose, instance, onConfirm }: ConnectConfi
                   <div className="flex items-center justify-between">
                     <div>
                       <label htmlFor="rejectCall" className="text-sm font-medium text-foreground cursor-pointer">
-                        Reject Call
+                        {t('modals.rejectCall')}
                       </label>
                       <p className="text-xs text-muted-foreground">
-                        Rejeitar chamadas automaticamente
+                        {t('modals.rejectCallHint')}
                       </p>
                     </div>
                     <input
@@ -320,10 +322,10 @@ function ConnectConfigModal({ open, onClose, instance, onConfirm }: ConnectConfi
                   <div className="flex items-center justify-between">
                     <div>
                       <label htmlFor="readMessages" className="text-sm font-medium text-foreground cursor-pointer">
-                        Read Messages
+                        {t('modals.readMessages')}
                       </label>
                       <p className="text-xs text-muted-foreground">
-                        Marcar mensagens como lidas
+                        {t('modals.readMessagesHint')}
                       </p>
                     </div>
                     <input
@@ -337,10 +339,10 @@ function ConnectConfigModal({ open, onClose, instance, onConfirm }: ConnectConfi
                   <div className="flex items-center justify-between">
                     <div>
                       <label htmlFor="ignoreGroups" className="text-sm font-medium text-foreground cursor-pointer">
-                        Ignore Groups
+                        {t('modals.ignoreGroups')}
                       </label>
                       <p className="text-xs text-muted-foreground">
-                        Ignorar mensagens de grupos
+                        {t('modals.ignoreGroupsHint')}
                       </p>
                     </div>
                     <input
@@ -354,10 +356,10 @@ function ConnectConfigModal({ open, onClose, instance, onConfirm }: ConnectConfi
                   <div className="flex items-center justify-between">
                     <div>
                       <label htmlFor="ignoreStatus" className="text-sm font-medium text-foreground cursor-pointer">
-                        Ignore Status
+                        {t('modals.ignoreStatus')}
                       </label>
                       <p className="text-xs text-muted-foreground">
-                        Ignorar atualizações de status
+                        {t('modals.ignoreStatusHint')}
                       </p>
                     </div>
                     <input
@@ -371,7 +373,7 @@ function ConnectConfigModal({ open, onClose, instance, onConfirm }: ConnectConfi
 
                 {/* Event Producers */}
                 <div className="space-y-3 pt-3 border-t border-input">
-                  <h3 className="text-sm font-semibold text-foreground">Produtores de Eventos</h3>
+                  <h3 className="text-sm font-semibold text-foreground">{t('modals.eventProducers')}</h3>
 
                   <div>
                     <label
@@ -385,9 +387,9 @@ function ConnectConfigModal({ open, onClose, instance, onConfirm }: ConnectConfi
                       {...register('rabbitmqEnable')}
                       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                     >
-                      <option value="">Padrão</option>
-                      <option value="enabled">Habilitado</option>
-                      <option value="disabled">Desabilitado</option>
+                      <option value="">{t('modals.optionDefault')}</option>
+                      <option value="enabled">{t('modals.optionEnabled')}</option>
+                      <option value="disabled">{t('modals.optionDisabled')}</option>
                     </select>
                   </div>
 
@@ -403,9 +405,9 @@ function ConnectConfigModal({ open, onClose, instance, onConfirm }: ConnectConfi
                       {...register('websocketEnable')}
                       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                     >
-                      <option value="">Padrão</option>
-                      <option value="enabled">Habilitado</option>
-                      <option value="disabled">Desabilitado</option>
+                      <option value="">{t('modals.optionDefault')}</option>
+                      <option value="enabled">{t('modals.optionEnabled')}</option>
+                      <option value="disabled">{t('modals.optionDisabled')}</option>
                     </select>
                   </div>
 
@@ -421,9 +423,9 @@ function ConnectConfigModal({ open, onClose, instance, onConfirm }: ConnectConfi
                       {...register('natsEnable')}
                       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                     >
-                      <option value="">Padrão</option>
-                      <option value="enabled">Habilitado</option>
-                      <option value="disabled">Desabilitado</option>
+                      <option value="">{t('modals.optionDefault')}</option>
+                      <option value="enabled">{t('modals.optionEnabled')}</option>
+                      <option value="disabled">{t('modals.optionDisabled')}</option>
                     </select>
                   </div>
                 </div>
@@ -437,13 +439,13 @@ function ConnectConfigModal({ open, onClose, instance, onConfirm }: ConnectConfi
               onClick={handleClose}
               className="flex-1 rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
             >
-              Cancelar
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
               className="flex-1 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
             >
-              Conectar
+              {t('modals.connect')}
             </button>
           </div>
         </form>

@@ -17,6 +17,7 @@ import useAuth from '@/hooks/useAuth';
 import { useDarkMode } from '@/hooks/useDarkMode';
 import GithubIcon from '@/components/base/GithubIcon';
 import { REPO } from '@/constants/branding';
+import { useI18n } from '@/i18n/I18nContext';
 
 // (the repository link comes from @/constants/branding)
 
@@ -104,6 +105,7 @@ export default function Dashboard() {
     useInstances();
   const { apiUrl, apiKey } = useAuth();
   const { theme } = useDarkMode();
+  const { t } = useI18n();
 
   // The embedded dashboard only makes sense once credentials are available.
   // Derived rather than stored, so the effect below has no state to set.
@@ -178,15 +180,15 @@ export default function Dashboard() {
       : undefined;
   const loadTitle =
     load1 !== undefined
-      ? `Load average (1 min): média de tarefas executáveis (rodando ou na fila). ${load1.toFixed(2)}` +
+      ? t('dashboard.loadTitle', { load1: load1.toFixed(2) }) +
         (loadPct !== undefined
-          ? ` em ${cpus} CPUs ≈ ${loadPct}% da capacidade`
+          ? t('dashboard.loadTitleCapacity', { cpus, loadPct })
           : '') +
         (system.loadAvg5 !== undefined
-          ? ` · 5m ${system.loadAvg5.toFixed(2)}`
+          ? t('dashboard.loadTitle5m', { load5: system.loadAvg5.toFixed(2) })
           : '') +
         (system.loadAvg15 !== undefined
-          ? ` · 15m ${system.loadAvg15.toFixed(2)}`
+          ? t('dashboard.loadTitle15m', { load15: system.loadAvg15.toFixed(2) })
           : '')
       : undefined;
 
@@ -196,16 +198,18 @@ export default function Dashboard() {
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+            <h1 className="text-2xl font-bold text-foreground">
+              {t('sidebar.dashboard')}
+            </h1>
             <p className="text-sm text-muted-foreground">
-              Visão geral do sistema e das instâncias
+              {t('dashboard.subtitle')}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {deviceName && (
               <span
                 className="inline-flex items-center gap-2 rounded-md border border-sidebar-border bg-sidebar px-3 py-2 text-xs text-muted-foreground"
-                title="Nome exibido como aparelho conectado no WhatsApp (OS_NAME)"
+                title={t('dashboard.deviceNameTitle')}
               >
                 <Smartphone className="h-3.5 w-3.5" />
                 {deviceName}
@@ -213,17 +217,19 @@ export default function Dashboard() {
             )}
             <span className="inline-flex items-center gap-2 rounded-md border border-sidebar-border bg-sidebar px-3 py-2 text-xs text-muted-foreground">
               <Server className="h-3.5 w-3.5" />
-              {system.version ? `versão ${system.version}` : 'versão —'}
+              {system.version
+                ? t('sidebar.version', { version: system.version })
+                : t('sidebar.versionEmpty')}
             </span>
             <a
               href={REPO}
               target="_blank"
               rel="noreferrer noopener"
               className="inline-flex items-center gap-2 rounded-md border border-sidebar-border bg-sidebar px-3 py-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
-              title="Repositório do projeto"
+              title={t('sidebar.repoTitle')}
             >
               <GithubIcon className="h-3.5 w-3.5" />
-              GitHub
+              {t('sidebar.github')}
             </a>
           </div>
         </div>
@@ -238,28 +244,34 @@ export default function Dashboard() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Kpi
             icon={Layers}
-            label="Instâncias"
+            label={t('sidebar.instances')}
             value={fmtNumber(total)}
-            sub={`${connected} conectada(s)`}
+            sub={t('dashboard.connectedCount', { count: connected })}
           />
           <Kpi
             icon={Activity}
-            label="Conectadas"
+            label={t('dashboard.kpiConnected')}
             value={fmtNumber(connected)}
-            sub={total ? `${Math.round((connected / total) * 100)}% do total` : '—'}
+            sub={
+              total
+                ? t('dashboard.percentOfTotal', {
+                    pct: Math.round((connected / total) * 100),
+                  })
+                : '—'
+            }
             tone="green"
           />
           <Kpi
             icon={Mail}
-            label="Mensagens"
+            label={t('sidebar.messages')}
             value={fmtNumber(messages.total)}
-            sub="salvas no banco"
+            sub={t('dashboard.savedInDb')}
           />
           <Kpi
             icon={Users}
-            label="Contatos"
+            label={t('dashboard.kpiContacts')}
             value={fmtNumber(contacts)}
-            sub="somando instâncias conectadas"
+            sub={t('dashboard.summingConnected')}
           />
         </div>
 
@@ -267,7 +279,7 @@ export default function Dashboard() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Kpi
             icon={HardDrive}
-            label="RAM do host"
+            label={t('dashboard.kpiHostRam')}
             value={
               system.hostMemUsedPct !== undefined
                 ? `${Math.round(system.hostMemUsedPct)}%`
@@ -276,12 +288,12 @@ export default function Dashboard() {
             sub={
               system.hostMemTotalMB !== undefined
                 ? `${fmtMB((system.hostMemTotalMB || 0) - (system.hostMemAvailableMB || 0))} / ${fmtMB(system.hostMemTotalMB)}`
-                : 'host indisponível'
+                : t('dashboard.hostUnavailable')
             }
           />
           <Kpi
             icon={Cpu}
-            label="Carga (1m)"
+            label={t('dashboard.kpiLoad')}
             value={
               loadPct !== undefined
                 ? `${loadPct}%`
@@ -292,19 +304,19 @@ export default function Dashboard() {
             sub={
               load1 !== undefined
                 ? `${load1.toFixed(2)} / ${fmtNumber(system.numCpu)} CPUs`
-                : 'load indisponível'
+                : t('dashboard.loadUnavailable')
             }
             title={loadTitle}
           />
           <Kpi
             icon={Activity}
-            label="Goroutines"
+            label={t('dashboard.kpiGoroutines')}
             value={fmtNumber(system.goroutines)}
-            sub={`heap ${fmtMB(system.heapInuseMB)}`}
+            sub={t('dashboard.heapValue', { size: fmtMB(system.heapInuseMB) })}
           />
           <Kpi
             icon={Server}
-            label="Uptime"
+            label={t('dashboard.kpiUptime')}
             value={fmtUptime(system.uptimeSeconds)}
             sub={system.goVersion || '—'}
           />
@@ -314,7 +326,7 @@ export default function Dashboard() {
         <div className="rounded-xl border border-sidebar-border bg-sidebar p-4">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-foreground">
-              Armazenamento
+              {t('dashboard.storageTitle')}
             </h2>
             <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
           </div>
@@ -323,7 +335,7 @@ export default function Dashboard() {
               <div>
                 <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
                   <span className="text-muted-foreground">
-                    Disco{' '}
+                    {t('dashboard.disk')}{' '}
                     <span className="font-mono text-xs">
                       {storage.diskPath}
                     </span>
@@ -343,34 +355,41 @@ export default function Dashboard() {
             )}
             <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
               <StorageRow
-                label="Dados"
+                label={t('dashboard.storageData')}
                 hint={storage.dataDir}
                 value={
                   storage.dataUsedMB !== undefined
-                    ? `${fmtMB(storage.dataUsedMB)} · ${fmtNumber(storage.dataFiles)} arquivo(s)`
+                    ? t('dashboard.dataFilesValue', {
+                        size: fmtMB(storage.dataUsedMB),
+                        count: fmtNumber(storage.dataFiles),
+                      })
                     : undefined
                 }
               />
               <StorageRow
-                label="Banco de dados"
-                hint="PostgreSQL"
+                label={t('dashboard.storageDatabase')}
+                hint={t('dashboard.postgresql')}
                 value={
                   storage.dbTotalMB !== undefined
                     ? `${fmtMB(storage.dbTotalMB)}${
                         storage.dbMessagesMB
-                          ? ` · messages ${fmtMB(storage.dbMessagesMB)}`
+                          ? ` · ${t('dashboard.dbMessagesLabel')} ${fmtMB(storage.dbMessagesMB)}`
                           : ''
                       }`
                     : undefined
                 }
               />
               <StorageRow
-                label="Mídia"
-                value={storage.mediaEnabled ? storage.mediaBackend : 'não configurada'}
+                label={t('dashboard.storageMedia')}
+                value={
+                  storage.mediaEnabled
+                    ? storage.mediaBackend
+                    : t('dashboard.mediaNotConfigured')
+                }
                 hint={
                   storage.mediaEnabled
-                    ? 'arquivos enviados/recebidos'
-                    : 'mídia não é gravada localmente'
+                    ? t('dashboard.mediaFilesHint')
+                    : t('dashboard.mediaDisabledHint')
                 }
               />
             </dl>
@@ -381,7 +400,7 @@ export default function Dashboard() {
         <div className="rounded-xl border border-sidebar-border bg-sidebar p-4">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-foreground">
-              Mensagens por dia
+              {t('dashboard.messagesPerDay')}
             </h2>
             {loading && (
               <RefreshCw className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
@@ -389,7 +408,7 @@ export default function Dashboard() {
           </div>
           {byDay.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Sem dados. Ative DATABASE_SAVE_MESSAGES para registrar mensagens.
+              {t('dashboard.noMessagesData')}
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -434,10 +453,10 @@ export default function Dashboard() {
           <>
             <div className="rounded-xl border border-sidebar-border bg-sidebar p-4 md:hidden">
               <h2 className="text-sm font-semibold text-foreground">
-                Dashboard completo
+                {t('dashboard.fullDashboard')}
               </h2>
               <p className="mt-1 text-xs text-muted-foreground">
-                Gráficos, conversas mais ativas, instâncias e logs.
+                {t('dashboard.fullDashboardDesc')}
               </p>
               <a
                 href={`/dashboard?theme=${theme}`}
@@ -446,13 +465,13 @@ export default function Dashboard() {
                 className="mt-3 inline-flex items-center gap-2 rounded-md border border-sidebar-border px-3 py-2 text-xs text-foreground transition-colors hover:bg-sidebar-accent"
               >
                 <ExternalLink className="h-3.5 w-3.5" />
-                Abrir dashboard completo
+                {t('dashboard.openFullDashboard')}
               </a>
             </div>
             <div className="hidden overflow-hidden rounded-xl border border-sidebar-border bg-sidebar md:block">
               <iframe
                 src={`/dashboard?embed=1&theme=${theme}`}
-                title="Dashboard completo"
+                title={t('dashboard.fullDashboard')}
                 className="h-[70vh] w-full border-0"
               />
             </div>

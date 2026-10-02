@@ -14,7 +14,15 @@ export const LANGUAGES: { id: Lang; label: string }[] = [
   { id: 'en', label: 'English' },
 ];
 
-const pt: Record<string, string> = {
+import { dashboardNs } from './namespaces/dashboard';
+import { instancesNs } from './namespaces/instances';
+import { messagesNs } from './namespaces/messages';
+import { instanceSettingsNs } from './namespaces/instanceSettings';
+import { apiTesterNs } from './namespaces/apiTester';
+import { modalsNs } from './namespaces/modals';
+import { legalNs } from './namespaces/legal';
+
+const basePt: Record<string, string> = {
   'common.cancel': 'Cancelar',
   'common.close': 'Fechar',
   'common.confirm': 'Confirmar',
@@ -109,9 +117,23 @@ const pt: Record<string, string> = {
   'about.projectBody':
     'Servidor auto-hospedado com painel versionado, correções de segurança, auditoria da API do whatsmeow e recursos extras (visão por instância, proxy, timer de mensagens temporárias, Typebot, dashboard). O que mudou está em FORK_NOTES.md e CHANGELOG.md.',
   'about.repo': 'Repositório do projeto',
+
+  'common.navigationMenu': 'Menu de navegação',
+  'legal.backToLogin': 'Voltar para o login',
+  'legal.updatedAt': 'Última atualização: {date}',
+  'sendMessage.title': 'Enviar mensagem',
+  'sendMessage.number': 'Número (com DDI)',
+  'sendMessage.numberPlaceholder': '5511999999999',
+  'sendMessage.message': 'Mensagem',
+  'sendMessage.messagePlaceholder': 'Digite sua mensagem...',
+  'sendMessage.submit': 'Enviar',
+  'sendMessage.submitting': 'Enviando…',
+  'sendMessage.tokenMissing': 'Token da instância não encontrado',
+  'sendMessage.success': 'Mensagem enviada com sucesso!',
+  'sendMessage.error': 'Erro ao enviar mensagem',
 };
 
-const en: Record<string, string> = {
+const baseEn: Record<string, string> = {
   'common.cancel': 'Cancel',
   'common.close': 'Close',
   'common.confirm': 'Confirm',
@@ -206,6 +228,41 @@ const en: Record<string, string> = {
   'about.projectBody':
     'Self-hosted server with a versioned panel, security fixes, a whatsmeow API audit and extra features (per-instance overview, proxy, ephemeral-message timer, Typebot, dashboard). What changed is in FORK_NOTES.md and CHANGELOG.md.',
   'about.repo': 'Project repository',
+
+  'common.navigationMenu': 'Navigation menu',
+  'legal.backToLogin': 'Back to login',
+  'legal.updatedAt': 'Last updated: {date}',
+  'sendMessage.title': 'Send message',
+  'sendMessage.number': 'Number (with country code)',
+  'sendMessage.numberPlaceholder': '5511999999999',
+  'sendMessage.message': 'Message',
+  'sendMessage.messagePlaceholder': 'Type your message...',
+  'sendMessage.submit': 'Send',
+  'sendMessage.submitting': 'Sending…',
+  'sendMessage.tokenMissing': 'Instance token not found',
+  'sendMessage.success': 'Message sent successfully!',
+  'sendMessage.error': 'Error sending message',
 };
 
-export const translations: Record<Lang, Record<string, string>> = { pt, en };
+export const translations: Record<Lang, Record<string, string>> = {
+  pt: {
+    ...basePt,
+    ...dashboardNs.pt,
+    ...instancesNs.pt,
+    ...messagesNs.pt,
+    ...instanceSettingsNs.pt,
+    ...apiTesterNs.pt,
+    ...modalsNs.pt,
+    ...legalNs.pt,
+  },
+  en: {
+    ...baseEn,
+    ...dashboardNs.en,
+    ...instancesNs.en,
+    ...messagesNs.en,
+    ...instanceSettingsNs.en,
+    ...apiTesterNs.en,
+    ...modalsNs.en,
+    ...legalNs.en,
+  },
+};

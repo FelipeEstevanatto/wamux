@@ -14,6 +14,7 @@ import {
 } from '@/components/ui';
 import { QrCode, RefreshCw, X, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useI18n } from '@/i18n/I18nContext';
 import type { Instance } from '@/types/instance';
 
 interface QRCodeModalProps {
@@ -29,6 +30,7 @@ export default function QRCodeModal({
   onOpenChange,
   onRefresh,
 }: QRCodeModalProps) {
+  const { t } = useI18n();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // onRefresh lives in a ref and is kept OUT of the effect dependencies on
@@ -63,10 +65,10 @@ export default function QRCodeModal({
     setIsRefreshing(true);
     try {
       await onRefresh();
-      toast.success('QR Code atualizado!');
+      toast.success(t('messages.qrUpdated'));
     } catch (error) {
       console.error('Erro ao atualizar QR Code:', error);
-      toast.error('Erro ao atualizar QR Code');
+      toast.error(t('messages.qrUpdateError'));
     } finally {
       setIsRefreshing(false);
     }
@@ -82,10 +84,10 @@ export default function QRCodeModal({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-green-500">
               <CheckCircle2 className="h-5 w-5" />
-              Conectado com Sucesso!
+              {t('messages.connectedSuccessTitle')}
             </DialogTitle>
             <DialogDescription className="text-sidebar-foreground/70">
-              A instância {instance.instanceName} foi conectada ao WhatsApp.
+              {t('messages.connectedSuccessDesc', { name: instance.instanceName })}
             </DialogDescription>
           </DialogHeader>
 
@@ -96,7 +98,7 @@ export default function QRCodeModal({
             {instance.profileName && (
               <div className="text-center">
                 <p className="text-sm text-sidebar-foreground/60">
-                  Conectado como
+                  {t('messages.connectedAs')}
                 </p>
                 <p className="text-lg font-semibold text-sidebar-foreground">
                   {instance.profileName}
@@ -110,7 +112,7 @@ export default function QRCodeModal({
               onClick={() => onOpenChange(false)}
               className="w-full sm:w-auto"
             >
-              Fechar
+              {t('common.close')}
             </Button>
           </div>
         </DialogContent>
@@ -125,10 +127,10 @@ export default function QRCodeModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <QrCode className="h-5 w-5 text-primary" />
-            Conectar WhatsApp
+            {t('messages.connectTitle')}
           </DialogTitle>
           <DialogDescription className="text-sidebar-foreground/70">
-            Escaneie o QR Code abaixo com seu WhatsApp para conectar a instância{' '}
+            {t('messages.scanPrefix')}
             <strong>{instance.instanceName}</strong>
           </DialogDescription>
         </DialogHeader>
@@ -140,7 +142,7 @@ export default function QRCodeModal({
               <div className="rounded-lg border-2 border-sidebar-border bg-white p-4">
                 <img
                   src={instance.qrcode.base64}
-                  alt="QR Code"
+                  alt={t('messages.qrAlt')}
                   className="h-64 w-64"
                 />
               </div>
@@ -149,7 +151,7 @@ export default function QRCodeModal({
                 <div className="text-center">
                   <QrCode className="mx-auto h-12 w-12 text-sidebar-foreground/40" />
                   <p className="mt-2 text-sm text-sidebar-foreground/60">
-                    Aguardando QR Code...
+                    {t('messages.awaitingQr')}
                   </p>
                 </div>
               </div>
@@ -159,7 +161,7 @@ export default function QRCodeModal({
             {instance.qrcode?.pairingCode && (
               <div className="w-full rounded-lg bg-sidebar-accent p-3 text-center">
                 <p className="text-xs text-sidebar-foreground/60">
-                  Código de Pareamento
+                  {t('messages.pairingCode')}
                 </p>
                 <p className="mt-1 font-mono text-lg font-semibold text-sidebar-foreground">
                   {instance.qrcode.pairingCode}
@@ -171,14 +173,14 @@ export default function QRCodeModal({
           {/* Instructions */}
           <div className="rounded-lg bg-sidebar-accent p-4">
             <p className="text-sm font-medium text-sidebar-foreground">
-              Como conectar:
+              {t('messages.howToConnect')}
             </p>
             <ol className="mt-2 space-y-1 text-sm text-sidebar-foreground/70">
-              <li>1. Abra o WhatsApp no seu celular</li>
-              <li>2. Toque em Menu ou Configurações</li>
-              <li>3. Toque em Dispositivos conectados</li>
-              <li>4. Toque em Conectar um dispositivo</li>
-              <li>5. Aponte seu celular para esta tela para capturar o código</li>
+              <li>{t('messages.step1')}</li>
+              <li>{t('messages.step2')}</li>
+              <li>{t('messages.step3')}</li>
+              <li>{t('messages.step4')}</li>
+              <li>{t('messages.step5')}</li>
             </ol>
           </div>
 
@@ -193,12 +195,12 @@ export default function QRCodeModal({
               {isRefreshing ? (
                 <>
                   <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                  Atualizando...
+                  {t('messages.updating')}
                 </>
               ) : (
                 <>
                   <RefreshCw className="mr-2 h-4 w-4" />
-                  Atualizar QR Code
+                  {t('messages.updateQr')}
                 </>
               )}
             </Button>
