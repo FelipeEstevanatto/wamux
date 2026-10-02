@@ -1,41 +1,25 @@
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { fetchServerStats, type ServerStats } from '@/services/api/server';
 
 /**
- * System-wide metrics from GET /server/stats. Polls every `pollMs` when > 0
- * (0 = fetch once). Used by the sidebar (version) and the dashboard.
+ * System-wide metrics from GET /server/stats. Cached and shared through
+ * TanStack Query, so the sidebar and the dashboard mounting together issue a
+ * single request. Polls every `pollMs` when > 0 (0 = fetch once and rely on the
+ * cache).
  */
 export function useServerStats(pollMs = 0) {
-  const [stats, setStats] = useState<ServerStats | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const query = useQuery<ServerStats, Error>({
+    queryKey: ['server-stats'],
+    queryFn: fetchServerStats,
+    refetchInterval: pollMs > 0 ? pollMs : false,
+    staleTime: pollMs > 0 ? Math.max(1000, Math.floor(pollMs / 2)) : 30_000,
+  });
 
-  useEffect(() => {
-    let alive = true;
-
-    const load = async () => {
-      try {
-        const data = await fetchServerStats();
-        if (!alive) return;
-        setStats(data);
-        setError(null);
-      } catch (e) {
-        if (!alive) return;
-        setError(e instanceof Error ? e.message : 'Erro ao buscar métricas');
-      } finally {
-        if (alive) setLoading(false);
-      }
-    };
-
-    load();
-    const timer = pollMs > 0 ? setInterval(load, pollMs) : undefined;
-    return () => {
-      alive = false;
-      if (timer) clearInterval(timer);
-    };
-  }, [pollMs]);
-
-  return { stats, error, loading };
+  return {
+    stats: query.data ?? null,
+    error: query.error ? query.error.message : null,
+    loading: query.isLoading,
+  };
 }
 
 export default useServerStats;

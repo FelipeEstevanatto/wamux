@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
+import useConnectionStore from '@/store/connectionStore';
 
 /**
  * API Client configuration
@@ -59,6 +60,7 @@ apiClient.interceptors.request.use(
 // Response interceptor - Handle errors and authentication
 apiClient.interceptors.response.use(
   (response) => {
+    useConnectionStore.getState().setReconnecting(false);
     return response;
   },
   (error: AxiosError) => {
@@ -73,6 +75,7 @@ apiClient.interceptors.response.use(
     // Handle network errors
     if (!error.response) {
       console.error('Network error:', error.message);
+      useConnectionStore.getState().setReconnecting(true);
       return Promise.reject({
         message: 'Erro de conexão. Verifique sua internet e tente novamente.',
         originalError: error,
