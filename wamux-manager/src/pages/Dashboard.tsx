@@ -12,7 +12,7 @@ import {
   Users,
 } from 'lucide-react';
 import useServerStats from '@/hooks/useServerStats';
-import useInstancesStore from '@/store/instancesStore';
+import useInstances from '@/hooks/useInstances';
 import useAuth from '@/hooks/useAuth';
 import { useDarkMode } from '@/hooks/useDarkMode';
 import GithubIcon from '@/components/base/GithubIcon';
@@ -101,7 +101,7 @@ function StorageRow({
 export default function Dashboard() {
   const { stats, error, loading } = useServerStats(15000);
   const { instances, fetchInstances, overviews, fetchOverviews } =
-    useInstancesStore();
+    useInstances();
   const { apiUrl, apiKey } = useAuth();
   const { theme } = useDarkMode();
 
