@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import useAuth from '@/hooks/useAuth';
 import useInstances from '@/hooks/useInstances';
+import { useI18n } from '@/i18n/I18nContext';
 
 type OpenApiParameter = {
   name: string;
@@ -174,6 +175,7 @@ type ExecResult = {
 };
 
 function ApiTester() {
+  const { t } = useI18n();
   const { apiUrl, apiKey: globalApiKey } = useAuth();
   const { instances, fetchInstances } = useInstances();
 
@@ -213,13 +215,11 @@ function ApiTester() {
       setSpec(res.data);
     } catch (err) {
       console.error('Failed to load swagger spec:', err);
-      setSpecError(
-        'Nao foi possivel carregar /swagger/doc.json. Verifique se o servidor esta online.',
-      );
+      setSpecError(t('apiTester.specError'));
     } finally {
       setLoadingSpec(false);
     }
-  }, [apiUrl]);
+  }, [apiUrl, t]);
 
   useEffect(() => {
     // Loading starts synchronously (setLoadingSpec) and the rest resolves in the
@@ -249,13 +249,13 @@ function ApiTester() {
           path,
           method: method.toUpperCase(),
           operation: op,
-          tag: op.tags?.[0] || 'Outros',
+          tag: op.tags?.[0] || t('apiTester.otherTag'),
           key: `${method.toUpperCase()} ${path}`,
         });
       }
     }
     return out.sort((a, b) => a.tag.localeCompare(b.tag) || a.path.localeCompare(b.path));
-  }, [spec]);
+  }, [spec, t]);
 
   const filteredEndpoints = useMemo(() => {
     if (!query.trim()) return endpoints;
@@ -386,7 +386,7 @@ function ApiTester() {
   const handleExecute = async () => {
     if (!selected) return;
     if (!apiUrl) {
-      toast.error('apiUrl nao definida no store');
+      toast.error(t('apiTester.apiUrlMissing'));
       return;
     }
 
@@ -411,7 +411,7 @@ function ApiTester() {
         bodyParsed = JSON.parse(bodyText);
         headers['Content-Type'] = headers['Content-Type'] || 'application/json';
       } catch {
-        setResultError('Body nao e um JSON valido.');
+        setResultError(t('apiTester.invalidJsonBody'));
         setExecuting(false);
         return;
       }
@@ -459,8 +459,11 @@ function ApiTester() {
     } catch (err: unknown) {
       const durationMs = Math.round(performance.now() - started);
       const msg =
-        (err as { message?: string })?.message || 'Erro de rede desconhecido';
-      setResultError(`${msg} (em ${durationMs}ms)`);
+        (err as { message?: string })?.message ||
+        t('apiTester.unknownNetworkError');
+      setResultError(
+        t('apiTester.networkErrorWithDuration', { message: msg, ms: durationMs }),
+      );
     } finally {
       setExecuting(false);
     }
@@ -473,12 +476,12 @@ function ApiTester() {
         <div className="border-b border-sidebar-border p-3">
           <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
             <Code2 className="h-4 w-4 text-purple-500" />
-            Endpoints
+            {t('apiTester.endpoints')}
             <button
               type="button"
               onClick={loadSpec}
               className="ml-auto rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-              title="Recarregar swagger"
+              title={t('apiTester.reloadSwagger')}
             >
               <RefreshCcw className="h-3.5 w-3.5" />
             </button>
@@ -487,7 +490,7 @@ function ApiTester() {
             <SearchIcon className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Filtrar por path, metodo, tag..."
+              placeholder={t('apiTester.filterPlaceholder')}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="w-full rounded-md border border-input bg-background py-1.5 pl-8 pr-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -499,7 +502,7 @@ function ApiTester() {
           {loadingSpec && (
             <div className="p-4 text-center text-sm text-muted-foreground">
               <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin" />
-              Carregando swagger...
+              {t('apiTester.loadingSwagger')}
             </div>
           )}
           {specError && (
@@ -509,7 +512,7 @@ function ApiTester() {
           )}
           {!loadingSpec && !specError && groupedEndpoints.length === 0 && (
             <p className="p-4 text-center text-xs text-muted-foreground">
-              Nenhum endpoint encontrado.
+              {t('apiTester.noEndpoints')}
             </p>
           )}
 
@@ -555,7 +558,7 @@ function ApiTester() {
         {!selected ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 text-muted-foreground">
             <FileJson className="h-10 w-10" />
-            <p className="text-sm">Selecione um endpoint a esquerda.</p>
+            <p className="text-sm">{t('apiTester.selectEndpoint')}</p>
           </div>
         ) : (
           <div className="flex flex-1 flex-col overflow-hidden">
@@ -580,12 +583,12 @@ function ApiTester() {
                   {executing ? (
                     <>
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      Executando...
+                      {t('apiTester.executing')}
                     </>
                   ) : (
                     <>
                       <Play className="h-3.5 w-3.5" />
-                      Executar
+                      {t('apiTester.execute')}
                     </>
                   )}
                 </button>
@@ -605,7 +608,7 @@ function ApiTester() {
                   <div className="rounded-md border border-sidebar-border p-3">
                     <label className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground">
                       <KeyRound className="h-3.5 w-3.5 text-amber-500" />
-                      Autenticacao (header apikey)
+                      {t('apiTester.authHeader')}
                     </label>
                     <div className="mb-2 flex gap-2">
                       {(['global', 'instance', 'custom'] as ApikeyMode[]).map(
@@ -627,10 +630,10 @@ function ApiTester() {
                               className="mr-1"
                             />
                             {m === 'global'
-                              ? 'Global'
+                              ? t('apiTester.modeGlobal')
                               : m === 'instance'
-                                ? 'Instancia'
-                                : 'Custom'}
+                                ? t('apiTester.modeInstance')
+                                : t('apiTester.modeCustom')}
                           </label>
                         ),
                       )}
@@ -642,11 +645,13 @@ function ApiTester() {
                         onChange={(e) => setSelectedInstanceId(e.target.value)}
                         className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground"
                       >
-                        <option value="">-- selecione uma instancia --</option>
+                        <option value="">{t('apiTester.selectInstance')}</option>
                         {instances.map((inst) => (
                           <option key={inst.instanceName} value={inst.apikey}>
                             {inst.instanceName}{' '}
-                            {inst.status === 'open' ? '(conectada)' : '(off)'}
+                            {inst.status === 'open'
+                              ? t('apiTester.instanceConnected')
+                              : t('apiTester.instanceOff')}
                           </option>
                         ))}
                       </select>
@@ -654,7 +659,7 @@ function ApiTester() {
                     {apikeyMode === 'custom' && (
                       <input
                         type="text"
-                        placeholder="Cole a apikey aqui..."
+                        placeholder={t('apiTester.apikeyPlaceholder')}
                         value={customApikey}
                         onChange={(e) => setCustomApikey(e.target.value)}
                         className="w-full rounded-md border border-input bg-background px-2 py-1.5 font-mono text-xs text-foreground placeholder:text-muted-foreground"
@@ -664,7 +669,7 @@ function ApiTester() {
                       <p className="font-mono text-[11px] text-muted-foreground">
                         {globalApiKey
                           ? `${globalApiKey.slice(0, 6)}...${globalApiKey.slice(-4)}`
-                          : '(nenhuma no store)'}
+                          : t('apiTester.noStoreApikey')}
                       </p>
                     )}
                   </div>
@@ -673,7 +678,7 @@ function ApiTester() {
                   {Object.keys(pathParams).length > 0 && (
                     <div>
                       <h3 className="mb-1.5 text-xs font-semibold text-foreground">
-                        Path parameters
+                        {t('apiTester.pathParameters')}
                       </h3>
                       <div className="space-y-1.5">
                         {Object.keys(pathParams).map((name) => (
@@ -703,7 +708,7 @@ function ApiTester() {
                   {Object.keys(queryParams).length > 0 && (
                     <div>
                       <h3 className="mb-1.5 text-xs font-semibold text-foreground">
-                        Query parameters
+                        {t('apiTester.queryParameters')}
                       </h3>
                       <div className="space-y-1.5">
                         {Object.keys(queryParams).map((name) => (
@@ -735,7 +740,7 @@ function ApiTester() {
                     <div>
                       <div className="mb-1.5 flex items-center justify-between">
                         <h3 className="text-xs font-semibold text-foreground">
-                          Body (JSON)
+                          {t('apiTester.bodyJson')}
                         </h3>
                         <button
                           type="button"
@@ -744,12 +749,12 @@ function ApiTester() {
                               const parsed = JSON.parse(bodyText);
                               setBodyText(JSON.stringify(parsed, null, 2));
                             } catch {
-                              toast.error('Body atual nao e um JSON valido.');
+                              toast.error(t('apiTester.invalidJsonFormat'));
                             }
                           }}
                           className="rounded px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
                         >
-                          Formatar
+                          {t('apiTester.format')}
                         </button>
                       </div>
                       <textarea
@@ -765,12 +770,12 @@ function ApiTester() {
                   {/* Custom headers */}
                   <div>
                     <h3 className="mb-1.5 text-xs font-semibold text-foreground">
-                      Headers extras (JSON ou Key: value por linha)
+                      {t('apiTester.extraHeaders')}
                     </h3>
                     <textarea
                       rows={4}
                       spellCheck={false}
-                      placeholder='{"X-Custom-Header": "valor"}'
+                      placeholder={t('apiTester.extraHeadersPlaceholder')}
                       value={customHeaders}
                       onChange={(e) => setCustomHeaders(e.target.value)}
                       className="w-full rounded-md border border-input bg-background px-2 py-1.5 font-mono text-[11px] text-foreground placeholder:text-muted-foreground"
@@ -781,7 +786,7 @@ function ApiTester() {
                   {selected.operation.description && (
                     <div className="rounded-md border border-sidebar-border bg-sidebar/40 p-3">
                       <h3 className="mb-1 text-xs font-semibold text-foreground">
-                        Descricao
+                        {t('apiTester.description')}
                       </h3>
                       <pre className="whitespace-pre-wrap text-[11px] leading-relaxed text-foreground/85">
                         {selected.operation.description}
@@ -795,7 +800,7 @@ function ApiTester() {
               <div className="overflow-y-auto p-5">
                 <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
                   <FileJson className="h-4 w-4 text-blue-500" />
-                  Resposta
+                  {t('apiTester.response')}
                 </h3>
                 {resultError && (
                   <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
@@ -804,7 +809,9 @@ function ApiTester() {
                 )}
                 {!result && !resultError && (
                   <p className="text-xs text-muted-foreground">
-                    Clique em "Executar" para ver a resposta aqui.
+                    {t('apiTester.clickExecuteHint', {
+                      action: t('apiTester.execute'),
+                    })}
                   </p>
                 )}
                 {result && (
@@ -832,7 +839,7 @@ function ApiTester() {
 
                     <div>
                       <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Request
+                        {t('apiTester.request')}
                       </p>
                       <pre className="max-h-48 overflow-auto rounded-md border border-sidebar-border bg-sidebar/40 p-2 font-mono text-[11px] leading-relaxed text-foreground">
                         {pretty({
@@ -846,7 +853,7 @@ function ApiTester() {
 
                     <div>
                       <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Response headers
+                        {t('apiTester.responseHeaders')}
                       </p>
                       <pre className="max-h-32 overflow-auto rounded-md border border-sidebar-border bg-sidebar/40 p-2 font-mono text-[11px] leading-relaxed text-foreground">
                         {pretty(result.headers)}
@@ -855,7 +862,7 @@ function ApiTester() {
 
                     <div>
                       <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Response body
+                        {t('apiTester.responseBody')}
                       </p>
                       <pre className="max-h-[40vh] overflow-auto rounded-md border border-sidebar-border bg-sidebar/40 p-2 font-mono text-[11px] leading-relaxed text-foreground">
                         {pretty(result.data)}

@@ -1,0 +1,197 @@
+/** Translation namespace for the Messages page + QR modal. Prefixed keys. */
+export const messagesNs: {
+  pt: Record<string, string>;
+  en: Record<string, string>;
+} = {
+  pt: {
+    'messages.title': 'Mensagens',
+    'messages.refresh': 'Atualizar',
+    'messages.loadingInstances': 'Carregando instâncias…',
+    'messages.noConnectedInstance':
+      'Nenhuma instância conectada. Conecte uma instância para ver as conversas.',
+
+    'messages.filterPlaceholder': 'Filtrar conversas…',
+    'messages.newChatPlaceholder': 'Nova conversa (número)',
+    'messages.open': 'Abrir',
+    'messages.contacts': 'Contatos',
+    'messages.recover': 'Recuperar',
+    'messages.recoverTitle':
+      'Pede ao WhatsApp as mensagens antigas. Requer a opção de guardar mensagens (DATABASE_SAVE_MESSAGES) para aparecerem aqui.',
+    'messages.loadingContacts': 'Carregando contatos…',
+    'messages.noContacts': 'Nenhum contato conhecido ainda.',
+    'messages.noChats': 'Sem conversas salvas. Inicie uma acima.',
+
+    'messages.sectionContacts': 'Contatos',
+    'messages.sectionGroups': 'Grupos',
+    'messages.sectionChannels': 'Canais',
+
+    'messages.chatFallback': 'Conversa',
+    'messages.chatGroup': 'Grupo {id}',
+    'messages.chatChannel': 'Canal {id}',
+    'messages.chatLid': 'LID {id}',
+
+    'messages.selectChat': 'Selecione uma conversa ou inicie uma nova.',
+    'messages.messageCount': '{count} mensagens',
+    'messages.noMessages': 'Nenhuma mensagem ainda. Envie a primeira abaixo.',
+    'messages.loadOlder': 'Carregar antigas',
+    'messages.messagePlaceholder': 'Digite uma mensagem…',
+    'messages.send': 'Enviar',
+    'messages.removeAttachment': 'Remover anexo',
+    'messages.attachTitle': 'Anexar foto, vídeo ou documento',
+    'messages.youPrefix': 'Você: ',
+
+    'messages.mediaFallback': 'mídia',
+    'messages.fileFallback': 'arquivo',
+    'messages.mediaLoading': 'Carregando {type}…',
+    'messages.mediaNotStored': '— arquivo não armazenado (apenas enviado ao webhook)',
+    'messages.openFile': 'Abrir {type}',
+
+    'messages.errorLoadChats': 'Não foi possível carregar as conversas',
+    'messages.errorLoadHistory': 'Não foi possível carregar o histórico',
+    'messages.errorLoadOlder': 'Não foi possível carregar mensagens antigas',
+    'messages.errorLoadContacts': 'Não foi possível carregar os contatos',
+    'messages.errorNoChatToRecover': 'Abra uma conversa para recuperar o histórico dela',
+    'messages.syncRequested':
+      'Sincronização solicitada. As mensagens antigas chegam em instantes.',
+    'messages.errorSync': 'Não foi possível solicitar a sincronização',
+    'messages.errorSend': 'Não foi possível enviar a mensagem',
+
+    'messages.wsConnectedTitle': 'Atualizações em tempo real conectadas',
+    'messages.wsConnectingTitle': 'Conectando ao tempo real…',
+    'messages.wsOfflineTitle': 'Tempo real offline — reconectando',
+    'messages.wsConnected': 'Tempo real',
+    'messages.wsConnecting': 'Conectando…',
+    'messages.wsOffline': 'Offline',
+    'messages.wsDisabledTitle':
+      'Esta instância está com o WebSocket desabilitado, então o servidor não publica eventos em tempo real. Habilite em Instâncias → Configurar → WebSocket = Habilitado.',
+    'messages.wsDisabled': 'Tempo real desabilitado na instância',
+
+    'messages.mediaLocalDisabledPre': 'O armazenamento local de anexos está ',
+    'messages.mediaLocalDisabledStrong': 'desativado',
+    'messages.and': 'e',
+    'messages.mediaLocalDisabledMid':
+      '). Arquivos enviados e recebidos não são guardados em disco, então não há pré-visualização aqui — eles são apenas encaminhados ao webhook. Para ver os arquivos, defina ',
+    'messages.mediaLocalDisabledEnd': '.',
+
+    'messages.historyDisabledPre': 'O histórico de mensagens está ',
+    'messages.historyDisabledStrong': 'desativado',
+    'messages.historyDisabledMid': '). As conversas e o botão ',
+    'messages.historyDisabledEnd': ' não terão o que mostrar aqui. Defina ',
+    'messages.historyDisabledSuffix': ' para habilitar.',
+
+    'messages.qrUpdated': 'QR Code atualizado!',
+    'messages.qrUpdateError': 'Erro ao atualizar QR Code',
+    'messages.connectedSuccessTitle': 'Conectado com Sucesso!',
+    'messages.connectedSuccessDesc': 'A instância {name} foi conectada ao WhatsApp.',
+    'messages.connectedAs': 'Conectado como',
+    'messages.connectTitle': 'Conectar WhatsApp',
+    'messages.scanPrefix':
+      'Escaneie o QR Code abaixo com seu WhatsApp para conectar a instância ',
+    'messages.qrAlt': 'QR Code',
+    'messages.awaitingQr': 'Aguardando QR Code...',
+    'messages.pairingCode': 'Código de Pareamento',
+    'messages.howToConnect': 'Como conectar:',
+    'messages.step1': '1. Abra o WhatsApp no seu celular',
+    'messages.step2': '2. Toque em Menu ou Configurações',
+    'messages.step3': '3. Toque em Dispositivos conectados',
+    'messages.step4': '4. Toque em Conectar um dispositivo',
+    'messages.step5': '5. Aponte seu celular para esta tela para capturar o código',
+    'messages.updating': 'Atualizando...',
+    'messages.updateQr': 'Atualizar QR Code',
+  },
+  en: {
+    'messages.title': 'Messages',
+    'messages.refresh': 'Refresh',
+    'messages.loadingInstances': 'Loading instances…',
+    'messages.noConnectedInstance':
+      'No connected instance. Connect an instance to view conversations.',
+
+    'messages.filterPlaceholder': 'Filter conversations…',
+    'messages.newChatPlaceholder': 'New conversation (number)',
+    'messages.open': 'Open',
+    'messages.contacts': 'Contacts',
+    'messages.recover': 'Recover',
+    'messages.recoverTitle':
+      'Requests old messages from WhatsApp. Requires the save-messages option (DATABASE_SAVE_MESSAGES) for them to appear here.',
+    'messages.loadingContacts': 'Loading contacts…',
+    'messages.noContacts': 'No known contacts yet.',
+    'messages.noChats': 'No saved conversations. Start one above.',
+
+    'messages.sectionContacts': 'Contacts',
+    'messages.sectionGroups': 'Groups',
+    'messages.sectionChannels': 'Channels',
+
+    'messages.chatFallback': 'Conversation',
+    'messages.chatGroup': 'Group {id}',
+    'messages.chatChannel': 'Channel {id}',
+    'messages.chatLid': 'LID {id}',
+
+    'messages.selectChat': 'Select a conversation or start a new one.',
+    'messages.messageCount': '{count} messages',
+    'messages.noMessages': 'No messages yet. Send the first one below.',
+    'messages.loadOlder': 'Load older',
+    'messages.messagePlaceholder': 'Type a message…',
+    'messages.send': 'Send',
+    'messages.removeAttachment': 'Remove attachment',
+    'messages.attachTitle': 'Attach photo, video or document',
+    'messages.youPrefix': 'You: ',
+
+    'messages.mediaFallback': 'media',
+    'messages.fileFallback': 'file',
+    'messages.mediaLoading': 'Loading {type}…',
+    'messages.mediaNotStored': '— file not stored (only forwarded to the webhook)',
+    'messages.openFile': 'Open {type}',
+
+    'messages.errorLoadChats': 'Could not load conversations',
+    'messages.errorLoadHistory': 'Could not load history',
+    'messages.errorLoadOlder': 'Could not load older messages',
+    'messages.errorLoadContacts': 'Could not load contacts',
+    'messages.errorNoChatToRecover': 'Open a conversation to recover its history',
+    'messages.syncRequested': 'Sync requested. Older messages will arrive shortly.',
+    'messages.errorSync': 'Could not request the sync',
+    'messages.errorSend': 'Could not send the message',
+
+    'messages.wsConnectedTitle': 'Real-time updates connected',
+    'messages.wsConnectingTitle': 'Connecting to real time…',
+    'messages.wsOfflineTitle': 'Real time offline — reconnecting',
+    'messages.wsConnected': 'Real time',
+    'messages.wsConnecting': 'Connecting…',
+    'messages.wsOffline': 'Offline',
+    'messages.wsDisabledTitle':
+      'This instance has WebSocket disabled, so the server does not publish real-time events. Enable it in Instances → Configure → WebSocket = Enabled.',
+    'messages.wsDisabled': 'Real time disabled on the instance',
+
+    'messages.mediaLocalDisabledPre': 'Local attachment storage is ',
+    'messages.mediaLocalDisabledStrong': 'disabled',
+    'messages.and': 'and',
+    'messages.mediaLocalDisabledMid':
+      '). Sent and received files are not saved to disk, so there is no preview here — they are only forwarded to the webhook. To see the files, set ',
+    'messages.mediaLocalDisabledEnd': '.',
+
+    'messages.historyDisabledPre': 'Message history is ',
+    'messages.historyDisabledStrong': 'disabled',
+    'messages.historyDisabledMid': '). Conversations and the ',
+    'messages.historyDisabledEnd': ' button will have nothing to show here. Set ',
+    'messages.historyDisabledSuffix': ' to enable it.',
+
+    'messages.qrUpdated': 'QR Code updated!',
+    'messages.qrUpdateError': 'Error updating QR Code',
+    'messages.connectedSuccessTitle': 'Connected successfully!',
+    'messages.connectedSuccessDesc': 'Instance {name} was connected to WhatsApp.',
+    'messages.connectedAs': 'Connected as',
+    'messages.connectTitle': 'Connect WhatsApp',
+    'messages.scanPrefix':
+      'Scan the QR Code below with your WhatsApp to connect the instance ',
+    'messages.qrAlt': 'QR Code',
+    'messages.awaitingQr': 'Waiting for QR Code...',
+    'messages.pairingCode': 'Pairing Code',
+    'messages.howToConnect': 'How to connect:',
+    'messages.step1': '1. Open WhatsApp on your phone',
+    'messages.step2': '2. Tap Menu or Settings',
+    'messages.step3': '3. Tap Linked devices',
+    'messages.step4': '4. Tap Link a device',
+    'messages.step5': '5. Point your phone at this screen to capture the code',
+    'messages.updating': 'Updating...',
+    'messages.updateQr': 'Update QR Code',
+  },
+};

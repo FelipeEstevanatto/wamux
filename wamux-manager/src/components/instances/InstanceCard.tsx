@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import type { Instance, InstanceOverview } from "@/types/instance";
 import { deviceLabel } from "@/utils/device";
+import { useI18n } from "@/i18n/I18nContext";
 
 type InstanceCardProps = {
   instance: Instance;
@@ -32,18 +33,18 @@ type InstanceCardProps = {
   onTestMessage?: (instance: Instance) => void;
 };
 
-const getStatusBadge = (status: string) => {
+const getStatusBadge = (status: string, t: (key: string) => string) => {
   if (status === "open") {
     return (
       <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">
-        Conectado
+        {t("instances.connected")}
       </Badge>
     );
   }
 
   return (
     <Badge className="bg-red-500/10 text-red-500 hover:bg-red-500/20">
-      Desconectado
+      {t("instances.disconnected")}
     </Badge>
   );
 };
@@ -72,6 +73,7 @@ export default function InstanceCard({
   onSendMessage,
   onTestMessage,
 }: InstanceCardProps) {
+  const { t } = useI18n();
   const isConnected = instance.status === "open";
   const displayName =
     overview?.profileName || instance.profileName || instance.instanceName;
@@ -111,18 +113,18 @@ export default function InstanceCard({
             </p>
           </div>
 
-          <div className="shrink-0">{getStatusBadge(instance.status)}</div>
+          <div className="shrink-0">{getStatusBadge(instance.status, t)}</div>
         </div>
 
         {/* Details section */}
         <div className="px-4 py-3 text-xs text-sidebar-foreground/70 space-y-1">
           <div className="flex items-center justify-between">
-            <span>Status</span>
+            <span>{t("instances.status")}</span>
             <span className="font-mono">{instance.status}</span>
           </div>
           {instance.owner && (
             <div className="flex items-center justify-between">
-              <span>Proprietário</span>
+              <span>{t("instances.owner")}</span>
               <span className="font-mono truncate ml-2 max-w-[150px]">
                 {instance.owner}
               </span>
@@ -131,7 +133,7 @@ export default function InstanceCard({
           {deviceLabel(overview?.platform) && (
             <div className="flex items-center justify-between">
               <span className="inline-flex items-center gap-1">
-                <Smartphone className="h-3 w-3" /> Aparelho
+                <Smartphone className="h-3 w-3" /> {t("instances.device")}
               </span>
               <span className="truncate ml-2 max-w-[150px]">
                 {deviceLabel(overview?.platform)}
@@ -141,11 +143,11 @@ export default function InstanceCard({
           {instance.osName && (
             <div className="flex items-center justify-between">
               <span className="inline-flex items-center gap-1">
-                <Link2 className="h-3 w-3" /> Dispositivo vinculado
+                <Link2 className="h-3 w-3" /> {t("instances.linkedDevice")}
               </span>
               <span
                 className="truncate ml-2 max-w-[150px]"
-                title="Nome exibido como aparelho conectado no WhatsApp"
+                title={t("instances.linkedDeviceTitle")}
               >
                 {instance.osName}
               </span>
@@ -154,7 +156,7 @@ export default function InstanceCard({
           {instance.clientName && (
             <div className="flex items-center justify-between">
               <span className="inline-flex items-center gap-1">
-                <Tag className="h-3 w-3" /> Cliente
+                <Tag className="h-3 w-3" /> {t("instances.client")}
               </span>
               <span className="truncate ml-2 max-w-[150px]">
                 {instance.clientName}
@@ -165,7 +167,7 @@ export default function InstanceCard({
           {/* Counts from GET /instance/overview/:id (connected instances only) */}
           <div className="flex items-center justify-between">
             <span className="inline-flex items-center gap-1">
-              <Users className="h-3 w-3" /> Contatos
+              <Users className="h-3 w-3" /> {t("instances.contacts")}
             </span>
             <span className="font-mono">
               {isConnected ? formatCount(overview?.contactsCount) : "—"}
@@ -173,7 +175,7 @@ export default function InstanceCard({
           </div>
           <div className="flex items-center justify-between">
             <span className="inline-flex items-center gap-1">
-              <MessageSquare className="h-3 w-3" /> Conversas
+              <MessageSquare className="h-3 w-3" /> {t("instances.chats")}
             </span>
             <span className="font-mono">
               {isConnected ? formatCount(overview?.chatsCount) : "—"}
@@ -181,7 +183,7 @@ export default function InstanceCard({
           </div>
           <div className="flex items-center justify-between">
             <span className="inline-flex items-center gap-1">
-              <Mail className="h-3 w-3" /> Mensagens
+              <Mail className="h-3 w-3" /> {t("instances.messages")}
             </span>
             <span className="font-mono">
               {isConnected ? formatCount(overview?.messagesCount) : "—"}
@@ -202,10 +204,10 @@ export default function InstanceCard({
               variant="ghost"
               className="h-12 shrink-0 rounded-none px-3 text-green-500 hover:bg-green-500/10 hover:text-green-400 sm:px-4"
               onClick={() => onConnect(instance)}
-              title="Conectar instância"
+              title={t("instances.connectTitle")}
             >
               <Power className="mr-2 h-4 w-4 shrink-0" />
-              Conectar
+              {t("instances.connect")}
             </Button>
           )}
 
@@ -214,10 +216,10 @@ export default function InstanceCard({
               variant="ghost"
               className="h-12 shrink-0 rounded-none px-3 text-yellow-500 hover:bg-yellow-500/10 hover:text-yellow-400 sm:px-4"
               onClick={() => onDisconnect(instance)}
-              title="Desconectar instância"
+              title={t("instances.disconnectTitle")}
             >
               <PowerOff className="mr-2 h-4 w-4 shrink-0" />
-              Desconectar
+              {t("instances.disconnect")}
             </Button>
           )}
 
@@ -230,8 +232,8 @@ export default function InstanceCard({
                 variant="ghost"
                 className="h-12 shrink-0 rounded-none px-3 text-blue-500 hover:bg-blue-500/10 hover:text-blue-400"
                 onClick={() => onSendMessage(instance)}
-                title="Enviar mensagem de texto"
-                aria-label="Enviar mensagem de texto"
+                title={t("instances.sendMessage")}
+                aria-label={t("instances.sendMessage")}
               >
                 <MessageSquare className="h-4 w-4" />
               </Button>
@@ -246,8 +248,8 @@ export default function InstanceCard({
                 variant="ghost"
                 className="h-12 shrink-0 rounded-none px-3 text-purple-500 hover:bg-purple-500/10 hover:text-purple-400"
                 onClick={() => onTestMessage(instance)}
-                title="Testar botões, lista e carrossel"
-                aria-label="Testar botões, lista e carrossel"
+                title={t("instances.testMessage")}
+                aria-label={t("instances.testMessage")}
               >
                 <FlaskConical className="h-4 w-4" />
               </Button>
@@ -260,8 +262,8 @@ export default function InstanceCard({
             variant="ghost"
             className="h-12 shrink-0 rounded-none px-3 text-gray-500 hover:bg-gray-500/10 hover:text-gray-300"
             onClick={() => onSettings(instance)}
-            title="Configurações da instância"
-            aria-label="Configurações da instância"
+            title={t("instances.settings")}
+            aria-label={t("instances.settings")}
           >
             <Settings className="h-4 w-4" />
           </Button>
@@ -277,8 +279,8 @@ export default function InstanceCard({
             className="h-12 shrink-0 rounded-none px-3 text-red-500 hover:bg-red-500/10 hover:text-red-400"
             disabled={isDeleting === instance.instanceName}
             onClick={() => onDelete(instance)}
-            title="Excluir instância"
-            aria-label="Excluir instância"
+            title={t("instances.deleteTitle")}
+            aria-label={t("instances.deleteTitle")}
           >
             <Trash2 className="h-4 w-4" />
           </Button>

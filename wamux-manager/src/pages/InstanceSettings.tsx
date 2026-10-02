@@ -10,9 +10,10 @@ import * as instancesApi from "@/services/api/instances";
 import type { Instance, InstanceOverview, ProxyConfig, ProxyTestResult } from "@/types/instance";
 import { deviceLabel } from "@/utils/device";
 import { updateInstanceInCache } from '@/hooks/useInstances';
+import { useI18n } from '@/i18n/I18nContext';
 
 const webhookSchema = z.object({
-  webhookUrl: z.string().url("URL inválida").optional().or(z.literal("")),
+  webhookUrl: z.string().url("instanceSettings.validation.invalidUrl").optional().or(z.literal("")),
   subscribe: z.array(z.string()).optional(),
   rabbitmqEnable: z.string().optional(),
   websocketEnable: z.string().optional(),
@@ -56,6 +57,7 @@ const availableEvents = [
 ];
 
 export default function InstanceSettings() {
+  const { t } = useI18n();
   const { instanceId } = useParams<{ instanceId: string }>();
   const navigate = useNavigate();
   const [instance, setInstance] = useState<Instance | null>(null);
@@ -127,7 +129,7 @@ export default function InstanceSettings() {
         }
       } catch (error) {
         console.error("Erro ao buscar instância:", error);
-        toast.error("Erro ao carregar dados da instância");
+        toast.error(t('instanceSettings.toast.loadError'));
       } finally {
         setIsLoading(false);
       }
@@ -192,7 +194,7 @@ export default function InstanceSettings() {
 
   const onSubmitWebhook = async (data: WebhookFormData) => {
     if (!instance?.apikey || !instanceId) {
-      toast.error("Token da instância não encontrado");
+      toast.error(t('instanceSettings.toast.tokenNotFound'));
       return;
     }
 
@@ -207,7 +209,7 @@ export default function InstanceSettings() {
       };
 
       await instancesApi.connectInstance(instance.apikey, config);
-      toast.success("Configurações de webhook atualizadas!");
+      toast.success(t('instanceSettings.toast.webhookUpdated'));
 
       // Refetch instance data
       const updatedInstance = await instancesApi.fetchInstance(instanceId);
@@ -215,7 +217,7 @@ export default function InstanceSettings() {
     } catch (error) {
       console.error("Erro ao atualizar webhook:", error);
       toast.error(
-        error instanceof Error ? error.message : "Erro ao atualizar webhook"
+        error instanceof Error ? error.message : t('instanceSettings.toast.webhookUpdateError')
       );
     } finally {
       setIsSaving(false);
@@ -224,7 +226,7 @@ export default function InstanceSettings() {
 
   const onSubmitAdvanced = async (data: AdvancedFormData) => {
     if (!instance?.apikey || !instance?.id || !instanceId) {
-      toast.error("Token da instância não encontrado");
+      toast.error(t('instanceSettings.toast.tokenNotFound'));
       return;
     }
 
@@ -235,7 +237,7 @@ export default function InstanceSettings() {
         instance.apikey,
         data
       );
-      toast.success("Configurações avançadas atualizadas!");
+      toast.success(t('instanceSettings.toast.advancedUpdated'));
 
       // Refetch instance data
       const updatedInstance = await instancesApi.fetchInstance(instanceId);
@@ -245,7 +247,7 @@ export default function InstanceSettings() {
       toast.error(
         error instanceof Error
           ? error.message
-          : "Erro ao atualizar configurações"
+          : t('instanceSettings.toast.advancedUpdateError')
       );
     } finally {
       setIsSaving(false);
@@ -254,48 +256,48 @@ export default function InstanceSettings() {
 
   const handleDisconnect = async () => {
     if (!instance?.apikey || !instanceId) {
-      toast.error("Token da instância não encontrado");
+      toast.error(t('instanceSettings.toast.tokenNotFound'));
       return;
     }
 
     try {
-      toast.info(`Desconectando ${instance.instanceName}...`);
+      toast.info(t('instanceSettings.toast.disconnecting', { name: instance.instanceName }));
       await instancesApi.logoutInstance(instance.apikey);
 
       // Refetch instance data
       const updatedInstance = await instancesApi.fetchInstance(instanceId);
       setInstance(updatedInstance);
 
-      toast.success(`${instance.instanceName} desconectada!`);
+      toast.success(t('instanceSettings.toast.disconnected', { name: instance.instanceName }));
     } catch (error) {
       console.error("Erro ao desconectar instância:", error);
       toast.error(
-        error instanceof Error ? error.message : "Erro ao desconectar instância"
+        error instanceof Error ? error.message : t('instanceSettings.toast.disconnectError')
       );
     }
   };
 
   const handleDelete = async () => {
     if (!instance?.id) {
-      toast.error("ID da instância não encontrado");
+      toast.error(t('instanceSettings.toast.idNotFound'));
       return;
     }
 
     const confirmed = window.confirm(
-      `Tem certeza que deseja deletar a instância ${instance.instanceName}? Esta ação não pode ser desfeita.`
+      t('instanceSettings.confirm.delete', { name: instance.instanceName })
     );
 
     if (!confirmed) return;
 
     try {
-      toast.info(`Deletando ${instance.instanceName}...`);
+      toast.info(t('instanceSettings.toast.deleting', { name: instance.instanceName }));
       await instancesApi.deleteInstance(instance.id);
-      toast.success(`${instance.instanceName} deletada!`);
+      toast.success(t('instanceSettings.toast.deleted', { name: instance.instanceName }));
       navigate("/manager/instances");
     } catch (error) {
       console.error("Erro ao deletar instância:", error);
       toast.error(
-        error instanceof Error ? error.message : "Erro ao deletar instância"
+        error instanceof Error ? error.message : t('instanceSettings.toast.deleteError')
       );
     }
   };
@@ -305,10 +307,10 @@ export default function InstanceSettings() {
     try {
       await navigator.clipboard.writeText(instance.apikey);
       setCopied(true);
-      toast.success("Token copiado!");
+      toast.success(t('instanceSettings.toast.tokenCopied'));
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error("Não foi possível copiar o token");
+      toast.error(t('instanceSettings.toast.copyError'));
     }
   };
 
@@ -328,7 +330,7 @@ export default function InstanceSettings() {
 
     const name = nameDraft.trim();
     if (!name) {
-      toast.error("Informe um nome para a instância");
+      toast.error(t('instanceSettings.toast.nameRequired'));
       return;
     }
     if (name === instance?.instanceName) {
@@ -350,11 +352,11 @@ export default function InstanceSettings() {
       }
       setIsEditingName(false);
       setNameDraft("");
-      toast.success("Nome da instância atualizado!");
+      toast.success(t('instanceSettings.toast.renamed'));
     } catch (error) {
       console.error("Erro ao renomear instância:", error);
       toast.error(
-        error instanceof Error ? error.message : "Erro ao renomear instância"
+        error instanceof Error ? error.message : t('instanceSettings.toast.renameError')
       );
     } finally {
       setIsRenaming(false);
@@ -367,7 +369,7 @@ export default function InstanceSettings() {
   const handleSaveProxy = async () => {
     if (!instanceId) return;
     if (!proxyForm.host.trim() || !proxyForm.port.trim()) {
-      toast.error("Informe host e porta do proxy");
+      toast.error(t('instanceSettings.toast.proxyHostPortRequired'));
       return;
     }
     setProxyBusy("save");
@@ -375,9 +377,9 @@ export default function InstanceSettings() {
       await instancesApi.setProxy(instanceId, proxyForm);
       const saved = await instancesApi.getProxy(instanceId);
       setProxy(saved);
-      toast.success("Proxy salvo!");
+      toast.success(t('instanceSettings.toast.proxySaved'));
     } catch (e) {
-      toast.error(proxyErrorMessage(e, "Erro ao salvar proxy"));
+      toast.error(proxyErrorMessage(e, t('instanceSettings.toast.proxySaveError')));
     } finally {
       setProxyBusy(null);
     }
@@ -394,10 +396,10 @@ export default function InstanceSettings() {
         proxyForm.host.trim() ? proxyForm : undefined
       );
       setProxyTest(result);
-      if (result.ok) toast.success("Proxy respondeu");
-      else toast.error(result.error || "Proxy não respondeu");
+      if (result.ok) toast.success(t('instanceSettings.toast.proxyOk'));
+      else toast.error(result.error || t('instanceSettings.toast.proxyNoResponse'));
     } catch (e) {
-      toast.error(proxyErrorMessage(e, "Erro ao testar proxy"));
+      toast.error(proxyErrorMessage(e, t('instanceSettings.toast.proxyTestError')));
     } finally {
       setProxyBusy(null);
     }
@@ -408,9 +410,9 @@ export default function InstanceSettings() {
     setProxyBusy("reconnect");
     try {
       await instancesApi.reconnectProxy(instanceId);
-      toast.success("Reconectando através do proxy...");
+      toast.success(t('instanceSettings.toast.proxyReconnecting'));
     } catch (e) {
-      toast.error(proxyErrorMessage(e, "Erro ao reconectar pelo proxy"));
+      toast.error(proxyErrorMessage(e, t('instanceSettings.toast.proxyReconnectError')));
     } finally {
       setProxyBusy(null);
     }
@@ -418,16 +420,16 @@ export default function InstanceSettings() {
 
   const handleDeleteProxy = async () => {
     if (!instanceId) return;
-    if (!window.confirm("Remover a configuração de proxy desta instância?")) return;
+    if (!window.confirm(t('instanceSettings.confirm.removeProxy'))) return;
     setProxyBusy("delete");
     try {
       await instancesApi.deleteProxy(instanceId);
       setProxy(null);
       setProxyForm(emptyProxy);
       setProxyTest(null);
-      toast.success("Proxy removido!");
+      toast.success(t('instanceSettings.toast.proxyRemoved'));
     } catch (e) {
-      toast.error(proxyErrorMessage(e, "Erro ao remover proxy"));
+      toast.error(proxyErrorMessage(e, t('instanceSettings.toast.proxyRemoveError')));
     } finally {
       setProxyBusy(null);
     }
@@ -437,7 +439,7 @@ export default function InstanceSettings() {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
-          <p className="text-muted-foreground">Carregando...</p>
+          <p className="text-muted-foreground">{t('common.loading')}</p>
         </div>
       </div>
     );
@@ -448,14 +450,14 @@ export default function InstanceSettings() {
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
           <h2 className="text-xl font-semibold text-foreground mb-2">
-            Instância não encontrada
+            {t('instanceSettings.notFoundTitle')}
           </h2>
           <p className="text-muted-foreground mb-4">
-            A instância "{instanceId}" não foi encontrada.
+            {t('instanceSettings.notFoundDescription', { id: instanceId ?? '' })}
           </p>
           <Button onClick={() => navigate("/manager/instances")}>
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar para Instâncias
+            {t('instanceSettings.backToInstances')}
           </Button>
         </div>
       </div>
@@ -472,15 +474,15 @@ export default function InstanceSettings() {
               variant="ghost"
               size="icon"
               onClick={() => navigate("/manager/instances")}
-              title="Voltar para Instâncias"
-              aria-label="Voltar para Instâncias"
+              title={t('instanceSettings.backToInstances')}
+              aria-label={t('instanceSettings.backToInstances')}
               className="text-sidebar-foreground hover:bg-sidebar-accent"
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
               <h1 className="text-2xl font-bold text-foreground">
-                Configurações
+                {t('instanceSettings.pageTitle')}
               </h1>
               <p className="text-sm text-muted-foreground">
                 {instance.instanceName}
@@ -496,13 +498,13 @@ export default function InstanceSettings() {
           {/* Instance Info Card */}
           <div className="rounded-lg border border-sidebar-border bg-card p-6">
             <h2 className="text-lg font-semibold text-foreground mb-4">
-              Informações da Instância
+              {t('instanceSettings.info.title')}
             </h2>
             <div className="space-y-4">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="text-sm font-medium text-foreground">
-                    Nome da Instância
+                    {t('instanceSettings.field.instanceName')}
                   </label>
                   {isEditingName ? (
                     <div className="mt-1 flex items-center gap-2">
@@ -527,7 +529,7 @@ export default function InstanceSettings() {
                         size="icon"
                         onClick={handleRename}
                         disabled={isRenaming}
-                        title="Salvar nome"
+                        title={t('instanceSettings.action.saveName')}
                       >
                         <Check className="h-4 w-4" />
                       </Button>
@@ -537,7 +539,7 @@ export default function InstanceSettings() {
                         variant="ghost"
                         onClick={cancelEditName}
                         disabled={isRenaming}
-                        title="Cancelar"
+                        title={t('common.cancel')}
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -551,7 +553,7 @@ export default function InstanceSettings() {
                         type="button"
                         onClick={startEditName}
                         className="text-muted-foreground hover:text-foreground transition-colors"
-                        title="Editar nome"
+                        title={t('instanceSettings.action.editName')}
                       >
                         <Pencil size={16} />
                       </button>
@@ -560,7 +562,7 @@ export default function InstanceSettings() {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-foreground">
-                    Token da Instância
+                    {t('instanceSettings.field.instanceToken')}
                   </label>
                   <div className="mt-1 flex min-w-0 items-center gap-2">
                     <p className="min-w-0 flex-1 break-all text-sm text-muted-foreground font-mono">
@@ -570,7 +572,7 @@ export default function InstanceSettings() {
                       type="button"
                       onClick={() => setShowToken(!showToken)}
                       className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-                      title={showToken ? "Ocultar token" : "Mostrar token"}
+                      title={showToken ? t('instanceSettings.action.hideToken') : t('instanceSettings.action.showToken')}
                     >
                       {showToken ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
@@ -578,7 +580,7 @@ export default function InstanceSettings() {
                       type="button"
                       onClick={handleCopyToken}
                       className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-                      title="Copiar token"
+                      title={t('instanceSettings.action.copyToken')}
                     >
                       {copied ? (
                         <Check size={18} className="text-green-500" />
@@ -590,16 +592,16 @@ export default function InstanceSettings() {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-foreground">
-                    Status
+                    {t('instanceSettings.field.status')}
                   </label>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {instance.status === "open" ? "Conectado" : "Desconectado"}
+                    {instance.status === "open" ? t('instanceSettings.status.connected') : t('instanceSettings.status.disconnected')}
                   </p>
                 </div>
                 {instance.owner && (
                   <div>
                     <label className="text-sm font-medium text-foreground">
-                      Número
+                      {t('instanceSettings.field.number')}
                     </label>
                     <p className="mt-1 text-sm text-muted-foreground">
                       {instance.owner}
@@ -609,7 +611,7 @@ export default function InstanceSettings() {
                 {instance.profileName && (
                   <div>
                     <label className="text-sm font-medium text-foreground">
-                      Nome do Perfil
+                      {t('instanceSettings.field.profileName')}
                     </label>
                     <p className="mt-1 text-sm text-muted-foreground">
                       {instance.profileName}
@@ -619,7 +621,7 @@ export default function InstanceSettings() {
                 {deviceLabel(overview?.platform) && (
                   <div>
                     <label className="text-sm font-medium text-foreground">
-                      Dispositivo
+                      {t('instanceSettings.field.device')}
                     </label>
                     <p className="mt-1 text-sm text-muted-foreground">
                       {deviceLabel(overview?.platform)}
@@ -629,7 +631,7 @@ export default function InstanceSettings() {
                 {overview?.businessName && (
                   <div>
                     <label className="text-sm font-medium text-foreground">
-                      Nome comercial
+                      {t('instanceSettings.field.businessName')}
                     </label>
                     <p className="mt-1 text-sm text-muted-foreground">
                       {overview.businessName}
@@ -644,7 +646,7 @@ export default function InstanceSettings() {
           <form onSubmit={handleSubmitWebhook(onSubmitWebhook)}>
             <div className="rounded-lg border border-sidebar-border bg-card p-6">
               <h2 className="text-lg font-semibold text-foreground mb-4">
-                Configurações de Webhook
+                {t('instanceSettings.webhook.title')}
               </h2>
               <div className="space-y-4">
                 <div>
@@ -652,29 +654,29 @@ export default function InstanceSettings() {
                     htmlFor="webhookUrl"
                     className="block text-sm font-medium text-foreground mb-1"
                   >
-                    URL do Webhook
+                    {t('instanceSettings.webhook.url')}
                   </label>
                   <input
                     id="webhookUrl"
                     type="url"
-                    placeholder="https://seu-servidor.com/webhook"
+                    placeholder={t('instanceSettings.webhook.urlPlaceholder')}
                     {...registerWebhook("webhookUrl")}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   />
                   {webhookErrors.webhookUrl && (
                     <p className="mt-1 text-sm text-destructive">
-                      {webhookErrors.webhookUrl.message}
+                      {t(webhookErrors.webhookUrl.message ?? '')}
                     </p>
                   )}
                   <p className="mt-1 text-xs text-muted-foreground">
-                    URL que receberá os eventos do WhatsApp
+                    {t('instanceSettings.webhook.urlHelp')}
                   </p>
                 </div>
 
                 {/* Events Selection */}
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">
-                    Eventos para Webhook
+                    {t('instanceSettings.webhook.events')}
                   </label>
                   <div className="space-y-2 rounded-md border border-input p-3 max-h-60 overflow-y-auto">
                     {/* ALL Option */}
@@ -687,7 +689,7 @@ export default function InstanceSettings() {
                           className="rounded border-input w-4 h-4"
                         />
                         <span className="text-sm font-semibold text-primary">
-                          ALL
+                          {t('instanceSettings.events.ALL')}
                         </span>
                       </label>
                     </div>
@@ -718,7 +720,7 @@ export default function InstanceSettings() {
                                   : "text-foreground"
                               }
                             >
-                            {event}
+                            {t(`instanceSettings.events.${event}`)}
                           </span>
                         </label>
                       ))}
@@ -740,9 +742,9 @@ export default function InstanceSettings() {
                       {...registerWebhook("rabbitmqEnable")}
                       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                     >
-                      <option value="">Padrão</option>
-                      <option value="enabled">Habilitado</option>
-                      <option value="disabled">Desabilitado</option>
+                      <option value="">{t('instanceSettings.option.default')}</option>
+                      <option value="enabled">{t('instanceSettings.option.enabled')}</option>
+                      <option value="disabled">{t('instanceSettings.option.disabled')}</option>
                     </select>
                   </div>
 
@@ -758,9 +760,9 @@ export default function InstanceSettings() {
                       {...registerWebhook("websocketEnable")}
                       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                     >
-                      <option value="">Padrão</option>
-                      <option value="enabled">Habilitado</option>
-                      <option value="disabled">Desabilitado</option>
+                      <option value="">{t('instanceSettings.option.default')}</option>
+                      <option value="enabled">{t('instanceSettings.option.enabled')}</option>
+                      <option value="disabled">{t('instanceSettings.option.disabled')}</option>
                     </select>
                   </div>
 
@@ -776,9 +778,9 @@ export default function InstanceSettings() {
                       {...registerWebhook("natsEnable")}
                       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                     >
-                      <option value="">Padrão</option>
-                      <option value="enabled">Habilitado</option>
-                      <option value="disabled">Desabilitado</option>
+                      <option value="">{t('instanceSettings.option.default')}</option>
+                      <option value="enabled">{t('instanceSettings.option.enabled')}</option>
+                      <option value="disabled">{t('instanceSettings.option.disabled')}</option>
                     </select>
                   </div>
                 </div>
@@ -786,7 +788,7 @@ export default function InstanceSettings() {
                 <div className="flex justify-end">
                   <Button type="submit" disabled={isSaving} className="gap-2">
                     <Save className="h-4 w-4" />
-                    {isSaving ? "Salvando..." : "Salvar Webhook"}
+                    {isSaving ? t('instanceSettings.action.saving') : t('instanceSettings.webhook.save')}
                   </Button>
                 </div>
               </div>
@@ -798,7 +800,7 @@ export default function InstanceSettings() {
             <div className="mb-4 flex items-center justify-between">
               <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
                 <Network className="h-5 w-5" />
-                Proxy
+                {t('instanceSettings.proxy.title')}
               </h2>
               <span
                 className={`rounded-full border px-2 py-0.5 text-xs ${
@@ -807,20 +809,19 @@ export default function InstanceSettings() {
                     : "border-sidebar-border text-muted-foreground"
                 }`}
               >
-                {proxy ? "Configurado" : "Não configurado"}
+                {proxy ? t('instanceSettings.proxy.configured') : t('instanceSettings.proxy.notConfigured')}
               </span>
             </div>
 
             <div className="space-y-4">
               <p className="text-xs text-muted-foreground">
-                Roteia a conexão WhatsApp da instância por um proxy. Salvar
-                aplica no próximo connect/reconnect.
+                {t('instanceSettings.proxy.description')}
               </p>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-sm font-medium text-foreground">
-                    Protocolo
+                    {t('instanceSettings.proxy.protocol')}
                   </label>
                   <select
                     value={proxyForm.protocol || "http"}
@@ -836,11 +837,11 @@ export default function InstanceSettings() {
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-foreground">
-                    Host
+                    {t('instanceSettings.proxy.host')}
                   </label>
                   <input
                     type="text"
-                    placeholder="127.0.0.1"
+                    placeholder={t('instanceSettings.proxy.hostPlaceholder')}
                     value={proxyForm.host}
                     onChange={(e) =>
                       setProxyForm({ ...proxyForm, host: e.target.value })
@@ -850,11 +851,11 @@ export default function InstanceSettings() {
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-foreground">
-                    Porta
+                    {t('instanceSettings.proxy.port')}
                   </label>
                   <input
                     type="text"
-                    placeholder="8080"
+                    placeholder={t('instanceSettings.proxy.portPlaceholder')}
                     value={proxyForm.port}
                     onChange={(e) =>
                       setProxyForm({ ...proxyForm, port: e.target.value })
@@ -864,7 +865,7 @@ export default function InstanceSettings() {
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-foreground">
-                    Usuário <span className="text-muted-foreground">(opcional)</span>
+                    {t('instanceSettings.proxy.username')} <span className="text-muted-foreground">{t('instanceSettings.proxy.optional')}</span>
                   </label>
                   <input
                     type="text"
@@ -877,11 +878,11 @@ export default function InstanceSettings() {
                 </div>
                 <div className="sm:col-span-2">
                   <label className="mb-1 block text-sm font-medium text-foreground">
-                    Senha <span className="text-muted-foreground">(opcional)</span>
+                    {t('instanceSettings.proxy.password')} <span className="text-muted-foreground">{t('instanceSettings.proxy.optional')}</span>
                   </label>
                   <input
                     type="password"
-                    placeholder={proxy?.hasPassword ? "•••••• (inalterada)" : "opcional"}
+                    placeholder={proxy?.hasPassword ? t('instanceSettings.proxy.passwordUnchanged') : t('instanceSettings.proxy.passwordOptionalPlaceholder')}
                     value={proxyForm.password}
                     onChange={(e) =>
                       setProxyForm({ ...proxyForm, password: e.target.value })
@@ -889,8 +890,7 @@ export default function InstanceSettings() {
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
-                    A senha salva nunca é exibida. Deixe em branco para manter a
-                    atual.
+                    {t('instanceSettings.proxy.passwordHelp')}
                   </p>
                 </div>
               </div>
@@ -906,23 +906,26 @@ export default function InstanceSettings() {
                   {proxyTest.ok ? (
                     <div className="space-y-1">
                       <p className="font-medium">
-                        Proxy funcionando{proxyTest.protocol ? ` (${proxyTest.protocol})` : ""}
+                        {proxyTest.protocol
+                          ? t('instanceSettings.proxy.testOkProtocol', { protocol: proxyTest.protocol })
+                          : t('instanceSettings.proxy.testOk')}
                       </p>
                       <p>
-                        IP de saída: <span className="font-mono">{proxyTest.ip}</span>{" "}
-                        {proxyTest.anonymous ? "(anônimo)" : "(não anônimo)"}
+                        {t('instanceSettings.proxy.exitIp')}{" "}
+                        <span className="font-mono">{proxyTest.ip}</span>{" "}
+                        {proxyTest.anonymous ? t('instanceSettings.proxy.anonymous') : t('instanceSettings.proxy.notAnonymous')}
                       </p>
                       <p>
-                        WhatsApp acessível:{" "}
-                        {proxyTest.whatsappReachable ? "sim" : "não"}
+                        {t('instanceSettings.proxy.whatsappReachable')}{" "}
+                        {proxyTest.whatsappReachable ? t('instanceSettings.yes') : t('instanceSettings.no')}
                       </p>
                       {proxyTest.latencyMs !== undefined && (
-                        <p>Latência: {proxyTest.latencyMs} ms</p>
+                        <p>{t('instanceSettings.proxy.latency', { ms: proxyTest.latencyMs })}</p>
                       )}
                     </div>
                   ) : (
                     <div className="space-y-1">
-                      <p className="font-medium">Proxy falhou</p>
+                      <p className="font-medium">{t('instanceSettings.proxy.testFailed')}</p>
                       {proxyTest.error && <p>{proxyTest.error}</p>}
                     </div>
                   )}
@@ -938,7 +941,7 @@ export default function InstanceSettings() {
                   className="gap-2"
                 >
                   <Trash2 className="h-4 w-4" />
-                  Remover
+                  {t('instanceSettings.proxy.remove')}
                 </Button>
                 <Button
                   type="button"
@@ -948,7 +951,7 @@ export default function InstanceSettings() {
                   className="gap-2"
                 >
                   <RefreshCw className="h-4 w-4" />
-                  Reconectar
+                  {t('instanceSettings.proxy.reconnect')}
                 </Button>
                 <Button
                   type="button"
@@ -958,7 +961,7 @@ export default function InstanceSettings() {
                   className="gap-2"
                 >
                   <Network className="h-4 w-4" />
-                  {proxyBusy === "test" ? "Testando..." : "Testar"}
+                  {proxyBusy === "test" ? t('instanceSettings.proxy.testing') : t('instanceSettings.proxy.test')}
                 </Button>
                 <Button
                   type="button"
@@ -967,7 +970,7 @@ export default function InstanceSettings() {
                   className="gap-2"
                 >
                   <Save className="h-4 w-4" />
-                  {proxyBusy === "save" ? "Salvando..." : "Salvar Proxy"}
+                  {proxyBusy === "save" ? t('instanceSettings.action.saving') : t('instanceSettings.proxy.save')}
                 </Button>
               </div>
             </div>
@@ -977,7 +980,7 @@ export default function InstanceSettings() {
           <form onSubmit={handleSubmitAdvanced(onSubmitAdvanced)}>
             <div className="rounded-lg border border-sidebar-border bg-card p-6">
               <h2 className="text-lg font-semibold text-foreground mb-4">
-                Configurações Avançadas
+                {t('instanceSettings.advanced.title')}
               </h2>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -986,10 +989,10 @@ export default function InstanceSettings() {
                       htmlFor="alwaysOnline"
                       className="text-sm font-medium text-foreground cursor-pointer"
                     >
-                      Always Online
+                      {t('instanceSettings.advanced.alwaysOnline')}
                     </label>
                     <p className="text-xs text-muted-foreground">
-                      Manter sempre online no WhatsApp
+                      {t('instanceSettings.advanced.alwaysOnlineHelp')}
                     </p>
                   </div>
                   <input
@@ -1006,10 +1009,10 @@ export default function InstanceSettings() {
                       htmlFor="rejectCall"
                       className="text-sm font-medium text-foreground cursor-pointer"
                     >
-                      Reject Call
+                      {t('instanceSettings.advanced.rejectCall')}
                     </label>
                     <p className="text-xs text-muted-foreground">
-                      Rejeitar chamadas automaticamente
+                      {t('instanceSettings.advanced.rejectCallHelp')}
                     </p>
                   </div>
                   <input
@@ -1026,10 +1029,10 @@ export default function InstanceSettings() {
                       htmlFor="readMessages"
                       className="text-sm font-medium text-foreground cursor-pointer"
                     >
-                      Read Messages
+                      {t('instanceSettings.advanced.readMessages')}
                     </label>
                     <p className="text-xs text-muted-foreground">
-                      Marcar mensagens como lidas
+                      {t('instanceSettings.advanced.readMessagesHelp')}
                     </p>
                   </div>
                   <input
@@ -1046,10 +1049,10 @@ export default function InstanceSettings() {
                       htmlFor="ignoreGroups"
                       className="text-sm font-medium text-foreground cursor-pointer"
                     >
-                      Ignore Groups
+                      {t('instanceSettings.advanced.ignoreGroups')}
                     </label>
                     <p className="text-xs text-muted-foreground">
-                      Ignorar mensagens de grupos
+                      {t('instanceSettings.advanced.ignoreGroupsHelp')}
                     </p>
                   </div>
                   <input
@@ -1066,10 +1069,10 @@ export default function InstanceSettings() {
                       htmlFor="ignoreStatus"
                       className="text-sm font-medium text-foreground cursor-pointer"
                     >
-                      Ignore Status
+                      {t('instanceSettings.advanced.ignoreStatus')}
                     </label>
                     <p className="text-xs text-muted-foreground">
-                      Ignorar atualizações de status
+                      {t('instanceSettings.advanced.ignoreStatusHelp')}
                     </p>
                   </div>
                   <input
@@ -1083,7 +1086,7 @@ export default function InstanceSettings() {
                 <div className="flex justify-end">
                   <Button type="submit" disabled={isSaving} className="gap-2">
                     <Save className="h-4 w-4" />
-                    {isSaving ? "Salvando..." : "Salvar Avançadas"}
+                    {isSaving ? t('instanceSettings.action.saving') : t('instanceSettings.advanced.save')}
                   </Button>
                 </div>
               </div>
@@ -1093,16 +1096,16 @@ export default function InstanceSettings() {
           {/* Danger Zone Card */}
           <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-6">
             <h2 className="text-lg font-semibold text-destructive mb-4">
-              Zona de Perigo
+              {t('instanceSettings.danger.title')}
             </h2>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-medium text-foreground">
-                    Desconectar Instância
+                    {t('instanceSettings.danger.disconnectTitle')}
                   </h3>
                   <p className="text-xs text-muted-foreground">
-                    Desconecta a instância do WhatsApp
+                    {t('instanceSettings.danger.disconnectHelp')}
                   </p>
                 </div>
                 <Button
@@ -1111,16 +1114,16 @@ export default function InstanceSettings() {
                   className="gap-2"
                 >
                   <Power className="h-4 w-4" />
-                  Desconectar
+                  {t('instanceSettings.danger.disconnect')}
                 </Button>
               </div>
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-medium text-foreground">
-                    Deletar Instância
+                    {t('instanceSettings.danger.deleteTitle')}
                   </h3>
                   <p className="text-xs text-muted-foreground">
-                    Remove permanentemente esta instância
+                    {t('instanceSettings.danger.deleteHelp')}
                   </p>
                 </div>
                 <Button
@@ -1129,7 +1132,7 @@ export default function InstanceSettings() {
                   className="gap-2"
                 >
                   <Trash2 className="h-4 w-4" />
-                  Deletar
+                  {t('instanceSettings.danger.delete')}
                 </Button>
               </div>
             </div>

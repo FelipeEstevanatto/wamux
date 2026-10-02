@@ -1,4 +1,5 @@
 import { Loader2 } from 'lucide-react';
+import { useI18n } from '@/i18n/I18nContext';
 
 interface LoadingScreenProps {
   message?: string;
@@ -6,9 +7,10 @@ interface LoadingScreenProps {
 }
 
 function LoadingScreen({
-  message = 'Carregando...',
+  message,
   fullScreen = true
 }: LoadingScreenProps) {
+  const { t } = useI18n();
   const containerClass = fullScreen
     ? 'flex min-h-screen items-center justify-center bg-gray-50'
     : 'flex items-center justify-center p-8';
@@ -19,7 +21,7 @@ function LoadingScreen({
         <div className="mb-4 flex justify-center">
           <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
         </div>
-        <p className="text-sm font-medium text-gray-700">{message}</p>
+        <p className="text-sm font-medium text-gray-700">{message ?? t('common.loading')}</p>
       </div>
     </div>
   );

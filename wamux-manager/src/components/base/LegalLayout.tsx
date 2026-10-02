@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 
 import { COPYRIGHT_LINE } from '@/constants/branding';
+import { useI18n } from '@/i18n/I18nContext';
 
 interface LegalLayoutProps {
   title: string;
@@ -21,7 +22,9 @@ export const LegalLayout: React.FC<LegalLayoutProps> = ({
   subtitle,
   updatedAt,
   children,
-}) => (
+}) => {
+  const { t } = useI18n();
+  return (
   <div className="min-h-screen bg-gradient-to-t from-primary/20 via-background/95 to-background">
     <div className="container mx-auto max-w-3xl px-4 py-10 sm:py-14">
       <Link
@@ -29,14 +32,14 @@ export const LegalLayout: React.FC<LegalLayoutProps> = ({
         className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        Voltar para o login
+        {t('legal.backToLogin')}
       </Link>
 
       <header className="mt-6">
         <h1 className="text-3xl font-bold text-primary">{title}</h1>
         <p className="mt-2 text-muted-foreground">{subtitle}</p>
         <p className="mt-1 text-xs text-muted-foreground">
-          Última atualização: {updatedAt}
+          {t('legal.updatedAt', { date: updatedAt })}
         </p>
       </header>
 
@@ -49,7 +52,8 @@ export const LegalLayout: React.FC<LegalLayoutProps> = ({
       </footer>
     </div>
   </div>
-);
+  );
+};
 
 interface LegalSectionProps {
   title: string;

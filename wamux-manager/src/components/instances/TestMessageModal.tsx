@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui';
 import * as instancesApi from '@/services/api/instances';
 import type { Instance } from '@/types/instance';
+import { useI18n } from '@/i18n/I18nContext';
 
 interface TestMessageModalProps {
   open: boolean;
@@ -38,134 +39,132 @@ const SCENARIOS: TestScenario[] = [
     id: 'btn_reply_1',
     group: 'button',
     endpoint: 'button',
-    label: 'Reply (1 botao)',
-    description: 'Um botao do tipo reply (quick_reply).',
+    label: 'modals.scenario.btnReply1.label',
+    description: 'modals.scenario.btnReply1.desc',
   },
   {
     id: 'btn_reply_3',
     group: 'button',
     endpoint: 'button',
-    label: 'Reply (3 botoes - limite)',
-    description: 'Tres botoes reply. Limite maximo permitido pelo servidor.',
+    label: 'modals.scenario.btnReply3.label',
+    description: 'modals.scenario.btnReply3.desc',
   },
   {
     id: 'btn_copy',
     group: 'button',
     endpoint: 'button',
-    label: 'CTA Copy',
-    description: 'Botao que copia um codigo para a area de transferencia.',
+    label: 'modals.scenario.btnCopy.label',
+    description: 'modals.scenario.btnCopy.desc',
   },
   {
     id: 'btn_url',
     group: 'button',
     endpoint: 'button',
-    label: 'CTA URL',
-    description: 'Botao que abre um link no navegador.',
+    label: 'modals.scenario.btnUrl.label',
+    description: 'modals.scenario.btnUrl.desc',
   },
   {
     id: 'btn_call',
     group: 'button',
     endpoint: 'button',
-    label: 'CTA Call',
-    description: 'Botao que inicia uma ligacao telefonica.',
+    label: 'modals.scenario.btnCall.label',
+    description: 'modals.scenario.btnCall.desc',
   },
   {
     id: 'btn_pix',
     group: 'button',
     endpoint: 'button',
-    label: 'PIX (sozinho)',
-    description: 'Pagamento Pix. O servidor exige que seja o unico botao.',
+    label: 'modals.scenario.btnPix.label',
+    description: 'modals.scenario.btnPix.desc',
   },
   {
     id: 'btn_cta_group',
     group: 'button',
     endpoint: 'button',
-    label: 'CTAs agrupados (copy + url + call)',
-    description:
-      'Combinacao recomendada para aparecer no WhatsApp Web. NAO mistura com reply.',
+    label: 'modals.scenario.btnCtaGroup.label',
+    description: 'modals.scenario.btnCtaGroup.desc',
   },
   {
     id: 'list',
     group: 'list',
     endpoint: 'list',
-    label: 'Lista com secoes',
-    description: 'Menu de selecao unica com duas secoes (Planos e Suporte).',
+    label: 'modals.scenario.list.label',
+    description: 'modals.scenario.list.desc',
   },
   {
     id: 'carousel_reply',
     group: 'carousel',
     endpoint: 'carousel',
-    label: 'Carrossel com botoes REPLY',
-    description: '4 cards (Basico, Pro, Business, Enterprise) com botoes do tipo REPLY.',
+    label: 'modals.scenario.carouselReply.label',
+    description: 'modals.scenario.carouselReply.desc',
   },
   {
     id: 'carousel_url',
     group: 'carousel',
     endpoint: 'carousel',
-    label: 'Carrossel com botao URL',
-    description:
-      '4 cards (Site, Docs, GitHub, Comunidade). No carrossel o link vai no campo `id`.',
+    label: 'modals.scenario.carouselUrl.label',
+    description: 'modals.scenario.carouselUrl.desc',
   },
   {
     id: 'carousel_call',
     group: 'carousel',
     endpoint: 'carousel',
-    label: 'Carrossel com botao CALL',
-    description:
-      '3 cards (Atendimento, Suporte, Financeiro). No carrossel o telefone vai no campo `id`.',
+    label: 'modals.scenario.carouselCall.label',
+    description: 'modals.scenario.carouselCall.desc',
   },
   {
     id: 'carousel_copy',
     group: 'carousel',
     endpoint: 'carousel',
-    label: 'Carrossel com botao COPY',
-    description: '4 cards com cupons distintos usando o campo `copyCode`.',
+    label: 'modals.scenario.carouselCopy.label',
+    description: 'modals.scenario.carouselCopy.desc',
   },
 ];
 
 const GROUP_LABELS: Record<TestScenario['group'], string> = {
-  button: 'Botoes interativos (/send/button)',
-  list: 'Lista (/send/list)',
-  carousel: 'Carrossel (/send/carousel)',
+  button: 'modals.group.button',
+  list: 'modals.group.list',
+  carousel: 'modals.group.carousel',
 };
 
 function buildPayload(
   scenarioId: TestScenarioId,
   number: string,
+  t: (key: string, vars?: Record<string, string | number>) => string,
 ): Record<string, unknown> {
   switch (scenarioId) {
     case 'btn_reply_1':
       return {
         number,
-        title: 'Teste - Reply unico',
-        description: 'Um botao do tipo reply.',
+        title: t('modals.payload.reply1.title'),
+        description: t('modals.payload.reply1.desc'),
         footer: 'WaMux',
         buttons: [
-          { type: 'reply', displayText: 'Confirmar', id: 'test_reply_1' },
+          { type: 'reply', displayText: t('modals.payload.confirm'), id: 'test_reply_1' },
         ],
       };
     case 'btn_reply_3':
       return {
         number,
-        title: 'Teste - 3 Reply (limite)',
-        description: 'Tres botoes reply.',
+        title: t('modals.payload.reply3.title'),
+        description: t('modals.payload.reply3.desc'),
         footer: 'WaMux',
         buttons: [
-          { type: 'reply', displayText: 'Opcao A', id: 'test_a' },
-          { type: 'reply', displayText: 'Opcao B', id: 'test_b' },
-          { type: 'reply', displayText: 'Opcao C', id: 'test_c' },
+          { type: 'reply', displayText: t('modals.payload.optionA'), id: 'test_a' },
+          { type: 'reply', displayText: t('modals.payload.optionB'), id: 'test_b' },
+          { type: 'reply', displayText: t('modals.payload.optionC'), id: 'test_c' },
         ],
       };
     case 'btn_copy':
       return {
         number,
-        title: 'Teste - CTA Copy',
-        description: 'Botao COPY com codigo a ser copiado.',
+        title: t('modals.payload.copy.title'),
+        description: t('modals.payload.copy.desc'),
         footer: 'WaMux',
         buttons: [
           {
             type: 'copy',
-            displayText: 'Copiar cupom',
+            displayText: t('modals.payload.copyCoupon'),
             copyCode: 'PROMO2026',
           },
         ],
@@ -173,13 +172,13 @@ function buildPayload(
     case 'btn_url':
       return {
         number,
-        title: 'Teste - CTA URL',
-        description: 'Botao que abre um link.',
+        title: t('modals.payload.url.title'),
+        description: t('modals.payload.url.desc'),
         footer: 'WaMux',
         buttons: [
           {
             type: 'url',
-            displayText: 'Abrir site',
+            displayText: t('modals.payload.openSite'),
             url: 'https://wamuxapi.com',
           },
         ],
@@ -187,13 +186,13 @@ function buildPayload(
     case 'btn_call':
       return {
         number,
-        title: 'Teste - CTA Call',
-        description: 'Botao que inicia uma ligacao.',
+        title: t('modals.payload.call.title'),
+        description: t('modals.payload.call.desc'),
         footer: 'WaMux',
         buttons: [
           {
             type: 'call',
-            displayText: 'Ligar agora',
+            displayText: t('modals.payload.callNow'),
             phoneNumber: '+' + number.replace(/\D/g, ''),
           },
         ],
@@ -201,14 +200,14 @@ function buildPayload(
     case 'btn_pix':
       return {
         number,
-        title: 'Teste - PIX',
-        description: 'Botao Pix (envia sozinho).',
+        title: t('modals.payload.pix.title'),
+        description: t('modals.payload.pix.desc'),
         footer: 'WaMux',
         buttons: [
           {
             type: 'pix',
             currency: 'BRL',
-            name: 'Minha Loja',
+            name: t('modals.payload.pix.storeName'),
             keyType: 'cpf',
             key: '12345678900',
           },
@@ -217,23 +216,23 @@ function buildPayload(
     case 'btn_cta_group':
       return {
         number,
-        title: 'Teste - CTAs agrupados',
-        description: 'copy + url + call (funciona no WhatsApp Web).',
+        title: t('modals.payload.ctaGroup.title'),
+        description: t('modals.payload.ctaGroup.desc'),
         footer: 'WaMux',
         buttons: [
           {
             type: 'copy',
-            displayText: 'Copiar cupom',
+            displayText: t('modals.payload.copyCoupon'),
             copyCode: 'CTA2026',
           },
           {
             type: 'url',
-            displayText: 'Abrir site',
+            displayText: t('modals.payload.openSite'),
             url: 'https://wamuxapi.com',
           },
           {
             type: 'call',
-            displayText: 'Ligar agora',
+            displayText: t('modals.payload.callNow'),
             phoneNumber: '+' + number.replace(/\D/g, ''),
           },
         ],
@@ -241,37 +240,37 @@ function buildPayload(
     case 'list':
       return {
         number,
-        title: 'Teste - Lista',
-        description: 'Lista interativa com secoes e rows.',
-        buttonText: 'Ver opcoes',
+        title: t('modals.payload.list.title'),
+        description: t('modals.payload.list.desc'),
+        buttonText: t('modals.payload.list.buttonText'),
         footerText: 'WaMux',
         sections: [
           {
-            title: 'Planos',
+            title: t('modals.payload.list.plans'),
             rows: [
               {
-                title: 'Plano Basico',
-                description: 'R$ 29,90/mes',
+                title: t('modals.payload.list.basicPlan'),
+                description: t('modals.payload.list.basicPrice'),
                 rowId: 'plan_basic',
               },
               {
-                title: 'Plano Pro',
-                description: 'R$ 59,90/mes',
+                title: t('modals.payload.list.proPlan'),
+                description: t('modals.payload.list.proPrice'),
                 rowId: 'plan_pro',
               },
             ],
           },
           {
-            title: 'Suporte',
+            title: t('modals.payload.list.support'),
             rows: [
               {
-                title: 'Falar com atendente',
-                description: 'Horario comercial',
+                title: t('modals.payload.list.talkToAgent'),
+                description: t('modals.payload.businessHours'),
                 rowId: 'support_agent',
               },
               {
-                title: 'Central de ajuda',
-                description: 'Artigos e FAQ',
+                title: t('modals.payload.list.helpCenter'),
+                description: t('modals.payload.list.articlesFaq'),
                 rowId: 'support_kb',
               },
             ],
@@ -281,50 +280,50 @@ function buildPayload(
     case 'carousel_reply':
       return {
         number,
-        body: 'Teste - Carrossel com botoes REPLY',
+        body: t('modals.payload.carouselReply.body'),
         footer: 'WaMux',
         cards: [
           {
             header: {
               imageUrl: 'https://picsum.photos/seed/replyA/600/400',
             },
-            body: { text: 'Card A - Plano Basico' },
-            footer: 'R$ 29,90 / mes',
+            body: { text: t('modals.payload.carouselReply.cardABasic') },
+            footer: t('modals.payload.carouselReply.priceBasic'),
             buttons: [
-              { type: 'REPLY', displayText: 'Assinar Basico', id: 'reply_basic' },
-              { type: 'REPLY', displayText: 'Saber mais',     id: 'reply_basic_info' },
+              { type: 'REPLY', displayText: t('modals.payload.carouselReply.subscribeBasic'), id: 'reply_basic' },
+              { type: 'REPLY', displayText: t('modals.payload.learnMore'),     id: 'reply_basic_info' },
             ],
           },
           {
             header: {
               imageUrl: 'https://picsum.photos/seed/replyB/600/400',
             },
-            body: { text: 'Card B - Plano Pro' },
-            footer: 'R$ 59,90 / mes',
+            body: { text: t('modals.payload.carouselReply.cardBPro') },
+            footer: t('modals.payload.carouselReply.pricePro'),
             buttons: [
-              { type: 'REPLY', displayText: 'Assinar Pro', id: 'reply_pro' },
-              { type: 'REPLY', displayText: 'Saber mais',  id: 'reply_pro_info' },
+              { type: 'REPLY', displayText: t('modals.payload.carouselReply.subscribePro'), id: 'reply_pro' },
+              { type: 'REPLY', displayText: t('modals.payload.learnMore'),  id: 'reply_pro_info' },
             ],
           },
           {
             header: {
               imageUrl: 'https://picsum.photos/seed/replyC/600/400',
             },
-            body: { text: 'Card C - Plano Business' },
-            footer: 'R$ 149,90 / mes',
+            body: { text: t('modals.payload.carouselReply.cardCBusiness') },
+            footer: t('modals.payload.carouselReply.priceBusiness'),
             buttons: [
-              { type: 'REPLY', displayText: 'Assinar Business', id: 'reply_business' },
-              { type: 'REPLY', displayText: 'Saber mais',        id: 'reply_business_info' },
+              { type: 'REPLY', displayText: t('modals.payload.carouselReply.subscribeBusiness'), id: 'reply_business' },
+              { type: 'REPLY', displayText: t('modals.payload.learnMore'),        id: 'reply_business_info' },
             ],
           },
           {
             header: {
               imageUrl: 'https://picsum.photos/seed/replyD/600/400',
             },
-            body: { text: 'Card D - Plano Enterprise' },
-            footer: 'Sob consulta',
+            body: { text: t('modals.payload.carouselReply.cardDEnterprise') },
+            footer: t('modals.payload.carouselReply.onRequest'),
             buttons: [
-              { type: 'REPLY', displayText: 'Falar com vendas', id: 'reply_enterprise' },
+              { type: 'REPLY', displayText: t('modals.payload.carouselReply.talkToSales'), id: 'reply_enterprise' },
             ],
           },
         ],
@@ -332,19 +331,19 @@ function buildPayload(
     case 'carousel_url':
       return {
         number,
-        body: 'Teste - Carrossel com botao URL',
+        body: t('modals.payload.carouselUrl.body'),
         footer: 'WaMux',
         cards: [
           {
             header: {
               imageUrl: 'https://picsum.photos/seed/urlA/600/400',
             },
-            body: { text: 'Card A - Site oficial' },
-            footer: 'Abre o site principal',
+            body: { text: t('modals.payload.carouselUrl.cardASite') },
+            footer: t('modals.payload.carouselUrl.opensMainSite'),
             buttons: [
               {
                 type: 'URL',
-                displayText: 'Abrir site',
+                displayText: t('modals.payload.openSite'),
                 id: 'https://wamuxapi.com',
               },
             ],
@@ -353,12 +352,12 @@ function buildPayload(
             header: {
               imageUrl: 'https://picsum.photos/seed/urlB/600/400',
             },
-            body: { text: 'Card B - Documentacao' },
-            footer: 'Abre os docs da API',
+            body: { text: t('modals.payload.carouselUrl.cardBDocs') },
+            footer: t('modals.payload.carouselUrl.opensApiDocs'),
             buttons: [
               {
                 type: 'URL',
-                displayText: 'Ver documentacao',
+                displayText: t('modals.payload.carouselUrl.viewDocs'),
                 id: 'https://doc.wamuxapi.com',
               },
             ],
@@ -367,12 +366,12 @@ function buildPayload(
             header: {
               imageUrl: 'https://picsum.photos/seed/urlC/600/400',
             },
-            body: { text: 'Card C - GitHub' },
-            footer: 'Abre o repositorio',
+            body: { text: t('modals.payload.carouselUrl.cardCGithub') },
+            footer: t('modals.payload.carouselUrl.opensRepo'),
             buttons: [
               {
                 type: 'URL',
-                displayText: 'Abrir GitHub',
+                displayText: t('modals.payload.carouselUrl.openGithub'),
                 id: 'https://github.com/FelipeEstevanatto/wamux',
               },
             ],
@@ -381,12 +380,12 @@ function buildPayload(
             header: {
               imageUrl: 'https://picsum.photos/seed/urlD/600/400',
             },
-            body: { text: 'Card D - Comunidade' },
-            footer: 'Participe da comunidade',
+            body: { text: t('modals.payload.carouselUrl.cardDCommunity') },
+            footer: t('modals.payload.carouselUrl.joinCommunity'),
             buttons: [
               {
                 type: 'URL',
-                displayText: 'Entrar na comunidade',
+                displayText: t('modals.payload.carouselUrl.enterCommunity'),
                 id: 'https://wamuxapi.com/community',
               },
             ],
@@ -396,19 +395,19 @@ function buildPayload(
     case 'carousel_call':
       return {
         number,
-        body: 'Teste - Carrossel com botao CALL',
+        body: t('modals.payload.carouselCall.body'),
         footer: 'WaMux',
         cards: [
           {
             header: {
               imageUrl: 'https://picsum.photos/seed/callA/600/400',
             },
-            body: { text: 'Card A - Atendimento geral' },
-            footer: 'Horario comercial',
+            body: { text: t('modals.payload.carouselCall.cardAGeneral') },
+            footer: t('modals.payload.businessHours'),
             buttons: [
               {
                 type: 'CALL',
-                displayText: 'Ligar - Atendimento',
+                displayText: t('modals.payload.carouselCall.callGeneral'),
                 id: '+' + number.replace(/\D/g, ''),
               },
             ],
@@ -417,12 +416,12 @@ function buildPayload(
             header: {
               imageUrl: 'https://picsum.photos/seed/callB/600/400',
             },
-            body: { text: 'Card B - Suporte tecnico' },
+            body: { text: t('modals.payload.carouselCall.cardBTechSupport') },
             footer: '24x7',
             buttons: [
               {
                 type: 'CALL',
-                displayText: 'Ligar - Suporte',
+                displayText: t('modals.payload.carouselCall.callSupport'),
                 id: '+' + number.replace(/\D/g, ''),
               },
             ],
@@ -431,12 +430,12 @@ function buildPayload(
             header: {
               imageUrl: 'https://picsum.photos/seed/callC/600/400',
             },
-            body: { text: 'Card C - Financeiro' },
-            footer: 'Seg a Sex, 9h-18h',
+            body: { text: t('modals.payload.carouselCall.cardCFinance') },
+            footer: t('modals.payload.carouselCall.weekdaysHours'),
             buttons: [
               {
                 type: 'CALL',
-                displayText: 'Ligar - Financeiro',
+                displayText: t('modals.payload.carouselCall.callFinance'),
                 id: '+' + number.replace(/\D/g, ''),
               },
             ],
@@ -446,19 +445,19 @@ function buildPayload(
     case 'carousel_copy':
       return {
         number,
-        body: 'Teste - Carrossel com botao COPY',
+        body: t('modals.payload.carouselCopy.body'),
         footer: 'WaMux',
         cards: [
           {
             header: {
               imageUrl: 'https://picsum.photos/seed/copyA/600/400',
             },
-            body: { text: 'Card A - Cupom de primeira compra' },
-            footer: '10% de desconto',
+            body: { text: t('modals.payload.carouselCopy.cardAFirstCoupon') },
+            footer: t('modals.payload.carouselCopy.discount10'),
             buttons: [
               {
                 type: 'COPY',
-                displayText: 'Copiar cupom',
+                displayText: t('modals.payload.copyCoupon'),
                 copyCode: 'BEMVINDO10',
               },
             ],
@@ -467,12 +466,12 @@ function buildPayload(
             header: {
               imageUrl: 'https://picsum.photos/seed/copyB/600/400',
             },
-            body: { text: 'Card B - Cupom Black Friday' },
-            footer: '30% de desconto',
+            body: { text: t('modals.payload.carouselCopy.cardBBlackFriday') },
+            footer: t('modals.payload.carouselCopy.discount30'),
             buttons: [
               {
                 type: 'COPY',
-                displayText: 'Copiar cupom',
+                displayText: t('modals.payload.copyCoupon'),
                 copyCode: 'BLACK30',
               },
             ],
@@ -481,12 +480,12 @@ function buildPayload(
             header: {
               imageUrl: 'https://picsum.photos/seed/copyC/600/400',
             },
-            body: { text: 'Card C - Cupom anual' },
-            footer: '2 meses gratis',
+            body: { text: t('modals.payload.carouselCopy.cardCAnnual') },
+            footer: t('modals.payload.carouselCopy.freeTwoMonths'),
             buttons: [
               {
                 type: 'COPY',
-                displayText: 'Copiar cupom',
+                displayText: t('modals.payload.copyCoupon'),
                 copyCode: 'ANUAL2MESES',
               },
             ],
@@ -495,12 +494,12 @@ function buildPayload(
             header: {
               imageUrl: 'https://picsum.photos/seed/copyD/600/400',
             },
-            body: { text: 'Card D - Cupom VIP' },
-            footer: 'Exclusivo para clientes',
+            body: { text: t('modals.payload.carouselCopy.cardDVip') },
+            footer: t('modals.payload.carouselCopy.exclusiveClients'),
             buttons: [
               {
                 type: 'COPY',
-                displayText: 'Copiar cupom VIP',
+                displayText: t('modals.payload.carouselCopy.copyVipCoupon'),
                 copyCode: 'VIP2026',
               },
             ],
@@ -511,6 +510,7 @@ function buildPayload(
 }
 
 function TestMessageModal({ open, onClose, instance }: TestMessageModalProps) {
+  const { t } = useI18n();
   const [number, setNumber] = useState('');
   const [scenarioId, setScenarioId] =
     useState<TestScenarioId>('btn_reply_1');
@@ -546,13 +546,13 @@ function TestMessageModal({ open, onClose, instance }: TestMessageModalProps) {
 
   const handleSend = async () => {
     if (!instance?.apikey) {
-      toast.error('Token da instancia nao encontrado');
+      toast.error(t('modals.testTokenMissing'));
       return;
     }
 
     const digits = number.replace(/\D/g, '');
     if (digits.length < 10) {
-      toast.error('Numero invalido. Use o formato 55DDXXXXXXXXX.');
+      toast.error(t('modals.invalidNumber'));
       return;
     }
 
@@ -560,7 +560,7 @@ function TestMessageModal({ open, onClose, instance }: TestMessageModalProps) {
     setResult(null);
 
     try {
-      const payload = buildPayload(scenarioId, digits);
+      const payload = buildPayload(scenarioId, digits, t);
       let response;
       if (scenario.endpoint === 'button') {
         response = await instancesApi.sendButtonMessage(
@@ -581,10 +581,10 @@ function TestMessageModal({ open, onClose, instance }: TestMessageModalProps) {
 
       const messageId =
         (response.data as { Info?: { ID?: string } } | null)?.Info?.ID ||
-        '(sem id)';
+        t('modals.noMessageId');
       setResult({ ok: true, messageId });
-      toast.success('Teste enviado com sucesso!', {
-        description: scenario.label,
+      toast.success(t('modals.testSentSuccess'), {
+        description: t(scenario.label),
       });
     } catch (err: unknown) {
       const axiosErr = err as {
@@ -594,9 +594,9 @@ function TestMessageModal({ open, onClose, instance }: TestMessageModalProps) {
       const msg =
         axiosErr?.response?.data?.error ||
         axiosErr?.message ||
-        'Erro desconhecido ao enviar.';
+        t('modals.unknownSendError');
       setResult({ ok: false, error: msg });
-      toast.error('Falha ao enviar teste', { description: msg });
+      toast.error(t('modals.testSendFailed'), { description: msg });
     } finally {
       setIsSending(false);
     }
@@ -615,7 +615,7 @@ function TestMessageModal({ open, onClose, instance }: TestMessageModalProps) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FlaskConical className="h-5 w-5 text-purple-500" />
-            Testar mensagens - {instance.instanceName}
+            {t('modals.testMessagesTitle', { name: instance.instanceName })}
           </DialogTitle>
         </DialogHeader>
 
@@ -625,7 +625,7 @@ function TestMessageModal({ open, onClose, instance }: TestMessageModalProps) {
               htmlFor="test-number"
               className="mb-1 block text-sm font-medium text-foreground"
             >
-              Numero de destino (com DDI)
+              {t('modals.targetNumber')}
             </label>
             <input
               id="test-number"
@@ -637,20 +637,20 @@ function TestMessageModal({ open, onClose, instance }: TestMessageModalProps) {
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              Somente digitos. O DDI brasileiro e 55.
+              {t('modals.targetNumberHint')}
             </p>
           </div>
 
           <div>
             <label className="mb-1 block text-sm font-medium text-foreground">
-              Modo de teste
+              {t('modals.testMode')}
             </label>
             <div className="space-y-3 rounded-md border border-input bg-background/50 p-3">
               {(Object.keys(groupedScenarios) as TestScenario['group'][]).map(
                 (group) => (
                   <div key={group}>
                     <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      {GROUP_LABELS[group]}
+                      {t(GROUP_LABELS[group])}
                     </p>
                     <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
                       {groupedScenarios[group].map((s) => (
@@ -673,10 +673,10 @@ function TestMessageModal({ open, onClose, instance }: TestMessageModalProps) {
                           />
                           <span className="flex-1">
                             <span className="block font-medium text-foreground">
-                              {s.label}
+                              {t(s.label)}
                             </span>
                             <span className="block text-xs text-muted-foreground">
-                              {s.description}
+                              {t(s.description)}
                             </span>
                           </span>
                         </label>
@@ -698,14 +698,14 @@ function TestMessageModal({ open, onClose, instance }: TestMessageModalProps) {
             >
               {result.ok ? (
                 <>
-                  <p className="font-medium">Enviado com sucesso</p>
+                  <p className="font-medium">{t('modals.sentSuccess')}</p>
                   <p className="font-mono text-xs">
-                    messageId: {result.messageId}
+                    {t('modals.messageId')} {result.messageId}
                   </p>
                 </>
               ) : (
                 <>
-                  <p className="font-medium">Falha no envio</p>
+                  <p className="font-medium">{t('modals.sendFailed')}</p>
                   <p className="text-xs">{result.error}</p>
                 </>
               )}
@@ -719,7 +719,7 @@ function TestMessageModal({ open, onClose, instance }: TestMessageModalProps) {
               disabled={isSending}
               className="flex-1 rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-accent disabled:opacity-50"
             >
-              Fechar
+              {t('common.close')}
             </button>
             <button
               type="button"
@@ -730,12 +730,12 @@ function TestMessageModal({ open, onClose, instance }: TestMessageModalProps) {
               {isSending ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Enviando...
+                  {t('modals.sending')}
                 </>
               ) : (
                 <>
                   <FlaskConical className="h-4 w-4" />
-                  Enviar teste
+                  {t('modals.sendTest')}
                 </>
               )}
             </button>

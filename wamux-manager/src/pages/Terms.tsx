@@ -1,7 +1,6 @@
 import LegalLayout, { LegalSection } from '@/components/base/LegalLayout';
 import { PRODUCT_NAME, REPO } from '@/constants/branding';
-
-const UPDATED_AT = '24 de setembro de 2026';
+import { useI18n } from '@/i18n/I18nContext';
 
 /**
  * Termos de Serviço.
@@ -10,96 +9,61 @@ const UPDATED_AT = '24 de setembro de 2026';
  * WhatsApp instance manager actually does and the rules for using it.
  */
 export default function Terms() {
+  const { t } = useI18n();
   return (
     <LegalLayout
-      title="Termos de Serviço"
-      subtitle={`Condições de uso do ${PRODUCT_NAME} Manager.`}
-      updatedAt={UPDATED_AT}
+      title={t('legal.terms.title')}
+      subtitle={t('legal.terms.subtitle', { product: PRODUCT_NAME })}
+      updatedAt={t('legal.updatedDate')}
     >
-      <LegalSection title="1. Sobre este software">
-        <p>
-          O {PRODUCT_NAME} é um servidor auto-hospedado, distribuído sob a
-          Apache License 2.0. Ele expõe uma API REST e este painel web para
-          criar, conectar e gerenciar instâncias do WhatsApp, enviar e receber
-          mensagens e acompanhar eventos.
-        </p>
-        <p>
-          O software não é afiliado, endossado ou uma release oficial do
-          WhatsApp/Meta.
-        </p>
+      <LegalSection title={t('legal.terms.s1.title')}>
+        <p>{t('legal.terms.s1.p1', { product: PRODUCT_NAME })}</p>
+        <p>{t('legal.terms.s1.p2')}</p>
       </LegalSection>
 
-      <LegalSection title="2. Aceitação destes termos">
-        <p>
-          Ao acessar este painel, usar a API ou conectar uma instância, você
-          concorda com estes termos. Se não concordar, não utilize o sistema.
-        </p>
-        <p>
-          Eles se aplicam ao operador da instalação — quem hospeda o servidor —
-          e a todos os usuários que ele autorizar.
-        </p>
+      <LegalSection title={t('legal.terms.s2.title')}>
+        <p>{t('legal.terms.s2.p1')}</p>
+        <p>{t('legal.terms.s2.p2')}</p>
       </LegalSection>
 
-      <LegalSection title="3. Uso aceitável">
+      <LegalSection title={t('legal.terms.s3.title')}>
         <ul className="list-disc space-y-1 pl-5">
-          <li>
-            Cumprir os Termos de Serviço do WhatsApp/Meta e a legislação
-            aplicável, inclusive as regras de proteção de dados.
-          </li>
-          <li>
-            Não enviar spam, mensagens não solicitadas em massa ou conteúdo
-            ilícito, abusivo ou enganoso.
-          </li>
-          <li>Não usar o sistema para violar direitos de terceiros.</li>
+          <li>{t('legal.terms.s3.li1')}</li>
+          <li>{t('legal.terms.s3.li2')}</li>
+          <li>{t('legal.terms.s3.li3')}</li>
         </ul>
+        <p>{t('legal.terms.s3.p1')}</p>
+      </LegalSection>
+
+      <LegalSection title={t('legal.terms.s4.title')}>
         <p>
-          O operador é o único responsável pelo conteúdo enviado e pelos
-          contatos utilizados.
+          {t('legal.terms.s4.p1Pre')}{' '}
+          <code className="text-foreground">GLOBAL_API_KEY</code>{' '}
+          {t('legal.terms.s4.p1Post')}
         </p>
       </LegalSection>
 
-      <LegalSection title="4. Credenciais e acesso">
-        <p>
-          A <code className="text-foreground">GLOBAL_API_KEY</code> e os tokens
-          de instância são credenciais administrativas. Mantenha-as em segredo,
-          use HTTPS e restrinja o acesso de rede ao servidor. Quem possui essas
-          chaves tem controle total sobre as instâncias.
-        </p>
+      <LegalSection title={t('legal.terms.s5.title')}>
+        <p>{t('legal.terms.s5.p1')}</p>
       </LegalSection>
 
-      <LegalSection title="5. Natureza não oficial e riscos">
-        <p>
-          Este é um cliente não oficial do WhatsApp baseado no protocolo
-          multi-dispositivo. O WhatsApp pode alterar ou bloquear clientes não
-          oficiais a qualquer momento. O uso é por sua conta e risco, e podem
-          ocorrer desconexões, bloqueio de número ou perda de mensagens.
-        </p>
+      <LegalSection title={t('legal.terms.s6.title')}>
+        <p>{t('legal.terms.s6.p1')}</p>
       </LegalSection>
 
-      <LegalSection title="6. Ausência de garantias">
-        <p>
-          O software é fornecido “como está”, sem garantias de qualquer tipo,
-          expressas ou implícitas, incluindo adequação a um propósito específico
-          ou não violação, conforme os termos da Apache License 2.0.
-        </p>
+      <LegalSection title={t('legal.terms.s7.title')}>
+        <p>{t('legal.terms.s7.p1')}</p>
       </LegalSection>
 
-      <LegalSection title="7. Limitação de responsabilidade">
+      <LegalSection title={t('legal.terms.s8.title')}>
         <p>
-          Na extensão máxima permitida pela lei, os mantenedores do projeto não
-          respondem por danos indiretos, incidentais ou consequentes, perda de
-          dados, lucros cessantes ou bloqueio de contas decorrentes do uso do
-          software.
-        </p>
-      </LegalSection>
-
-      <LegalSection title="8. Licença e marca">
-        <p>
-          O código é licenciado sob a Apache License 2.0. Os textos completos
-          estão em <code className="text-foreground">LICENSE</code>,{' '}
-          <code className="text-foreground">NOTICE</code> e{' '}
-          <code className="text-foreground">TRADEMARKS.md</code> na raiz do
-          projeto.
+          {t('legal.terms.s8.p1Pre')}{' '}
+          <code className="text-foreground">LICENSE</code>
+          {t('legal.terms.s8.p1Between1')}{' '}
+          <code className="text-foreground">NOTICE</code>{' '}
+          {t('legal.terms.s8.p1Between2')}{' '}
+          <code className="text-foreground">TRADEMARKS.md</code>{' '}
+          {t('legal.terms.s8.p1Post')}
         </p>
         <div className="flex flex-wrap gap-4 pt-1">
           <a
@@ -108,24 +72,17 @@ export default function Terms() {
             target="_blank"
             rel="noreferrer noopener"
           >
-            Repositório do projeto
+            {t('legal.terms.s8.repo')}
           </a>
         </div>
       </LegalSection>
 
-      <LegalSection title="9. Alterações">
-        <p>
-          Estes termos podem ser atualizados a qualquer momento. O uso
-          continuado após uma alteração significa que você concorda com a versão
-          revisada.
-        </p>
+      <LegalSection title={t('legal.terms.s9.title')}>
+        <p>{t('legal.terms.s9.p1')}</p>
       </LegalSection>
 
-      <LegalSection title="10. Observação">
-        <p>
-          Este texto é um modelo de exemplo para instalações auto-hospedadas.
-          Revise e adapte com apoio jurídico antes de usá-lo em produção.
-        </p>
+      <LegalSection title={t('legal.terms.s10.title')}>
+        <p>{t('legal.terms.s10.p1')}</p>
       </LegalSection>
     </LegalLayout>
   );

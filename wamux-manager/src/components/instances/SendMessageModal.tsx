@@ -46,7 +46,7 @@ function SendMessageModal({ open, onClose, instance }: SendMessageModalProps) {
 
   const onSubmit = async (data: SendMessageFormData) => {
     if (!instance?.apikey) {
-      toast.error('Token da instância não encontrado');
+      toast.error(t('sendMessage.tokenMissing'));
       return;
     }
 
@@ -55,12 +55,12 @@ function SendMessageModal({ open, onClose, instance }: SendMessageModalProps) {
         number: data.number,
         text: data.message,
       });
-      toast.success('Mensagem enviada com sucesso!');
+      toast.success(t('sendMessage.success'));
       reset();
       onClose();
     } catch (error) {
       console.error('Send message error:', error);
-      toast.error('Erro ao enviar mensagem');
+      toast.error(t('sendMessage.error'));
     }
   };
 
@@ -79,17 +79,18 @@ function SendMessageModal({ open, onClose, instance }: SendMessageModalProps) {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            Enviar mensagem{instance ? ` — ${instance.instanceName}` : ''}
+            {t('sendMessage.title')}
+            {instance ? ` — ${instance.instanceName}` : ''}
           </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="send-number">Número (com DDI)</Label>
+            <Label htmlFor="send-number">{t('sendMessage.number')}</Label>
             <Input
               id="send-number"
               type="text"
-              placeholder="5511999999999"
+              placeholder={t('sendMessage.numberPlaceholder')}
               {...register('number')}
             />
             {errors.number && (
@@ -98,11 +99,11 @@ function SendMessageModal({ open, onClose, instance }: SendMessageModalProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="send-message">Mensagem</Label>
+            <Label htmlFor="send-message">{t('sendMessage.message')}</Label>
             <textarea
               id="send-message"
               rows={4}
-              placeholder="Digite sua mensagem..."
+              placeholder={t('sendMessage.messagePlaceholder')}
               {...register('message')}
               className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-[color,box-shadow,border-color] placeholder:text-muted-foreground hover:border-ring/50 focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
             />
@@ -121,7 +122,7 @@ function SendMessageModal({ open, onClose, instance }: SendMessageModalProps) {
               {t('common.cancel')}
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Enviando…' : 'Enviar'}
+              {isSubmitting ? t('sendMessage.submitting') : t('sendMessage.submit')}
             </Button>
           </DialogFooter>
         </form>
