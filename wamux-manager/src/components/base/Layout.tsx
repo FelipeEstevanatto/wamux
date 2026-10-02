@@ -1,7 +1,8 @@
 import { ReactNode, Suspense, lazy, useEffect, useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import ErrorBoundary from './ErrorBoundary';
 
 // The drawer (and with it Radix Dialog) is only needed once the menu is opened,
 // so it is kept out of the initial bundle.
@@ -12,6 +13,7 @@ interface LayoutProps {
 }
 
 function Layout({ children }: LayoutProps) {
+  const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   // Once opened, keep the drawer mounted so its close animation can play. This
   // is derived during render rather than via an effect, so opening the menu does
@@ -47,7 +49,11 @@ function Layout({ children }: LayoutProps) {
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Header onOpenMenu={() => handleMenuOpenChange(true)} />
-        <main className="flex-1 overflow-y-auto">{children || <Outlet />}</main>
+        <main className="flex-1 overflow-y-auto">
+          <ErrorBoundary key={location.pathname}>
+            {children || <Outlet />}
+          </ErrorBoundary>
+        </main>
       </div>
     </div>
   );

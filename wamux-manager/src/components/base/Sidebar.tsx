@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   BookOpen,
@@ -13,6 +14,7 @@ import useAuth from '@/hooks/useAuth';
 import useServerStats from '@/hooks/useServerStats';
 import GithubIcon from './GithubIcon';
 import { COPYRIGHT_LINE, PRODUCT_NAME, REPO } from '@/constants/branding';
+import { prefetchLikelyRoutes, prefetchRoute } from '@/utils/prefetch';
 
 // Dashboard/Instâncias/Sobre are SPA routes; API Tester is also a route, and
 // Swagger is served by the Go server (outside the SPA), so it is a plain link.
@@ -42,6 +44,11 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const { apiUrl } = useAuth();
   const version = stats?.system?.version;
 
+  // Warm the most likely next route chunks once the app is idle.
+  useEffect(() => {
+    prefetchLikelyRoutes();
+  }, []);
+
   const swaggerHref = apiUrl
     ? `${apiUrl.replace(/\/$/, '')}/swagger/index.html`
     : '/swagger/index.html';
@@ -53,6 +60,8 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
         to="/manager"
         end
         onClick={onNavigate}
+        onMouseEnter={() => prefetchRoute('/manager')}
+        onFocus={() => prefetchRoute('/manager')}
         title="Ir para o Dashboard"
         className="flex h-16 items-center border-b border-sidebar-border px-4 transition-colors hover:bg-sidebar-accent/50"
       >
@@ -69,6 +78,8 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
             to={item.to}
             end={item.end}
             onClick={onNavigate}
+            onMouseEnter={() => prefetchRoute(item.to)}
+            onFocus={() => prefetchRoute(item.to)}
             className={({ isActive }) => itemClass(isActive)}
           >
             {({ isActive }) => (

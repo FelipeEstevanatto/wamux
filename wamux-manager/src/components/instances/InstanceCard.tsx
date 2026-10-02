@@ -89,6 +89,8 @@ export default function InstanceCard({
                   alt={displayName}
                   className="h-14 w-14 rounded-full object-cover"
                   referrerPolicy="no-referrer"
+                  loading="lazy"
+                  decoding="async"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
                     target.style.display = "none";
@@ -229,6 +231,7 @@ export default function InstanceCard({
                 className="h-12 shrink-0 rounded-none px-3 text-blue-500 hover:bg-blue-500/10 hover:text-blue-400"
                 onClick={() => onSendMessage(instance)}
                 title="Enviar mensagem de texto"
+                aria-label="Enviar mensagem de texto"
               >
                 <MessageSquare className="h-4 w-4" />
               </Button>
@@ -244,6 +247,7 @@ export default function InstanceCard({
                 className="h-12 shrink-0 rounded-none px-3 text-purple-500 hover:bg-purple-500/10 hover:text-purple-400"
                 onClick={() => onTestMessage(instance)}
                 title="Testar botões, lista e carrossel"
+                aria-label="Testar botões, lista e carrossel"
               >
                 <FlaskConical className="h-4 w-4" />
               </Button>
@@ -257,6 +261,7 @@ export default function InstanceCard({
             className="h-12 shrink-0 rounded-none px-3 text-gray-500 hover:bg-gray-500/10 hover:text-gray-300"
             onClick={() => onSettings(instance)}
             title="Configurações da instância"
+            aria-label="Configurações da instância"
           >
             <Settings className="h-4 w-4" />
           </Button>
@@ -273,6 +278,7 @@ export default function InstanceCard({
             disabled={isDeleting === instance.instanceName}
             onClick={() => onDelete(instance)}
             title="Excluir instância"
+            aria-label="Excluir instância"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
