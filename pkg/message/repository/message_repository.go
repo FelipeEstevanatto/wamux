@@ -37,6 +37,10 @@ type MessageRepository interface {
 	// History readback (GET /chat/history and GET /chat/chats).
 	ListMessages(instanceId, chatJid, before string, limit int) ([]message_model.Message, error)
 	ListChats(instanceId string, limit int) ([]ChatSummary, error)
+
+	// DistinctSenders lists the bare `sender_jid` values that authored messages
+	// in one conversation, for labelling group members.
+	DistinctSenders(instanceId, chatJid string) ([]string, error)
 }
 
 // ChatSummary is the per-conversation row returned by ListChats: the newest
@@ -52,6 +56,11 @@ type ChatSummary struct {
 	SenderJid    string `json:"last_sender_jid" gorm:"column:sender_jid"`
 	IsFromMe     bool   `json:"last_from_me" gorm:"column:is_from_me"`
 	MessageCount int64  `json:"message_count" gorm:"column:message_count"`
+
+	// Name is the resolved display name (group subject or contact name). It is
+	// not a column: the service fills it after the query, so the repository stays
+	// free of WhatsApp lookups.
+	Name string `json:"name,omitempty" gorm:"-"`
 }
 
 // History pagination bounds. A request without a limit returns the most recent
@@ -338,6 +347,44 @@ LIMIT ?`
 
 	err := m.db.Raw(query, instanceId, clampHistoryLimit(limit)).Scan(&summaries).Error
 	return summaries, err
+}
+
+// distinctValues runs a `SELECT DISTINCT <column>` scoped to one instance and
+// returns the non-empty strings. Errors are returned so callers can decide
+// whether a failed name-enrichment is worth surfacing (it never is: the raw
+// JID is a usable label).
+func (m *messageRepository) distinctValues(query string, args ...any) ([]string, error) {
+	rows, err := m.db.Raw(query, args...).Rows()
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]string, 0, 64)
+	for rows.Next() {
+		var v string
+		if err := rows.Scan(&v); err != nil {
+			return nil, err
+		}
+		if v != "" {
+			out = append(out, v)
+		}
+	}
+	return out, rows.Err()
+}
+
+// DistinctSenders lists the distinct authors of messages in one conversation.
+// A blank sender_jid (rows written before the column existed, or a receipt) is
+// excluded so the caller does not try to resolve "".
+func (m *messageRepository) DistinctSenders(instanceId, chatJid string) ([]string, error) {
+	if instanceId == "" || chatJid == "" {
+		return nil, nil
+	}
+	return m.distinctValues(
+		`SELECT DISTINCT sender_jid FROM messages
+		 WHERE instance_id = ? AND chat_jid = ? AND sender_jid <> ''`,
+		instanceId, chatJid,
+	)
 }
 
 func (m *messageRepository) GetLatestMessageID(source string) (string, string, error) {

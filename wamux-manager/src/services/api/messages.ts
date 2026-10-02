@@ -7,7 +7,7 @@
  */
 
 import apiClient from './client';
-import type { ChatSummary, HistoryMessage } from '@/types/messages';
+import type { ChatContact, ChatSummary, HistoryMessage } from '@/types/messages';
 
 const asInstance = (instanceToken: string) => ({
   headers: { apikey: instanceToken },
@@ -46,6 +46,38 @@ export const getHistory = async (
     }
   );
   return response.data.data ?? [];
+};
+
+/**
+ * List known contacts and groups (resolved names) for the picker.
+ * GET /chat/contacts
+ */
+export const listChatContacts = async (
+  instanceToken: string
+): Promise<ChatContact[]> => {
+  const response = await apiClient.get<{ message: string; data: ChatContact[] }>(
+    '/chat/contacts',
+    asInstance(instanceToken)
+  );
+  return response.data.data ?? [];
+};
+
+/**
+ * Map a conversation's senders (by JID user part) to display names.
+ * GET /chat/senders
+ */
+export const getSenderNames = async (
+  instanceToken: string,
+  chat: string
+): Promise<Record<string, string>> => {
+  const response = await apiClient.get<{
+    message: string;
+    data: Record<string, string>;
+  }>('/chat/senders', {
+    ...asInstance(instanceToken),
+    params: { chat },
+  });
+  return response.data.data ?? {};
 };
 
 /**
@@ -123,6 +155,30 @@ export interface Contact {
   PushName?: string;
   BusinessName?: string;
 }
+
+export interface AvatarInfo {
+  url: string;
+  id: string;
+  type: string;
+}
+
+/**
+ * Resolve a chat's profile picture URL. WhatsApp serves the image from its own
+ * CDN, so the manager can render it directly without the instance token.
+ * POST /user/avatar
+ */
+export const getAvatar = async (
+  instanceToken: string,
+  number: string,
+  preview = true
+): Promise<string> => {
+  const response = await apiClient.post<{ message: string; data: AvatarInfo | null }>(
+    '/user/avatar',
+    { number, preview },
+    asInstance(instanceToken)
+  );
+  return response.data.data?.url ?? '';
+};
 
 /**
  * List the instance's known contacts (from the WhatsApp store).

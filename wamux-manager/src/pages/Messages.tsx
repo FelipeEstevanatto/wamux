@@ -7,7 +7,9 @@ import {
   MessageSquare,
   Paperclip,
   RefreshCw,
+  Search,
   SendHorizontal,
+  Users,
   Wifi,
   WifiOff,
   X,
@@ -21,10 +23,12 @@ import useInstanceEvents from '@/hooks/useInstanceEvents';
 import * as messagesApi from '@/services/api/messages';
 import { fetchServerStats } from '@/services/api/server';
 import type { ChatSummary, HistoryMessage } from '@/types/messages';
+import { cn } from '@/utils/cn';
 
 const PAGE_SIZE = 50;
 
 type ChatKind = 'contact' | 'group' | 'channel';
+type TabId = 'all' | ChatKind;
 
 // Feature flags reported by GET /server/stats. When mediaLocal/history are off
 // there is nothing stored to preview or read back, and the UI says so.
@@ -55,6 +59,17 @@ function chatTitle(
   if (jid.endsWith('@newsletter')) return t('messages.chatChannel', { id: jidUser(jid) });
   if (jid.endsWith('@lid')) return t('messages.chatLid', { id: jidUser(jid) });
   return jidUser(jid);
+}
+
+// displayTitle prefers the server-resolved name (group subject / contact name),
+// falling back to the number/JID when the name is unknown or the instance is
+// offline.
+function displayTitle(
+  chat: ChatSummary | undefined,
+  jid: string,
+  t: (key: string, vars?: Record<string, string | number>) => string
+): string {
+  return chat?.name?.trim() || chatTitle(jid, t);
 }
 
 // toChatJid turns a typed value into a chat JID: a full JID is kept, a bare
@@ -89,6 +104,25 @@ function formatTime(ts: string): string {
   return d ? d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
 }
 
+// A small, theme-safe palette for group sender names, picked deterministically
+// from the name so the same person keeps the same colour across renders.
+const SENDER_COLORS = [
+  'text-rose-500',
+  'text-emerald-500',
+  'text-sky-500',
+  'text-amber-500',
+  'text-violet-500',
+  'text-teal-500',
+  'text-pink-500',
+  'text-indigo-500',
+];
+
+function senderColor(name: string): string {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return SENDER_COLORS[h % SENDER_COLORS.length];
+}
+
 // mergeMessages merges two newest-first pages by message_id and re-sorts
 // descending, so a live refresh can update a message's status without
 // duplicating it or dropping pages already loaded.
@@ -119,8 +153,93 @@ function humanSize(bytes: number): string {
 // Resolved object URLs are cached so re-renders and re-mounts do not refetch.
 const mediaObjectUrlCache = new Map<string, string>();
 
+// Profile-picture URLs are cached the same way. The empty string is a cached
+// "no picture", so a contact without one is not re-requested every render.
+const avatarCache = new Map<string, string>();
+
 function isAbsoluteUrl(url: string): boolean {
   return url.startsWith('http://') || url.startsWith('https://');
+}
+
+function useChatAvatar(instanceToken: string, jid: string, enabled: boolean): string {
+  const user = jidUser(jid);
+  const key = `${instanceToken}|${user}`;
+  // Resolve the cached value during render (and re-resolve when the target
+  // changes) so a known avatar paints on the first pass — no effect-driven
+  // extra render, which is what the lint rule is asking for.
+  const [src, setSrc] = useState(() => avatarCache.get(key) ?? '');
+  const [lastKey, setLastKey] = useState(key);
+  if (key !== lastKey) {
+    setLastKey(key);
+    setSrc(avatarCache.get(key) ?? '');
+  }
+
+  useEffect(() => {
+    if (!enabled || !instanceToken || !user || user === '—') return;
+    if (avatarCache.has(key)) return; // known hit (or a cached miss): don't refetch
+    let active = true;
+    messagesApi
+      .getAvatar(instanceToken, user)
+      .then((url) => {
+        avatarCache.set(key, url);
+        if (active) setSrc(url);
+      })
+      .catch(() => {
+        // Cache the miss so a contact without a picture is not retried.
+        avatarCache.set(key, '');
+      });
+    return () => {
+      active = false;
+    };
+  }, [key, instanceToken, user, enabled]);
+
+  return src;
+}
+
+/**
+ * A WhatsApp-like round avatar: the profile picture when there is one, the
+ * group/initial glyph otherwise. Groups and channels always show the glyph
+ * (their picture is not resolvable through the user-avatar endpoint).
+ */
+function ChatAvatar({
+  jid,
+  token,
+  label,
+  size = 40,
+}: {
+  jid: string;
+  token: string;
+  label?: string;
+  size?: number;
+}) {
+  const kind = chatKind(jid);
+  const isGroupLike = kind !== 'contact';
+  const src = useChatAvatar(token, jid, !isGroupLike);
+  const [failed, setFailed] = useState(false);
+
+  const initial = (label?.trim() || jidUser(jid)).charAt(0).toUpperCase() || '?';
+
+  return (
+    <span
+      className="inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-xs font-semibold text-muted-foreground"
+      style={{ width: size, height: size }}
+      aria-hidden="true"
+    >
+      {isGroupLike ? (
+        <Users className="h-5 w-5" />
+      ) : src && !failed ? (
+        <img
+          src={src}
+          alt=""
+          className="h-full w-full object-cover"
+          loading="lazy"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <span>{initial}</span>
+      )}
+    </span>
+  );
 }
 
 /**
@@ -129,25 +248,24 @@ function isAbsoluteUrl(url: string): boolean {
  * fetched with the instance token and turned into a blob URL.
  */
 function useMediaSrc(mediaUrl: string, token: string): string {
-  const [src, setSrc] = useState(isAbsoluteUrl(mediaUrl) ? mediaUrl : '');
+  const cacheKey = `${token}|${mediaUrl}`;
+  // Absolute URLs and cache hits are known synchronously, so they render without
+  // an effect round-trip.
+  const immediate = isAbsoluteUrl(mediaUrl)
+    ? mediaUrl
+    : mediaObjectUrlCache.get(cacheKey) ?? '';
+  const [src, setSrc] = useState(immediate);
+  const [lastKey, setLastKey] = useState(cacheKey);
+  if (cacheKey !== lastKey) {
+    setLastKey(cacheKey);
+    setSrc(isAbsoluteUrl(mediaUrl) ? mediaUrl : mediaObjectUrlCache.get(cacheKey) ?? '');
+  }
 
   useEffect(() => {
-    if (!mediaUrl) {
-      setSrc('');
-      return;
-    }
-    if (isAbsoluteUrl(mediaUrl)) {
-      setSrc(mediaUrl);
-      return;
-    }
-    if (!token) return;
-
-    const cacheKey = `${token}|${mediaUrl}`;
-    const cached = mediaObjectUrlCache.get(cacheKey);
-    if (cached) {
-      setSrc(cached);
-      return;
-    }
+    // Nothing to do when there is no media, the URL is absolute, or it is cached
+    // (including an absolute URL already handled above).
+    if (!mediaUrl || isAbsoluteUrl(mediaUrl) || !token) return;
+    if (mediaObjectUrlCache.has(cacheKey)) return;
 
     let active = true;
     messagesApi
@@ -167,7 +285,7 @@ function useMediaSrc(mediaUrl: string, token: string): string {
     return () => {
       active = false;
     };
-  }, [mediaUrl, token]);
+  }, [cacheKey, mediaUrl, token]);
 
   return src;
 }
@@ -239,15 +357,23 @@ function Bubble({
   message,
   token,
   mediaLocal,
+  senderName,
+  showSender,
 }: {
   message: HistoryMessage;
   token: string;
   mediaLocal: boolean;
+  senderName?: string;
+  showSender: boolean;
 }) {
+  const { t } = useI18n();
   const mine = message.is_from_me;
   const isMedia =
     !!message.media_url ||
     ['image', 'video', 'audio', 'document', 'sticker'].includes(message.message_type);
+  // Prefer the resolved name; fall back to the sender number, then a generic
+  // label so a group message always shows who wrote it.
+  const label = senderName?.trim() || jidUser(message.sender_jid) || t('messages.unknownSender');
   return (
     <div className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
       <div
@@ -255,6 +381,11 @@ function Bubble({
           mine ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
         }`}
       >
+        {showSender && !mine && (
+          <p className={`mb-0.5 text-[11px] font-semibold ${senderColor(label)}`}>
+            {label}
+          </p>
+        )}
         {isMedia && <MediaContent message={message} token={token} mediaLocal={mediaLocal} />}
         {message.text_content && (
           <p className="break-words whitespace-pre-wrap">{message.text_content}</p>
@@ -284,7 +415,10 @@ export default function Messages() {
     [instances]
   );
 
-  const [instanceId, setInstanceId] = useState('');
+  const [selectedInstanceId, setInstanceId] = useState('');
+  // Fall back to the first connected instance as a derived value, so no effect
+  // has to set it (and the very first render already targets an instance).
+  const instanceId = selectedInstanceId || connected[0]?.id || '';
   const instance = useMemo(
     () => instances.find((i) => i.id === instanceId),
     [instances, instanceId]
@@ -296,15 +430,25 @@ export default function Messages() {
     instance?.websocketEnable === 'enabled' || instance?.websocketEnable === 'true';
 
   const [chats, setChats] = useState<ChatSummary[]>([]);
-  const [chatsLoading, setChatsLoading] = useState(false);
+  // The token whose conversation list has already loaded. "Loading" is derived
+  // from this rather than stored, so the fetch effect never has to set state
+  // synchronously.
+  const [chatsLoadedFor, setChatsLoadedFor] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [chatQuery, setChatQuery] = useState('');
+  const [tab, setTab] = useState<TabId>('all');
 
   const [selectedChat, setSelectedChat] = useState('');
   const [messages, setMessages] = useState<HistoryMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [olderLoading, setOlderLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  // Sender names are keyed by the chat they belong to, so a stale map from the
+// previous conversation is never rendered while the next one loads.
+  const [senderNames, setSenderNames] = useState<{
+    chat: string;
+    names: Record<string, string>;
+  }>({ chat: '', names: {} });
 
   const [draft, setDraft] = useState('');
   const [attachFile, setAttachFile] = useState<File | null>(null);
@@ -313,8 +457,9 @@ export default function Messages() {
   const [newNumber, setNewNumber] = useState('');
   const [mobileThread, setMobileThread] = useState(false);
 
-  // Contacts picker + on-demand history recovery.
-  const [contacts, setContacts] = useState<messagesApi.Contact[]>([]);
+  // Contacts picker + on-demand history recovery. Names come from the stored
+  // conversations (GET /chat/contacts); the WhatsApp store list is the fallback.
+  const [contacts, setContacts] = useState<{ jid: string; name: string }[]>([]);
   const [contactsLoading, setContactsLoading] = useState(false);
   const [showContacts, setShowContacts] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -375,22 +520,18 @@ export default function Messages() {
       });
   }, []);
 
-  // Pick the first connected instance once one is available.
-  useEffect(() => {
-    if (!instanceId && connected.length > 0) setInstanceId(connected[0].id);
-  }, [connected, instanceId]);
-
   const loadChats = useCallback(async () => {
     if (!token) return;
-    setChatsLoading(true);
     try {
       setChats(await messagesApi.listChats(token));
     } catch {
       toast.error(t('messages.errorLoadChats'));
     } finally {
-      setChatsLoading(false);
+      // Marks the list as loaded for this token, which clears the derived
+      // "loading" state below.
+      setChatsLoadedFor(token);
     }
-  }, [token]);
+  }, [token, t]);
 
   const loadThread = useCallback(
     async (chat: string) => {
@@ -407,17 +548,54 @@ export default function Messages() {
         setMessagesLoading(false);
       }
     },
-    [token]
+    [token, t]
   );
 
-  // Reset everything when the selected instance changes.
-  useEffect(() => {
+  // Reset the conversation view when the selected instance changes, during render
+// rather than in an effect (the "adjust state when an input changes" pattern).
+  // The list itself is (re)loaded by the effect below.
+  const [lastToken, setLastToken] = useState(token);
+  if (token !== lastToken) {
+    setLastToken(token);
     setChats([]);
     setSelectedChat('');
     setMessages([]);
     setMobileThread(false);
-    if (token) void loadChats();
+  }
+
+  // Load the conversation list for the current instance. Whether it is still
+  // loading is derived from `chatsLoadedFor`, so this effect only fetches.
+  useEffect(() => {
+    // loadChats only writes state after its `await` completes — this is the
+    // standard fetch-on-deps-change pattern, not a synchronous render cascade.
+    // The rule's static analysis is conservative about async loaders.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadChats();
   }, [token, loadChats]);
+
+  const chatsLoading = !!token && chatsLoadedFor !== token;
+
+  // Resolve the authors of the open conversation so a group thread can label
+  // who sent each message. Only meaningful for groups/channels (a 1:1 chat's
+  // sender is the peer already shown in the header).
+  useEffect(() => {
+    if (!token || !selectedChat) return;
+    // A 1:1 chat's sender is the peer already shown in the header; only groups
+    // and channels need per-message labels.
+    if (chatKind(selectedChat) === 'contact') return;
+    let active = true;
+    messagesApi
+      .getSenderNames(token, selectedChat)
+      .then((names) => {
+        if (active) setSenderNames({ chat: selectedChat, names });
+      })
+      .catch(() => {
+        /* names are best-effort; fall back to the raw number */
+      });
+    return () => {
+      active = false;
+    };
+  }, [token, selectedChat]);
 
   const refreshThread = useCallback(async () => {
     if (!token || !selectedChat) return;
@@ -532,7 +710,8 @@ export default function Messages() {
     if (!token) return;
     setContactsLoading(true);
     try {
-      setContacts(await messagesApi.listContacts(token));
+      const list = await messagesApi.listChatContacts(token);
+      setContacts(list.map((c) => ({ jid: c.jid, name: c.name?.trim() || c.jid })));
     } catch {
       toast.error(t('messages.errorLoadContacts'));
     } finally {
@@ -609,32 +788,59 @@ export default function Messages() {
     }
   };
 
+  // Chats matching the text filter, then the active tab.
   const filteredChats = useMemo(() => {
     const q = chatQuery.trim().toLowerCase();
     if (!q) return chats;
-    return chats.filter((c) => c.chat_jid.toLowerCase().includes(q));
+    return chats.filter(
+      (c) =>
+        c.chat_jid.toLowerCase().includes(q) ||
+        (c.name ?? '').toLowerCase().includes(q)
+    );
   }, [chats, chatQuery]);
 
-  const sections = useMemo(() => {
-    const contacts: ChatSummary[] = [];
-    const groups: ChatSummary[] = [];
-    const channels: ChatSummary[] = [];
-    for (const c of filteredChats) {
-      const kind = chatKind(c.chat_jid);
-      (kind === 'group' ? groups : kind === 'channel' ? channels : contacts).push(c);
-    }
-    return [
-      { title: t('messages.sectionContacts'), items: contacts },
-      { title: t('messages.sectionGroups'), items: groups },
-      { title: t('messages.sectionChannels'), items: channels },
-    ].filter((s) => s.items.length > 0);
-  }, [filteredChats, t]);
+  // Tab counts reflect the text filter, so a badge always matches what the tab
+  // would show.
+  const counts = useMemo(() => {
+    const c = { all: filteredChats.length, contact: 0, group: 0, channel: 0 };
+    for (const chat of filteredChats) c[chatKind(chat.chat_jid)] += 1;
+    return c;
+  }, [filteredChats]);
+
+  const tabs = useMemo(
+    () =>
+      [
+        { id: 'all' as TabId, label: t('messages.tabAll'), count: counts.all },
+        { id: 'contact' as TabId, label: t('messages.sectionContacts'), count: counts.contact },
+        { id: 'group' as TabId, label: t('messages.sectionGroups'), count: counts.group },
+        { id: 'channel' as TabId, label: t('messages.sectionChannels'), count: counts.channel },
+      ].filter((tabDef) => tabDef.id === 'all' || tabDef.count > 0),
+    [counts, t]
+  );
+
+  // The tab actually shown: if the active category has no rows (e.g. a filter
+  // excluded them all), fall back to "all" without a state write, so the list is
+  // never mysteriously empty.
+  const activeTab: TabId = tabs.some((tabDef) => tabDef.id === tab) ? tab : 'all';
+
+  const visibleChats = useMemo(() => {
+    if (activeTab === 'all') return filteredChats;
+    return filteredChats.filter((c) => chatKind(c.chat_jid) === activeTab);
+  }, [filteredChats, activeTab]);
 
   const ordered = useMemo(() => [...messages].reverse(), [messages]);
   const activeChat = useMemo(
     () => chats.find((c) => c.chat_jid === selectedChat),
     [chats, selectedChat]
   );
+  const activeKind = selectedChat ? chatKind(selectedChat) : 'contact';
+  const showSenderNames = activeKind !== 'contact';
+  // Names only apply to the currently open chat (see the state shape).
+  const namesForChat =
+    senderNames.chat === selectedChat ? senderNames.names : {};
+  // Resolved name when known, else the number/JID (activeChat may be undefined
+  // for a conversation started from a typed number before it is in the list).
+  const activeTitle = displayTitle(activeChat, selectedChat, t);
 
   const wsBadge = (
     <span
@@ -751,7 +957,7 @@ export default function Messages() {
         </div>
       )}
 
-      <div className="grid min-h-0 flex-1 lg:grid-cols-[320px_1fr]">
+      <div className="grid min-h-0 flex-1 lg:grid-cols-[340px_1fr]">
         {/* Conversation list */}
         <aside
           className={`min-h-0 flex-col border-r border-border ${
@@ -759,11 +965,26 @@ export default function Messages() {
           }`}
         >
           <div className="space-y-2 border-b border-border p-3">
-            <Input
-              placeholder={t('messages.filterPlaceholder')}
-              value={chatQuery}
-              onChange={(e) => setChatQuery(e.target.value)}
-            />
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                className="pl-8 pr-8"
+                placeholder={t('messages.filterPlaceholder')}
+                value={chatQuery}
+                onChange={(e) => setChatQuery(e.target.value)}
+              />
+              {chatQuery && (
+                <button
+                  type="button"
+                  onClick={() => setChatQuery('')}
+                  aria-label={t('messages.clearFilter')}
+                  title={t('messages.clearFilter')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
             <div className="flex gap-2">
               <Input
                 placeholder={t('messages.newChatPlaceholder')}
@@ -820,69 +1041,112 @@ export default function Messages() {
                     {t('messages.noContacts')}
                   </p>
                 ) : (
-                  contacts.map((c) => {
-                    const name =
-                      c.FullName || c.FirstName || c.PushName || c.BusinessName || c.Jid;
-                    return (
-                      <button
-                        key={c.Jid}
-                        type="button"
-                        className="block w-full truncate px-2 py-1.5 text-left text-sm hover:bg-muted"
-                        onClick={() => {
-                          setNewNumber(c.Jid);
-                          setShowContacts(false);
-                        }}
-                        title={c.Jid}
-                      >
-                        {name}
-                      </button>
-                    );
-                  })
+                  contacts.map((c) => (
+                    <button
+                      key={c.jid}
+                      type="button"
+                      className="block w-full truncate px-2 py-1.5 text-left text-sm hover:bg-muted"
+                      onClick={() => {
+                        setNewNumber(c.jid);
+                        setShowContacts(false);
+                      }}
+                      title={c.jid}
+                    >
+                      {c.name}
+                    </button>
+                  ))
                 )}
               </div>
             )}
           </div>
+
+          {/* Category tabs (contacts / groups / channels) with counts, like the
+              WhatsApp chat list. */}
+          <div className="flex flex-wrap gap-1 border-b border-border p-2">
+            {tabs.map((tabDef) => (
+              <button
+                key={tabDef.id}
+                type="button"
+                onClick={() => setTab(tabDef.id)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
+                  activeTab === tabDef.id
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-muted'
+                )}
+              >
+                {tabDef.label}
+                <span
+                  className={cn(
+                    'rounded-full px-1.5 text-[10px] leading-4',
+                    activeTab === tabDef.id
+                      ? 'bg-primary-foreground/20'
+                      : 'bg-foreground/10'
+                  )}
+                >
+                  {tabDef.count}
+                </span>
+              </button>
+            ))}
+          </div>
+
           <div className="min-h-0 flex-1 overflow-y-auto">
             {chatsLoading && chats.length === 0 ? (
               <div className="space-y-2 p-3">
                 {Array.from({ length: 6 }).map((_, i) => (
-                  <Skeleton key={i} className="h-12 w-full" />
+                  <Skeleton key={i} className="h-14 w-full" />
                 ))}
               </div>
-            ) : sections.length === 0 ? (
+            ) : chats.length === 0 ? (
               <p className="p-4 text-sm text-muted-foreground">
                 {t('messages.noChats')}
               </p>
+            ) : visibleChats.length === 0 ? (
+              <p className="p-4 text-sm text-muted-foreground">
+                {t('messages.noMessagesFiltered')}
+              </p>
             ) : (
-              sections.map((section) => (
-                <div key={section.title}>
-                  <div className="sticky top-0 bg-background/95 px-3 py-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-                    {section.title}
-                  </div>
-                  {section.items.map((c) => (
-                    <button
-                      key={c.chat_jid}
-                      onClick={() => openChat(c.chat_jid)}
-                      className={`flex w-full flex-col gap-1 border-b border-border px-3 py-2 text-left hover:bg-accent ${
-                        selectedChat === c.chat_jid ? 'bg-accent' : ''
-                      }`}
-                    >
+              visibleChats.map((c) => {
+                const title = displayTitle(c, c.chat_jid, t);
+                // Show the phone number as a subtitle when the row displays a
+                // real name above it (a 1:1 contact whose name was resolved).
+                const number = chatKind(c.chat_jid) === 'contact' ? jidUser(c.chat_jid) : '';
+                const showNumber = !!number && number !== title;
+                return (
+                  <button
+                    key={c.chat_jid}
+                    onClick={() => openChat(c.chat_jid)}
+                    className={`flex w-full items-center gap-3 border-b border-border px-3 py-2 text-left hover:bg-accent ${
+                      selectedChat === c.chat_jid ? 'bg-accent' : ''
+                    }`}
+                  >
+                    <ChatAvatar jid={c.chat_jid} token={token} label={title} />
+                    <div className="min-w-0 flex-1">
                       <span className="flex items-center justify-between gap-2">
-                        <span className="truncate text-sm font-medium">
-                          {chatTitle(c.chat_jid, t)}
-                        </span>
+                        <span className="truncate text-sm font-medium">{title}</span>
                         <span className="shrink-0 text-[11px] text-muted-foreground">
                           {formatShort(c.last_timestamp)}
                         </span>
                       </span>
-                      <span className="truncate text-xs text-muted-foreground">
-                        {c.last_from_me ? t('messages.youPrefix') : ''}
-                        {c.last_text_content || (c.last_message_type ? `[${c.last_message_type}]` : '')}
+                      {showNumber && (
+                        <span className="block truncate text-[10px] text-muted-foreground">
+                          {number}
+                        </span>
+                      )}
+                      <span className="flex items-center justify-between gap-2">
+                        <span className="truncate text-xs text-muted-foreground">
+                          {c.last_from_me ? t('messages.youPrefix') : ''}
+                          {c.last_text_content ||
+                            (c.last_message_type ? `[${c.last_message_type}]` : '')}
+                        </span>
+                        <span className="shrink-0 text-[10px] text-muted-foreground">
+                          {t('messages.messageCount', { count: c.message_count })}
+                        </span>
                       </span>
-                    </button>
-                  ))}
-                </div>
-              ))
+                    </div>
+                  </button>
+                );
+              })
             )}
           </div>
         </aside>
@@ -897,7 +1161,7 @@ export default function Messages() {
             </div>
           ) : (
             <>
-              <div className="flex items-center gap-2 border-b border-border p-3">
+              <div className="flex items-center gap-3 border-b border-border p-3">
                 <Button
                   variant="ghost"
                   size="icon"
@@ -906,14 +1170,18 @@ export default function Messages() {
                 >
                   <ArrowLeft />
                 </Button>
+                <ChatAvatar jid={selectedChat} token={token} label={activeTitle} size={36} />
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">
-                    {chatTitle(selectedChat, t)}
-                  </p>
+                  <p className="truncate text-sm font-medium">{activeTitle}</p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {activeChat
-                      ? t('messages.messageCount', { count: activeChat.message_count })
-                      : ''}
+                    {[
+                      activeKind === 'contact' ? jidUser(selectedChat) : '',
+                      activeChat
+                        ? t('messages.messageCount', { count: activeChat.message_count })
+                        : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
                   </p>
                 </div>
               </div>
@@ -949,6 +1217,8 @@ export default function Messages() {
                         message={m}
                         token={token}
                         mediaLocal={flags.mediaLocal}
+                        showSender={showSenderNames}
+                        senderName={namesForChat[jidUser(m.sender_jid)]}
                       />
                     ))}
                   </div>
@@ -1008,7 +1278,7 @@ export default function Messages() {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
-                      void send();
+                      if (!sending) void send();
                     }
                   }}
                   placeholder={t('messages.messagePlaceholder')}

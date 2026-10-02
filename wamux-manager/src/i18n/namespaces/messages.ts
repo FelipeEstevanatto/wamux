@@ -11,8 +11,10 @@ export const messagesNs: {
       'Nenhuma instância conectada. Conecte uma instância para ver as conversas.',
 
     'messages.filterPlaceholder': 'Filtrar conversas…',
+    'messages.clearFilter': 'Limpar busca',
     'messages.newChatPlaceholder': 'Nova conversa (número)',
     'messages.open': 'Abrir',
+    'messages.newConversation': 'Nova conversa',
     'messages.contacts': 'Contatos',
     'messages.recover': 'Recuperar',
     'messages.recoverTitle':
@@ -24,14 +26,17 @@ export const messagesNs: {
     'messages.sectionContacts': 'Contatos',
     'messages.sectionGroups': 'Grupos',
     'messages.sectionChannels': 'Canais',
+    'messages.tabAll': 'Tudo',
 
     'messages.chatFallback': 'Conversa',
     'messages.chatGroup': 'Grupo {id}',
     'messages.chatChannel': 'Canal {id}',
     'messages.chatLid': 'LID {id}',
+    'messages.unknownSender': 'Desconhecido',
 
     'messages.selectChat': 'Selecione uma conversa ou inicie uma nova.',
     'messages.messageCount': '{count} mensagens',
+    'messages.noMessagesFiltered': 'Nenhuma conversa corresponde ao filtro.',
     'messages.noMessages': 'Nenhuma mensagem ainda. Envie a primeira abaixo.',
     'messages.loadOlder': 'Carregar antigas',
     'messages.messagePlaceholder': 'Digite uma mensagem…',
@@ -107,8 +112,10 @@ export const messagesNs: {
       'No connected instance. Connect an instance to view conversations.',
 
     'messages.filterPlaceholder': 'Filter conversations…',
+    'messages.clearFilter': 'Clear search',
     'messages.newChatPlaceholder': 'New conversation (number)',
     'messages.open': 'Open',
+    'messages.newConversation': 'New conversation',
     'messages.contacts': 'Contacts',
     'messages.recover': 'Recover',
     'messages.recoverTitle':
@@ -120,14 +127,17 @@ export const messagesNs: {
     'messages.sectionContacts': 'Contacts',
     'messages.sectionGroups': 'Groups',
     'messages.sectionChannels': 'Channels',
+    'messages.tabAll': 'All',
 
     'messages.chatFallback': 'Conversation',
     'messages.chatGroup': 'Group {id}',
     'messages.chatChannel': 'Channel {id}',
     'messages.chatLid': 'LID {id}',
+    'messages.unknownSender': 'Unknown',
 
     'messages.selectChat': 'Select a conversation or start a new one.',
     'messages.messageCount': '{count} messages',
+    'messages.noMessagesFiltered': 'No conversation matches the filter.',
     'messages.noMessages': 'No messages yet. Send the first one below.',
     'messages.loadOlder': 'Load older',
     'messages.messagePlaceholder': 'Type a message…',

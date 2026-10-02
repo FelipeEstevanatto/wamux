@@ -1,4 +1,4 @@
-.PHONY: help dev run build test clean swagger deps docker-build docker-run install setup migrate-up migrate-down logs manager-install manager-build
+.PHONY: help dev run build test clean swagger deps docker-build docker-run install setup migrate-up migrate-down logs manager-install manager-build test-manager fuzz
 
 # Configurações
 APP_NAME=wamux
@@ -108,6 +108,30 @@ test-coverage: ## Roda testes com cobertura
 test-race: ## Roda testes verificando race conditions
 	@echo "$(GREEN)🧪 Rodando testes com race detector...$(NC)"
 	$(GO) test -race -v ./...
+
+test-manager: ## Roda os testes do manager (vitest + fast-check)
+	@echo "$(GREEN)🧪 Rodando testes do manager...$(NC)"
+	cd wamux-manager && bun run test
+
+# Fuzzing. `go test` already runs each fuzz target's seed corpus as part of the
+# normal suite; these drive it further. FUZZTIME defaults to 20s per target.
+FUZZTIME ?= 20s
+FUZZ_TARGETS := \
+	pkg/utils=FuzzCreateJID pkg/utils=FuzzParseJID \
+	pkg/ssrf=FuzzValidateURL \
+	pkg/webhooksign=FuzzVerify pkg/webhooksign=FuzzDecrypt \
+	pkg/tokencrypt=FuzzLooksEncrypted \
+	pkg/media=FuzzSafeName \
+	pkg/message/content=FuzzSummarize
+
+fuzz: ## Fuzzing dos parsers (FUZZTIME=20s por alvo)
+	@echo "$(GREEN)🔬 Fuzzing ($$FUZZTIME por alvo)...$(NC)"
+	@set -e; for t in $(FUZZ_TARGETS); do \
+		pkg=$${t%%=*}; fn=$${t##*=}; \
+		echo "  → $$pkg $$fn"; \
+		$(GO) test ./$$pkg/ -run='^$$' -fuzz="$$fn" -fuzztime=$(FUZZTIME); \
+	done
+	@echo "$(GREEN)✅ Fuzzing concluído$(NC)"
 
 bench: ## Roda benchmarks (com alocação) nos hot paths
 	@echo "$(GREEN)⚡ Rodando benchmarks...$(NC)"

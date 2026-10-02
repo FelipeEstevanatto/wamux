@@ -120,6 +120,14 @@ type WhatsmeowService interface {
 	// behind them) for the dashboard's "most active conversations" list.
 	ResolveChats(users []string) map[string]ChatIdentity
 
+	// ResolveContacts resolves message sources to display names for one
+	// instance's conversation list. Group sources (the 18-digit group id) are
+	// resolved to the group subject; phone/LID sources to a saved contact name.
+	ResolveContacts(instanceId string, users []string) map[string]ChatIdentity
+	// ResolveSenders resolves the authors of one conversation to display names,
+	// so a group thread can label who sent each message.
+	ResolveSenders(instanceId, chatJid string, senders []string) map[string]ChatIdentity
+
 	// WhatsAppWebVersion returns the WhatsApp Web client version the service is
 	// currently using (e.g. "2.3000.1048977937"), best-effort: the lookup is
 	// cached and may be empty when it could not be fetched.
@@ -4808,9 +4816,8 @@ type ChatIdentity struct {
 // cached (see chatNameCache) because the dashboard polls /server/stats every ~15s
 // and group lookups are network round-trips.
 func (w *whatsmeowService) ResolveChats(users []string) map[string]ChatIdentity {
-	out := make(map[string]ChatIdentity, len(users))
 	if len(users) == 0 {
-		return out
+		return map[string]ChatIdentity{}
 	}
 
 	clients := make([]*whatsmeow.Client, 0, w.clientPointer.Len())
@@ -4822,6 +4829,17 @@ func (w *whatsmeowService) ResolveChats(users []string) map[string]ChatIdentity 
 
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
+
+	return w.resolveChats(ctx, clients, users)
+}
+
+// resolveChats is the shared cache-or-resolve loop behind ResolveChats and the
+// per-instance resolvers.
+func (w *whatsmeowService) resolveChats(ctx context.Context, clients []*whatsmeow.Client, users []string) map[string]ChatIdentity {
+	out := make(map[string]ChatIdentity, len(users))
+	if len(users) == 0 {
+		return out
+	}
 
 	for _, user := range users {
 		if w.chatNameCache != nil {
@@ -4886,6 +4904,136 @@ func resolveChatIdentity(ctx context.Context, clients []*whatsmeow.Client, user 
 	}
 
 	return ChatIdentity{}
+}
+
+// chatResolutionTimeout bounds a whole per-instance name-resolution pass. Each
+// group lookup is a network round trip; without a shared deadline a busy
+// instance could hold the request open for seconds per group.
+const chatResolutionTimeout = 6 * time.Second
+
+// liveClient returns the connected whatsmeow client for one instance, if any.
+func (w *whatsmeowService) liveClient(instanceId string) *whatsmeow.Client {
+	c, ok := w.clientPointer.Lookup(instanceId)
+	if !ok || c == nil || c.Store == nil || !c.IsConnected() {
+		return nil
+	}
+	return c
+}
+
+// ResolveContacts resolves stored chat JIDs to display names for one instance's
+// conversation list. A group JID (…@g.us) resolves to the group subject, so the
+// manager shows the group's real name instead of "Grupo <id>".
+func (w *whatsmeowService) ResolveContacts(instanceId string, jids []string) map[string]ChatIdentity {
+	cli := w.liveClient(instanceId)
+	if cli == nil || len(jids) == 0 {
+		return map[string]ChatIdentity{}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), chatResolutionTimeout)
+	defer cancel()
+	return w.resolveInstanceChats(ctx, cli, jids)
+}
+
+// ResolveSenders resolves the authors of one conversation to display names, so a
+// group thread can label who sent each message.
+func (w *whatsmeowService) ResolveSenders(instanceId, chatJid string, senders []string) map[string]ChatIdentity {
+	cli := w.liveClient(instanceId)
+	if cli == nil || len(senders) == 0 {
+		return map[string]ChatIdentity{}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), chatResolutionTimeout)
+	defer cancel()
+	return w.resolveInstanceChats(ctx, cli, senders)
+}
+
+// resolveInstanceChats is the shared, cross-request-cached resolution loop. The
+// chatNameCache is keyed by the full source string, which is unambiguous (a LID
+// and a phone number with the same user bytes do not collide), so unlike the
+// dashboard's bare-source path nothing here needs to avoid the shared cache.
+func (w *whatsmeowService) resolveInstanceChats(ctx context.Context, cli *whatsmeow.Client, sources []string) map[string]ChatIdentity {
+	out := make(map[string]ChatIdentity, len(sources))
+	for _, source := range sources {
+		if source == "" {
+			continue
+		}
+		if id, ok := w.chatNameCache.Get(source); ok {
+			out[source] = id.(ChatIdentity)
+			continue
+		}
+		id := resolveInstanceChatIdentity(ctx, cli, source)
+		w.chatNameCache.Set(source, id, cache.DefaultExpiration)
+		out[source] = id
+	}
+	return out
+}
+
+// resolveInstanceChatIdentity resolves one stored JID against a single instance's
+// client. The server part of the JID decides the lookup: a group JID asks for the
+// group subject; anything else is a phone number or LID resolved to a saved
+// contact (and, for a LID, the phone behind it). A bare all-digit source — as
+// persisted in messages.source for a group — is treated as a group id.
+func resolveInstanceChatIdentity(ctx context.Context, cli *whatsmeow.Client, source string) ChatIdentity {
+	user, server := splitSource(source)
+	if user == "" {
+		return ChatIdentity{}
+	}
+	switch user {
+	case "status", "0":
+		return ChatIdentity{Name: "Status"}
+	}
+	if strings.Contains(source, "broadcast") {
+		return ChatIdentity{Name: "Transmissão"}
+	}
+
+	if server == types.GroupServer || (server == "" && isAllDigits(user)) {
+		if info, err := cli.GetGroupInfo(ctx, types.NewJID(user, types.GroupServer)); err == nil && info != nil && info.Name != "" {
+			return ChatIdentity{Name: info.Name}
+		}
+		return ChatIdentity{}
+	}
+
+	jid := types.NewJID(user, types.DefaultUserServer)
+	if server != "" && server != types.DefaultUserServer {
+		jid = types.NewJID(user, server)
+	}
+	if name := contactDisplayName(ctx, cli, jid.ToNonAD()); name != "" {
+		return ChatIdentity{Name: name, Phone: user}
+	}
+
+	// A LID with no saved contact: map it back to the phone number so the row is
+	// still labelled with something human-readable.
+	if jid.Server == types.HiddenUserServer && cli.Store.LIDs != nil {
+		if pn, err := cli.Store.LIDs.GetPNForLID(ctx, jid.ToNonAD()); err == nil && !pn.IsEmpty() {
+			return ChatIdentity{Phone: pn.User, Name: contactDisplayName(ctx, cli, pn.ToNonAD())}
+		}
+	}
+	return ChatIdentity{}
+}
+
+// splitSource splits a stored source/JID into its user part and server, dropping
+// any device suffix (":12"). A bare source (no "@") yields an empty server.
+func splitSource(s string) (user, server string) {
+	user = s
+	if i := strings.IndexByte(s, '@'); i >= 0 {
+		user, server = s[:i], s[i+1:]
+	}
+	if i := strings.IndexByte(user, ':'); i >= 0 {
+		user = user[:i]
+	}
+	return user, server
+}
+
+// isAllDigits reports whether s is non-empty and contains only ASCII digits.
+// WhatsApp group ids are 18-digit numbers, so a digit-only source is a group.
+func isAllDigits(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // contactDisplayName returns the best available name for a contact, or "".

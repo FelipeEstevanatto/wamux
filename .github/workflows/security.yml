@@ -51,6 +51,41 @@ jobs:
       - name: go test -race
         run: go test -race ./...
 
+  fuzz-parsers:
+    name: fuzz parsers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      # Drive each fuzz target past its seed corpus for a bounded time so a
+      # regression in a parser (JID, URL, HMAC, ciphertext, media id, message
+      # summary) surfaces on the PR that introduces it. The seed corpus also
+      # runs as part of `go test`, so this is the deeper sweep.
+      - name: fuzz
+        run: make fuzz FUZZTIME=30s
+
+  manager-tests:
+    name: manager tests (vitest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install
+        working-directory: wamux-manager
+        run: bun install --frozen-lockfile
+
+      - name: Test
+        working-directory: wamux-manager
+        run: bun run test
+
   secret-scan:
     name: secret scan (gitleaks)
     runs-on: ubuntu-latest

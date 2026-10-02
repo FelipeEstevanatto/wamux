@@ -25,6 +25,14 @@ export default function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
+  // Reset the query when the palette opens. React runs this state update with
+  // the render that first sees `open`, before children read `query`, so it is
+  // the documented alternative to a reset-on-prop-change effect.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setQuery('');
+  }
   const navigate = useNavigate();
   const { t } = useI18n();
   const { toggleTheme } = useDarkMode();
@@ -42,12 +50,15 @@ export default function CommandPalette() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  useEffect(() => {
-    if (open) {
+  // Closing clears the query so the next open starts blank (avoids a
+  // reset-on-open effect, and keeps the reset inside the event that causes it).
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next);
+    if (!next) {
       setQuery('');
       setActive(0);
     }
-  }, [open]);
+  };
 
   const commands = useMemo<Command[]>(() => {
     const pages: Command[] = navItems.map((n) => ({
@@ -93,7 +104,14 @@ export default function CommandPalette() {
       : commands;
   }, [commands, query]);
 
-  useEffect(() => setActive(0), [query]);
+  // The highlighted row is adjusted during render when the filter changes,
+  // instead of reset via an effect: the classic "adjust state when a prop
+  // changes" pattern, which avoids a render pass with a stale index.
+  const [activeQuery, setActiveQuery] = useState(query);
+  if (query !== activeQuery) {
+    setActiveQuery(query);
+    setActive(0);
+  }
 
   const runAt = (index: number) => {
     const cmd = filtered[index];
@@ -116,7 +134,7 @@ export default function CommandPalette() {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="top-[20%] max-w-lg translate-y-0 gap-0 overflow-hidden p-0">
         <DialogTitle className="sr-only">{t('palette.placeholder')}</DialogTitle>
         <div className="flex items-center gap-2 border-b border-sidebar-border px-3">

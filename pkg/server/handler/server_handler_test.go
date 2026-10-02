@@ -35,6 +35,14 @@ func (f fakeOverview) ResolveChats(users []string) map[string]whatsmeow_service.
 	return out
 }
 
+func (f fakeOverview) ResolveContacts(string, []string) map[string]whatsmeow_service.ChatIdentity {
+	return nil
+}
+
+func (f fakeOverview) ResolveSenders(string, string, []string) map[string]whatsmeow_service.ChatIdentity {
+	return nil
+}
+
 func (f fakeOverview) WhatsAppWebVersion() string { return "2.3000.1048977937" }
 
 // fakeMessageRepo implements just enough of MessageRepository for the handler.
@@ -76,6 +84,7 @@ func (fakeMessageRepo) ListMessages(string, string, string, int) ([]message_mode
 func (fakeMessageRepo) ListChats(string, int) ([]message_repository.ChatSummary, error) {
 	return nil, nil
 }
+func (fakeMessageRepo) DistinctSenders(string, string) ([]string, error) { return nil, nil }
 
 func TestInstanceOverviewHandlerReturnsProviderData(t *testing.T) {
 	gin.SetMode(gin.TestMode)

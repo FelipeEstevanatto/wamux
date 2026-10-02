@@ -136,7 +136,7 @@ export default function InstanceSettings() {
     };
 
     loadInstance();
-  }, [instanceId]);
+  }, [instanceId, t]);
 
   // Populate forms when instance data is loaded (only once)
   useEffect(() => {

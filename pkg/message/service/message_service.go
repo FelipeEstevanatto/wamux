@@ -40,6 +40,12 @@ type MessageService interface {
 	// History readback.
 	GetHistory(data *HistoryQuery, instance *instance_model.Instance) ([]message_model.Message, error)
 	ListChats(instance *instance_model.Instance, limit int) ([]message_repository.ChatSummary, error)
+	// Contacts lists the known contacts/groups for the instance's picker, with
+	// their resolved display names.
+	Contacts(instance *instance_model.Instance) ([]ContactSummary, error)
+	// SenderNames maps the authors of one conversation (by JID user part) to a
+	// display name, so a group thread can label who wrote each message.
+	SenderNames(instance *instance_model.Instance, chat string) (map[string]string, error)
 
 	// GetStoredMedia opens a locally stored attachment for a message, scoped to
 	// the given instance. It also returns the stored content type.
@@ -830,7 +836,33 @@ func (m *messageService) ListChats(instance *instance_model.Instance, limit int)
 	if len(merged) > effective {
 		merged = merged[:effective]
 	}
+	m.enrichChatNames(instance, merged)
 	return merged, nil
+}
+
+// enrichChatNames fills each conversation's display name (group subject or
+// contact name). Best-effort: an unresolved or offline instance leaves Name
+// empty and the manager falls back to the JID. One batched resolution pass, not
+// one lookup per row.
+func (m *messageService) enrichChatNames(instance *instance_model.Instance, chats []message_repository.ChatSummary) {
+	if m.whatsmeowService == nil || len(chats) == 0 {
+		return
+	}
+	jids := make([]string, 0, len(chats))
+	for _, c := range chats {
+		if c.ChatJid != "" {
+			jids = append(jids, c.ChatJid)
+		}
+	}
+	if len(jids) == 0 {
+		return
+	}
+	ids := m.whatsmeowService.ResolveContacts(instance.Id, jids)
+	for i := range chats {
+		if id, ok := ids[chats[i].ChatJid]; ok {
+			chats[i].Name = id.Name
+		}
+	}
 }
 
 // GetStoredMedia opens a message's locally stored attachment. The message must
@@ -856,6 +888,125 @@ func (m *messageService) GetStoredMedia(messageID string, instance *instance_mod
 		return nil, nil, "", err
 	}
 	return file, info, msg.MediaMimetype, nil
+}
+
+// ContactSummary is one picker row: the chat identifier the UI sends back and a
+// best-effort display name resolved from the WhatsApp store.
+type ContactSummary struct {
+	Jid     string `json:"jid"`
+	Name    string `json:"name,omitempty"`
+	IsGroup bool   `json:"is_group"`
+}
+
+// Contacts lists the instance's known contacts and groups, named where the
+// WhatsApp store can resolve them, for the picker. It is a union of the
+// conversation list (so suggestions match what the thread list shows) and the
+// stored message sources, resolved in one pass.
+func (m *messageService) Contacts(instance *instance_model.Instance) ([]ContactSummary, error) {
+	if instance == nil {
+		return nil, errors.New("invalid instance")
+	}
+
+	chats, err := m.ListChats(instance, historyLimit(500))
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]ContactSummary, 0, len(chats))
+	seen := make(map[string]struct{}, len(chats))
+	for _, c := range chats {
+		if _, ok := seen[c.ChatJid]; ok {
+			continue
+		}
+		seen[c.ChatJid] = struct{}{}
+		// ListChats already resolved the display name.
+		name := c.Name
+		if name == "" {
+			name = c.ChatJid
+		}
+		out = append(out, ContactSummary{
+			Jid:     c.ChatJid,
+			Name:    name,
+			IsGroup: strings.HasSuffix(c.ChatJid, "@g.us"),
+		})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out, nil
+}
+
+// SenderNames resolves the distinct authors of one stored conversation to
+// display names, keyed by the sender JID's user part (which is what the manager
+// shows under a group message). A blank chat resolves to an empty map.
+func (m *messageService) SenderNames(instance *instance_model.Instance, chat string) (map[string]string, error) {
+	if instance == nil || chat == "" {
+		return map[string]string{}, nil
+	}
+	if m.messageRepository == nil || m.whatsmeowService == nil {
+		return map[string]string{}, nil
+	}
+
+	chatJid, ok := m.canonicalChat(instance.Id, chat)
+	if !ok {
+		return map[string]string{}, nil
+	}
+
+	// Union the senders across the same variants GetHistory reads, so a chat
+	// split between a LID and a phone number resolves every author.
+	senders := make([]string, 0, 16)
+	seen := make(map[string]struct{}, 16)
+	for _, variant := range m.chatJidVariants(instance.Id, chatJid) {
+		rows, err := m.messageRepository.DistinctSenders(instance.Id, variant)
+		if err != nil {
+			m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to list senders for %s: %v", instance.Id, variant, err)
+			continue
+		}
+		for _, s := range rows {
+			if _, ok := seen[s]; ok {
+				continue
+			}
+			seen[s] = struct{}{}
+			senders = append(senders, s)
+		}
+	}
+	if len(senders) == 0 {
+		return map[string]string{}, nil
+	}
+
+	ids := m.whatsmeowService.ResolveSenders(instance.Id, chatJid, senders)
+	names := make(map[string]string, len(ids))
+	for _, source := range senders {
+		id := ids[source]
+		name := id.Name
+		if name == "" {
+			name = id.Phone
+		}
+		if name == "" {
+			continue
+		}
+		// Key by the sender's user part (possibly still a LID) and by the phone
+		// number the service may have mapped it to, so the manager matches a
+		// message whether it was persisted under the LID or the number.
+		if user, _ := splitSource(source); user != "" {
+			names[user] = name
+		}
+		if id.Phone != "" {
+			names[id.Phone] = name
+		}
+	}
+	return names, nil
+}
+
+// splitSource splits a stored source/JID into its user part and server, dropping
+// any device suffix (":12"). A bare source (no "@") yields an empty server.
+func splitSource(s string) (user, server string) {
+	user = s
+	if i := strings.IndexByte(s, '@'); i >= 0 {
+		user, server = s[:i], s[i+1:]
+	}
+	if i := strings.IndexByte(user, ':'); i >= 0 {
+		user = user[:i]
+	}
+	return user, server
 }
 
 // mergeChatSummaries canonicalizes each conversation's JID and merges entries
