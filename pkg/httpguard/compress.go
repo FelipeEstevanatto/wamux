@@ -178,8 +178,11 @@ func newCompressWriter(inner gin.ResponseWriter) *compressWriter {
 
 func (w *compressWriter) WriteHeader(code int) {
 	// Deferred until the middleware runs, so the encoding headers can still be
-	// set. The real status is written then (or on the first passthrough write).
-	if code > 0 && w.status == 0 {
+	// set. Mirror gin's own semantics — a later WriteHeader may still correct an
+	// earlier one until the body is written — because gin.Static pre-writes 404
+	// (listings disabled) and then lets http.ServeContent write the real 200.
+	// Locking in the first status here would turn every served asset into a 404.
+	if code > 0 && w.status != code && !w.Written() {
 		w.status = code
 	}
 }

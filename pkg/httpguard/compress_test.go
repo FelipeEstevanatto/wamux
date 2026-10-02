@@ -242,6 +242,37 @@ func TestCompressionPanicStillReturns500(t *testing.T) {
 	}
 }
 
+// gin.Static pre-writes 404 (directory listings disabled) and then http.ServeContent
+// writes the real 200. The middleware must let the later status win, otherwise
+// every served asset 404s for a client that sends Accept-Encoding: gzip.
+func TestCompressionStaticAssetNot404(t *testing.T) {
+	dir := t.TempDir()
+	js := strings.Repeat("function f(){return 1;}\n", 400) // ~9 KB
+	if err := os.WriteFile(dir+"/app-abc123.js", []byte(js), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	engine.Use(Compression())
+	engine.Static("/assets", dir)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/assets/app-abc123.js", nil)
+	req.Header.Set("Accept-Encoding", "gzip")
+	engine.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (gin.Static pre-writes 404)", w.Code)
+	}
+	if got := w.Header().Get("Content-Encoding"); got != "gzip" {
+		t.Fatalf("content-encoding = %q, want gzip", got)
+	}
+	if got := gunzip(t, w.Body.Bytes()); string(got) != js {
+		t.Fatalf("decoded asset mismatch: %d bytes, want %d", len(got), len(js))
+	}
+}
+
 func TestCompressionAbortLeavesBodyUncompressed(t *testing.T) {
 	payload := strings.Repeat(`{"error":"not authorized"}`, 100) // > floor
 	w := doCompress("gzip", func(c *gin.Context) {
