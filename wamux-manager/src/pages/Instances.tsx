@@ -13,7 +13,7 @@ import {
 import { Trash2, Layers, PowerOff } from 'lucide-react';
 import { toast } from 'sonner';
 
-import useInstancesStore from '@/store/instancesStore';
+import useInstances from '@/hooks/useInstances';
 import { InstanceCard, InstancesHeader, CreateInstanceModal, QRCodeModal, ConnectConfigModal } from '@/components/instances';
 import SendMessageModal from '@/components/instances/SendMessageModal';
 import TestMessageModal from '@/components/instances/TestMessageModal';
@@ -25,8 +25,8 @@ import { useNavigate } from 'react-router-dom';
 
 export default function Instances() {
   const navigate = useNavigate();
-  const { instances, isLoading, fetchInstances, refreshInstances, isRefreshing, removeInstance, overviews, fetchOverviews } =
-    useInstancesStore();
+  const { instances, isLoading, fetchInstances, refreshInstances, isRefreshing, removeInstance, updateInstance, overviews, fetchOverviews } =
+    useInstances();
   const [query, setQuery] = useState('');
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [qrcodeModal, setQrcodeModal] = useState<{
@@ -90,14 +90,8 @@ export default function Instances() {
       initialFetchDone.current = true;
     }
 
-    // Polling: refresh instances every 30 seconds. The fetch is silent so the
-    // cards are updated in place instead of being replaced by skeletons, which
-    // is what made the page flicker on every 5s tick.
-    const interval = setInterval(() => {
-      fetchInstances({ silent: true });
-    }, 30000);
-
-    return () => clearInterval(interval);
+    // Polling is handled centrally by the useInstances query (refetchInterval),
+    // so the page no longer needs its own interval.
   }, [fetchInstances]);
 
   // Per-instance overviews (avatar + contacts/messages counts). fetchOverviews
@@ -312,6 +306,9 @@ export default function Instances() {
     }
 
     setIsDisconnecting(instance.instanceName);
+    // Optimistic: show the instance as disconnected right away; the refetch
+    // below (and on error) reconciles with the server.
+    updateInstance(instance.instanceName, { connected: false, status: 'close' });
     try {
       toast.info(`Desconectando ${instance.instanceName}...`);
       await instancesApi.logoutInstance(instance.apikey);
@@ -325,10 +322,11 @@ export default function Instances() {
           ? error.message
           : 'Erro ao desconectar instância'
       );
+      await fetchInstances();
     } finally {
       setIsDisconnecting(null);
     }
-  }, [disconnectModal.instance, fetchInstances]);
+  }, [disconnectModal.instance, fetchInstances, updateInstance]);
 
   const openDeleteModal = (instance: Instance) => {
     setDeleteModal({
@@ -453,13 +451,11 @@ export default function Instances() {
     const instanceName = deleteModal.instance.instanceName;
     const instanceId = deleteModal.instance.id;
     setIsDeleting(instanceName);
+    // Optimistic: drop the card immediately; a refetch restores it on failure.
+    removeInstance(instanceName);
 
     try {
       await instancesApi.deleteInstance(instanceId);
-
-      // Optimistically remove from local state
-      removeInstance(instanceName);
-
       toast.success(`Instância ${instanceName} removida com sucesso!`);
       closeDeleteModal();
     } catch (e: unknown) {

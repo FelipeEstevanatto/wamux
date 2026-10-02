@@ -15,7 +15,7 @@ import {
 import { toast } from 'sonner';
 
 import { Button, Input, Skeleton } from '@/components/ui';
-import useInstancesStore from '@/store/instancesStore';
+import useInstances from '@/hooks/useInstances';
 import useInstanceEvents from '@/hooks/useInstanceEvents';
 import * as messagesApi from '@/services/api/messages';
 import { fetchServerStats } from '@/services/api/server';
@@ -264,9 +264,11 @@ function Bubble({
 }
 
 export default function Messages() {
-  const instances = useInstancesStore((s) => s.instances);
-  const instancesLoading = useInstancesStore((s) => s.isLoading);
-  const fetchInstances = useInstancesStore((s) => s.fetchInstances);
+  const {
+    instances,
+    isLoading: instancesLoading,
+    fetchInstances,
+  } = useInstances();
   const connected = useMemo(
     () => instances.filter((i) => i.connected),
     [instances]

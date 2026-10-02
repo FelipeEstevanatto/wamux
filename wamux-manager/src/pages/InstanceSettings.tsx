@@ -9,7 +9,7 @@ import { z } from "zod";
 import * as instancesApi from "@/services/api/instances";
 import type { Instance, InstanceOverview, ProxyConfig, ProxyTestResult } from "@/types/instance";
 import { deviceLabel } from "@/utils/device";
-import useInstancesStore from "@/store/instancesStore";
+import { updateInstanceInCache } from '@/hooks/useInstances';
 
 const webhookSchema = z.object({
   webhookUrl: z.string().url("URL inválida").optional().or(z.literal("")),
@@ -343,7 +343,7 @@ export default function InstanceSettings() {
       // Keep the instances list in sync without a full refetch. The list is
       // keyed by name, so update the entry under its previous name.
       if (instance?.instanceName) {
-        useInstancesStore.getState().updateInstance(instance.instanceName, {
+        updateInstanceInCache(instance.instanceName, {
           instanceName: updated.instanceName,
           profileName: updated.profileName,
         });

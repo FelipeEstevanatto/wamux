@@ -21,7 +21,7 @@ import {
 import { Plus, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 import * as instancesApi from '@/services/api/instances';
-import useInstancesStore from '@/store/instancesStore';
+import useInstances from '@/hooks/useInstances';
 import type { CreateInstancePayload } from '@/types/instance';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -56,7 +56,7 @@ export default function CreateInstanceModal({
 }: CreateInstanceModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [showProxyConfig, setShowProxyConfig] = useState(false);
-  const { addInstance, fetchInstances } = useInstancesStore();
+  const { addInstance, fetchInstances } = useInstances();
 
   const {
     register,

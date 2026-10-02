@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type KeyboardEvent as ReactKeyboardEvent 
 import { useNavigate } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui';
-import useInstancesStore from '@/store/instancesStore';
+import useInstances from '@/hooks/useInstances';
 import { useDarkMode } from '@/hooks/useDarkMode';
 import useAuth from '@/hooks/useAuth';
 import { navItems } from '@/constants/navigation';
@@ -29,7 +29,7 @@ export default function CommandPalette() {
   const { t } = useI18n();
   const { toggleTheme } = useDarkMode();
   const { logout, apiUrl } = useAuth();
-  const instances = useInstancesStore((s) => s.instances);
+  const { instances } = useInstances();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

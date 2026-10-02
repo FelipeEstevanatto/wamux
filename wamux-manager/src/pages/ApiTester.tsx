@@ -13,7 +13,7 @@ import {
   KeyRound,
 } from 'lucide-react';
 import useAuth from '@/hooks/useAuth';
-import useInstancesStore from '@/store/instancesStore';
+import useInstances from '@/hooks/useInstances';
 
 type OpenApiParameter = {
   name: string;
@@ -175,7 +175,7 @@ type ExecResult = {
 
 function ApiTester() {
   const { apiUrl, apiKey: globalApiKey } = useAuth();
-  const { instances, fetchInstances } = useInstancesStore();
+  const { instances, fetchInstances } = useInstances();
 
   const [spec, setSpec] = useState<OpenApiSpec | null>(null);
   const [loadingSpec, setLoadingSpec] = useState(true);
