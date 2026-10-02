@@ -2,12 +2,50 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Crect%20width='32'%20height='32'%20rx='7'%20fill='%230a0a0a'/%3E%3Ctext%20x='16'%20y='22'%20font-family='system-ui,sans-serif'%20font-size='14'%20font-weight='700'%20fill='%2300ffa7'%20text-anchor='middle'%3EEG%3C/text%3E%3C/svg%3E" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <meta
+      name="description"
+      content="WaMux — painel auto-hospedado para gerenciar instâncias WhatsApp, mensagens e webhooks."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="WaMux Manager" />
+    <meta
+      property="og:description"
+      content="Painel auto-hospedado para gerenciar instâncias WhatsApp, mensagens e webhooks."
+    />
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Crect%20width='32'%20height='32'%20rx='7'%20fill='%230a0a0a'/%3E%3Ctext%20x='16'%20y='22'%20font-family='system-ui,sans-serif'%20font-size='13'%20font-weight='700'%20fill='%2300ffa7'%20text-anchor='middle'%3EWM%3C/text%3E%3C/svg%3E"
+    />
+    <link
+      rel="apple-touch-icon"
+      href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Crect%20width='32'%20height='32'%20rx='7'%20fill='%230a0a0a'/%3E%3Ctext%20x='16'%20y='22'%20font-family='system-ui,sans-serif'%20font-size='13'%20font-weight='700'%20fill='%2300ffa7'%20text-anchor='middle'%3EWM%3C/text%3E%3C/svg%3E"
+    />
     <title>WaMux Manager</title>
+    <!-- Apply the saved/system theme before first paint to avoid a light flash. -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('wamux-theme');
+          if (!t) {
+            t = window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light';
+          }
+          var el = document.documentElement;
+          el.classList.toggle('dark', t === 'dark');
+          el.style.colorScheme = t;
+        } catch (e) {
+          /* ignore */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
+    <noscript>Ative o JavaScript para usar o WaMux Manager.</noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
