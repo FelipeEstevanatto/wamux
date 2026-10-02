@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
-import { X, FlaskConical, Loader2 } from 'lucide-react';
+import { FlaskConical, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui';
 import * as instancesApi from '@/services/api/instances';
 import type { Instance } from '@/types/instance';
 
@@ -604,21 +605,19 @@ function TestMessageModal({ open, onClose, instance }: TestMessageModalProps) {
   if (!open || !instance) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg bg-card p-6 shadow-lg">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-xl font-semibold text-foreground">
+    <Dialog
+      open={open && !!instance}
+      onOpenChange={(next) => {
+        if (!next) handleClose();
+      }}
+    >
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
             <FlaskConical className="h-5 w-5 text-purple-500" />
             Testar mensagens - {instance.instanceName}
-          </h2>
-          <button
-            onClick={handleClose}
-            disabled={isSending}
-            className="rounded-md p-1 hover:bg-accent disabled:opacity-50"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+          </DialogTitle>
+        </DialogHeader>
 
         <div className="space-y-4">
           <div>
@@ -742,8 +741,8 @@ function TestMessageModal({ open, onClose, instance }: TestMessageModalProps) {
             </button>
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
