@@ -14,6 +14,19 @@ export interface ChatSummary {
   last_sender_jid: string;
   last_from_me: boolean;
   message_count: number;
+  /**
+   * Resolved display name (group subject or saved contact name). Empty when the
+   * instance is offline or the name is unknown; the UI then falls back to the
+   * number/JID.
+   */
+  name?: string;
+}
+
+/** One row of GET /chat/contacts (the conversation picker). */
+export interface ChatContact {
+  jid: string;
+  name?: string;
+  is_group: boolean;
 }
 
 export interface HistoryMessage {

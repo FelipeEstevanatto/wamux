@@ -26,6 +26,8 @@ type MessageHandler interface {
 	EditMessage(ctx *gin.Context)
 	GetHistory(ctx *gin.Context)
 	ListChats(ctx *gin.Context)
+	Contacts(ctx *gin.Context)
+	SenderNames(ctx *gin.Context)
 	ServeMedia(ctx *gin.Context)
 }
 
@@ -537,6 +539,66 @@ func (m *messageHandler) ListChats(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": chats})
+}
+
+// Contacts lists the instance's known contacts and groups with resolved names.
+// @Summary List contacts
+// @Description Known contacts and groups for the conversation picker, with best-effort display names. Requires DATABASE_SAVE_MESSAGES.
+// @Tags Message
+// @Produce json
+// @Success 200 {object} docmodels.Envelope "Contacts"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
+// @Router /chat/contacts [get]
+func (m *messageHandler) Contacts(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	contacts, err := m.messageService.Contacts(instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": contacts})
+}
+
+// SenderNames maps a conversation's authors to display names (group threads).
+// @Summary Conversation sender names
+// @Description Maps each message sender (by JID user part) to a display name so a group thread can label who wrote each message.
+// @Tags Message
+// @Produce json
+// @Param chat query string true "Phone number or JID of the conversation"
+// @Success 200 {object} docmodels.Envelope "Map of sender user -> display name"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
+// @Router /chat/senders [get]
+func (m *messageHandler) SenderNames(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	chat := ctx.Query("chat")
+	if chat == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "chat is required"})
+		return
+	}
+
+	names, err := m.messageService.SenderNames(instance, chat)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": names})
 }
 
 // ServeMedia streams a message's locally stored attachment

@@ -23,6 +23,19 @@ export default tseslint.config(
         'warn',
         { allowConstantExport: true },
       ],
+      // The repo marks a deliberately-unused binding by prefixing it with `_`
+      // (e.g. the API-compatibility stubs in useInstances that keep their old
+      // signatures). TypeScript-eslint's default does not honour that
+      // convention, so a `_name` argument/var was reported as an error.
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+          ignoreRestSiblings: true,
+        },
+      ],
     },
   },
 )

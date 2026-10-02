@@ -104,8 +104,13 @@ http://localhost:8081
 
 ---
 
-### Chats (7 endpoints)
+### Chats (12 endpoints)
 
+- `GET /chat/history` - Ler o histórico salvo de uma conversa
+- `GET /chat/chats` - Listar conversas (nome resolvido em `name`)
+- `GET /chat/contacts` - Contatos e grupos conhecidos (para o seletor)
+- `GET /chat/senders` - Mapa autor → nome de exibição (grupos)
+- `GET /chat/media/:messageId` - Servir um anexo armazenado
 - `POST /chat/pin` - Fixar conversa
 - `POST /chat/unpin` - Desfixar conversa
 - `POST /chat/archive` - Arquivar

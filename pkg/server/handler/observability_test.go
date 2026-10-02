@@ -115,6 +115,12 @@ func (f fakeHealthOverview) GetInstanceOverview(string) (*whatsmeow_service.Inst
 func (f fakeHealthOverview) ResolveChats([]string) map[string]whatsmeow_service.ChatIdentity {
 	return nil
 }
+func (f fakeHealthOverview) ResolveContacts(string, []string) map[string]whatsmeow_service.ChatIdentity {
+	return nil
+}
+func (f fakeHealthOverview) ResolveSenders(string, string, []string) map[string]whatsmeow_service.ChatIdentity {
+	return nil
+}
 func (f fakeHealthOverview) WhatsAppWebVersion() string { return "" }
 func (f fakeHealthOverview) RuntimeStats() whatsmeow_service.RuntimeStats {
 	return f.stats

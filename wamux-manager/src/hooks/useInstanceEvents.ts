@@ -8,7 +8,7 @@ export type WsStatus = 'connecting' | 'open' | 'closed';
  * Parses one /ws frame. The server sends `{ queue, payload }` where `payload`
  * is the event JSON serialized as a string.
  */
-function parseFrame(raw: string): InstanceEvent | null {
+export function parseFrame(raw: string): InstanceEvent | null {
   try {
     const frame = JSON.parse(raw) as { queue?: unknown; payload?: unknown };
     const payload =
@@ -48,7 +48,15 @@ export default function useInstanceEvents(
 ): WsStatus {
   const { apiUrl, apiKey } = useAuth();
   const handler = useRef(onEvent);
-  const [status, setStatus] = useState<WsStatus>('closed');
+  // The only stored connection state is whether the socket for a given target
+  // is open. Tagging it with the target key means a switch of instance/URL is
+  // reported as "connecting" immediately, with no state written during the
+  // effect body or its cleanup.
+  const targetKey = `${apiUrl ?? ''}|${instanceId ?? ''}|${apiKey ?? ''}`;
+  const [conn, setConn] = useState<{ key: string; open: boolean }>({
+    key: '',
+    open: false,
+  });
 
   // Keep the latest callback in the ref on every render so a changing callback
   // never forces the socket to reconnect.
@@ -57,44 +65,45 @@ export default function useInstanceEvents(
   });
 
   useEffect(() => {
-    if (!instanceId || !apiKey || !apiUrl) {
-      setStatus('closed');
-      return;
-    }
+    if (!instanceId || !apiKey || !apiUrl) return;
 
     const wsUrl = `${apiUrl.replace(/^http/, 'ws')}/ws?token=${encodeURIComponent(
       apiKey
     )}&instanceId=${encodeURIComponent(instanceId)}`;
 
-    let socket: WebSocket | null = null;
     let stopped = false;
     let attempt = 0;
     let retryTimer: number | undefined;
+    let ws: WebSocket | null = null;
 
     const connect = () => {
-      setStatus('connecting');
-      socket = new WebSocket(wsUrl);
+      if (stopped) return;
+      ws = new WebSocket(wsUrl);
 
-      socket.onopen = () => {
+      // State is written only from the socket's own callbacks, never
+      // synchronously in this effect body. Between attempts the public status is
+      // the derived "connecting" below, so no extra render is needed to leave
+      // "closed".
+      ws.onopen = () => {
         attempt = 0;
-        setStatus('open');
+        setConn({ key: targetKey, open: true });
       };
 
-      socket.onmessage = (ev: MessageEvent<string>) => {
+      ws.onmessage = (ev: MessageEvent<string>) => {
         const parsed = parseFrame(ev.data);
         if (parsed) handler.current(parsed);
       };
 
-      socket.onclose = () => {
+      ws.onclose = () => {
         if (stopped) return;
-        setStatus('connecting');
+        setConn({ key: targetKey, open: false });
         attempt = Math.min(attempt + 1, 6);
         retryTimer = window.setTimeout(connect, attempt * 1000);
       };
 
-      socket.onerror = () => {
+      ws.onerror = () => {
         // onclose fires next and schedules the retry.
-        socket?.close();
+        ws?.close();
       };
     };
 
@@ -103,9 +112,19 @@ export default function useInstanceEvents(
     return () => {
       stopped = true;
       if (retryTimer) window.clearTimeout(retryTimer);
-      socket?.close();
+      // Detach onclose before closing so the cleanup itself does not schedule a
+      // retry that outlives this effect.
+      if (ws) {
+        ws.onclose = null;
+        ws.close();
+      }
     };
-  }, [apiUrl, apiKey, instanceId]);
+  }, [apiUrl, apiKey, instanceId, targetKey]);
 
-  return status;
+  // No credentials to connect with: there is no socket, so the connection is
+  // simply closed (and not a pending attempt).
+  if (!instanceId || !apiKey || !apiUrl) return 'closed';
+  // A connection record for a different target belongs to the previous socket;
+  // this one is already "connecting".
+  return conn.key === targetKey && conn.open ? 'open' : 'connecting';
 }

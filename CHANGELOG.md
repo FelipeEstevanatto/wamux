@@ -67,6 +67,15 @@ Three additive features, all disabled/unchanged by default unless configured.
   `POST /send/media` for photo/video/audio/document), can start a new
   conversation from a typed number, applies inbound/receipt updates live over
   `/ws` (with a connection indicator), and has a refresh button with feedback.
+- **Messages screen polish** — the conversation list now groups contacts/groups/
+  channels behind **tabs with counts** (All / Contacts / Groups / Channels)
+  instead of stacked sections, and each row shows a rounded avatar (profile
+  picture for contacts, a glyph for groups), the phone number, and the message
+  count. The filter field gains a clear (✕) button. Group and channel threads
+  now label **who sent each message** (coloured by sender), and — the reported
+  bug — a group's real subject is shown instead of `Grupo <id>`: the stored chat
+  JID is resolved to the group name server-side (new `GET /chat/contacts` and
+  `GET /chat/senders`; `GET /chat/chats` rows now carry a `name`).
 - **Local attachment previews (opt-in)** — when `MEDIA_LOCAL_STORE=true`,
   incoming and outgoing media is also stored on the data volume
   (`<dataDir>/media/<instanceId>/<messageId>`) and served by
@@ -142,6 +151,26 @@ Three additive features, all disabled/unchanged by default unless configured.
   already-encoded bodies and `206 Partial Content` are left alone, and WebSocket
   upgrades are untouched. Disable with `HTTP_COMPRESSION=false` when a proxy in
   front already compresses.
+
+### 🧪 Testing
+- **HTTP route-table tests** (`pkg/routes`) — this package had **0% coverage**,
+  so a route mounted under the wrong method, path or middleware group (or a
+  handler left off) was invisible to the suite. `NewTestRouter` wires the full
+  `AssignRoutes` table to no-op handlers, letting a test assert every endpoint
+  group is registered, that `/swagger` follows `SWAGGER_ENABLED`, that protected
+  routes 401 without a valid key (and that the admin route rejects an instance
+  token), and that an unknown path is a 404.
+- **Parser fuzzing** (`go test -fuzz`, run on every PR and via `make fuzz`) —
+  already fuzzed: the JID builder/parser (`utils`), the SSRF URL pre-check, the
+  webhook HMAC verifier and AES-GCM decryptor, the token "looks encrypted"
+  backfill discriminator, the media path-traversal guard, and the message
+  summary classifier. Fuzzing immediately surfaced two real edges — a captured
+  `@s.whatsapp.net` JID with an empty user part, and the `+`-prefix display form
+  — and encoded both as documented invariants.
+- **Manager tests (Vitest + fast-check)** — the SPA had no test runner; it now
+  has one (`bun run test`) covering the `/ws` frame parser with property tests
+  (never throws, drops non-object payloads, round-trips valid frames). CI gains
+  `fuzz-parsers` and `manager-tests` jobs.
 
 ### 🔧 Improvements
 - **Per-process resource stats & benchmarking** —
