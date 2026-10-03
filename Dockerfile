@@ -22,7 +22,15 @@ COPY go.mod go.sum ./
 
 # whatsmeow agora vem do proxy oficial (go.mau.fi/whatsmeow, sem replace local) —
 # não há mais submódulo whatsmeow-lib para copiar.
-RUN go mod download
+#
+# BuildKit cache mounts keep the module cache and the Go build cache OUTSIDE the
+# image layer graph, so they survive a `COPY . .` invalidation. Without them any
+# source change lands on an empty GOCACHE and recompiles the whole 300+ module
+# dependency tree (~38s of `go build`); with them only the changed packages
+# recompile. The mounts are local to the builder and are exported to the CI cache
+# via the workflow's `cache-to: type=gha`.
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
 
 # Copiar o restante do código
 COPY . .
@@ -39,7 +47,12 @@ ARG VERSION=dev
 # drop-in and part of the standard build for this fork; drop the tag to fall back
 # to encoding/json.
 ARG GO_JSON_TAG=go_json
-RUN CGO_ENABLED=1 go build -tags "${GO_JSON_TAG}" -ldflags "-X main.version=${VERSION}" -o server ./cmd/wamux
+# -trimpath strips absolute build paths (smaller, reproducible); -s -w drops the
+# symbol table and DWARF data. The cache mounts are what make a rebuild fast —
+# see the note above the go mod download step.
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=1 go build -tags "${GO_JSON_TAG}" -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o server ./cmd/wamux
 
 # Runtime base is kept on the same Alpine major.minor as the build stage
 # (golang:1.26.8-alpine is Alpine 3.24.x). The CGO binary links dynamically against
