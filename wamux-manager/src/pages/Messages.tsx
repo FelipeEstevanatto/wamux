@@ -20,6 +20,7 @@ import { Button, Input, Skeleton } from '@/components/ui';
 import { useI18n } from '@/i18n/I18nContext';
 import useInstances from '@/hooks/useInstances';
 import useInstanceEvents from '@/hooks/useInstanceEvents';
+import { useInView } from '@/hooks/useInView';
 import * as messagesApi from '@/services/api/messages';
 import { fetchServerStats } from '@/services/api/server';
 import type { ChatSummary, HistoryMessage } from '@/types/messages';
@@ -174,6 +175,10 @@ function useChatAvatar(instanceToken: string, jid: string, enabled: boolean): st
     setSrc(avatarCache.get(key) ?? '');
   }
 
+  // `enabled` becomes true only once the avatar has scrolled into view (see
+  // ChatAvatar). This is what keeps the list from firing one request per row on
+  // load: an off-screen avatar is simply not fetched until it is about to be
+  // seen.
   useEffect(() => {
     if (!enabled || !instanceToken || !user || user === '—') return;
     if (avatarCache.has(key)) return; // known hit (or a cached miss): don't refetch
@@ -214,13 +219,16 @@ function ChatAvatar({
 }) {
   const kind = chatKind(jid);
   const isGroupLike = kind !== 'contact';
-  const src = useChatAvatar(token, jid, !isGroupLike);
+  // Only fetch a contact's picture once it is about to be seen.
+  const [ref, inView] = useInView<HTMLSpanElement>();
+  const src = useChatAvatar(token, jid, !isGroupLike && inView);
   const [failed, setFailed] = useState(false);
 
   const initial = (label?.trim() || jidUser(jid)).charAt(0).toUpperCase() || '?';
 
   return (
     <span
+      ref={ref}
       className="inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-xs font-semibold text-muted-foreground"
       style={{ width: size, height: size }}
       aria-hidden="true"

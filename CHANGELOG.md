@@ -75,7 +75,10 @@ Three additive features, all disabled/unchanged by default unless configured.
   now label **who sent each message** (coloured by sender), and — the reported
   bug — a group's real subject is shown instead of `Grupo <id>`: the stored chat
   JID is resolved to the group name server-side (new `GET /chat/contacts` and
-  `GET /chat/senders`; `GET /chat/chats` rows now carry a `name`).
+  `GET /chat/senders`; `GET /chat/chats` rows now carry a `name`). Contact
+  avatars are fetched **lazily** via a shared `IntersectionObserver`, so opening
+  a list of 50 conversations no longer fires 50 avatar requests at once — only
+  the rows about to be seen load their picture.
 - **Local attachment previews (opt-in)** — when `MEDIA_LOCAL_STORE=true`,
   incoming and outgoing media is also stored on the data volume
   (`<dataDir>/media/<instanceId>/<messageId>`) and served by
@@ -130,6 +133,15 @@ Three additive features, all disabled/unchanged by default unless configured.
   previous 25/5).
 
 ### ⚡ Performance
+- **Docker build cache + leaner binary** — the build stage now uses BuildKit
+  cache mounts for `/go/pkg/mod` and `/root/.cache/go-build`, so a source change
+  no longer lands on an empty `GOCACHE` and recompiles the whole dependency
+  tree. Measured on the `build` target, one file changed:
+  **`go build` 38s → 3.1s, total 60s → 8s**; a cold build also drops from 135s to
+  82s because `go mod download` is cached. The binary is additionally built with
+  `-trimpath -ldflags "-s -w"`: **80.2 MiB → 58.6 MiB (−27%)**, verified to still
+  run (`--help`). The mounts are exported to CI through the existing
+  `cache-to: type=gha` in the publish workflows.
 - **Batched message persistence** — `persistPool` now coalesces queued messages
   into batches (up to 100 rows, flushed within a 20 ms window) instead of one
   `INSERT` per message, and `MessageRepository.InsertMessages` groups rows by
