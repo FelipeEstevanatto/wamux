@@ -51,6 +51,13 @@ benchstat /tmp/before.txt /tmp/after.txt
 | `webhook_test.go` | Event payload JSON encode, HMAC-SHA256 sign/verify, at-rest key encryption. | `TestWebhookSignVerify`, `TestWebhookEncryptDecrypt` |
 | `persistence_test.go` | Single vs batched message insert against a real Postgres (DSN-gated). | `TestMessagePersistenceRoundTrip` |
 | `idle_memory_test.go` | Per-client live heap, client construction cost, `debug.FreeOSMemory` reclaim, `GOMEMLIMIT`/`GOGC` bounding. | the tests themselves assert |
+| `outbox_test.go` | Sync send vs an apime-style async outbox: request latency and per-instance drain throughput. | `TestOutboxSendsAllOnce`, `TestSyncBlocksAsyncDoesNot` |
+| `storage_layer_test.go` | GORM repository vs hand-written SQL for the hot message paths (DSN-gated). | `TestStorageLayerEquivalence` |
+| `idempotency_test.go` | Idempotency-Key first/replay cost, Postgres + Redis + in-memory (DSN/Redis-gated). | `TestIdempotencySemantics` |
+| `ratelimit_test.go` | In-process vs Redis rate limiter and queue (Redis-gated). | `TestLimiterSemantics`, `TestQueueSemantics` |
+| `auth_test.go` | Token-hash lookup vs JWT HS256 (+RBAC) verification. | `TestAuthSemantics` |
+| `webhook_pool_test.go` | Event normalization and sequential vs pooled webhook delivery to a real receiver. | `TestWebhookDispatchDeliversAll` |
+| `redis_test.go` | Minimal RESP client backing the Redis comparisons (no production dependency). | — |
 
 ## Baseline (indicative)
 
@@ -254,17 +261,70 @@ feature (survives a crash, retries stuck sends), not a throughput feature.
 | Peak build RSS | 850 MB | 990 MB |
 | Test files with `Test` / `Benchmark` | 95 / 21 | 7 / 0 |
 
-### Benchmarks this suggests (not yet implemented)
+### Storage: GORM vs raw SQL
 
-1. **GORM vs raw SQL** on the hot paths (message insert, instance-by-token,
-   history read) — apime is raw SQL, WaMux is GORM.
-2. **Idempotency check cost** — first call vs replay, Postgres- and Redis-backed,
-   plus the response-capture overhead apime pays.
-3. **Memory vs Redis limiter/queue** — what the horizontal-scaling substrate
-   costs per request.
-4. **JWT/RBAC vs token-hash auth** — the per-request auth cost of each model.
-5. **Webhook pool/normalizer throughput** — apime normalizes then fans out
-   through a worker pool; WaMux signs and dispatches.
+WaMux uses GORM; apime uses hand-written SQL. Same Postgres table, same upsert
+(`benchmarks/storage_layer_test.go`):
+
+| Operation | Dedicated GORM | Dedicated raw SQL | VPS GORM | VPS raw SQL |
+|---|---:|---:|---:|---:|
+| Insert one message | 3.48 ms | 3.13 ms | 2.70 ms | 1.89 ms |
+| Batch insert (100 rows) | 8.56 ms | 10.74 ms | 8.49 ms | 10.73 ms |
+| Read by (instance, id) | 451 µs | 710 µs | 353 µs | 550 µs |
+
+Raw SQL wins the single insert (10–30% faster, 3x fewer allocations), but the
+repository's tuned batch upsert beats a naive raw multi-row insert, and the GORM
+read is faster here. "Raw SQL" is not automatically faster — it depends on the
+query the implementation generates.
+
+### Idempotency-Key cost
+
+What adding apime's idempotency layer to WaMux would cost per send
+(`benchmarks/idempotency_test.go`):
+
+| Backend | Dedicated | Shared VPS |
+|---|---:|---:|
+| Postgres first call (SELECT miss + INSERT) | 3.84 ms | 2.19 ms |
+| Postgres replay (SELECT hit) | 700 µs | 388 µs |
+| Redis first call (SET NX) | 287 µs | 101 µs |
+| Redis replay (GET) | 261 µs | 111 µs |
+| In-process map (lower bound) | 156 ns | 283 ns |
+
+### Redis substrate: limiter and queue
+
+apime can back its rate limiter and queue with Redis so API replicas share state;
+WaMux is in-process only (`benchmarks/ratelimit_test.go`):
+
+| Operation | Dedicated | Shared VPS |
+|---|---:|---:|
+| Limiter, in-process | 63 ns | 91 ns |
+| Limiter, Redis (INCR + PEXPIRE) | 280 µs | 110 µs |
+| Queue enqueue, in-process channel | 23 ns | 22 ns |
+| Queue enqueue, Redis (RPUSH) | 286 µs | 114 µs |
+
+The substrate costs ~0.1–0.3 ms per operation — cheap enough that the reason to
+add Redis is multi-replica correctness, not throughput.
+
+### Auth: token hash vs JWT/RBAC
+
+| Path | Dedicated | Shared VPS |
+|---|---:|---:|
+| HMAC-SHA256(token) + map lookup | 770 ns | 929 ns |
+| JWT HS256 verify | 1.68 µs | 2.66 µs |
+| JWT verify + role lookup | 1.71 µs | 2.40 µs |
+
+Both are sub-µs to low-µs; the auth model is not a performance decision.
+
+### Webhook normalize + fan-out
+
+| Path | Dedicated | Shared VPS |
+|---|---:|---:|
+| Normalize (build map + marshal) | 8.3 µs | 9.6 µs |
+| Sequential delivery (2 ms receiver) | 2.62 ms | 2.48 ms |
+| Pooled delivery, 8 workers | 382 µs | 373 µs |
+
+A worker pool cuts end-to-end fan-out ~7x for a 2 ms receiver; normalization is
+single-digit µs and not a bottleneck.
 
 ## How this maps to the optimization list
 
