@@ -1,5 +1,51 @@
 # WaMux - Changelog
 
+## 0.10.0 — manager overhaul, HTTP compression, performance
+
+Manager UX overhaul, response compression, two measured performance
+optimizations, a whatsmeow update, and a new benchmark suite. No breaking API or
+data changes.
+
+### 🆕 Features
+- **Manager overhaul** — full i18n across every page and component, accessible
+  dialogs, a command palette, a connection-status banner and a no-flash theme.
+- **Manager data layer** — instances moved to TanStack Query with optimistic
+  delete/disconnect, per-page error boundaries, route prefetching, and the
+  bundle decoupled from `@evoapi/design-system` and split for faster loads.
+- **Messages screen** — conversation tabs (contacts / groups / channels),
+  avatars, group sender names, live receipt updates and "load older"
+  pagination.
+- **HTTP compression** — gzip responses for clients that accept it, on by
+  default; set `HTTP_COMPRESSION=false` when a proxy already compresses. Boolean
+  env parsing is now consistent across the app.
+
+### ⚡ Performance
+- **Identity cache** (`pkg/whatsmeow/identitycache`) — memoizes whatsmeow's
+  per-device `IsTrustedIdentity`, which is one SELECT per device inside the
+  group-send loop and is not batched. Against Postgres, 600-device lookups drop
+  from ~0.6–0.9 s to ~0.2 ms (~2000–3000x).
+- **Go heap tuning** (`pkg/gctune`) — derives a soft memory limit from the
+  container's cgroup limit (or `GO_MEMORY_LIMIT_MB`), optional `GOGC_PERCENT`,
+  and a periodic idle-heap reclaimer (`GO_MEMORY_RECLAIM_*`).
+
+### 🔧 Fixes
+- `gin.Static` no longer blocks on its pre-written 404 when compression is
+  enabled.
+- Memory benchmark made robust on busy runners (peak-relative assertion).
+
+### 📦 Dependencies
+- `go.mau.fi/whatsmeow` updated to 2026-10-05: `GetBlocklist` gained an optional
+  `dhash` cache hash, and a new WASA-root-secret migration is applied
+  automatically on startup.
+
+### 🧪 Testing
+- New `benchmarks/` suite with validation tests: group-send crypto, the HTTP
+  request pipeline, webhook signing, persistence, idle memory, the identity
+  cache, and apime/wa-rs comparisons.
+
+### 🐳 Container image
+`docker pull ghcr.io/felipeestevanatto/wamux:0.10.0`
+
 ## 0.9.2 — docs, security and cleanup
 
 - Security: removed a leaked credential (a `GLOBAL_API_KEY` and Postgres
