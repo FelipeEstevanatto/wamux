@@ -58,6 +58,7 @@ import (
 	"github.com/felipeestevanatto/wamux/pkg/utils"
 	"github.com/felipeestevanatto/wamux/pkg/walimits"
 	"github.com/felipeestevanatto/wamux/pkg/webhooksign"
+	"github.com/felipeestevanatto/wamux/pkg/whatsmeow/identitycache"
 )
 
 type WhatsmeowService interface {
@@ -1349,6 +1350,19 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		minLevel = "INFO" // Nível mínimo para garantir que logs INFO apareçam
 	}
 	clientLog := waLog.Stdout("Client", minLevel, true)
+
+	// Cache identity trust checks. SQLStore.IsTrustedIdentity is one SELECT per
+	// device inside the group-send encryption loop and is not batched (unlike
+	// sessions/LIDs), so a 600-device group pays ~600 round trips per send.
+	// Only an initialized store can be wrapped; a brand-new device gets its
+	// stores on first Save and is cached after the next connect. See
+	// pkg/whatsmeow/identitycache for the measurements and invalidation rules.
+	if deviceStore.Identities != nil {
+		if _, wrapped := deviceStore.Identities.(*identitycache.Store); !wrapped {
+			deviceStore.Identities = identitycache.New(deviceStore.Identities)
+		}
+	}
+
 	client := whatsmeow.NewClient(deviceStore, clientLog)
 
 	// whatsmeow handles retry receipts with unlimited parallelism by default, so

@@ -167,6 +167,15 @@ type Config struct {
 	// node may adopt the instance.
 	NodeID                   string
 	OwnershipLeaseTTLSeconds int
+
+	// Go runtime memory tuning (see pkg/gctune). GoMemoryLimitMB: 0 derives the
+	// soft limit from the container's cgroup limit, >0 sets it explicitly in
+	// MiB, <0 disables. GoGCPercent: 0 leaves the Go default. The reclaimer
+	// returns idle heap to the OS; interval 0 disables it.
+	GoMemoryLimitMB                int
+	GoGCPercent                    int
+	GoMemoryReclaimIntervalSeconds int
+	GoMemoryReclaimMinIdleMB       int
 }
 
 // EnsureDBExists connects to postgres (without the target database) and creates it if it doesn't exist.
@@ -602,6 +611,13 @@ func Load() *Config {
 		ownershipLeaseTTLSeconds = 60
 	}
 
+	// Go runtime memory tuning. See pkg/gctune. Defaults: derive the soft limit
+	// from the cgroup, leave GOGC alone, reclaim idle heap every 5 minutes.
+	goMemoryLimitMB := envIntSigned(config_env.GO_MEMORY_LIMIT_MB, 0)
+	goGCPercent := envInt(config_env.GOGC_PERCENT, 0)
+	goReclaimInterval := envInt(config_env.GO_MEMORY_RECLAIM_INTERVAL_SECONDS, 300)
+	goReclaimMinIdle := envInt(config_env.GO_MEMORY_RECLAIM_MIN_IDLE_MB, 64)
+
 	// Typebot protections. The per-contact limit is on by default (it only
 	// affects senders bursting many messages); the per-instance send ceiling is
 	// off by default (a badly tuned value would delay legitimate replies).
@@ -679,6 +695,12 @@ func Load() *Config {
 		SendMaxConcurrent:        sendMaxConcurrent,
 		NodeID:                   nodeID,
 		OwnershipLeaseTTLSeconds: ownershipLeaseTTLSeconds,
+
+		// Go runtime memory tuning (see pkg/gctune).
+		GoMemoryLimitMB:                goMemoryLimitMB,
+		GoGCPercent:                    goGCPercent,
+		GoMemoryReclaimIntervalSeconds: goReclaimInterval,
+		GoMemoryReclaimMinIdleMB:       goReclaimMinIdle,
 	}
 
 	minioEnabled := config_env.Bool(config_env.MINIO_ENABLED, false)
@@ -812,6 +834,20 @@ func envInt(key string, fallback int) int {
 	}
 	value, err := strconv.Atoi(raw)
 	if err != nil || value < 0 {
+		applog.Logger.LogWarn("[CONFIG] %s inválido (%q), usando %d", key, raw, fallback)
+		return fallback
+	}
+	return value
+}
+
+// envIntSigned is envInt that also accepts negatives (e.g. -1 disables).
+func envIntSigned(key string, fallback int) int {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return fallback
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil {
 		applog.Logger.LogWarn("[CONFIG] %s inválido (%q), usando %d", key, raw, fallback)
 		return fallback
 	}

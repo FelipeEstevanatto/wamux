@@ -68,6 +68,16 @@ const (
 	// PPROF_ENABLED exposes /debug/pprof for profiling. Off by default.
 	PPROF_ENABLED = "PPROF_ENABLED"
 
+	// Go runtime memory tuning (see pkg/gctune).
+	// GO_MEMORY_LIMIT_MB: 0 = derive from the cgroup limit, >0 = explicit soft
+	// limit in MiB, <0 = disable. GOGC_PERCENT: 0 leaves the Go default.
+	// GO_MEMORY_RECLAIM_INTERVAL_SECONDS / GO_MEMORY_RECLAIM_MIN_IDLE_MB bound
+	// the periodic return of idle heap to the OS.
+	GO_MEMORY_LIMIT_MB                 = "GO_MEMORY_LIMIT_MB"
+	GOGC_PERCENT                       = "GOGC_PERCENT"
+	GO_MEMORY_RECLAIM_INTERVAL_SECONDS = "GO_MEMORY_RECLAIM_INTERVAL_SECONDS"
+	GO_MEMORY_RECLAIM_MIN_IDLE_MB      = "GO_MEMORY_RECLAIM_MIN_IDLE_MB"
+
 	// Typebot flood/loop protections, read at boot.
 	TYPEBOT_CONTACT_RATE_LIMIT  = "TYPEBOT_CONTACT_RATE_LIMIT"
 	TYPEBOT_CONTACT_RATE_WINDOW = "TYPEBOT_CONTACT_RATE_WINDOW"
