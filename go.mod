@@ -23,7 +23,7 @@ require (
 	github.com/vincent-petithory/dataurl v1.0.0
 	go.mau.fi/libsignal v0.2.2
 	go.mau.fi/util v0.10.1
-	go.mau.fi/whatsmeow v0.0.0-20260921121126-35ae40906e74
+	go.mau.fi/whatsmeow v0.0.0-20261005195255-6bb48c0f1ff0
 	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba
 	golang.org/x/image v0.46.0
 	golang.org/x/net v0.59.0

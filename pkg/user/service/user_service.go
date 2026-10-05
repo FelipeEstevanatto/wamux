@@ -657,7 +657,11 @@ func (u *userService) GetBlockList(instance *instance_model.Instance) (*types.Bl
 		return nil, err
 	}
 
-	resp, err := client.GetBlocklist(context.Background())
+	// whatsmeow now accepts an optional server-side cache hash (dhash): when it
+	// is non-empty and the list is unchanged the server returns no <list> and
+	// this returns (nil, nil). We pass "" to always fetch the full list, which
+	// keeps the endpoint's existing semantics.
+	resp, err := client.GetBlocklist(context.Background(), "")
 	if err != nil {
 		return nil, err
 	}
