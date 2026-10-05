@@ -11,6 +11,10 @@ useDefault = true
 description = "Placeholder values in tests, docs and env templates."
 paths = [
   '''pkg/jsonx/jsonx_bench_test\.go''',
+  # Fuzz payloads: the traversal string "../etc/passwd" sitting next to a fake
+  # message-id hex trips the generic-api-key rule. The file contains only
+  # adversarial test inputs, no secrets.
+  '''pkg/media/safename_fuzz_test\.go''',
   '''docs/wiki/.*\.md$''',
   '''^wiki/.*\.md$''',
   '''(^|/)\.env\.example$''',
