@@ -138,6 +138,70 @@ Signing is cheap relative to the network delivery it guards.
 - `TestGOMEMLIMITBoundsHeap`: with `GOMEMLIMIT=64 MiB` and `GOGC=50`, heap peaked
   at **52 MiB** during a churn storm. The soft limit bounds idle drift.
 
+## Hardware comparison: dedicated vs shared VPS
+
+Same code (develop), same commands, same Go 1.27.1, measured on the two
+deployments. Ratios are **VPS ÷ dedicated** (>1 means the VPS is slower).
+
+- **Dedicated:** AMD Ryzen 7 5700X (8c/16t), 16 GB RAM, local SSD.
+- **Shared VPS:** AMD EPYC 9354P with **2 vCPU** exposed, 7.8 GB RAM, co-tenanted
+  with other workloads.
+
+| Scenario | Dedicated (µs) | Shared VPS (µs) | VPS/local |
+|---|---:|---:|---:|
+| Group body encrypt | 78.5 | 107.8 | 1.37x |
+| Group send, 100 devices | 1539 | 1687 | 1.10x |
+| Group send, 300 devices | 4378 | 6454 | 1.47x |
+| Group send, 600 devices | 7927 | 11730 | 1.48x |
+| Naive full-body×600 | 20985 | 28483 | 1.36x |
+| `POST /send/text` | 16.6 | 17.2 | 1.04x |
+| `POST /send/media` | 17.3 | 16.9 | 0.98x |
+| `GET /instance/all` | 4.2 | 5.3 | 1.26x |
+| `GET /server/health` | 0.82 | 2.74 | 3.35x |
+| `/send/text` + 20 ms RTT | 20866 | 20565 | 0.99x |
+| New client (allocs) | 18.5 | 31.0 | 1.67x |
+| Webhook marshal (1.4 KB) | 4.97 | 5.24 | 1.05x |
+| Webhook HMAC sign | 1.51 | 1.57 | 1.04x |
+| Webhook HMAC verify | 1.41 | 1.77 | 1.25x |
+| AES-GCM key encrypt | 1.49 | 2.35 | 1.58x |
+
+Database-bound (throwaway Postgres 18 container on each host):
+
+| Scenario | Dedicated | Shared VPS | Note |
+|---|---:|---:|---|
+| Identity lookup, 600 devices (raw) | 593 ms | 353 ms | absolute DB time is host/config dependent |
+| Identity lookup, 600 devices (cached) | 0.203 ms | 0.276 ms | |
+| **identity-cache speedup** | **~2900x** | **~1280x** | the win holds on both |
+| Message insert (single) | 3.65 ms | 1.62 ms | |
+| Message insert (batch, per row) | 90.5 µs | 67.6 µs | |
+
+Memory behaviour is effectively identical (the point of the two optimizations):
+
+| Metric | Dedicated | Shared VPS |
+|---|---:|---:|
+| Heap per idle client | 59.65 KiB | 59.57 KiB |
+| RSS after `FreeOSMemory` (base→peak→after) | 37→101→**28** MiB | 38→102→**32** MiB |
+| Peak heap under `GOMEMLIMIT=64 MiB`, `GOGC=50` | 54 MiB | 57 MiB |
+
+Takeaways:
+
+- **CPU-bound paths** (group crypto, webhook, request pipeline) are ~1.0–1.7x
+  slower on the shared 2-vCPU box — the expected penalty of fewer, shared cores.
+  A single group send to 600 devices is ~12 ms of crypto on the VPS versus
+  ~8 ms dedicated, and the naive full-body model is ~28 ms, confirming the
+  sender-key design is not the bottleneck on either.
+- **The request path is irrelevant** on both: `/send/text` is ~17 µs against a
+  ~20 ms WhatsApp round trip (0.08%).
+- **DB latency varies by host**, so the identity cache matters more than the
+  absolute query time: it removes the per-device round trips entirely
+  (~1280–2900x on the same lookup).
+- **Memory is host-independent**: per-client heap, RSS reclamation and the
+  `GOMEMLIMIT` bound match on consumer and VPS hardware.
+
+Deployed on the VPS as `ghcr.io/felipeestevanatto/wamux:dev` (built from
+`develop`); the running container logs `[GCTUNE] idle-heap reclaimer every 300s`,
+confirming the changes are live.
+
 ## How this maps to the optimization list
 
 Both levers below are now implemented; the benchmarks above are the before/after.
