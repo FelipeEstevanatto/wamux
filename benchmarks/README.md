@@ -202,6 +202,70 @@ Deployed on the VPS as `ghcr.io/felipeestevanatto/wamux:dev` (built from
 `develop`); the running container logs `[GCTUNE] idle-heap reclaimer every 300s`,
 confirming the changes are live.
 
+## Comparison: apime (Go/whatsmeow gateway)
+
+[open-apime/apime](https://github.com/open-apime/apime) is the closest peer to
+WaMux: a Go + Gin + whatsmeow REST gateway with multi-instance orchestration,
+a dashboard and webhooks. (16★, 278 commits, MIT; WaMux is a fork of
+Evolution Go.) Its design differs in ways that are worth measuring.
+
+### Send API: synchronous vs async outbox
+
+WaMux sends synchronously — the HTTP handler waits for the WhatsApp ack. apime
+also exposes an async outbox at `POST /api/instances/:id/messages`: persist
+`status=queued`, enqueue (memory channel or Redis list), return **202**, and a
+worker pool (default 5) drains it. Both ultimately call the same whatsmeow
+`SendMessage`, which serializes sends per client with an internal lock, so the
+outbox changes *API latency* and *durability*, not per-instance send throughput.
+
+Modeled with a 20 ms WhatsApp RTT (`benchmarks/outbox_test.go`):
+
+| Send path | Dedicated | Shared VPS |
+|---|---:|---:|
+| Sync (WaMux): request blocks for the ack | 20.6 ms | 20.3 ms |
+| Async (apime 202): request only enqueues | **22.7 ns** | **32.6 ns** |
+| Outbox drain, 1 worker | 1.19 ms/msg | 1.22 ms/msg |
+| Outbox drain, 8 workers | 1.20 ms/msg | 1.26 ms/msg |
+| No-lock concurrency (counterfactual, 8x) | 26.9 µs | 91 µs |
+
+The async path cuts request latency by ~10^6x, but 8 workers are no faster than 1
+— the per-client lock is the ceiling. So the outbox is a latency/durability
+feature (survives a crash, retries stuck sends), not a throughput feature.
+
+### Other architectural differences
+
+| Axis | WaMux | apime |
+|---|---|---|
+| Send | synchronous only | async outbox + synchronous routes |
+| Idempotency | none | `Idempotency-Key` (24 h, replay, 409/422, hourly cleaner) |
+| Horizontal scaling | Postgres `instance_ownership` lease | Redis queue + limiter + instance lock |
+| Rate limiting | in-memory fixed window + per-instance send guard | memory **or** Redis limiter, per token/IP |
+| Auth | global key + instance token hash | JWT + users/RBAC + API tokens |
+| Storage | GORM | raw SQL (`pgx`/`lib/pq`, `mattn/go-sqlite3` cgo) |
+| Dashboard | React SPA | server-rendered Go templates |
+| Observability | Prometheus `/metrics` + buffered logger | Sentry + zap |
+| whatsmeow pin | 2026-09 | 2026-03 (Whalabs fork) |
+
+### Build / ops (local, warm module cache)
+
+| Metric | WaMux | apime |
+|---|---:|---:|
+| Binary size | 81.6 MB | 67.2 MB |
+| Peak build RSS | 850 MB | 990 MB |
+| Test files with `Test` / `Benchmark` | 95 / 21 | 7 / 0 |
+
+### Benchmarks this suggests (not yet implemented)
+
+1. **GORM vs raw SQL** on the hot paths (message insert, instance-by-token,
+   history read) — apime is raw SQL, WaMux is GORM.
+2. **Idempotency check cost** — first call vs replay, Postgres- and Redis-backed,
+   plus the response-capture overhead apime pays.
+3. **Memory vs Redis limiter/queue** — what the horizontal-scaling substrate
+   costs per request.
+4. **JWT/RBAC vs token-hash auth** — the per-request auth cost of each model.
+5. **Webhook pool/normalizer throughput** — apime normalizes then fans out
+   through a worker pool; WaMux signs and dispatches.
+
 ## How this maps to the optimization list
 
 Both levers below are now implemented; the benchmarks above are the before/after.
