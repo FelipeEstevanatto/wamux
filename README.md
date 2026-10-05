@@ -74,6 +74,10 @@ cp .env.example .env          # set GLOBAL_API_KEY
 docker compose up -d --build  # also builds the manager SPA (an oven/bun stage)
 ```
 
+> Building the image requires **BuildKit** (Docker Engine 23+ or Docker Desktop,
+> the default on current releases). It uses Go build-cache mounts, so a source
+> change rebuilds in seconds.
+
 ## Local development (no Docker for the app)
 
 ```bash
