@@ -37,6 +37,7 @@ import (
 	rabbitmq_producer "github.com/felipeestevanatto/wamux/pkg/events/rabbitmq"
 	webhook_producer "github.com/felipeestevanatto/wamux/pkg/events/webhook"
 	websocket_producer "github.com/felipeestevanatto/wamux/pkg/events/websocket"
+	"github.com/felipeestevanatto/wamux/pkg/gctune"
 	group_handler "github.com/felipeestevanatto/wamux/pkg/group/handler"
 	group_service "github.com/felipeestevanatto/wamux/pkg/group/service"
 	"github.com/felipeestevanatto/wamux/pkg/httpguard"
@@ -551,6 +552,29 @@ func main() {
 	cfg := config.Load()
 
 	applog.Logger.LogInfo("Starting WaMux version %s", version)
+
+	// Bound the Go heap and return idle memory to the OS. With no explicit
+	// config the limit is derived from the container's cgroup limit; see
+	// pkg/gctune and benchmarks/README.md for the measured effect.
+	gcRes := gctune.Apply(gctune.Config{
+		GoMemoryLimitMB: cfg.GoMemoryLimitMB,
+		GCPercent:       cfg.GoGCPercent,
+		AutoFromCgroup:  true,
+		EnvLimitSet:     gctune.EnvLimitSet(),
+		EnvGCSet:        gctune.EnvGCSet(),
+	})
+	if gcRes.MemoryLimitBytes > 0 {
+		applog.Logger.LogInfo("[GCTUNE] soft memory limit = %d MiB (source: %s)", gcRes.MemoryLimitBytes>>20, gcRes.MemoryLimitSource)
+	} else {
+		applog.Logger.LogInfo("[GCTUNE] soft memory limit not set (source: %s)", gcRes.MemoryLimitSource)
+	}
+	if gcRes.GCPercent > 0 {
+		applog.Logger.LogInfo("[GCTUNE] GOGC = %d", gcRes.GCPercent)
+	}
+	if r := gctune.StartReclaimer(time.Duration(cfg.GoMemoryReclaimIntervalSeconds)*time.Second, uint64(cfg.GoMemoryReclaimMinIdleMB)<<20); r != nil {
+		defer r.Stop()
+		applog.Logger.LogInfo("[GCTUNE] idle-heap reclaimer every %ds (min idle %d MiB)", cfg.GoMemoryReclaimIntervalSeconds, cfg.GoMemoryReclaimMinIdleMB)
+	}
 
 	db, err := cfg.CreateUsersDB()
 	if err != nil {

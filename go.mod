@@ -21,6 +21,7 @@ require (
 	github.com/swaggo/gin-swagger v1.6.1
 	github.com/swaggo/swag v1.16.6
 	github.com/vincent-petithory/dataurl v1.0.0
+	go.mau.fi/libsignal v0.2.2
 	go.mau.fi/util v0.10.1
 	go.mau.fi/whatsmeow v0.0.0-20260921121126-35ae40906e74
 	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba
@@ -89,7 +90,6 @@ require (
 	github.com/ugorji/go/codec v1.3.1 // indirect
 	github.com/vektah/gqlparser/v2 v2.5.27 // indirect
 	github.com/zeebo/xxh3 v1.1.0 // indirect
-	go.mau.fi/libsignal v0.2.2 // indirect
 	go.mongodb.org/mongo-driver/v2 v2.5.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/arch v0.22.0 // indirect

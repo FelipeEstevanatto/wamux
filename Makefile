@@ -145,6 +145,15 @@ bench-persist: ## Benchmarks de persistência (single vs batch) contra Postgres
 	EVO_BENCH_POSTGRES_DSN="$${EVO_BENCH_POSTGRES_DSN:?set EVO_BENCH_POSTGRES_DSN}" \
 		$(GO) test -run=^$$ -bench='InsertMessage' -benchmem ./pkg/message/repository/ -benchtime=300x
 
+# Realistic end-to-end scenarios in ./benchmarks: group-send crypto scaling, the
+# identity-cache delta, the HTTP pipeline for /send/*, webhook signing and idle
+# memory. Each benchmark is paired with a validation Test; see benchmarks/README.md.
+bench-scenarios: ## Roda os cenários realistas (./benchmarks) + validações
+	@echo "$(GREEN)⚡ Validações dos cenários...$(NC)"
+	$(GO) test ./benchmarks/
+	@echo "$(GREEN)⚡ Benchmarks de cenários...$(NC)"
+	$(GO) test -run=^$$ -bench=. -benchmem ./benchmarks/ -benchtime=1s
+
 # JSON benchmarks: stdlib vs the go_json build tag.
 bench-json: ## Compara encoding/json vs goccy/go-json
 	@echo "-- encoding/json --"
