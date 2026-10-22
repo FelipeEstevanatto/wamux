@@ -11,7 +11,7 @@ RUN bun install --frozen-lockfile
 COPY wamux-manager/ ./
 RUN bun run build
 
-FROM golang:1.26.8-alpine AS build
+FROM golang:1.26.10-alpine AS build
 
 RUN apk update && apk add --no-cache git build-base libjpeg-turbo-dev libwebp-dev
 
@@ -55,7 +55,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     CGO_ENABLED=1 go build -tags "${GO_JSON_TAG}" -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o server ./cmd/wamux
 
 # Runtime base is kept on the same Alpine major.minor as the build stage
-# (golang:1.26.8-alpine is Alpine 3.24.x). The CGO binary links dynamically against
+# (golang:1.26.10-alpine is Alpine 3.24.x). The CGO binary links dynamically against
 # musl, so building on 3.24 and running on 3.24 avoids a cross-version libc
 # mismatch, and 3.24 carries current ffmpeg/poppler/libjpeg/libwebp security
 # fixes that 3.19.1 no longer receives.

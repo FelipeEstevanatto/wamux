@@ -1,6 +1,6 @@
 module github.com/felipeestevanatto/wamux
 
-go 1.26.8
+go 1.26.10
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
@@ -26,7 +26,7 @@ require (
 	go.mau.fi/whatsmeow v0.0.0-20261005195255-6bb48c0f1ff0
 	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba
 	golang.org/x/image v0.46.0
-	golang.org/x/net v0.59.0
+	golang.org/x/net v0.60.0
 	google.golang.org/protobuf v1.36.12
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gorm.io/driver/postgres v1.6.3
