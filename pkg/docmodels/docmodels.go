@@ -97,6 +97,10 @@ type ConnectionStatus struct {
 // QRCode is the /instance/qr payload (a fresh pairing code).
 type QRCode struct {
 	QRCode string `json:"qrcode" example:"2@AbCdEfGhIjKlMnOpQrStUvWxYz0123456789+/=,AbCdEfGhIjKlMnOpQrStUvWxYz0123456789+/=,AbCdEfGhIjKlMnOpQrStUvWxYz0123456789+/=,AbCdEfGhIjKlMnOpQrStUvWxYz0123456789+/="`
+	// Paired/Connected are set when the instance already has a WhatsApp session.
+	// No QR is issued in that case; the manager should wait for Connected.
+	Paired    bool `json:"paired,omitempty" example:"false"`
+	Connected bool `json:"connected,omitempty" example:"false"`
 }
 
 // PairResult is the /instance/pair payload (pairing code for a phone number).
