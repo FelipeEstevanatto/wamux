@@ -350,7 +350,11 @@ func Load() *Config {
 	// set MEDIA_LOCAL_STORE=false to restore the no-local-copy behaviour.
 	mediaLocalStore := config_env.Bool(config_env.MEDIA_LOCAL_STORE, true)
 
-	connectOnStartup := config_env.Bool(config_env.CONNECT_ON_STARTUP, false)
+	// Reconnect already-paired instances on boot. Default is true: a server
+	// restart should not require the operator to reconnect every instance.
+	// Instances deliberately disconnected through the API persist
+	// auto_reconnect=false and are left down (see ConnectOnStartup).
+	connectOnStartup := config_env.Bool(config_env.CONNECT_ON_STARTUP, true)
 
 	osName := os.Getenv(config_env.OS_NAME)
 

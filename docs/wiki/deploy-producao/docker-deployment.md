@@ -84,7 +84,7 @@ services:
 
       WADEBUG: "INFO"
       LOGTYPE: "console"
-      CONNECT_ON_STARTUP: "false"
+      CONNECT_ON_STARTUP: "true"
       WEBHOOK_FILES: "true"
 
     volumes:
@@ -468,7 +468,7 @@ data:
   CLIENT_NAME: "wamux"
   WADEBUG: "INFO"
   LOGTYPE: "console"
-  CONNECT_ON_STARTUP: "false"
+  CONNECT_ON_STARTUP: "true"
   WEBHOOK_FILES: "true"
   DATABASE_SAVE_MESSAGES: "false"
 ```

@@ -33,7 +33,9 @@ func newSQLite(t *testing.T) *sql.DB {
 	_, err = db.Exec(`CREATE TABLE instances (
 		id TEXT PRIMARY KEY,
 		name TEXT,
-		token TEXT
+		token TEXT,
+		disconnect_reason TEXT,
+		auto_reconnect BOOLEAN NOT NULL DEFAULT 1
 	)`)
 	if err != nil {
 		t.Fatalf("create instances: %v", err)
@@ -170,5 +172,38 @@ func TestInstanceTokenPartialUniqueIndex(t *testing.T) {
 	}
 	if _, err := db.Exec(`INSERT INTO instances (id, name, token) VALUES ('f','f','same')`); err == nil {
 		t.Fatal("duplicate legacy token should be rejected")
+	}
+}
+
+// Boot-time reconnect must respect an explicit API disconnect recorded before
+// the auto_reconnect column existed, while leaving normal paired rows enabled.
+func TestAutoReconnectBackfillPreservesExplicitDisconnect(t *testing.T) {
+	ctx := context.Background()
+	db := newSQLite(t)
+
+	if _, err := db.Exec(`INSERT INTO instances (id, name, token, disconnect_reason) VALUES
+		('keep', 'keep', NULL, NULL),
+		('paused', 'paused', NULL, 'Disconnected by API')`); err != nil {
+		t.Fatalf("seed instances: %v", err)
+	}
+
+	if _, err := Apply(ctx, db, "sqlite"); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+
+	readAutoReconnect := func(id string) bool {
+		t.Helper()
+		var enabled bool
+		if err := db.QueryRowContext(ctx, `SELECT auto_reconnect FROM instances WHERE id = ?`, id).Scan(&enabled); err != nil {
+			t.Fatalf("read %s: %v", id, err)
+		}
+		return enabled
+	}
+
+	if !readAutoReconnect("keep") {
+		t.Fatal("a normal paired instance must be restored on boot")
+	}
+	if readAutoReconnect("paused") {
+		t.Fatal("an instance disconnected via the API must stay down after a restart")
 	}
 }

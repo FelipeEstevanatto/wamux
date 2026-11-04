@@ -146,7 +146,7 @@ WADEBUG=DEBUG
 LOGTYPE=console
 
 # Configurações de desenvolvimento
-CONNECT_ON_STARTUP=false
+CONNECT_ON_STARTUP=true
 WEBHOOK_FILES=true
 OS_NAME=Linux
 ```

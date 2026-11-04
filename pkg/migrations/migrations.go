@@ -160,6 +160,21 @@ var steps = []migration{
 			`CREATE UNIQUE INDEX IF NOT EXISTS uni_instances_token_present ON instances (token) WHERE token IS NOT NULL AND token <> ''`,
 		},
 	},
+	{
+		// Persistent operator intent for boot-time reconnection. AutoMigrate adds
+		// the column (additive), so the SQLite step only backfills: SQLite has no
+		// ADD COLUMN IF NOT EXISTS and AutoMigrate always runs first. Rows that
+		// were explicitly disconnected through the API must stay down after a
+		// restart; everything else should come back automatically.
+		Name: "0007_instances_auto_reconnect_backfill",
+		Postgres: []string{
+			`ALTER TABLE instances ADD COLUMN IF NOT EXISTS auto_reconnect BOOLEAN NOT NULL DEFAULT TRUE`,
+			`UPDATE instances SET auto_reconnect = FALSE WHERE disconnect_reason = 'Disconnected by API'`,
+		},
+		SQLite: []string{
+			`UPDATE instances SET auto_reconnect = FALSE WHERE disconnect_reason = 'Disconnected by API'`,
+		},
+	},
 }
 
 const createMigrationsTable = `

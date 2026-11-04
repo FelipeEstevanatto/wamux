@@ -315,13 +315,14 @@ func (i instances) Create(data *CreateStruct) (*instance_model.Instance, error) 
 	}
 
 	instance := instance_model.Instance{
-		Id:         data.InstanceId,
-		Name:       data.Name,
-		Token:      data.Token,
-		OsName:     i.config.OsName,
-		Proxy:      string(proxyJson),
-		Connected:  false,
-		ClientName: i.config.ClientName,
+		Id:            data.InstanceId,
+		Name:          data.Name,
+		Token:         data.Token,
+		OsName:        i.config.OsName,
+		Proxy:         string(proxyJson),
+		Connected:     false,
+		AutoReconnect: true,
+		ClientName:    i.config.ClientName,
 	}
 
 	// Set advanced settings if provided (nil pointers are left as defaults).
@@ -377,6 +378,11 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 	oldRabbitmq := instance.RabbitmqEnable
 
 	updates := applyConnectSettings(instance, data)
+
+	// An explicit connect is operator intent to run this instance again, so it
+	// must survive restarts even if a previous API Disconnect cleared it.
+	updates["auto_reconnect"] = true
+	instance.AutoReconnect = true
 
 	if instance.Events != oldEvents {
 		i.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] events changed: %q -> %q", instance.Id, oldEvents, instance.Events)
@@ -446,6 +452,12 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 }
 
 func (i instances) Reconnect(instance *instance_model.Instance) error {
+	// Reconnect is an operator action: mark the instance to be restored on boot.
+	instance.AutoReconnect = true
+	if err := i.instanceRepository.UpdateConnectSettings(instance.Id, map[string]interface{}{"auto_reconnect": true}); err != nil {
+		return err
+	}
+
 	_, err := i.ensureClientConnected(instance.Id)
 	if err != nil {
 		return err
@@ -480,7 +492,13 @@ func (i instances) Disconnect(instance *instance_model.Instance) (*instance_mode
 	// strings.Split("", ",") yields [""], which fails IsEventType).
 	instance.Connected = false
 	instance.DisconnectReason = "Disconnected by API"
-	if err := i.instanceRepository.UpdateConnected(instance.Id, false, instance.DisconnectReason); err != nil {
+	// Persist operator intent: do not bring this instance back on the next boot.
+	instance.AutoReconnect = false
+	if err := i.instanceRepository.UpdateConnectSettings(instance.Id, map[string]interface{}{
+		"connected":         false,
+		"disconnect_reason": instance.DisconnectReason,
+		"auto_reconnect":    false,
+	}); err != nil {
 		return instance, err
 	}
 	i.invalidateAuthCache()
@@ -504,7 +522,9 @@ func (i instances) Logout(instance *instance_model.Instance) (*instance_model.In
 	instance.Connected = false
 	// Clearing the JID marks the instance as unpaired: IsPaired() must be false
 	// after logout, otherwise later requests would try to use a dead session.
+	// The intent flag is cleared too so a restart cannot resurrect the session.
 	instance.Jid = ""
+	instance.AutoReconnect = false
 	if err := i.instanceRepository.Update(instance); err != nil {
 		return instance, err
 	}
@@ -1026,6 +1046,12 @@ func (i instances) ForceReconnect(instanceId string, number string) error {
 
 	instance, err := i.instanceRepository.GetInstanceByID(instanceId)
 	if err != nil {
+		return err
+	}
+
+	// Force reconnect is an operator action: restore on boot as well.
+	instance.AutoReconnect = true
+	if err := i.instanceRepository.UpdateConnectSettings(instance.Id, map[string]interface{}{"auto_reconnect": true}); err != nil {
 		return err
 	}
 

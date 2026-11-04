@@ -237,14 +237,16 @@ func (i *instanceRepository) GetAllConnectedInstancesByClientName(clientName str
 }
 
 // GetAllPairedInstances returns instances that have already completed pairing
-// (they have a JID). The Connected column is intentionally not used: it
-// reflects the live socket, which is always false right after a restart, so
-// relying on it would leave every paired session offline until a manual
-// reconnect. StartClient safely skips instances whose session is no longer in
-// the whatsmeow auth store, so a stale JID cannot start a QR loop here.
+// (they have a JID) that are still supposed to run. The Connected column is
+// intentionally not used: it reflects the live socket, which is always false
+// right after a restart, so relying on it would leave every paired session
+// offline until a manual reconnect. auto_reconnect records operator intent and
+// stays false when the instance was explicitly disconnected through the API.
+// StartClient safely skips instances whose session is no longer in the
+// whatsmeow auth store, so a stale JID cannot start a QR loop here.
 func (i *instanceRepository) GetAllPairedInstances() ([]*instance_model.Instance, error) {
 	var instances []*instance_model.Instance
-	err := i.db.Where("jid IS NOT NULL AND jid <> ''").Find(&instances).Error
+	err := i.db.Where("jid IS NOT NULL AND jid <> '' AND auto_reconnect = ?", true).Find(&instances).Error
 	if err != nil {
 		return nil, err
 	}
@@ -255,7 +257,7 @@ func (i *instanceRepository) GetAllPairedInstances() ([]*instance_model.Instance
 
 func (i *instanceRepository) GetAllPairedInstancesByClientName(clientName string) ([]*instance_model.Instance, error) {
 	var instances []*instance_model.Instance
-	err := i.db.Where("jid IS NOT NULL AND jid <> '' AND client_name = ?", clientName).Find(&instances).Error
+	err := i.db.Where("jid IS NOT NULL AND jid <> '' AND auto_reconnect = ? AND client_name = ?", true, clientName).Find(&instances).Error
 	if err != nil {
 		return nil, err
 	}

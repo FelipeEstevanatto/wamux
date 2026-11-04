@@ -29,6 +29,11 @@ type Instance struct {
 	Jid              string    `json:"jid" gorm:"column:jid"`
 	Qrcode           string    `json:"qrcode" gorm:"type:text"`
 	Connected        bool      `json:"connected"`
+	// AutoReconnect records operator intent: true means "bring this instance
+	// back on boot". Connect/pairing set it true; Disconnect sets it false so an
+	// explicit disconnect is not undone by a restart. The live Connected flag is
+	// not usable for this because it is false immediately after every restart.
+	AutoReconnect    bool      `json:"-" gorm:"column:auto_reconnect;not null;default:true"`
 	Expiration       int64     `json:"expiration"`
 	DisconnectReason string    `json:"disconnect_reason"`
 	Events           string    `json:"events"`
