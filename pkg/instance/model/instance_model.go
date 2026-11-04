@@ -20,15 +20,15 @@ type Instance struct {
 	// AES-256-GCM(Token) for recovery/display. Together they replace storing the
 	// plaintext credential. Token itself is retained for backwards compatibility
 	// during migration but is cleared once encrypted (see the token migration).
-	TokenHash        string    `json:"-" gorm:"column:token_hash;index"`
-	TokenEnc         string    `json:"-" gorm:"column:token_enc;type:text"`
-	Webhook          string    `json:"webhook"`
-	RabbitmqEnable   string    `json:"rabbitmqEnable"`
-	WebSocketEnable  string    `json:"websocketEnable"`
-	NatsEnable       string    `json:"natsEnable"`
-	Jid              string    `json:"jid" gorm:"column:jid"`
-	Qrcode           string    `json:"qrcode" gorm:"type:text"`
-	Connected        bool      `json:"connected"`
+	TokenHash       string `json:"-" gorm:"column:token_hash;index"`
+	TokenEnc        string `json:"-" gorm:"column:token_enc;type:text"`
+	Webhook         string `json:"webhook"`
+	RabbitmqEnable  string `json:"rabbitmqEnable"`
+	WebSocketEnable string `json:"websocketEnable"`
+	NatsEnable      string `json:"natsEnable"`
+	Jid             string `json:"jid" gorm:"column:jid"`
+	Qrcode          string `json:"qrcode" gorm:"type:text"`
+	Connected       bool   `json:"connected"`
 	// AutoReconnect records operator intent: true means "bring this instance
 	// back on boot". Connect/pairing set it true; Disconnect sets it false so an
 	// explicit disconnect is not undone by a restart. The live Connected flag is

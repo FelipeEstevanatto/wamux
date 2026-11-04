@@ -58,7 +58,7 @@ func TestUpdateRemainsFullRow(t *testing.T) {
 	// Match the whole column list to document that Update is a full-row Save.
 	// (hmac_key sits before the advanced-settings columns; the per-instance S3
 	// columns follow them. token_hash/token_enc were added with token encryption.)
-	mock.ExpectExec(`UPDATE "instances" SET "name"=\$1,.*"token_hash"=\$3,"token_enc"=\$4,.*"s3_media_delivery"=\$34 WHERE "id" = \$35`).
+	mock.ExpectExec(`UPDATE "instances" SET "name"=\$1,.*"token_hash"=\$3,"token_enc"=\$4,.*"s3_media_delivery"=\$\d+ WHERE "id" = \$\d+`).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	inst := &instance_model.Instance{Id: "11111111-1111-1111-1111-111111111111", Name: "n", Token: "t"}
@@ -67,5 +67,28 @@ func TestUpdateRemainsFullRow(t *testing.T) {
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("Update is expected to stay a full-row write: %v", err)
+	}
+}
+
+// Boot-time restore must only pick paired instances whose persisted intent is
+// "run"; an explicit API disconnect sets auto_reconnect=false and is skipped.
+func TestGetAllPairedInstancesFiltersOnAutoReconnect(t *testing.T) {
+	repo, mock := newInstanceMockRepo(t)
+
+	rows := sqlmock.NewRows([]string{"id", "jid", "auto_reconnect"}).
+		AddRow("id-1", "5511999999999@s.whatsapp.net", true)
+	mock.ExpectQuery(`SELECT \* FROM "instances" WHERE jid IS NOT NULL AND jid <> '' AND auto_reconnect = \$1`).
+		WithArgs(true).
+		WillReturnRows(rows)
+
+	got, err := repo.GetAllPairedInstances()
+	if err != nil {
+		t.Fatalf("GetAllPairedInstances: %v", err)
+	}
+	if len(got) != 1 || got[0].Id != "id-1" {
+		t.Fatalf("got %+v, want the paired, auto-reconnect instance", got)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("query must filter on auto_reconnect: %v", err)
 	}
 }
