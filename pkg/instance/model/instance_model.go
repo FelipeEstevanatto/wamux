@@ -83,3 +83,13 @@ func (m *Instance) BeforeCreate(tx *gorm.DB) (err error) {
 func BoolPtr(v bool) *bool {
 	return &v
 }
+
+// IsPaired reports whether the instance has a WhatsApp session. Jid is only
+// persisted after a successful login, so an empty Jid means the instance has
+// never been paired (or was logged out). Callers that need to talk to WhatsApp
+// should check this before starting a client: doing so avoids the long
+// connection wait (and the nil client/store dereference) for instances that
+// cannot possibly answer.
+func (i *Instance) IsPaired() bool {
+	return i != nil && i.Jid != ""
+}

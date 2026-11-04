@@ -1,11 +1,13 @@
 package instance_handler
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	config "github.com/felipeestevanatto/wamux/pkg/config"
 	docmodels "github.com/felipeestevanatto/wamux/pkg/docmodels"
@@ -83,6 +85,15 @@ func (i *instanceHandler) Create(ctx *gin.Context) {
 	if data.Token == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "token is required"})
 		return
+	}
+
+	// The id column is a UUID. Reject a caller-supplied id that cannot be
+	// stored instead of letting the driver return a 500.
+	if data.InstanceId != "" {
+		if _, err := uuid.Parse(data.InstanceId); err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "instanceId must be a valid UUID"})
+			return
+		}
 	}
 
 	if data.Proxy != nil {
@@ -221,6 +232,10 @@ func (i *instanceHandler) Disconnect(ctx *gin.Context) {
 
 	updateInstance, err := i.instanceService.Disconnect(instance)
 	if err != nil {
+		if errors.Is(err, instance_service.ErrNotConnected) {
+			ctx.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			return
+		}
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -250,6 +265,10 @@ func (i *instanceHandler) Logout(ctx *gin.Context) {
 
 	updateInstance, err := i.instanceService.Logout(instance)
 	if err != nil {
+		if errors.Is(err, instance_service.ErrNotConnected) {
+			ctx.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			return
+		}
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}

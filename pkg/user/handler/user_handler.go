@@ -127,6 +127,11 @@ func (u *userHandler) CheckUser(ctx *gin.Context) {
 		return
 	}
 
+	if !instance.IsPaired() {
+		ctx.JSON(http.StatusConflict, gin.H{"error": "instance is not paired with WhatsApp"})
+		return
+	}
+
 	uc, err := u.userService.CheckUser(data, instance)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -202,6 +207,11 @@ func (u *userHandler) GetContacts(ctx *gin.Context) {
 		return
 	}
 
+	if !instance.IsPaired() {
+		ctx.JSON(http.StatusConflict, gin.H{"error": "instance is not paired with WhatsApp"})
+		return
+	}
+
 	contacts, err := u.userService.GetContacts(instance)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -226,6 +236,11 @@ func (u *userHandler) GetPrivacy(ctx *gin.Context) {
 	instance, ok := getInstance.(*instance_model.Instance)
 	if !ok {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	if !instance.IsPaired() {
+		ctx.JSON(http.StatusConflict, gin.H{"error": "instance is not paired with WhatsApp"})
 		return
 	}
 
@@ -415,6 +430,11 @@ func (u *userHandler) GetBlockList(ctx *gin.Context) {
 	instance, ok := getInstance.(*instance_model.Instance)
 	if !ok {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	if !instance.IsPaired() {
+		ctx.JSON(http.StatusConflict, gin.H{"error": "instance is not paired with WhatsApp"})
 		return
 	}
 

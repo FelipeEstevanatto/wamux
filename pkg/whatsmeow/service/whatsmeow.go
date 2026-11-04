@@ -3130,9 +3130,16 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 
 		mycli.Instance.DisconnectReason = evt.Reason.String()
 		mycli.Instance.Connected = false
+		// A logout (from the API or the phone) leaves no usable session, so drop
+		// the JID too; IsPaired()/GetAllPairedInstances() must stop treating the
+		// instance as paired.
+		mycli.Instance.Jid = ""
 		err := mycli.instanceRepository.UpdateConnected(mycli.Instance.Id, mycli.Instance.Connected, mycli.Instance.DisconnectReason)
 		if err != nil {
 			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Error updating instance: %s", mycli.Instance.Id, err)
+		}
+		if err := mycli.instanceRepository.UpdateJid(mycli.Instance.Id, ""); err != nil {
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Error clearing JID after logout: %s", mycli.Instance.Id, err)
 		}
 
 		if postMap["data"] != nil {
