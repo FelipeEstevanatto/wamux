@@ -30,7 +30,7 @@ type ErrorResponse struct {
 // machine-readable "Cannot METHOD /path" message, matching the format of
 // NestJS APIs so clients can parse it uniformly.
 type NotFoundResponse struct {
-	Status   int `json:"status" example:"404"`
+	Status   int    `json:"status" example:"404"`
 	Error    string `json:"error" example:"Not Found"`
 	Response struct {
 		Message []string `json:"message" example:"Cannot GET /sdfsdf"`
@@ -505,14 +505,14 @@ type ServerOK struct {
 
 // RootInfo is the GET / payload: a small welcome/health banner.
 type RootInfo struct {
-	Status              int    `json:"status" example:"200"`
-	Message             string `json:"message" example:"Welcome to WaMux, it is working!"`
-	Version             string `json:"version" example:"0.9.1"`
-	ClientName          string `json:"clientName" example:"wamux"`
-	Manager             string `json:"manager" example:"/manager"`
-	Documentation       string `json:"documentation" example:"/swagger/index.html"`
-	WhatsappWebVersion  string `json:"whatsappWebVersion" example:"2.3000.1048977937"`
-	Error               string `json:"error,omitempty" example:""`
+	Status             int    `json:"status" example:"200"`
+	Message            string `json:"message" example:"Welcome to WaMux, it is working!"`
+	Version            string `json:"version" example:"0.9.1"`
+	ClientName         string `json:"clientName" example:"wamux"`
+	Manager            string `json:"manager" example:"/manager"`
+	Documentation      string `json:"documentation" example:"/swagger/index.html"`
+	WhatsappWebVersion string `json:"whatsappWebVersion" example:"2.3000.1048977937"`
+	Error              string `json:"error,omitempty" example:""`
 }
 
 // MessageStats is the messages section of /server/stats.
