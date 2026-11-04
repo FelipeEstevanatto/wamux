@@ -2121,12 +2121,14 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		mycli.Instance.Connected = true
 		mycli.Instance.DisconnectReason = ""
 		mycli.Instance.Jid = jid
+		mycli.Instance.AutoReconnect = true
 
 		err := mycli.instanceRepository.UpdateConnectSettings(mycli.userID, map[string]interface{}{
 			"qrcode":            "",
 			"connected":         true,
 			"disconnect_reason": "",
 			"jid":               jid,
+			"auto_reconnect":    true,
 		})
 		if err != nil {
 			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Error updating instance on pair: %s", mycli.userID, err)
@@ -4812,8 +4814,10 @@ func (w *whatsmeowService) GetInstanceOverview(instanceId string) (*InstanceOver
 		}
 		cancel()
 	}
-	if contacts, err := client.Store.Contacts.GetAllContacts(context.Background()); err == nil {
-		overview.ContactsCount = len(contacts)
+	if client.Store.Contacts != nil {
+		if contacts, err := client.Store.Contacts.GetAllContacts(context.Background()); err == nil {
+			overview.ContactsCount = len(contacts)
+		}
 	}
 	return overview, nil
 }
@@ -4870,6 +4874,13 @@ func (w *whatsmeowService) resolveChats(ctx context.Context, clients []*whatsmeo
 			}
 		}
 		id := resolveChatIdentity(ctx, clients, user)
+		// Connected clients are not always available (the dashboard is global
+		// and may show conversations from offline instances). Fall back to the
+		// shared auth/contact stores so a LID still resolves to its phone and
+		// saved contacts still get their names.
+		if id.Name == "" && id.Phone == "" {
+			id = w.resolveChatFromSharedStores(ctx, user)
+		}
 		if w.chatNameCache != nil {
 			w.chatNameCache.Set(user, id, cache.DefaultExpiration)
 		}
@@ -4897,14 +4908,16 @@ func resolveChatIdentity(ctx context.Context, clients []*whatsmeow.Client, user 
 	var lidPhone string
 	for _, cli := range clients {
 		// 1) The source is a phone number.
-		if name := contactDisplayName(ctx, cli, types.NewJID(user, types.DefaultUserServer)); name != "" {
+		if name := contactDisplayName(ctx, cli.Store.Contacts, types.NewJID(user, types.DefaultUserServer)); name != "" {
 			return ChatIdentity{Name: name, Phone: user}
 		}
 		// 2) The source is a LID: map it back to the phone number.
-		if pn, err := cli.Store.LIDs.GetPNForLID(ctx, types.NewJID(user, types.HiddenUserServer)); err == nil && !pn.IsEmpty() {
-			lidPhone = pn.User
-			if name := contactDisplayName(ctx, cli, pn.ToNonAD()); name != "" {
-				return ChatIdentity{Name: name, Phone: pn.User}
+		if cli.Store.LIDs != nil {
+			if pn, err := cli.Store.LIDs.GetPNForLID(ctx, types.NewJID(user, types.HiddenUserServer)); err == nil && !pn.IsEmpty() {
+				lidPhone = pn.User
+				if name := contactDisplayName(ctx, cli.Store.Contacts, pn.ToNonAD()); name != "" {
+					return ChatIdentity{Name: name, Phone: pn.User}
+				}
 			}
 		}
 	}
@@ -4925,6 +4938,53 @@ func resolveChatIdentity(ctx context.Context, clients []*whatsmeow.Client, user 
 	}
 
 	return ChatIdentity{}
+}
+
+// resolveChatFromSharedStores resolves a source when no connected client can.
+// The shared whatsmeow container is global, so it can still map a LID to its
+// phone number and read saved contact names even when the instance that owns
+// the conversation is offline.
+func (w *whatsmeowService) resolveChatFromSharedStores(ctx context.Context, user string) ChatIdentity {
+	if user == "" {
+		return ChatIdentity{}
+	}
+	container, err := w.getSharedSQLStoreContainer()
+	if err != nil || container == nil {
+		return ChatIdentity{}
+	}
+
+	if container.LIDMap != nil {
+		if pn, err := container.LIDMap.GetPNForLID(ctx, types.NewJID(user, types.HiddenUserServer)); err == nil && !pn.IsEmpty() {
+			name := w.contactNameFromDevices(ctx, container, pn.ToNonAD())
+			return ChatIdentity{Name: name, Phone: pn.User}
+		}
+	}
+
+	if name := w.contactNameFromDevices(ctx, container, types.NewJID(user, types.DefaultUserServer)); name != "" {
+		return ChatIdentity{Name: name}
+	}
+	if name := w.contactNameFromDevices(ctx, container, types.NewJID(user, types.HiddenUserServer)); name != "" {
+		return ChatIdentity{Name: name}
+	}
+	return ChatIdentity{}
+}
+
+// contactNameFromDevices searches every stored device's contact book, so a name
+// saved by an offline instance is still available to the global dashboard.
+func (w *whatsmeowService) contactNameFromDevices(ctx context.Context, container *sqlstore.Container, jid types.JID) string {
+	devices, err := container.GetAllDevices(ctx)
+	if err != nil {
+		return ""
+	}
+	for _, device := range devices {
+		if device == nil || device.Contacts == nil {
+			continue
+		}
+		if name := contactDisplayName(ctx, device.Contacts, jid); name != "" {
+			return name
+		}
+	}
+	return ""
 }
 
 // chatResolutionTimeout bounds a whole per-instance name-resolution pass. Each
@@ -5016,7 +5076,7 @@ func resolveInstanceChatIdentity(ctx context.Context, cli *whatsmeow.Client, sou
 	if server != "" && server != types.DefaultUserServer {
 		jid = types.NewJID(user, server)
 	}
-	if name := contactDisplayName(ctx, cli, jid.ToNonAD()); name != "" {
+	if name := contactDisplayName(ctx, cli.Store.Contacts, jid.ToNonAD()); name != "" {
 		return ChatIdentity{Name: name, Phone: user}
 	}
 
@@ -5024,7 +5084,7 @@ func resolveInstanceChatIdentity(ctx context.Context, cli *whatsmeow.Client, sou
 	// still labelled with something human-readable.
 	if jid.Server == types.HiddenUserServer && cli.Store.LIDs != nil {
 		if pn, err := cli.Store.LIDs.GetPNForLID(ctx, jid.ToNonAD()); err == nil && !pn.IsEmpty() {
-			return ChatIdentity{Phone: pn.User, Name: contactDisplayName(ctx, cli, pn.ToNonAD())}
+			return ChatIdentity{Phone: pn.User, Name: contactDisplayName(ctx, cli.Store.Contacts, pn.ToNonAD())}
 		}
 	}
 	return ChatIdentity{}
@@ -5058,8 +5118,11 @@ func isAllDigits(s string) bool {
 }
 
 // contactDisplayName returns the best available name for a contact, or "".
-func contactDisplayName(ctx context.Context, cli *whatsmeow.Client, jid types.JID) string {
-	c, err := cli.Store.Contacts.GetContact(ctx, jid)
+func contactDisplayName(ctx context.Context, contacts store.ContactStore, jid types.JID) string {
+	if contacts == nil {
+		return ""
+	}
+	c, err := contacts.GetContact(ctx, jid)
 	if err != nil {
 		return ""
 	}

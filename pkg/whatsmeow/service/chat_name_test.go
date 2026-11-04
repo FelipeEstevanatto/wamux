@@ -3,6 +3,8 @@ package whatsmeow_service
 import (
 	"context"
 	"testing"
+
+	"go.mau.fi/whatsmeow/types"
 )
 
 // The special sources do not need a live client, so they are covered here; the
@@ -32,5 +34,15 @@ func TestResolveChatIdentityUnresolvedIsEmpty(t *testing.T) {
 	}
 	if got := resolveChatIdentity(ctx, nil, ""); got.Name != "" || got.Phone != "" {
 		t.Errorf("empty source: got %+v, want empty identity", got)
+	}
+}
+
+// A whatsmeow client can be connected while its contact store is absent (for
+// example right after a restart). Contact lookups must degrade to an empty name
+// instead of panicking the dashboard request.
+func TestContactDisplayNameNilStore(t *testing.T) {
+	jid := types.NewJID("5511900000000", types.DefaultUserServer)
+	if got := contactDisplayName(context.Background(), nil, jid); got != "" {
+		t.Errorf("nil contact store: got %q, want empty", got)
 	}
 }
