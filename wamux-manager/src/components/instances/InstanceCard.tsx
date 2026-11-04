@@ -80,7 +80,7 @@ export default function InstanceCard({
 
   return (
     <Card className="group relative bg-sidebar border-sidebar-border hover:bg-sidebar-accent/30 transition-all duration-300 hover:shadow-lg hover:shadow-black/10 overflow-hidden">
-      <CardContent className="p-0">
+      <CardContent className="flex flex-1 flex-col p-0">
         {/* Header with avatar, name and status */}
         <div className="flex items-center gap-3 p-4 border-b border-sidebar-border">
           <div className="shrink-0">
@@ -197,7 +197,7 @@ export default function InstanceCard({
             button, not a stretched one, so the icon buttons to its right are
             never pushed out of the card. */}
         {/* w-full + min-w-0 lets the labelled button shrink before the icons. */}
-        <div className="flex w-full items-stretch border-t border-sidebar-border transition-opacity duration-200 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
+        <div className="mt-auto flex w-full items-stretch border-t border-sidebar-border transition-opacity duration-200 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
           {/* Connect/Disconnect Button */}
           {!isConnected && (
             <Button
