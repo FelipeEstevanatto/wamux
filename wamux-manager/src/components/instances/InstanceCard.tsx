@@ -10,7 +10,6 @@ import {
   Power,
   PowerOff,
   MessageSquare,
-  FlaskConical,
   Users,
   Mail,
   Smartphone,
@@ -32,7 +31,6 @@ type InstanceCardProps = {
   onConnect: (instance: Instance) => void;
   onDisconnect: (instance: Instance) => void;
   onSendMessage?: (instance: Instance) => void;
-  onTestMessage?: (instance: Instance) => void;
 };
 
 const getStatusBadge = (status: string, t: (key: string) => string) => {
@@ -74,7 +72,6 @@ export default function InstanceCard({
   onConnect,
   onDisconnect,
   onSendMessage,
-  onTestMessage,
 }: InstanceCardProps) {
   const { t } = useI18n();
   const isConnected = instance.status === "open";
@@ -246,22 +243,6 @@ export default function InstanceCard({
                 aria-label={t("instances.sendMessage")}
               >
                 <MessageSquare className="h-4 w-4" />
-              </Button>
-              <div className="w-px shrink-0 bg-sidebar-border" />
-            </>
-          )}
-
-          {/* Test Interactive Messages Button - only show if connected */}
-          {isConnected && onTestMessage && (
-            <>
-              <Button
-                variant="ghost"
-                className="h-12 shrink-0 rounded-none px-3 text-purple-500 hover:bg-purple-500/10 hover:text-purple-400"
-                onClick={() => onTestMessage(instance)}
-                title={t("instances.testMessage")}
-                aria-label={t("instances.testMessage")}
-              >
-                <FlaskConical className="h-4 w-4" />
               </Button>
               <div className="w-px shrink-0 bg-sidebar-border" />
             </>

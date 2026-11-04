@@ -16,7 +16,6 @@ import { toast } from 'sonner';
 import useInstances from '@/hooks/useInstances';
 import { InstanceCard, InstancesHeader, CreateInstanceModal, QRCodeModal } from '@/components/instances';
 import SendMessageModal from '@/components/instances/SendMessageModal';
-import TestMessageModal from '@/components/instances/TestMessageModal';
 import EmptyState from '@/components/base/EmptyState';
 import type { Instance } from '@/types/instance';
 import * as instancesApi from '@/services/api/instances';
@@ -102,13 +101,6 @@ export default function Instances() {
   });
   const [isDisconnecting, setIsDisconnecting] = useState<string | null>(null);
   const [sendMessageModal, setSendMessageModal] = useState<{
-    isOpen: boolean;
-    instance: Instance | null;
-  }>({
-    isOpen: false,
-    instance: null,
-  });
-  const [testMessageModal, setTestMessageModal] = useState<{
     isOpen: boolean;
     instance: Instance | null;
   }>({
@@ -340,20 +332,6 @@ export default function Instances() {
     });
   };
 
-  const openTestMessageModal = (instance: Instance) => {
-    setTestMessageModal({
-      isOpen: true,
-      instance,
-    });
-  };
-
-  const closeTestMessageModal = () => {
-    setTestMessageModal({
-      isOpen: false,
-      instance: null,
-    });
-  };
-
   /**
    * Cheap status-only poll used while the QR dialog is open. It reads a single
    * instance (instead of the whole list) so the success screen can appear
@@ -549,7 +527,6 @@ export default function Instances() {
                 onConnect={handleConnect}
                 onDisconnect={openDisconnectModal}
                 onSendMessage={openSendMessageModal}
-                onTestMessage={openTestMessageModal}
               />
             ))}
           </div>
@@ -580,13 +557,6 @@ export default function Instances() {
         instance={sendMessageModal.instance}
         open={sendMessageModal.isOpen}
         onClose={closeSendMessageModal}
-      />
-
-      {/* Test Interactive Messages Modal */}
-      <TestMessageModal
-        instance={testMessageModal.instance}
-        open={testMessageModal.isOpen}
-        onClose={closeTestMessageModal}
       />
 
       {/* Disconnect Confirmation Modal */}

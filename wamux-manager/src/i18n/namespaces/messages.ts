@@ -6,6 +6,9 @@ export const messagesNs: {
   pt: {
     'messages.title': 'Mensagens',
     'messages.refresh': 'Atualizar',
+    'messages.testMessages': 'Testar mensagens',
+    'messages.testMessagesTitle':
+      'Testar botões, listas e carrosséis nesta instância',
     'messages.loadingInstances': 'Carregando instâncias…',
     'messages.noConnectedInstance':
       'Nenhuma instância conectada. Conecte uma instância para ver as conversas.',
@@ -118,6 +121,9 @@ export const messagesNs: {
   en: {
     'messages.title': 'Messages',
     'messages.refresh': 'Refresh',
+    'messages.testMessages': 'Test messages',
+    'messages.testMessagesTitle':
+      'Test buttons, lists and carousels on this instance',
     'messages.loadingInstances': 'Loading instances…',
     'messages.noConnectedInstance':
       'No connected instance. Connect an instance to view conversations.',

@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   Check,
   CheckCheck,
+  FlaskConical,
   Info,
   MessageSquare,
   Paperclip,
@@ -17,6 +18,7 @@ import {
 import { toast } from 'sonner';
 
 import { Button, Input, Skeleton } from '@/components/ui';
+import TestMessageModal from '@/components/instances/TestMessageModal';
 import { useI18n } from '@/i18n/I18nContext';
 import useInstances from '@/hooks/useInstances';
 import useInstanceEvents from '@/hooks/useInstanceEvents';
@@ -464,6 +466,7 @@ export default function Messages() {
   const [sending, setSending] = useState(false);
   const [newNumber, setNewNumber] = useState('');
   const [mobileThread, setMobileThread] = useState(false);
+  const [testModalOpen, setTestModalOpen] = useState(false);
 
   // Contacts picker + on-demand history recovery. Names come from the stored
   // conversations (GET /chat/contacts); the WhatsApp store list is the fallback.
@@ -918,6 +921,14 @@ export default function Messages() {
         <Button variant="outline" size="sm" onClick={() => void manualRefresh()} disabled={refreshing}>
           <RefreshCw className={refreshing ? 'animate-spin' : ''} /> {t('messages.refresh')}
         </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setTestModalOpen(true)}
+          title={t('messages.testMessagesTitle')}
+        >
+          <FlaskConical /> {t('messages.testMessages')}
+        </Button>
         {wsEnabled ? (
           wsBadge
         ) : (
@@ -1302,6 +1313,12 @@ export default function Messages() {
           )}
         </section>
       </div>
+
+      <TestMessageModal
+        open={testModalOpen}
+        onClose={() => setTestModalOpen(false)}
+        instance={instance ?? null}
+      />
     </div>
   );
 }
