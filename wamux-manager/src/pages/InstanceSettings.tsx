@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Save, Trash2, Power, Eye, EyeOff, Copy, Check, Network, RefreshCw, Pencil, X } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Power, Eye, EyeOff, Copy, Check, Network, RefreshCw, Pencil, X, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
@@ -79,6 +79,12 @@ export default function InstanceSettings() {
   const [proxyForm, setProxyForm] = useState<ProxyConfig>(emptyProxy);
   const [proxyTest, setProxyTest] = useState<ProxyTestResult | null>(null);
   const [proxyBusy, setProxyBusy] = useState<null | "save" | "test" | "reconnect" | "delete">(null);
+
+  // Phone pairing is a one-off connection action, not a persisted setting.
+  const [pairPhone, setPairPhone] = useState("");
+  const [pairingCode, setPairingCode] = useState<string | null>(null);
+  const [isPairing, setIsPairing] = useState(false);
+  const [copiedPairing, setCopiedPairing] = useState(false);
 
   const {
     register: registerWebhook,
@@ -161,6 +167,33 @@ export default function InstanceSettings() {
 
     isInitialized.current = true;
   }, [instance, resetWebhook, resetAdvanced]);
+
+  // While a pairing code is on screen, poll the instance so the page flips to
+  // "connected" soon after the user finishes on WhatsApp.
+  useEffect(() => {
+    if (!pairingCode || !instanceId || instance?.connected) return;
+
+    const interval = window.setInterval(async () => {
+      try {
+        const fresh = await instancesApi.fetchInstance(instanceId);
+        if (!fresh.connected) return;
+
+        setInstance(fresh);
+        updateInstanceInCache(fresh.instanceName, fresh);
+        setPairingCode(null);
+        setPairPhone('');
+        toast.success(
+          t('instanceSettings.connection.success', {
+            name: fresh.instanceName,
+          })
+        );
+      } catch {
+        // Transient poll failure: keep the code and try again next tick.
+      }
+    }, 2500);
+
+    return () => window.clearInterval(interval);
+  }, [pairingCode, instanceId, instance?.connected, t]);
 
   // Derive the event checkboxes from the instance. parseEvents returns a new
   // array each render, so it is memoized; setEditedEvents still records the
@@ -309,6 +342,62 @@ export default function InstanceSettings() {
       setCopied(true);
       toast.success(t('instanceSettings.toast.tokenCopied'));
       setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error(t('instanceSettings.toast.copyError'));
+    }
+  };
+
+  const handleGeneratePairingCode = async () => {
+    if (!instance?.apikey || !instanceId) {
+      toast.error(t('instanceSettings.toast.tokenNotFound'));
+      return;
+    }
+
+    if (instance.connected) {
+      toast.error(t('instanceSettings.connection.alreadyConnected'));
+      return;
+    }
+
+    let phone = pairPhone.trim();
+    if (!phone) {
+      toast.error(t('instanceSettings.connection.phoneRequired'));
+      return;
+    }
+    if (!phone.startsWith('+')) {
+      phone = `+${phone}`;
+    }
+
+    setIsPairing(true);
+    setPairingCode(null);
+    try {
+      // Empty body: webhook/events/producers are already persisted from the
+      // Webhook card; this only starts the session so pairing can begin.
+      await instancesApi.connectInstance(instance.apikey, {});
+      const pairData = await instancesApi.pairInstance(instance.apikey, {
+        subscribe: instance.events ? parseEvents(instance.events) : [],
+        phone,
+      });
+      setPairingCode(pairData.pairingCode);
+      toast.success(t('instanceSettings.connection.codeGenerated'));
+    } catch (error) {
+      console.error('Erro ao gerar código de pareamento:', error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t('instanceSettings.connection.codeError')
+      );
+    } finally {
+      setIsPairing(false);
+    }
+  };
+
+  const handleCopyPairingCode = async () => {
+    if (!pairingCode) return;
+    try {
+      await navigator.clipboard.writeText(pairingCode);
+      setCopiedPairing(true);
+      toast.success(t('instanceSettings.connection.codeCopied'));
+      setTimeout(() => setCopiedPairing(false), 2000);
     } catch {
       toast.error(t('instanceSettings.toast.copyError'));
     }
@@ -639,6 +728,102 @@ export default function InstanceSettings() {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+
+          {/* Connection Settings Card */}
+          <div className="rounded-lg border border-sidebar-border bg-card p-6">
+            <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold text-foreground">
+              <KeyRound className="h-5 w-5" />
+              {t('instanceSettings.connection.title')}
+            </h2>
+            <p className="mb-4 text-xs text-muted-foreground">
+              {t('instanceSettings.connection.description')}
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label
+                  htmlFor="pairPhone"
+                  className="mb-1 block text-sm font-medium text-foreground"
+                >
+                  {t('instanceSettings.connection.phone')}
+                </label>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <input
+                    id="pairPhone"
+                    type="tel"
+                    value={pairPhone}
+                    onChange={(e) => setPairPhone(e.target.value)}
+                    placeholder={t('instanceSettings.connection.phonePlaceholder')}
+                    disabled={isPairing || instance.connected}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60 sm:flex-1"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleGeneratePairingCode}
+                    disabled={
+                      isPairing || instance.connected || !pairPhone.trim()
+                    }
+                    className="gap-2 sm:w-auto"
+                  >
+                    {isPairing ? (
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <KeyRound className="h-4 w-4" />
+                    )}
+                    {isPairing
+                      ? t('instanceSettings.connection.generating')
+                      : t('instanceSettings.connection.generate')}
+                  </Button>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t('instanceSettings.connection.phoneHelp')}
+                </p>
+              </div>
+
+              {instance.connected && (
+                <div className="rounded-md border border-sidebar-border bg-sidebar-accent/40 p-3 text-xs text-muted-foreground">
+                  {t('instanceSettings.connection.connectedHint')}
+                </div>
+              )}
+
+              {pairingCode && !instance.connected && (
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    {t('instanceSettings.connection.codeLabel')}
+                  </p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <p className="font-mono text-2xl font-semibold tracking-[0.2em] text-foreground">
+                      {pairingCode}
+                    </p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleCopyPairingCode}
+                      title={t('instanceSettings.connection.copyCode')}
+                      aria-label={t('instanceSettings.connection.copyCode')}
+                    >
+                      {copiedPairing ? (
+                        <Check className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {t('instanceSettings.connection.codeHelp')}
+                  </p>
+                  <div className="mt-3 flex items-center gap-2 text-xs text-primary">
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+                    </span>
+                    {t('instanceSettings.connection.waiting')}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

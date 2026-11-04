@@ -33,3 +33,24 @@ func TestBoolPtr(t *testing.T) {
 		t.Fatalf("BoolPtr(false) = %v", q)
 	}
 }
+
+func TestIsPaired(t *testing.T) {
+	tests := []struct {
+		name     string
+		instance *Instance
+		want     bool
+	}{
+		{name: "nil receiver", instance: nil, want: false},
+		{name: "no jid", instance: &Instance{}, want: false},
+		{name: "logged out clears jid", instance: &Instance{Jid: ""}, want: false},
+		{name: "paired", instance: &Instance{Jid: "5511999999999@s.whatsapp.net"}, want: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.instance.IsPaired(); got != tt.want {
+				t.Fatalf("IsPaired() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

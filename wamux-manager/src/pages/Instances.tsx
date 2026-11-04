@@ -14,15 +14,42 @@ import { Trash2, Layers, PowerOff } from 'lucide-react';
 import { toast } from 'sonner';
 
 import useInstances from '@/hooks/useInstances';
-import { InstanceCard, InstancesHeader, CreateInstanceModal, QRCodeModal, ConnectConfigModal } from '@/components/instances';
+import { InstanceCard, InstancesHeader, CreateInstanceModal, QRCodeModal } from '@/components/instances';
 import SendMessageModal from '@/components/instances/SendMessageModal';
 import TestMessageModal from '@/components/instances/TestMessageModal';
 import EmptyState from '@/components/base/EmptyState';
 import type { Instance } from '@/types/instance';
 import * as instancesApi from '@/services/api/instances';
-import type { ConnectConfig } from '@/services/api/instances';
 import { useNavigate } from 'react-router-dom';
 import { useI18n } from '@/i18n/I18nContext';
+
+const wait = (ms: number) =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * The backend may need a couple of seconds to emit the first QR event. Poll
+ * briefly instead of sleeping unconditionally: most connections show a code on
+ * the first try, and slow ones still succeed without the old fixed 2s delay.
+ */
+async function fetchQrCodeWithRetry(instanceToken: string, attempts = 4) {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      const data = await instancesApi.getQrCode(instanceToken);
+      if (data.qrcode || data.paired) return data;
+      lastError = new Error('QR code not ready');
+    } catch (error) {
+      lastError = error;
+    }
+
+    if (attempt < attempts - 1) await wait(400);
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error('QR code not available');
+}
 
 export default function Instances() {
   const navigate = useNavigate();
@@ -34,10 +61,24 @@ export default function Instances() {
   const [qrcodeModal, setQrcodeModal] = useState<{
     isOpen: boolean;
     instance: Instance | null;
+    isLoading: boolean;
+    isPaired: boolean;
+    error: string | null;
   }>({
     isOpen: false,
     instance: null,
+    isLoading: false,
+    isPaired: false,
+    error: null,
   });
+  const [connectingInstance, setConnectingInstance] = useState<string | null>(
+    null
+  );
+  // Incremented when the user cancels/switches flows so late async results do
+  // not reopen a dialog the user already closed.
+  const connectAttemptRef = useRef(0);
+  // Synchronous guard against a double click landing before the state update.
+  const connectingInstanceRef = useRef<string | null>(null);
 
   // Pagination states
   const [currentPage] = useState(1);
@@ -68,13 +109,6 @@ export default function Instances() {
     instance: null,
   });
   const [testMessageModal, setTestMessageModal] = useState<{
-    isOpen: boolean;
-    instance: Instance | null;
-  }>({
-    isOpen: false,
-    instance: null,
-  });
-  const [connectConfigModal, setConnectConfigModal] = useState<{
     isOpen: boolean;
     instance: Instance | null;
   }>({
@@ -137,162 +171,86 @@ export default function Instances() {
     [navigate]
   );
 
-  const handleConnect = useCallback((instance: Instance) => {
-    // Open config modal before connecting
-    setConnectConfigModal({
-      isOpen: true,
-      instance,
-    });
-  }, []);
-
-  const handleConnectWithConfig = useCallback(async (instance: Instance, config: ConnectConfig) => {
-    try {
+  const handleConnect = useCallback(
+    async (instance: Instance) => {
       if (!instance.apikey) {
         toast.error(t('instances.tokenNotFound'));
         return;
       }
+      if (connectingInstanceRef.current === instance.instanceName) return;
 
-      toast.info(t('instances.connecting', { name: instance.instanceName }));
+      const attempt = ++connectAttemptRef.current;
+      const isCurrent = () => attempt === connectAttemptRef.current;
 
-      // Step 1: Update advanced settings if any are provided
-      const hasAdvancedSettings =
-        config.alwaysOnline !== undefined ||
-        config.rejectCall !== undefined ||
-        config.readMessages !== undefined ||
-        config.ignoreGroups !== undefined ||
-        config.ignoreStatus !== undefined;
+      connectingInstanceRef.current = instance.instanceName;
+      setConnectingInstance(instance.instanceName);
 
-      if (hasAdvancedSettings) {
-        const advancedSettings = {
-          alwaysOnline: config.alwaysOnline,
-          rejectCall: config.rejectCall,
-          readMessages: config.readMessages,
-          ignoreGroups: config.ignoreGroups,
-          ignoreStatus: config.ignoreStatus,
-        };
-        await instancesApi.updateAdvancedSettings(instance.id, instance.apikey, advancedSettings);
+      // Open the QR dialog right away: the modal itself is the progress UI.
+      setQrcodeModal({
+        isOpen: true,
+        instance: { ...instance, qrcode: undefined },
+        isLoading: true,
+        isPaired: false,
+        error: null,
+      });
+
+      try {
+        // Persistent connection settings (webhook, events, producers and
+        // advanced options) live in Instance Settings. An empty body keeps
+        // them untouched and only starts the session.
+        await instancesApi.connectInstance(instance.apikey, {});
+
+        // Retry briefly instead of sleeping for a fixed two seconds on every
+        // connection; most instances have a QR code on the first try.
+        const qrData = await fetchQrCodeWithRetry(instance.apikey);
+        if (!isCurrent()) return;
+
+        setQrcodeModal((prev) =>
+          prev.instance?.id === instance.id
+            ? {
+                ...prev,
+                instance: {
+                  ...prev.instance,
+                  qrcode: qrData.qrcode
+                    ? {
+                        base64: qrData.qrcode,
+                        code: qrData.code,
+                      }
+                    : undefined,
+                },
+                isLoading: false,
+                isPaired: Boolean(qrData.paired),
+                error: null,
+              }
+            : prev
+        );
+      } catch (error) {
+        console.error('Erro ao conectar instância:', error);
+
+        if (!isCurrent()) return;
+
+        const message =
+          error instanceof Error
+            ? error.message
+            : t('instances.connectError');
+
+        // Keep the dialog open with an inline error/retry state instead of
+        // closing it and dropping the user back to the list.
+        setQrcodeModal((prev) =>
+          prev.isOpen && prev.instance?.id === instance.id
+            ? { ...prev, isLoading: false, error: message }
+            : prev
+        );
+        toast.error(message);
+      } finally {
+        connectingInstanceRef.current = null;
+        setConnectingInstance((prev) =>
+          prev === instance.instanceName ? null : prev
+        );
       }
-
-      // Check if phone is provided for pairing
-      const usesPairingCode = config.phone && config.phone.trim() !== '';
-
-      if (usesPairingCode) {
-        // Use pairing code endpoint
-        let phone = config.phone!.trim();
-
-        // Add + prefix if not present
-        if (!phone.startsWith('+')) {
-          phone = `+${phone}`;
-        }
-
-        // Step 2: Pair instance with phone number
-        await instancesApi.connectInstance(instance.apikey, {
-          ...config,
-          phone: undefined, // Don't send phone to connect endpoint
-        });
-
-        // Wait a bit for connection to initialize
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // Step 3: Get pairing code
-        const pairData = await instancesApi.pairInstance(instance.apikey, {
-          subscribe: config.subscribe || [],
-          phone,
-        });
-
-        // Step 4: Get QR code as well (both QR and pairing code)
-        try {
-          const qrData = await instancesApi.getQrCode(instance.apikey);
-
-          // Update instance with both QR code and pairing code
-          const instanceWithQr: Instance = {
-            ...instance,
-            qrcode: {
-              base64: qrData.qrcode,
-              code: qrData.code,
-              pairingCode: pairData.pairingCode,
-            },
-          };
-
-          // Open QR Code modal (will show both QR and pairing code)
-          setQrcodeModal({
-            isOpen: true,
-            instance: instanceWithQr,
-          });
-          toast.success(
-            t('instances.qrAndPairingGenerated', { name: instance.instanceName })
-          );
-        } catch {
-          // If QR code fails, still show pairing code
-          const instanceWithPair: Instance = {
-            ...instance,
-            qrcode: {
-              pairingCode: pairData.pairingCode,
-            },
-          };
-
-          setQrcodeModal({
-            isOpen: true,
-            instance: instanceWithPair,
-          });
-          toast.success(
-            t('instances.pairingGenerated', { name: instance.instanceName })
-          );
-        }
-      } else {
-        // Step 2: Connect instance with webhook config (QR code only)
-        await instancesApi.connectInstance(instance.apikey, config);
-
-        // Wait a bit for QR code generation
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        // Get QR Code from API
-        try {
-          const qrData = await instancesApi.getQrCode(instance.apikey);
-
-          // Update instance with QR code data
-          const instanceWithQr: Instance = {
-            ...instance,
-            qrcode: {
-              base64: qrData.qrcode,
-              code: qrData.code,
-            },
-          };
-
-          // Open QR Code modal
-          setQrcodeModal({
-            isOpen: true,
-            instance: instanceWithQr,
-          });
-          toast.success(
-            t('instances.qrGenerated', { name: instance.instanceName })
-          );
-        } catch (qrError) {
-          console.error('Erro ao buscar QR Code:', qrError);
-          toast.error(t('instances.qrNotAvailable'));
-
-          // Fallback: fetch all instances
-          await fetchInstances();
-          const updatedInstance = instances.find(
-            (i) => i.instanceName === instance.instanceName
-          );
-          if (updatedInstance) {
-            setQrcodeModal({
-              isOpen: true,
-              instance: updatedInstance,
-            });
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Erro ao conectar instância:', error);
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : t('instances.connectError')
-      );
-    }
-  }, [fetchInstances, instances, t]);
+    },
+    [t]
+  );
 
   // The card's button only opens the confirmation; the actual logout runs from
   // the modal, so disconnecting is never a single stray click.
@@ -355,9 +313,16 @@ export default function Instances() {
   };
 
   const closeQrcodeModal = () => {
+    // Cancel any in-flight connect step: a late response must not reopen the
+    // dialog the user just closed.
+    connectAttemptRef.current += 1;
+    setConnectingInstance(null);
     setQrcodeModal({
       isOpen: false,
       instance: null,
+      isLoading: false,
+      isPaired: false,
+      error: null,
     });
   };
 
@@ -389,71 +354,102 @@ export default function Instances() {
     });
   };
 
-  const closeConnectConfigModal = () => {
-    setConnectConfigModal({
-      isOpen: false,
-      instance: null,
-    });
-  };
+  /**
+   * Cheap status-only poll used while the QR dialog is open. It reads a single
+   * instance (instead of the whole list) so the success screen can appear
+   * within ~2s of the scan, and patches the list cache so the card behind the
+   * dialog updates at the same time.
+   */
+  const handleCheckQrcodeConnection = useCallback(async () => {
+    const target = qrcodeModal.instance;
+    if (!target?.id) return;
 
-  const handleConnectConfirm = useCallback((config: ConnectConfig) => {
-    if (connectConfigModal.instance) {
-      handleConnectWithConfig(connectConfigModal.instance, config);
-    }
-  }, [connectConfigModal.instance, handleConnectWithConfig]);
+    const fresh = await instancesApi.fetchInstance(target.id);
+    if (!fresh.connected) return;
+
+    updateInstance(fresh.instanceName, fresh);
+    setQrcodeModal((prev) =>
+      prev.isOpen && prev.instance?.id === fresh.id
+        ? {
+            ...prev,
+            instance: { ...prev.instance, ...fresh, qrcode: prev.instance.qrcode },
+            isLoading: false,
+            isPaired: false,
+            error: null,
+          }
+        : prev
+    );
+  }, [qrcodeModal.instance, updateInstance]);
 
   const handleRefreshQrcode = useCallback(async () => {
-    if (!qrcodeModal.instance || !qrcodeModal.instance.apikey) return;
+    const target = qrcodeModal.instance;
+    if (!target?.id || !target.apikey) return;
 
-    try {
-      // Fetch fresh instance data to check connection status
-      await fetchInstances();
+    const fresh = await instancesApi.fetchInstance(target.id);
 
-      // Find updated instance
-      const updatedInstance = instances.find(
-        (i) => i.id === qrcodeModal.instance?.id
+    // If connected, just update modal and it will show success screen
+    if (fresh.connected) {
+      updateInstance(fresh.instanceName, fresh);
+      setQrcodeModal((prev) =>
+        prev.isOpen && prev.instance?.id === fresh.id
+          ? {
+              ...prev,
+              instance: { ...prev.instance, ...fresh, qrcode: prev.instance.qrcode },
+              isLoading: false,
+              isPaired: false,
+              error: null,
+            }
+          : prev
       );
-
-      if (!updatedInstance) return;
-
-      // If connected, just update modal and it will show success screen
-      if (updatedInstance.connected) {
-        setQrcodeModal({
-          isOpen: true,
-          instance: updatedInstance,
-        });
-        return;
-      }
-
-      // If not connected, get fresh QR Code
-      try {
-        const qrData = await instancesApi.getQrCode(qrcodeModal.instance.apikey);
-
-        // Update the modal with fresh QR code
-        const instanceWithQr: Instance = {
-          ...updatedInstance,
-          qrcode: {
-            base64: qrData.qrcode,
-            code: qrData.code,
-          },
-        };
-
-        setQrcodeModal({
-          isOpen: true,
-          instance: instanceWithQr,
-        });
-      } catch {
-        // QR might be expired, just update with fetched data
-        setQrcodeModal({
-          isOpen: true,
-          instance: updatedInstance,
-        });
-      }
-    } catch (error) {
-      console.error('Erro ao atualizar QR Code:', error);
-      throw error;
+      return;
     }
-  }, [qrcodeModal.instance, fetchInstances, instances]);
+
+    // If not connected, get a fresh QR Code
+    const qrData = await instancesApi.getQrCode(target.apikey);
+
+    // Paired instances have no QR to show; the session is being resumed and
+    // the dialog will flip to the success screen when it connects.
+    if (qrData.paired) {
+      setQrcodeModal((prev) =>
+        prev.isOpen && prev.instance?.id === target.id
+          ? {
+              ...prev,
+              instance: {
+                ...prev.instance,
+                ...fresh,
+                qrcode: undefined,
+              },
+              isLoading: false,
+              isPaired: true,
+              error: null,
+            }
+          : prev
+      );
+      return;
+    }
+
+    if (!qrData.qrcode) throw new Error(t('instances.qrNotAvailable'));
+
+    setQrcodeModal((prev) =>
+      prev.isOpen && prev.instance?.id === target.id
+        ? {
+            ...prev,
+            instance: {
+              ...prev.instance,
+              ...fresh,
+              qrcode: {
+                base64: qrData.qrcode,
+                code: qrData.code,
+                pairingCode: prev.instance.qrcode?.pairingCode,
+              },
+            },
+            isLoading: false,
+            isPaired: false,
+            error: null,
+          }
+        : prev
+    );
+  }, [qrcodeModal.instance, updateInstance, t]);
 
   const handleConfirmDelete = async () => {
     if (!deleteModal.instance) return;
@@ -483,6 +479,31 @@ export default function Instances() {
 
   const isDeleteConfirmationValid =
     deleteModal.confirmationText === deleteModal.instance?.instanceName;
+
+  // Keep the open QR dialog in sync with the live instance list. The dialog
+  // stores its own snapshot (it also carries the generated QR/pairing code),
+  // but connection status comes from the shared query cache, so any poll or
+  // manual refresh immediately flips the dialog to the success screen.
+  const qrcodeLiveInstance = useMemo(() => {
+    const snapshot = qrcodeModal.instance;
+    if (!snapshot) return null;
+
+    const live = instances.find((i) => i.id === snapshot.id);
+    if (!live) return snapshot;
+
+    return {
+      ...snapshot,
+      connected: live.connected,
+      status: live.status,
+      owner: live.owner || snapshot.owner,
+      profileName: live.profileName || snapshot.profileName,
+      qrcode: snapshot.qrcode,
+    };
+  }, [qrcodeModal.instance, instances]);
+
+  const qrcodeOverview = qrcodeLiveInstance
+    ? overviews[qrcodeLiveInstance.id]
+    : undefined;
 
   return (
     <div className="h-full flex flex-col p-4">
@@ -522,6 +543,7 @@ export default function Instances() {
                 instance={instance}
                 overview={overviews[instance.id]}
                 isDeleting={isDeleting}
+                isConnecting={connectingInstance === instance.instanceName}
                 onSettings={handleSettings}
                 onDelete={openDeleteModal}
                 onConnect={handleConnect}
@@ -542,18 +564,15 @@ export default function Instances() {
 
       {/* QR Code Modal */}
       <QRCodeModal
-        instance={qrcodeModal.instance}
+        instance={qrcodeLiveInstance}
         open={qrcodeModal.isOpen}
         onOpenChange={closeQrcodeModal}
         onRefresh={handleRefreshQrcode}
-      />
-
-      {/* Connect Config Modal */}
-      <ConnectConfigModal
-        instance={connectConfigModal.instance}
-        open={connectConfigModal.isOpen}
-        onClose={closeConnectConfigModal}
-        onConfirm={handleConnectConfirm}
+        onCheckConnection={handleCheckQrcodeConnection}
+        isLoading={qrcodeModal.isLoading}
+        isPaired={qrcodeModal.isPaired}
+        error={qrcodeModal.error}
+        overview={qrcodeOverview}
       />
 
       {/* Send Message Modal */}

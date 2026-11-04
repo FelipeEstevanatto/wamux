@@ -74,6 +74,11 @@ type InstanceService interface {
 	TestS3Connection(instanceId string, data *S3ConfigStruct) (*S3TestResult, error)
 }
 
+// ErrNotConnected is returned by session-state endpoints (disconnect/logout)
+// when there is no live, logged-in WhatsApp session to act on. Handlers map it
+// to 409 Conflict instead of reporting a phantom success for a no-op.
+var ErrNotConnected = errors.New("instance is not connected")
+
 // S3ConfigStruct is the request body for the per-instance S3 endpoints.
 type S3ConfigStruct struct {
 	Enabled       bool   `json:"enabled" example:"true"`
@@ -199,6 +204,11 @@ type StatusStruct struct {
 type QrcodeStruct struct {
 	Qrcode string `json:"qrcode"`
 	Code   string `json:"code"`
+	// Paired/Connected distinguish "already linked, waiting for the socket"
+	// from "QR not generated yet". WhatsApp never issues a QR for a paired
+	// instance, so callers must not treat an empty QR as an error.
+	Paired    bool `json:"paired,omitempty"`
+	Connected bool `json:"connected,omitempty"`
 	// Passkey ceremony fields. Populated when the account requires a WebAuthn
 	// passkey to finish linking (no QR to scan at that point). The manager uses
 	// PasskeyStage to switch its UI and PasskeyOpenUrl for the
@@ -445,83 +455,71 @@ func (i instances) Reconnect(instance *instance_model.Instance) error {
 }
 
 func (i instances) Disconnect(instance *instance_model.Instance) (*instance_model.Instance, error) {
-	client, err := i.ensureClientConnected(instance.Id)
-	if err != nil {
-		return instance, err
+	// Never start a client just to disconnect it: an unpaired/offline instance
+	// has no session to drop, and dialing would block the request. Report the
+	// real state instead of returning a phantom 200.
+	client := i.clientPointer.Get(instance.Id)
+	if client == nil || !client.IsConnected() || !client.IsLoggedIn() {
+		i.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Disconnect requested while not connected", instance.Id)
+		return instance, ErrNotConnected
 	}
 
-	if client.IsConnected() {
-		if client.IsLoggedIn() {
-			i.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Disconnection successful", instance.Id)
-			i.killChannel.Get(instance.Id) <- true
-
-			// Do not clear instance.Events on disconnect. Wiping subscriptions
-			// leaves the instance "connected" after reconnect with an empty
-			// events string, and CallWebhook then drops every webhook (Go's
-			// strings.Split("", ",") yields [""], which fails IsEventType).
-			instance.Connected = false
-			instance.DisconnectReason = "Disconnected by API"
-			if err := i.instanceRepository.UpdateConnected(instance.Id, false, instance.DisconnectReason); err != nil {
-				return instance, err
-			}
-			i.invalidateAuthCache()
-
-			return instance, nil
+	i.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Disconnection successful", instance.Id)
+	// The channel is only present while a client is running; guard it and bound
+	// the send so a missing/replaced client cannot block the request forever.
+	if ch := i.killChannel.Get(instance.Id); ch != nil {
+		select {
+		case ch <- true:
+		case <-time.After(5 * time.Second):
 		}
 	}
 
-	i.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Ignoring disconnect as it was not connected", instance.Id)
+	// Do not clear instance.Events on disconnect. Wiping subscriptions
+	// leaves the instance "connected" after reconnect with an empty
+	// events string, and CallWebhook then drops every webhook (Go's
+	// strings.Split("", ",") yields [""], which fails IsEventType).
+	instance.Connected = false
+	instance.DisconnectReason = "Disconnected by API"
+	if err := i.instanceRepository.UpdateConnected(instance.Id, false, instance.DisconnectReason); err != nil {
+		return instance, err
+	}
+	i.invalidateAuthCache()
+
 	return instance, nil
 }
 
 func (i instances) Logout(instance *instance_model.Instance) (*instance_model.Instance, error) {
-	client, err := i.ensureClientConnected(instance.Id)
-	if err != nil {
+	// Like Disconnect, logout must not spin up a client. Require a live,
+	// logged-in session; otherwise report the state (409 at the handler).
+	client := i.clientPointer.Get(instance.Id)
+	if client == nil || !client.IsConnected() || !client.IsLoggedIn() {
+		i.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Logout requested while not logged in", instance.Id)
+		return instance, ErrNotConnected
+	}
+
+	if err := client.Logout(context.Background()); err != nil {
 		return instance, err
 	}
 
-	if client.IsLoggedIn() && client.IsConnected() {
-		err := client.Logout(context.Background())
-		if err != nil {
-			return instance, err
-		}
+	instance.Connected = false
+	// Clearing the JID marks the instance as unpaired: IsPaired() must be false
+	// after logout, otherwise later requests would try to use a dead session.
+	instance.Jid = ""
+	if err := i.instanceRepository.Update(instance); err != nil {
+		return instance, err
+	}
+	i.invalidateAuthCache()
 
-		instance.Connected = false
-		err = i.instanceRepository.Update(instance)
-		if err != nil {
-			return instance, err
-		}
-		i.invalidateAuthCache()
-
-		select {
-		case i.killChannel.Get(instance.Id) <- true:
-		case <-time.After(5 * time.Second):
-		}
-
-		i.clientPointer.Delete(instance.Id)
-		i.killChannel.Delete(instance.Id)
-
-		i.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Logout successful", instance.Id)
-		return instance, nil
+	select {
+	case i.killChannel.Get(instance.Id) <- true:
+	case <-time.After(5 * time.Second):
 	}
 
-	if client.IsConnected() {
-		client.Disconnect()
+	i.clientPointer.Delete(instance.Id)
+	i.killChannel.Delete(instance.Id)
 
-		select {
-		case i.killChannel.Get(instance.Id) <- true:
-		case <-time.After(5 * time.Second):
-		}
-
-		i.clientPointer.Delete(instance.Id)
-		i.killChannel.Delete(instance.Id)
-
-		i.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Disconnection successful", instance.Id)
-		return instance, nil
-	}
-
-	i.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Ignoring logout as it was not connected", instance.Id)
-	return instance, fmt.Errorf("ignoring logout as it was not connected")
+	i.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Logout successful", instance.Id)
+	return instance, nil
 }
 
 func (i instances) Status(instance *instance_model.Instance) (*StatusStruct, error) {
@@ -556,17 +554,30 @@ func (i instances) GetQr(instance *instance_model.Instance) (*QrcodeStruct, erro
 	logger := i.loggerWrapper.GetLogger(instance.Id)
 	client := i.clientPointer.Get(instance.Id)
 
-	// Se não há cliente ou o cliente está logado, precisamos iniciar um novo cliente
-	if client == nil || client.IsLoggedIn() {
-		if client != nil && client.IsLoggedIn() {
-			logger.LogInfo("[%s] Client is logged in, starting new instance for QR code", instance.Id)
-		} else {
-			logger.LogInfo("[%s] No client found, starting new instance for QR code", instance.Id)
+	// A paired instance reuses the stored WhatsApp session, so no QR is ever
+	// issued for it. Report the real state instead of treating an absent QR as
+	// an error, and resume the session when it is not running. Never start a
+	// second client while one exists: both would use the same device identity
+	// and WhatsApp answers with <stream:error conflict type="replaced">.
+	if instance.IsPaired() {
+		connected := client != nil && client.IsConnected() && client.IsLoggedIn()
+
+		if client == nil {
+			logger.LogInfo("[%s] Paired instance has no runtime client; resuming session", instance.Id)
+			if err := i.whatsmeowService.StartInstance(instance.Id); err != nil {
+				logger.LogError("[%s] Failed to start instance: %v", instance.Id, err)
+				return nil, fmt.Errorf("failed to start instance: %w", err)
+			}
 		}
 
-		// Iniciar nova instância para gerar QR code
-		err := i.whatsmeowService.StartInstance(instance.Id)
-		if err != nil {
+		return &QrcodeStruct{Paired: true, Connected: connected}, nil
+	}
+
+	// Unpaired instance: only create a client when none exists. Replacing a
+	// client that is still in its connect handshake causes the conflict above.
+	if client == nil {
+		logger.LogInfo("[%s] No client found, starting new instance for QR code", instance.Id)
+		if err := i.whatsmeowService.StartInstance(instance.Id); err != nil {
 			logger.LogError("[%s] Failed to start instance: %v", instance.Id, err)
 			return nil, fmt.Errorf("failed to start instance: %w", err)
 		}
@@ -575,14 +586,11 @@ func (i instances) GetQr(instance *instance_model.Instance) (*QrcodeStruct, erro
 		logger.LogInfo("[%s] Waiting for QR code generation...", instance.Id)
 		time.Sleep(3 * time.Second)
 
-		// Verificar novamente se há cliente
 		client = i.clientPointer.Get(instance.Id)
-		if client != nil && client.IsLoggedIn() {
-			return nil, fmt.Errorf("session already logged in")
-		}
-	} else if !client.IsConnected() {
-		// Se o cliente existe mas não está conectado, pode estar aguardando QR code
-		logger.LogInfo("[%s] Client exists but not connected, checking for existing QR code", instance.Id)
+	}
+
+	if client != nil && client.IsLoggedIn() {
+		return nil, fmt.Errorf("session already logged in")
 	}
 
 	// Buscar instância atualizada do banco para pegar o QR code mais recente

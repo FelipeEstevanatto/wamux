@@ -60,6 +60,11 @@ func (c *chatHandler) ChatPin(ctx *gin.Context) {
 		return
 	}
 
+	if !instance.IsPaired() {
+		ctx.JSON(http.StatusConflict, gin.H{"error": "instance is not paired with WhatsApp"})
+		return
+	}
+
 	ts, err := c.chatService.ChatPin(data, instance)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -102,6 +107,11 @@ func (c *chatHandler) ChatUnpin(ctx *gin.Context) {
 
 	if data.Chat == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "chat is required"})
+		return
+	}
+
+	if !instance.IsPaired() {
+		ctx.JSON(http.StatusConflict, gin.H{"error": "instance is not paired with WhatsApp"})
 		return
 	}
 

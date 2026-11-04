@@ -16,6 +16,7 @@ import {
   Smartphone,
   Link2,
   Tag,
+  Loader2,
 } from "lucide-react";
 import type { Instance, InstanceOverview } from "@/types/instance";
 import { deviceLabel } from "@/utils/device";
@@ -25,6 +26,7 @@ type InstanceCardProps = {
   instance: Instance;
   overview?: InstanceOverview;
   isDeleting?: string | null;
+  isConnecting?: boolean;
   onSettings: (instance: Instance) => void;
   onDelete: (instance: Instance) => void;
   onConnect: (instance: Instance) => void;
@@ -66,6 +68,7 @@ export default function InstanceCard({
   instance,
   overview,
   isDeleting,
+  isConnecting,
   onSettings,
   onDelete,
   onConnect,
@@ -80,7 +83,7 @@ export default function InstanceCard({
 
   return (
     <Card className="group relative bg-sidebar border-sidebar-border hover:bg-sidebar-accent/30 transition-all duration-300 hover:shadow-lg hover:shadow-black/10 overflow-hidden">
-      <CardContent className="p-0">
+      <CardContent className="flex flex-1 flex-col p-0">
         {/* Header with avatar, name and status */}
         <div className="flex items-center gap-3 p-4 border-b border-sidebar-border">
           <div className="shrink-0">
@@ -197,17 +200,24 @@ export default function InstanceCard({
             button, not a stretched one, so the icon buttons to its right are
             never pushed out of the card. */}
         {/* w-full + min-w-0 lets the labelled button shrink before the icons. */}
-        <div className="flex w-full items-stretch border-t border-sidebar-border transition-opacity duration-200 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
+        <div className="mt-auto flex w-full items-stretch border-t border-sidebar-border transition-opacity duration-200 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
           {/* Connect/Disconnect Button */}
           {!isConnected && (
             <Button
               variant="ghost"
               className="h-12 shrink-0 rounded-none px-3 text-green-500 hover:bg-green-500/10 hover:text-green-400 sm:px-4"
               onClick={() => onConnect(instance)}
+              disabled={isConnecting}
               title={t("instances.connectTitle")}
             >
-              <Power className="mr-2 h-4 w-4 shrink-0" />
-              {t("instances.connect")}
+              {isConnecting ? (
+                <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
+              ) : (
+                <Power className="mr-2 h-4 w-4 shrink-0" />
+              )}
+              {isConnecting
+                ? t("instances.connectingButton")
+                : t("instances.connect")}
             </Button>
           )}
 

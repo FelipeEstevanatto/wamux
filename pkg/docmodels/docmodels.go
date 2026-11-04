@@ -25,6 +25,18 @@ type ErrorResponse struct {
 	Error string `json:"error" example:"phone number is required"`
 }
 
+// NotFoundResponse is the NestJS-style 404 body returned for unmatched routes
+// (NoRoute/NoMethod). Unlike ErrorResponse it carries the HTTP status and a
+// machine-readable "Cannot METHOD /path" message, matching the format of
+// NestJS APIs so clients can parse it uniformly.
+type NotFoundResponse struct {
+	Status   int    `json:"status" example:"404"`
+	Error    string `json:"error" example:"Not Found"`
+	Response struct {
+		Message []string `json:"message" example:"Cannot GET /sdfsdf"`
+	} `json:"response"`
+}
+
 // MessageSend mirrors send_service.MessageSendStruct. The real struct embeds
 // whatsmeow protobuf types, which render as a huge, unreadable model; this
 // documentation type shows only the fields clients actually read.
@@ -85,6 +97,10 @@ type ConnectionStatus struct {
 // QRCode is the /instance/qr payload (a fresh pairing code).
 type QRCode struct {
 	QRCode string `json:"qrcode" example:"2@AbCdEfGhIjKlMnOpQrStUvWxYz0123456789+/=,AbCdEfGhIjKlMnOpQrStUvWxYz0123456789+/=,AbCdEfGhIjKlMnOpQrStUvWxYz0123456789+/=,AbCdEfGhIjKlMnOpQrStUvWxYz0123456789+/="`
+	// Paired/Connected are set when the instance already has a WhatsApp session.
+	// No QR is issued in that case; the manager should wait for Connected.
+	Paired    bool `json:"paired,omitempty" example:"false"`
+	Connected bool `json:"connected,omitempty" example:"false"`
 }
 
 // PairResult is the /instance/pair payload (pairing code for a phone number).
@@ -493,14 +509,14 @@ type ServerOK struct {
 
 // RootInfo is the GET / payload: a small welcome/health banner.
 type RootInfo struct {
-	Status              int    `json:"status" example:"200"`
-	Message             string `json:"message" example:"Welcome to WaMux, it is working!"`
-	Version             string `json:"version" example:"0.9.1"`
-	ClientName          string `json:"clientName" example:"wamux"`
-	Manager             string `json:"manager" example:"/manager"`
-	Documentation       string `json:"documentation" example:"/swagger/index.html"`
-	WhatsappWebVersion  string `json:"whatsappWebVersion" example:"2.3000.1048977937"`
-	Error               string `json:"error,omitempty" example:""`
+	Status             int    `json:"status" example:"200"`
+	Message            string `json:"message" example:"Welcome to WaMux, it is working!"`
+	Version            string `json:"version" example:"0.9.1"`
+	ClientName         string `json:"clientName" example:"wamux"`
+	Manager            string `json:"manager" example:"/manager"`
+	Documentation      string `json:"documentation" example:"/swagger/index.html"`
+	WhatsappWebVersion string `json:"whatsappWebVersion" example:"2.3000.1048977937"`
+	Error              string `json:"error,omitempty" example:""`
 }
 
 // MessageStats is the messages section of /server/stats.

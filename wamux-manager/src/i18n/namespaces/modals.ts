@@ -1,40 +1,9 @@
-/** Translation namespace for ConnectConfigModal + TestMessageModal inner labels. */
+/** Translation namespace for TestMessageModal inner labels. */
 export const modalsNs: {
   pt: Record<string, string>;
   en: Record<string, string>;
 } = {
   pt: {
-    // ConnectConfigModal
-    'modals.connectConfigTitle': 'Configurar Conexão - {name}',
-    'modals.webhookUrlOptional': 'Webhook URL (opcional)',
-    'modals.webhookUrlPlaceholder': 'https://seu-servidor.com/webhook',
-    'modals.eventsForWebhook':
-      'Eventos para Webhook ({count} selecionados)',
-    'modals.selectAllEvents': 'Selecionar ALL',
-    'modals.clear': 'Limpar',
-    'modals.allEventsHint': 'Seleciona todos os eventos (recomendado)',
-    'modals.individualEvents': 'Eventos Individuais:',
-    'modals.phonePairingOptional': 'Telefone para Pairing Code (opcional)',
-    'modals.phonePairingHint':
-      'Se fornecido, será gerado um código de pareamento (pairing code)',
-    'modals.advancedSettings': 'Configurações Avançadas',
-    'modals.behavior': 'Comportamento',
-    'modals.alwaysOnline': 'Always Online',
-    'modals.alwaysOnlineHint': 'Manter sempre online no WhatsApp',
-    'modals.rejectCall': 'Reject Call',
-    'modals.rejectCallHint': 'Rejeitar chamadas automaticamente',
-    'modals.readMessages': 'Read Messages',
-    'modals.readMessagesHint': 'Marcar mensagens como lidas',
-    'modals.ignoreGroups': 'Ignore Groups',
-    'modals.ignoreGroupsHint': 'Ignorar mensagens de grupos',
-    'modals.ignoreStatus': 'Ignore Status',
-    'modals.ignoreStatusHint': 'Ignorar atualizações de status',
-    'modals.eventProducers': 'Produtores de Eventos',
-    'modals.optionDefault': 'Padrão',
-    'modals.optionEnabled': 'Habilitado',
-    'modals.optionDisabled': 'Desabilitado',
-    'modals.connect': 'Conectar',
-
     // TestMessageModal UI
     'modals.testTokenMissing': 'Token da instância não encontrado',
     'modals.invalidNumber':
@@ -186,36 +155,6 @@ export const modalsNs: {
     'modals.payload.carouselCopy.copyVipCoupon': 'Copiar cupom VIP',
   },
   en: {
-    // ConnectConfigModal
-    'modals.connectConfigTitle': 'Configure Connection - {name}',
-    'modals.webhookUrlOptional': 'Webhook URL (optional)',
-    'modals.webhookUrlPlaceholder': 'https://your-server.com/webhook',
-    'modals.eventsForWebhook': 'Webhook events ({count} selected)',
-    'modals.selectAllEvents': 'Select ALL',
-    'modals.clear': 'Clear',
-    'modals.allEventsHint': 'Selects all events (recommended)',
-    'modals.individualEvents': 'Individual events:',
-    'modals.phonePairingOptional': 'Phone for Pairing Code (optional)',
-    'modals.phonePairingHint':
-      'If provided, a pairing code will be generated',
-    'modals.advancedSettings': 'Advanced Settings',
-    'modals.behavior': 'Behavior',
-    'modals.alwaysOnline': 'Always Online',
-    'modals.alwaysOnlineHint': 'Stay always online on WhatsApp',
-    'modals.rejectCall': 'Reject Call',
-    'modals.rejectCallHint': 'Automatically reject calls',
-    'modals.readMessages': 'Read Messages',
-    'modals.readMessagesHint': 'Mark messages as read',
-    'modals.ignoreGroups': 'Ignore Groups',
-    'modals.ignoreGroupsHint': 'Ignore group messages',
-    'modals.ignoreStatus': 'Ignore Status',
-    'modals.ignoreStatusHint': 'Ignore status updates',
-    'modals.eventProducers': 'Event Producers',
-    'modals.optionDefault': 'Default',
-    'modals.optionEnabled': 'Enabled',
-    'modals.optionDisabled': 'Disabled',
-    'modals.connect': 'Connect',
-
     // TestMessageModal UI
     'modals.testTokenMissing': 'Instance token not found',
     'modals.invalidNumber':

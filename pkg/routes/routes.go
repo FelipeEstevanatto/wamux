@@ -314,6 +314,29 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 		}
 	}
 
+	// Unknown routes return a NestJS-style JSON 404 instead of Gin's default
+	// "404 page not found" text, which is wrong for both humans and API clients.
+	eng.NoRoute(func(c *gin.Context) {
+		c.JSON(http.StatusNotFound, gin.H{
+			"status": http.StatusNotFound,
+			"error":  "Not Found",
+			"response": gin.H{
+				"message": []string{"Cannot " + c.Request.Method + " " + c.Request.URL.Path},
+			},
+		})
+	})
+
+	// Method mismatch on a known path: also 404, NestJS-style.
+	eng.NoMethod(func(c *gin.Context) {
+		c.JSON(http.StatusNotFound, gin.H{
+			"status": http.StatusNotFound,
+			"error":  "Not Found",
+			"response": gin.H{
+				"message": []string{"Cannot " + c.Request.Method + " " + c.Request.URL.Path},
+			},
+		})
+	})
+
 }
 
 func NewRouter(

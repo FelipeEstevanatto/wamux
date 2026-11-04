@@ -85,6 +85,11 @@ func (n *newsletterHandler) ListNewsletter(ctx *gin.Context) {
 		return
 	}
 
+	if !instance.IsPaired() {
+		ctx.JSON(http.StatusConflict, gin.H{"error": "instance is not paired with WhatsApp"})
+		return
+	}
+
 	newsletters, err := n.newsletterService.ListNewsletter(instance)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

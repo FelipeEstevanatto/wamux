@@ -8,9 +8,13 @@ import (
 )
 
 type Instance struct {
-	Id    string `json:"id" gorm:"type:uuid;primaryKey"`
-	Name  string `json:"name"`
-	Token string `json:"token" gorm:"unique"`
+	Id   string `json:"id" gorm:"type:uuid;primaryKey"`
+	Name string `json:"name"`
+	// Token is the legacy plaintext credential. Uniqueness for rows that still
+	// carry one is enforced by the partial unique index created in migration
+	// 0006; encrypted rows leave it blank and authenticate via TokenHash, so a
+	// plain UNIQUE constraint here would collide on the second blank row.
+	Token string `json:"token"`
 	// TokenHash is HMAC-SHA256(Token) under the server key: deterministic and
 	// indexable, so authentication looks the instance up by it. TokenEnc is
 	// AES-256-GCM(Token) for recovery/display. Together they replace storing the
@@ -82,4 +86,14 @@ func (m *Instance) BeforeCreate(tx *gorm.DB) (err error) {
 // BoolPtr returns a pointer to v (helper for AdvancedSettings responses/tests).
 func BoolPtr(v bool) *bool {
 	return &v
+}
+
+// IsPaired reports whether the instance has a WhatsApp session. Jid is only
+// persisted after a successful login, so an empty Jid means the instance has
+// never been paired (or was logged out). Callers that need to talk to WhatsApp
+// should check this before starting a client: doing so avoids the long
+// connection wait (and the nil client/store dereference) for instances that
+// cannot possibly answer.
+func (i *Instance) IsPaired() bool {
+	return i != nil && i.Jid != ""
 }

@@ -52,6 +52,11 @@ func (g *groupHandler) ListGroups(ctx *gin.Context) {
 		return
 	}
 
+	if !instance.IsPaired() {
+		ctx.JSON(http.StatusConflict, gin.H{"error": "instance is not paired with WhatsApp"})
+		return
+	}
+
 	resp, err := g.groupService.ListGroups(instance)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

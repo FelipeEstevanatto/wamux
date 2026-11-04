@@ -63,6 +63,11 @@ func (l *labelHandler) ChatLabel(ctx *gin.Context) {
 		return
 	}
 
+	if !instance.IsPaired() {
+		ctx.JSON(http.StatusConflict, gin.H{"error": "instance is not paired with WhatsApp"})
+		return
+	}
+
 	err = l.labelService.ChatLabel(data, instance)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -160,6 +165,11 @@ func (l *labelHandler) EditLabel(ctx *gin.Context) {
 		return
 	}
 
+	if !instance.IsPaired() {
+		ctx.JSON(http.StatusConflict, gin.H{"error": "instance is not paired with WhatsApp"})
+		return
+	}
+
 	err = l.labelService.EditLabel(data, instance)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -203,6 +213,11 @@ func (l *labelHandler) ChatUnlabel(ctx *gin.Context) {
 
 	if data.LabelID == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "label id is required"})
+		return
+	}
+
+	if !instance.IsPaired() {
+		ctx.JSON(http.StatusConflict, gin.H{"error": "instance is not paired with WhatsApp"})
 		return
 	}
 

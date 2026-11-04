@@ -43,6 +43,33 @@ export const instanceSettingsNs: {
 
     'instanceSettings.info.title': 'Informações da Instância',
 
+    'instanceSettings.connection.title': 'Conexão',
+    'instanceSettings.connection.description':
+      'As configurações persistentes de conexão ficam nos cartões abaixo (webhook, eventos, produtores, avançadas e proxy). Use o pareamento por telefone para conectar sem escanear um QR Code.',
+    'instanceSettings.connection.phone': 'Telefone para código de pareamento',
+    'instanceSettings.connection.phonePlaceholder': '5511999999999',
+    'instanceSettings.connection.phoneHelp':
+      'Digite o número com DDI e DDD. O código será exibido aqui para você digitar no WhatsApp.',
+    'instanceSettings.connection.generate': 'Gerar código de pareamento',
+    'instanceSettings.connection.generating': 'Gerando...',
+    'instanceSettings.connection.phoneRequired':
+      'Informe o telefone para gerar o código de pareamento.',
+    'instanceSettings.connection.alreadyConnected':
+      'Desconecte a instância antes de gerar um código de pareamento.',
+    'instanceSettings.connection.connectedHint':
+      'A instância já está conectada. Desconecte-a na Zona de Perigo para gerar um novo código de pareamento.',
+    'instanceSettings.connection.codeLabel': 'Código de pareamento',
+    'instanceSettings.connection.copyCode': 'Copiar código',
+    'instanceSettings.connection.codeHelp':
+      'No WhatsApp, abra Dispositivos conectados → Conectar um dispositivo → Conectar com número de telefone e informe este código.',
+    'instanceSettings.connection.waiting': 'Aguardando conexão...',
+    'instanceSettings.connection.codeGenerated': 'Código de pareamento gerado!',
+    'instanceSettings.connection.codeError':
+      'Não foi possível gerar o código de pareamento',
+    'instanceSettings.connection.codeCopied': 'Código copiado!',
+    'instanceSettings.connection.success':
+      'Instância {name} conectada com sucesso!',
+
     'instanceSettings.webhook.title': 'Configurações de Webhook',
     'instanceSettings.webhook.url': 'URL do Webhook',
     'instanceSettings.webhook.urlPlaceholder': 'https://seu-servidor.com/webhook',
@@ -213,6 +240,33 @@ export const instanceSettingsNs: {
     'instanceSettings.action.saving': 'Saving...',
 
     'instanceSettings.info.title': 'Instance Information',
+
+    'instanceSettings.connection.title': 'Connection',
+    'instanceSettings.connection.description':
+      'Persistent connection settings live in the cards below (webhook, events, producers, advanced and proxy). Use phone pairing to connect without scanning a QR Code.',
+    'instanceSettings.connection.phone': 'Phone for pairing code',
+    'instanceSettings.connection.phonePlaceholder': '1555123456789',
+    'instanceSettings.connection.phoneHelp':
+      'Enter the number with country code. The code will appear here for you to enter in WhatsApp.',
+    'instanceSettings.connection.generate': 'Generate pairing code',
+    'instanceSettings.connection.generating': 'Generating...',
+    'instanceSettings.connection.phoneRequired':
+      'Enter the phone number to generate a pairing code.',
+    'instanceSettings.connection.alreadyConnected':
+      'Disconnect the instance before generating a pairing code.',
+    'instanceSettings.connection.connectedHint':
+      'This instance is already connected. Disconnect it in the Danger Zone to generate a new pairing code.',
+    'instanceSettings.connection.codeLabel': 'Pairing code',
+    'instanceSettings.connection.copyCode': 'Copy code',
+    'instanceSettings.connection.codeHelp':
+      'In WhatsApp, open Linked devices → Link a device → Link with phone number and enter this code.',
+    'instanceSettings.connection.waiting': 'Waiting for connection...',
+    'instanceSettings.connection.codeGenerated': 'Pairing code generated!',
+    'instanceSettings.connection.codeError':
+      'Could not generate the pairing code',
+    'instanceSettings.connection.codeCopied': 'Code copied!',
+    'instanceSettings.connection.success':
+      'Instance {name} connected successfully!',
 
     'instanceSettings.webhook.title': 'Webhook Settings',
     'instanceSettings.webhook.url': 'Webhook URL',
