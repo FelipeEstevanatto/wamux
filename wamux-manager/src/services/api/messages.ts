@@ -107,7 +107,8 @@ export const sendMedia = async (
     caption?: string;
     filename?: string;
     file: File;
-  }
+  },
+  onProgress?: (percent: number) => void
 ): Promise<unknown> => {
   const form = new FormData();
   form.append('number', payload.number);
@@ -124,6 +125,12 @@ export const sendMedia = async (
     form,
     {
       headers: { apikey: instanceToken, 'Content-Type': null },
+      onUploadProgress: (event) => {
+        if (!onProgress) return;
+        const total = event.total ?? 0;
+        if (total <= 0) return;
+        onProgress(Math.min(100, Math.round((event.loaded / total) * 100)));
+      },
     }
   );
   return response.data.data;
