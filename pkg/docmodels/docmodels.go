@@ -25,6 +25,18 @@ type ErrorResponse struct {
 	Error string `json:"error" example:"phone number is required"`
 }
 
+// NotFoundResponse is the NestJS-style 404 body returned for unmatched routes
+// (NoRoute/NoMethod). Unlike ErrorResponse it carries the HTTP status and a
+// machine-readable "Cannot METHOD /path" message, matching the format of
+// NestJS APIs so clients can parse it uniformly.
+type NotFoundResponse struct {
+	Status   int `json:"status" example:"404"`
+	Error    string `json:"error" example:"Not Found"`
+	Response struct {
+		Message []string `json:"message" example:"Cannot GET /sdfsdf"`
+	} `json:"response"`
+}
+
 // MessageSend mirrors send_service.MessageSendStruct. The real struct embeds
 // whatsmeow protobuf types, which render as a huge, unreadable model; this
 // documentation type shows only the fields clients actually read.

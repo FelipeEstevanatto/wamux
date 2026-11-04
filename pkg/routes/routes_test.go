@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -148,14 +149,38 @@ func TestAssignRoutesAuthBoundaries(t *testing.T) {
 	}
 }
 
-// A request to an unknown path is a 404, proving the table is exact.
+// A request to an unknown path is a NestJS-style JSON 404 with the
+// "Cannot METHOD /path" message, not Gin's plain-text "404 page not found".
 func TestAssignRoutesUnknownPathIs404(t *testing.T) {
 	cfg := testConfig()
 	eng := NewTestRouter(cfg, auth_middleware.NewMiddleware(cfg, &stubInstanceService{valid: "t"}))
 
-	w := httptest.NewRecorder()
-	eng.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/does-not-exist", nil))
-	if w.Code != http.StatusNotFound {
-		t.Fatalf("status = %d, want 404", w.Code)
+	for _, tc := range []struct {
+		method, path, wantMsg string
+	}{
+		{http.MethodGet, "/sdfsdf", "Cannot GET /sdfsdf"},
+		{http.MethodPost, "/does-not-exist", "Cannot POST /does-not-exist"},
+		{http.MethodGet, "/login", "Cannot GET /login"},
+	} {
+		w := httptest.NewRecorder()
+		eng.ServeHTTP(w, httptest.NewRequest(tc.method, tc.path, nil))
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("%s %s: status = %d, want 404", tc.method, tc.path, w.Code)
+		}
+		if ct := w.Header().Get("Content-Type"); !strings.Contains(ct, "application/json") {
+			t.Errorf("%s %s: Content-Type = %q, want application/json", tc.method, tc.path, ct)
+		}
+		var body map[string]any
+		if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+			t.Fatalf("%s %s: body is not JSON: %v", tc.method, tc.path, err)
+		}
+		if body["status"] != float64(404) || body["error"] != "Not Found" {
+			t.Errorf("%s %s: body = %v, want status 404 / error Not Found", tc.method, tc.path, body)
+		}
+		resp, _ := body["response"].(map[string]any)
+		msgs, _ := resp["message"].([]any)
+		if len(msgs) != 1 || msgs[0] != tc.wantMsg {
+			t.Errorf("%s %s: response.message = %v, want [%q]", tc.method, tc.path, msgs, tc.wantMsg)
+		}
 	}
 }
