@@ -1,5 +1,50 @@
 # WaMux - Changelog
 
+## 0.11.0 — manager connection flow, API hardening
+
+A smoother instance connection flow in the manager, plus API and database fixes
+for paired instances, instance creation and unknown routes. No breaking API or
+data changes.
+
+### 🆕 Features
+- **One-click connect** — the instance card now connects with the saved
+  settings. The QR dialog opens immediately with inline progress instead of
+  showing a toast first.
+- **Faster scan detection** — the QR dialog checks the instance every ~2s,
+  updates as soon as WhatsApp confirms the scan, and offers a manual
+  "I've scanned it" action.
+- **Connection settings in Instance Settings** — removed the duplicate connect
+  configuration modal. Webhook, events, event producers, advanced options and
+  proxy remain in Instance Settings; a new Connection card adds phone pairing
+  with a copyable pairing code and automatic connection detection.
+- **Already-paired instances** — the manager now shows a "reconnecting existing
+  session" state instead of an empty QR/error when the instance already has a
+  stored WhatsApp session.
+
+### 🔧 Fixes
+- **Multiple encrypted instance tokens** — replaced the `UNIQUE(token)`
+  constraint with a partial unique index covering only non-empty legacy tokens
+  (migration 0006). Creating a second encrypted instance no longer fails with a
+  duplicate-key error.
+- **QR for paired instances** — `GET /instance/qr` returns
+  `{paired:true, connected:...}` instead of a phantom 400. It resumes the stored
+  session once and never replaces a client that is still connecting.
+- **Fail fast on unpaired instances** — chat, group, user, label, newsletter and
+  instance endpoints now return structured errors instead of proceeding with an
+  unpaired instance; invalid instance IDs are rejected early.
+- **Unknown API routes** — return a NestJS-style JSON 404 instead of the HTML
+  default.
+- **Manager card footer** — pinned to the bottom of the card, regardless of how
+  much instance detail is shown.
+
+### 🧪 Testing
+- Added coverage for paired-instance guards, QR behavior, migration 0006 and
+  unknown-route responses.
+- Pinned jsdom to 30.0.0 for Bun compatibility.
+
+### 🐳 Container image
+`docker pull ghcr.io/felipeestevanatto/wamux:0.11.0`
+
 ## 0.10.0 — manager overhaul, HTTP compression, performance
 
 Manager UX overhaul, response compression, two measured performance
