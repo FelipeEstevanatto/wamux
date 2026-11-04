@@ -266,7 +266,12 @@ export const updateAdvancedSettings = async (
  */
 export const getQrCode = async (
   instanceToken: string
-): Promise<{ qrcode: string; code: string }> => {
+): Promise<{
+  qrcode: string;
+  code: string;
+  paired?: boolean;
+  connected?: boolean;
+}> => {
   // The API answers { data: { qrcode, code } } in lowercase. This used to read
   // data.Qrcode / data.Code (capitalised): axios type annotations are not
   // checked at runtime, so the fields came back undefined with no error and the
@@ -274,7 +279,14 @@ export const getQrCode = async (
   // installs keep working.
   const response = await apiClient.get<{
     message: string;
-    data: { qrcode?: string; code?: string; Qrcode?: string; Code?: string };
+    data: {
+      qrcode?: string;
+      code?: string;
+      Qrcode?: string;
+      Code?: string;
+      paired?: boolean;
+      connected?: boolean;
+    };
   }>('/instance/qr', {
     headers: {
       apikey: instanceToken,
@@ -286,6 +298,10 @@ export const getQrCode = async (
   return {
     qrcode: data?.qrcode ?? data?.Qrcode ?? '',
     code: data?.code ?? data?.Code ?? '',
+    // Already-paired instances have no QR to scan: the API reports `paired`
+    // and the session is resumed in the background.
+    paired: data?.paired ?? false,
+    connected: data?.connected ?? false,
   };
 };
 

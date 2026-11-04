@@ -16,6 +16,7 @@ import {
   Smartphone,
   Link2,
   Tag,
+  Loader2,
 } from "lucide-react";
 import type { Instance, InstanceOverview } from "@/types/instance";
 import { deviceLabel } from "@/utils/device";
@@ -25,6 +26,7 @@ type InstanceCardProps = {
   instance: Instance;
   overview?: InstanceOverview;
   isDeleting?: string | null;
+  isConnecting?: boolean;
   onSettings: (instance: Instance) => void;
   onDelete: (instance: Instance) => void;
   onConnect: (instance: Instance) => void;
@@ -66,6 +68,7 @@ export default function InstanceCard({
   instance,
   overview,
   isDeleting,
+  isConnecting,
   onSettings,
   onDelete,
   onConnect,
@@ -204,10 +207,17 @@ export default function InstanceCard({
               variant="ghost"
               className="h-12 shrink-0 rounded-none px-3 text-green-500 hover:bg-green-500/10 hover:text-green-400 sm:px-4"
               onClick={() => onConnect(instance)}
+              disabled={isConnecting}
               title={t("instances.connectTitle")}
             >
-              <Power className="mr-2 h-4 w-4 shrink-0" />
-              {t("instances.connect")}
+              {isConnecting ? (
+                <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
+              ) : (
+                <Power className="mr-2 h-4 w-4 shrink-0" />
+              )}
+              {isConnecting
+                ? t("instances.connectingButton")
+                : t("instances.connect")}
             </Button>
           )}
 
