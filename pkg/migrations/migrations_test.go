@@ -133,3 +133,42 @@ func TestApplyRejectsNilDB(t *testing.T) {
 		t.Fatalf("expected an error for a nil database")
 	}
 }
+
+// The old UNIQUE(token) constraint broke instance creation as soon as two
+// encrypted rows stored an empty plaintext token. The replacement must allow
+// any number of blank/NULL tokens while still rejecting duplicate legacy ones.
+func TestInstanceTokenPartialUniqueIndex(t *testing.T) {
+	ctx := context.Background()
+	db := newSQLite(t)
+
+	if _, err := Apply(ctx, db, "sqlite"); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+
+	var count int
+	err := db.QueryRowContext(ctx,
+		`SELECT count(*) FROM sqlite_master WHERE type='index' AND name='uni_instances_token_present'`,
+	).Scan(&count)
+	if err != nil {
+		t.Fatalf("query index: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("partial unique index not created (count=%d)", count)
+	}
+
+	// Encrypted rows carry a blank (or NULL) plaintext token.
+	if _, err := db.Exec(`INSERT INTO instances (id, name, token) VALUES ('a','a',''), ('b','b','')`); err != nil {
+		t.Fatalf("two blank tokens should be allowed: %v", err)
+	}
+	if _, err := db.Exec(`INSERT INTO instances (id, name, token) VALUES ('c','c',NULL), ('d','d',NULL)`); err != nil {
+		t.Fatalf("two NULL tokens should be allowed: %v", err)
+	}
+
+	// A legacy plaintext token is still unique.
+	if _, err := db.Exec(`INSERT INTO instances (id, name, token) VALUES ('e','e','same')`); err != nil {
+		t.Fatalf("first legacy token: %v", err)
+	}
+	if _, err := db.Exec(`INSERT INTO instances (id, name, token) VALUES ('f','f','same')`); err == nil {
+		t.Fatal("duplicate legacy token should be rejected")
+	}
+}

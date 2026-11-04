@@ -139,6 +139,27 @@ var steps = []migration{
 			`CREATE INDEX IF NOT EXISTS idx_instances_token_hash ON instances (token_hash)`,
 		},
 	},
+	{
+		// AutoMigrate created uni_instances_token UNIQUE(token). Once tokens are
+		// encrypted, every row stores an empty plaintext token and the second
+		// such row violates the constraint, so instance creation failed with a
+		// duplicate-key error. Uniqueness only makes sense for rows that still
+		// carry a legacy plaintext token (encrypted rows authenticate by
+		// token_hash), so replace it with a partial unique index that ignores
+		// blanks, and normalise the blank rows to NULL.
+		Name: "0006_instances_token_partial_unique",
+		Postgres: []string{
+			`ALTER TABLE instances DROP CONSTRAINT IF EXISTS uni_instances_token`,
+			`DROP INDEX IF EXISTS uni_instances_token`,
+			`UPDATE instances SET token = NULL WHERE token = ''`,
+			`CREATE UNIQUE INDEX IF NOT EXISTS uni_instances_token_present ON instances (token) WHERE token IS NOT NULL AND token <> ''`,
+		},
+		SQLite: []string{
+			`DROP INDEX IF EXISTS uni_instances_token`,
+			`UPDATE instances SET token = NULL WHERE token = ''`,
+			`CREATE UNIQUE INDEX IF NOT EXISTS uni_instances_token_present ON instances (token) WHERE token IS NOT NULL AND token <> ''`,
+		},
+	},
 }
 
 const createMigrationsTable = `

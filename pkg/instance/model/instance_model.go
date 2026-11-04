@@ -8,9 +8,13 @@ import (
 )
 
 type Instance struct {
-	Id    string `json:"id" gorm:"type:uuid;primaryKey"`
-	Name  string `json:"name"`
-	Token string `json:"token" gorm:"unique"`
+	Id   string `json:"id" gorm:"type:uuid;primaryKey"`
+	Name string `json:"name"`
+	// Token is the legacy plaintext credential. Uniqueness for rows that still
+	// carry one is enforced by the partial unique index created in migration
+	// 0006; encrypted rows leave it blank and authenticate via TokenHash, so a
+	// plain UNIQUE constraint here would collide on the second blank row.
+	Token string `json:"token"`
 	// TokenHash is HMAC-SHA256(Token) under the server key: deterministic and
 	// indexable, so authentication looks the instance up by it. TokenEnc is
 	// AES-256-GCM(Token) for recovery/display. Together they replace storing the
