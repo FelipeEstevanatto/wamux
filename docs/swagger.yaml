@@ -845,6 +845,15 @@ definitions:
     type: object
   github_com_felipeestevanatto_wamux_pkg_docmodels.QRCode:
     properties:
+      connected:
+        example: false
+        type: boolean
+      paired:
+        description: |-
+          Paired/Connected are set when the instance already has a WhatsApp session.
+          No QR is issued in that case; the manager should wait for Connected.
+        example: false
+        type: boolean
       qrcode:
         example: 2@AbCdEfGhIjKlMnOpQrStUvWxYz0123456789+/=,AbCdEfGhIjKlMnOpQrStUvWxYz0123456789+/=,AbCdEfGhIjKlMnOpQrStUvWxYz0123456789+/=,AbCdEfGhIjKlMnOpQrStUvWxYz0123456789+/=
         type: string
@@ -3094,6 +3103,8 @@ definitions:
     - 69
     - 70
     - 71
+    - 72
+    - 76
     type: integer
     x-enum-varnames:
     - BotCapabilityMetadata_UNKNOWN
@@ -3168,6 +3179,8 @@ definitions:
     - BotCapabilityMetadata_AI_RICH_RESPONSE_REMINDERS_ENABLED
     - BotCapabilityMetadata_AI_STOP_GENERATION_ENABLED
     - BotCapabilityMetadata_AI_RICH_RESPONSE_3P_LINKING_CARD_ENABLED
+    - BotCapabilityMetadata_HATCH_NOTIFICATION_METADATA_EVENT_ENABLED
+    - BotCapabilityMetadata_HATCH_CONNECTOR_ACTION_CARD_ENABLED
   waAICommon.BotCommandMetadata:
     properties:
       commandDescription:
@@ -5465,6 +5478,8 @@ definitions:
         type: string
       originalImageURL:
         type: string
+      productID:
+        type: string
       ref:
         type: string
       renderLargerThumbnail:
@@ -6836,6 +6851,8 @@ definitions:
       bcallMessage:
         $ref: '#/definitions/waE2E.BCallMessage'
       botForwardedMessage:
+        $ref: '#/definitions/waE2E.FutureProofMessage'
+      botGroupParticipantMessage:
         $ref: '#/definitions/waE2E.FutureProofMessage'
       botInvokeMessage:
         $ref: '#/definitions/waE2E.FutureProofMessage'
@@ -9237,6 +9254,24 @@ paths:
       summary: List conversations
       tags:
       - Message
+  /chat/contacts:
+    get:
+      description: Known contacts and groups for the conversation picker, with best-effort
+        display names. Requires DATABASE_SAVE_MESSAGES.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Contacts
+          schema:
+            $ref: '#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse'
+      summary: List contacts
+      tags:
+      - Message
   /chat/ephemeral:
     post:
       consumes:
@@ -9438,6 +9473,34 @@ paths:
       summary: Pin a chat
       tags:
       - Chat
+  /chat/senders:
+    get:
+      description: Maps each message sender (by JID user part) to a display name so
+        a group thread can label who wrote each message.
+      parameters:
+      - description: Phone number or JID of the conversation
+        in: query
+        name: chat
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Map of sender user -> display name
+          schema:
+            $ref: '#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope'
+        "400":
+          description: Error on validation
+          schema:
+            $ref: '#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse'
+      summary: Conversation sender names
+      tags:
+      - Message
   /chat/unarchive:
     post:
       consumes:
@@ -10103,6 +10166,10 @@ paths:
           description: Invalid instance ID
           schema:
             $ref: '#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse'
+        "403":
+          description: Token belongs to another instance
+          schema:
+            $ref: '#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse'
         "404":
           description: Instance not found
           schema:
@@ -10139,6 +10206,10 @@ paths:
             $ref: '#/definitions/github_com_felipeestevanatto_wamux_pkg_instance_model.AdvancedSettings'
         "400":
           description: Invalid request data
+          schema:
+            $ref: '#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse'
+        "403":
+          description: Token belongs to another instance
           schema:
             $ref: '#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse'
         "404":

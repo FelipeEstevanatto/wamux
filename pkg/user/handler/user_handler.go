@@ -74,8 +74,8 @@ func (u *userHandler) GetUser(ctx *gin.Context) {
 		return
 	}
 
-	var data *user_service.CheckUserStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &user_service.CheckUserStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -115,8 +115,8 @@ func (u *userHandler) CheckUser(ctx *gin.Context) {
 		return
 	}
 
-	var data *user_service.CheckUserStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &user_service.CheckUserStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -163,8 +163,8 @@ func (u *userHandler) GetAvatar(ctx *gin.Context) {
 		return
 	}
 
-	var data *user_service.GetAvatarStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &user_service.GetAvatarStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -272,8 +272,8 @@ func (u *userHandler) SetPrivacy(ctx *gin.Context) {
 		return
 	}
 
-	var data *user_service.PrivacyStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &user_service.PrivacyStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -343,8 +343,8 @@ func (u *userHandler) BlockContact(ctx *gin.Context) {
 		return
 	}
 
-	var data *user_service.BlockStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &user_service.BlockStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -389,8 +389,8 @@ func (u *userHandler) UnblockContact(ctx *gin.Context) {
 		return
 	}
 
-	var data *user_service.BlockStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &user_service.BlockStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -467,8 +467,8 @@ func (u *userHandler) SetProfilePicture(ctx *gin.Context) {
 		return
 	}
 
-	var data *user_service.SetProfilePictureStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &user_service.SetProfilePictureStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -515,8 +515,8 @@ func (u *userHandler) SetProfileName(ctx *gin.Context) {
 		return
 	}
 
-	var data *user_service.SetProfileNameStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &user_service.SetProfileNameStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -563,8 +563,8 @@ func (u *userHandler) SetProfileStatus(ctx *gin.Context) {
 		return
 	}
 
-	var data *user_service.SetProfileStatusStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &user_service.SetProfileStatusStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -611,8 +611,8 @@ func (u *userHandler) ResolveLid(ctx *gin.Context) {
 		return
 	}
 
-	var data *user_service.ResolveLidStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &user_service.ResolveLidStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

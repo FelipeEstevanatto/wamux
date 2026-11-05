@@ -76,8 +76,8 @@ func (s *sendHandler) SendText(ctx *gin.Context) {
 		return
 	}
 
-	var data *send_service.TextStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &send_service.TextStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -122,8 +122,8 @@ func (s *sendHandler) SendLink(ctx *gin.Context) {
 		return
 	}
 
-	var data *send_service.LinkStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &send_service.LinkStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -172,7 +172,7 @@ func (s *sendHandler) SendMedia(ctx *gin.Context) {
 
 	contentType := ctx.ContentType()
 
-	var data *send_service.MediaStruct
+	data := &send_service.MediaStruct{}
 
 	if strings.HasPrefix(contentType, "multipart/form-data") {
 		// Handle form-data
@@ -263,7 +263,7 @@ func (s *sendHandler) SendMedia(ctx *gin.Context) {
 
 	} else {
 
-		err := ctx.ShouldBindBodyWithJSON(&data)
+		err := ctx.ShouldBindBodyWithJSON(data)
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -330,8 +330,8 @@ func (s *sendHandler) SendPoll(ctx *gin.Context) {
 		return
 	}
 
-	var data *send_service.PollStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &send_service.PollStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -381,8 +381,8 @@ func (s *sendHandler) SendSticker(ctx *gin.Context) {
 		return
 	}
 
-	var data *send_service.StickerStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &send_service.StickerStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -427,8 +427,8 @@ func (s *sendHandler) SendLocation(ctx *gin.Context) {
 		return
 	}
 
-	var data *send_service.LocationStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &send_service.LocationStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -488,8 +488,8 @@ func (s *sendHandler) SendContact(ctx *gin.Context) {
 		return
 	}
 
-	var data *send_service.ContactStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &send_service.ContactStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -550,8 +550,8 @@ func (s *sendHandler) SendButton(ctx *gin.Context) {
 		return
 	}
 
-	var data *send_service.ButtonStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &send_service.ButtonStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -612,8 +612,8 @@ func (s *sendHandler) SendList(ctx *gin.Context) {
 		return
 	}
 
-	var data *send_service.ListStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &send_service.ListStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -688,8 +688,8 @@ func (s *sendHandler) SendCarousel(ctx *gin.Context) {
 		return
 	}
 
-	var data *send_service.CarouselStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &send_service.CarouselStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

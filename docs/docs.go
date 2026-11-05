@@ -173,6 +173,32 @@ const docTemplate = `{
                 }
             }
         },
+        "/chat/contacts": {
+            "get": {
+                "description": "Known contacts and groups for the conversation picker, with best-effort display names. Requires DATABASE_SAVE_MESSAGES.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Message"
+                ],
+                "summary": "List contacts",
+                "responses": {
+                    "200": {
+                        "description": "Contacts",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/chat/ephemeral": {
             "post": {
                 "description": "Sets the chat's disappearing-messages timer in seconds (0 disables it).\nOfficial clients use 86400 (24h), 604800 (7d) or 7776000 (90d). Outgoing\nmessages to the chat then carry the timer, so the recipient does not warn\nthat the message will not disappear.",
@@ -464,6 +490,47 @@ const docTemplate = `{
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error on validation",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/chat/senders": {
+            "get": {
+                "description": "Maps each message sender (by JID user part) to a display name so a group thread can label who wrote each message.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Message"
+                ],
+                "summary": "Conversation sender names",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Phone number or JID of the conversation",
+                        "name": "chat",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Map of sender user -\u003e display name",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
                         }
                     },
                     "400": {
@@ -2845,6 +2912,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
                     },
+                    "403": {
+                        "description": "Token belongs to another instance",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
+                        }
+                    },
                     "404": {
                         "description": "Instance not found",
                         "schema": {
@@ -2898,6 +2971,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Invalid request data",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Token belongs to another instance",
                         "schema": {
                             "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
@@ -7402,6 +7481,15 @@ const docTemplate = `{
         "github_com_felipeestevanatto_wamux_pkg_docmodels.QRCode": {
             "type": "object",
             "properties": {
+                "connected": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "paired": {
+                    "description": "Paired/Connected are set when the instance already has a WhatsApp session.\nNo QR is issued in that case; the manager should wait for Connected.",
+                    "type": "boolean",
+                    "example": false
+                },
                 "qrcode": {
                     "type": "string",
                     "example": "2@AbCdEfGhIjKlMnOpQrStUvWxYz0123456789+/=,AbCdEfGhIjKlMnOpQrStUvWxYz0123456789+/=,AbCdEfGhIjKlMnOpQrStUvWxYz0123456789+/=,AbCdEfGhIjKlMnOpQrStUvWxYz0123456789+/="
@@ -10484,7 +10572,9 @@ const docTemplate = `{
                 68,
                 69,
                 70,
-                71
+                71,
+                72,
+                76
             ],
             "x-enum-varnames": [
                 "BotCapabilityMetadata_UNKNOWN",
@@ -10558,7 +10648,9 @@ const docTemplate = `{
                 "BotCapabilityMetadata_AI_RICH_RESPONSE_EMAIL_CALENDAR_ENABLED",
                 "BotCapabilityMetadata_AI_RICH_RESPONSE_REMINDERS_ENABLED",
                 "BotCapabilityMetadata_AI_STOP_GENERATION_ENABLED",
-                "BotCapabilityMetadata_AI_RICH_RESPONSE_3P_LINKING_CARD_ENABLED"
+                "BotCapabilityMetadata_AI_RICH_RESPONSE_3P_LINKING_CARD_ENABLED",
+                "BotCapabilityMetadata_HATCH_NOTIFICATION_METADATA_EVENT_ENABLED",
+                "BotCapabilityMetadata_HATCH_CONNECTOR_ACTION_CARD_ENABLED"
             ]
         },
         "waAICommon.BotCommandMetadata": {
@@ -13874,6 +13966,9 @@ const docTemplate = `{
                 "originalImageURL": {
                     "type": "string"
                 },
+                "productID": {
+                    "type": "string"
+                },
                 "ref": {
                     "type": "string"
                 },
@@ -15878,6 +15973,9 @@ const docTemplate = `{
                     "$ref": "#/definitions/waE2E.BCallMessage"
                 },
                 "botForwardedMessage": {
+                    "$ref": "#/definitions/waE2E.FutureProofMessage"
+                },
+                "botGroupParticipantMessage": {
                     "$ref": "#/definitions/waE2E.FutureProofMessage"
                 },
                 "botInvokeMessage": {

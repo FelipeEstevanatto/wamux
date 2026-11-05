@@ -41,8 +41,8 @@ func (g *callHandler) RejectCall(ctx *gin.Context) {
 		return
 	}
 
-	var data *call_service.RejectCallStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &call_service.RejectCallStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

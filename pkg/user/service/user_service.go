@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/felipeestevanatto/wamux/pkg/safemap"
 	"io"
+	"net/http"
 	"time"
 
 	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
@@ -669,23 +670,40 @@ func (u *userService) GetBlockList(instance *instance_model.Instance) (*types.Bl
 	return resp, nil
 }
 
+// maxProfilePictureBytes caps a profile picture download. The bytes are held in
+// memory, and the URL comes from the caller.
+const maxProfilePictureBytes = 16 << 20
+
+func fetchProfilePicture(url string) ([]byte, error) {
+	resp, err := profilePictureHTTPClient.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch image from URL: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to fetch image from URL: status %d", resp.StatusCode)
+	}
+
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxProfilePictureBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read image data: %v", err)
+	}
+	if len(data) > maxProfilePictureBytes {
+		return nil, fmt.Errorf("image exceeds %d bytes", maxProfilePictureBytes)
+	}
+	return data, nil
+}
+
 func (u *userService) SetProfilePicture(data *SetProfilePictureStruct, instance *instance_model.Instance) (bool, error) {
 	client, err := u.ensureClientConnected(instance.Id)
 	if err != nil {
 		return false, err
 	}
 
-	var filedata []byte
-
-	resp, err := profilePictureHTTPClient.Get(data.Image)
+	filedata, err := fetchProfilePicture(data.Image)
 	if err != nil {
-		return false, fmt.Errorf("failed to fetch image from URL: %v", err)
-	}
-	defer resp.Body.Close()
-
-	filedata, err = io.ReadAll(resp.Body)
-	if err != nil {
-		return false, fmt.Errorf("failed to read image data: %v", err)
+		return false, err
 	}
 
 	_, err = client.SetGroupPhoto(context.Background(), types.EmptyJID, filedata)

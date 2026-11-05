@@ -77,8 +77,9 @@ func TestTenantStillLimitedAndIndependentOfAdmin(t *testing.T) {
 		return w.Code
 	}
 
-	if call("tenant-a") != 200 || call("tenant-a") != 200 {
-		t.Fatalf("tenant-a first two should pass")
+	first, second := call("tenant-a"), call("tenant-a")
+	if first != 200 || second != 200 {
+		t.Fatalf("tenant-a first two should pass, got %d and %d", first, second)
 	}
 	if call("tenant-a") != http.StatusTooManyRequests {
 		t.Fatalf("tenant-a third should be limited")

@@ -18,7 +18,8 @@ import (
 const benchLimiterKey = "bench-instance"
 
 func BenchmarkLimiterMemory(b *testing.B) {
-	l := httpguard.NewLimiter(1_000_000, time.Minute)
+	// Sized to b.N: a fixed limit is exceeded as soon as the loop runs fast enough.
+	l := httpguard.NewLimiter(b.N+1, time.Minute)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -35,7 +36,7 @@ func BenchmarkLimiterRedis(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if ok, err := rc.incrAllow(benchLimiterKey, 1_000_000, time.Minute); err != nil || !ok {
+		if ok, err := rc.incrAllow(benchLimiterKey, b.N+1, time.Minute); err != nil || !ok {
 			b.Fatalf("redis limiter: ok=%v err=%v", ok, err)
 		}
 	}

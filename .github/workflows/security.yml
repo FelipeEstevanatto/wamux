@@ -38,6 +38,39 @@ jobs:
   vet-and-race:
     name: vet + race tests
     runs-on: ubuntu-24.04
+    # Real services: the tenant isolation, deadlock, ListChats and delivery tests skip
+    # without them, and a skipped test passes silently.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: wamux
+          POSTGRES_PASSWORD: wamux
+          POSTGRES_DB: wamux_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U wamux"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      rabbitmq:
+        image: rabbitmq:3-alpine
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 12
+      nats:
+        image: nats:2-alpine
+        ports:
+          - 4222:4222
+    env:
+      EVO_BENCH_POSTGRES_DSN: postgresql://wamux:wamux@127.0.0.1:5432/wamux_test?sslmode=disable
+      WAMUX_TEST_AMQP_URL: amqp://guest:guest@127.0.0.1:5672/
+      WAMUX_TEST_NATS_URL: nats://127.0.0.1:4222
     steps:
       - uses: actions/checkout@v7
 

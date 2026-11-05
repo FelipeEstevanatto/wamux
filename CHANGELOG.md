@@ -28,6 +28,25 @@
   were always null. `phone` stays empty when only a LID is known.
 - **`LoggedOut`** was delivered twice, to webhooks and to global queues.
 - **Delivered receipts** now update every message they cover, not only the first.
+- **History pagination lost messages** — the `before` cursor is exclusive with
+  one-second precision, so a page ending partway through a second dropped the rest
+  of it. Pages now end on a whole second, and may run slightly over `limit`.
+- **Message status only moves forward** — a late Delivered no longer overwrites
+  Read, and a send recorded after its receipt no longer resets it to Sent.
+- **Batches with a repeated message id** no longer fall back to row-by-row inserts.
+- **`WEBHOOK_URL`** now receives events from instances with no webhook of their
+  own, as documented. An instance set to `disabled` opts out.
+- **RabbitMQ and NATS `"true"`** published nothing, though the instance looked
+  enabled.
+- **RabbitMQ** waits for the broker's confirm, so a lost message is now an error,
+  and reuses channels: 9.7 ms to 5.8 ms per message. Reconnects no longer race.
+- **Captioned documents** we send are stored as `document` with their caption.
+- **`ffmpeg`, `ffprobe` and `pdftoppm`** are killed after a time limit instead of
+  being able to hang a send forever.
+- **Profile pictures** are capped at 16 MiB, and an error page is no longer uploaded.
+- **Undecryptable IDs starting 66/67** reconnect through the backoff, off the event
+  path, instead of inline once per message.
+- **A `null` JSON body** returns 400 on every endpoint instead of panicking.
 
 ### ⚠️ Behaviour changes
 - Events for files above the limit carry `mediaUrl` and `base64Omitted: true`
@@ -36,6 +55,9 @@
 - Auto-read no longer marks messages that are ignored (groups, status).
 - An instance with an empty `events` value now receives `MESSAGE` and
   `SEND_MESSAGE`. That default never applied, so it received nothing.
+- `GET /chat/history` can return slightly more than `limit` rows.
+- With `WEBHOOK_URL` set, instances without a webhook start sending to it.
+- Instances with `rabbitmqEnable` or `natsEnable` set to `"true"` start publishing.
 
 ## Unreleased
 

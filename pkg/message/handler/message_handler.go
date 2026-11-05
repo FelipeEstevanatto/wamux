@@ -55,8 +55,8 @@ func (m *messageHandler) React(ctx *gin.Context) {
 		return
 	}
 
-	var data *message_service.ReactStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &message_service.ReactStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -101,8 +101,8 @@ func (m *messageHandler) ChatPresence(ctx *gin.Context) {
 		return
 	}
 
-	var data *message_service.ChatPresenceStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &message_service.ChatPresenceStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -151,8 +151,8 @@ func (m *messageHandler) SubscribePresence(ctx *gin.Context) {
 		return
 	}
 
-	var data *message_service.SubscribePresenceStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &message_service.SubscribePresenceStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -191,8 +191,8 @@ func (m *messageHandler) MarkRead(ctx *gin.Context) {
 		return
 	}
 
-	var data *message_service.MarkReadStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &message_service.MarkReadStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -241,8 +241,8 @@ func (m *messageHandler) MarkPlayed(ctx *gin.Context) {
 		return
 	}
 
-	var data *message_service.MarkPlayedStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &message_service.MarkPlayedStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -291,8 +291,8 @@ func (m *messageHandler) DownloadMedia(ctx *gin.Context) {
 		return
 	}
 
-	var data *message_service.DownloadMediaStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &message_service.DownloadMediaStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -332,8 +332,8 @@ func (m *messageHandler) GetMessageStatus(ctx *gin.Context) {
 		return
 	}
 
-	var data *message_service.MessageStatusStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &message_service.MessageStatusStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -378,8 +378,8 @@ func (m *messageHandler) DeleteMessageEveryone(ctx *gin.Context) {
 		return
 	}
 
-	var data *message_service.MessageStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &message_service.MessageStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -429,8 +429,8 @@ func (m *messageHandler) EditMessage(ctx *gin.Context) {
 		return
 	}
 
-	var data *message_service.EditMessageStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &message_service.EditMessageStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

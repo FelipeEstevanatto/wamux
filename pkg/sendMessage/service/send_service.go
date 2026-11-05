@@ -181,6 +181,23 @@ var (
 	pdftoppmBin = lookPathOrEmpty("pdftoppm")
 )
 
+// Limits for the external media tools. A malformed file can leave ffmpeg or
+// pdftoppm running forever, which pins the send request and the process with it.
+// Variables so a test can shorten them.
+var (
+	mediaConvertTimeout   = 2 * time.Minute
+	mediaThumbnailTimeout = 30 * time.Second
+)
+
+// mediaCommand prepares a tool that is killed after timeout. WaitDelay stops Run
+// from hanging on pipes the killed process left open. The caller must call cancel.
+func mediaCommand(timeout time.Duration, name string, args ...string) (*exec.Cmd, context.CancelFunc) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.WaitDelay = 2 * time.Second
+	return cmd, cancel
+}
+
 func lookPathOrEmpty(name string) string {
 	path, err := exec.LookPath(name)
 	if err != nil {
@@ -1029,7 +1046,7 @@ func convertAudioWithApi(apiUrl string, apiKey string, convertData ConvertAudio)
 }
 
 func convertAudioToOpusWithDuration(inputData []byte) ([]byte, int, error) {
-	cmd := exec.Command(ffmpegBin, "-i", "pipe:0",
+	cmd, cancel := mediaCommand(mediaConvertTimeout, ffmpegBin, "-i", "pipe:0",
 		"-f",
 		"ogg",
 		"-vn",
@@ -1063,6 +1080,7 @@ func convertAudioToOpusWithDuration(inputData []byte) ([]byte, int, error) {
 		"0",
 		"pipe:1",
 	)
+	defer cancel()
 
 	var outBuffer bytes.Buffer
 	var errBuffer bytes.Buffer
@@ -2480,7 +2498,7 @@ func makePDFThumbnail(fileData []byte, maxWidth int) []byte {
 
 	// Render only the first page to a PNG on stdout, scaled to scaleWidth.
 	// "-scale-to-y -1" keeps the original aspect ratio.
-	cmd := exec.Command(pdftoppmBin,
+	cmd, cancel := mediaCommand(mediaThumbnailTimeout, pdftoppmBin,
 		"-png",
 		"-f", "1",
 		"-l", "1",
@@ -2488,6 +2506,7 @@ func makePDFThumbnail(fileData []byte, maxWidth int) []byte {
 		"-scale-to-x", strconv.Itoa(scaleWidth),
 		"-scale-to-y", "-1",
 	)
+	defer cancel()
 	cmd.Stdin = bytes.NewReader(fileData)
 
 	var out bytes.Buffer
@@ -2563,7 +2582,7 @@ func convertGifToMP4(fileData []byte) ([]byte, error) {
 	// yuv420p + even dimensions keep every decoder happy; -an drops audio.
 	// -y is required because the output temp file already exists (ffmpeg would
 	// otherwise refuse to overwrite it non-interactively and exit without output).
-	cmd := exec.Command(ffmpegBin,
+	cmd, cancel := mediaCommand(mediaConvertTimeout, ffmpegBin,
 		"-v", "error",
 		"-y",
 		"-i", in.Name(),
@@ -2573,6 +2592,7 @@ func convertGifToMP4(fileData []byte) ([]byte, error) {
 		"-an",
 		outName,
 	)
+	defer cancel()
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return nil, fmt.Errorf("failed to transcode GIF to video: %s", strings.TrimSpace(string(out)))
 	}
@@ -2621,13 +2641,14 @@ func probeVideo(fileData []byte) (videoMetadata, bool) {
 	}
 	tmp.Close()
 
-	cmd := exec.Command(ffprobeBin,
+	cmd, cancel := mediaCommand(mediaThumbnailTimeout, ffprobeBin,
 		"-v", "error",
 		"-select_streams", "v:0",
 		"-show_entries", "stream=width,height:format=duration",
 		"-of", "default=noprint_wrappers=1:nokey=1",
 		tmp.Name(),
 	)
+	defer cancel()
 	out, err := cmd.Output()
 	if err != nil {
 		return videoMetadata{}, false
@@ -2679,7 +2700,7 @@ func makeVideoThumbnail(fileData []byte, maxWidth int) []byte {
 	tmp.Close()
 
 	// -frames:v 1 grabs a single frame; scale keeps the aspect ratio.
-	cmd := exec.Command(ffmpegBin,
+	cmd, cancel := mediaCommand(mediaThumbnailTimeout, ffmpegBin,
 		"-v", "error",
 		"-i", tmp.Name(),
 		"-frames:v", "1",
@@ -2687,6 +2708,7 @@ func makeVideoThumbnail(fileData []byte, maxWidth int) []byte {
 		"-f", "mjpeg",
 		"pipe:1",
 	)
+	defer cancel()
 
 	var out bytes.Buffer
 	cmd.Stdout = &out

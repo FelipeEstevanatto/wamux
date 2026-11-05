@@ -352,3 +352,29 @@ func TestProcessedGroupReceiptRoutesToGroupSubscriber(t *testing.T) {
 		t.Fatal("a real group receipt did not reach a GROUP subscriber")
 	}
 }
+
+// WEBHOOK_URL is meant to get every instance's events, and the instance needs no
+// webhook of its own. "disabled" opts out.
+func TestGlobalWebhookReachesInstancesWithoutOne(t *testing.T) {
+	cases := []struct {
+		name    string
+		webhook string
+		global  string
+		want    int
+	}{
+		{"no webhook anywhere", "", "", 0},
+		{"global only", "", "https://global.example", 1},
+		{"instance and global", "https://hook.example", "https://global.example", 1},
+		{"disabled keeps global out", "disabled", "https://global.example", 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newRoutingFixture(t)
+			f.svc.config.WebhookUrl = tc.global
+			f.svc.sendToQueueOrWebhook(&instance_model.Instance{Id: testInstanceID, Webhook: tc.webhook}, "q", []byte(`{}`))
+			if got := len(f.webhook.queues); got != tc.want {
+				t.Fatalf("producer called %d times, want %d", got, tc.want)
+			}
+		})
+	}
+}

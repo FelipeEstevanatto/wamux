@@ -301,9 +301,12 @@ type MyClient struct {
 	bgPool *bgpool.Pool
 	// mediaPool and largeMediaPool run messages that need a media download. See
 	// routeEvent.
-	mediaPool          *bgpool.Pool
-	largeMediaPool     *bgpool.Pool
-	presenceStarted    atomic.Bool
+	mediaPool       *bgpool.Pool
+	largeMediaPool  *bgpool.Pool
+	presenceStarted atomic.Bool
+	// Both replace a network call in tests; nil uses WAClient.
+	mediaDownloader    func(context.Context, whatsmeow.DownloadableMessage) ([]byte, error)
+	readMarker         func(context.Context, []types.MessageID, time.Time, types.JID, types.JID) error
 	appStateRecoveryMu sync.Mutex
 	appStateRecovery   map[appstate.WAPatchName]appStateRecoveryAttempt
 	nctSaltSyncMu      sync.Mutex
@@ -1260,7 +1263,14 @@ const (
 const maxParallelRetryReceipts = 10
 
 // autoReadDelay is the pause before a message is marked read, so it looks natural.
-const autoReadDelay = time.Second
+var autoReadDelay = time.Second
+
+// How long a QR code stays up before the next: the first ~60s, the rest ~20s, as
+// whatsmeow's own QR channel does.
+var (
+	qrFirstCodeLifetime = 60 * time.Second
+	qrNextCodeLifetime  = 20 * time.Second
+)
 
 // mediaWorkers bounds concurrent media downloads across every instance. Downloads
 // wait on the network, so this is sized for overlap rather than for CPU. Queued
@@ -1804,10 +1814,9 @@ func (mycli *MyClient) handleQRCodes(codes []string) {
 				mycli.loggerWrapper.GetLogger(instanceID).LogError("[%s] Failed to marshal JSON for queue", instanceID)
 			}
 
-			// Rotation timing: first code lives ~60s, subsequent ~20s (whatsmeow native).
-			timeout := 20 * time.Second
+			timeout := qrNextCodeLifetime
 			if i == 0 {
-				timeout = 60 * time.Second
+				timeout = qrFirstCodeLifetime
 			}
 			time.Sleep(timeout)
 		}
@@ -2097,6 +2106,20 @@ func MediaFileLength(msg *waE2E.Message) uint64 {
 		}
 	}
 	return largest
+}
+
+func (mycli *MyClient) downloadMedia(ctx context.Context, msg whatsmeow.DownloadableMessage) ([]byte, error) {
+	if mycli.mediaDownloader != nil {
+		return mycli.mediaDownloader(ctx, msg)
+	}
+	return mycli.WAClient.Download(ctx, msg)
+}
+
+func (mycli *MyClient) markRead(ctx context.Context, ids []types.MessageID, timestamp time.Time, chat, sender types.JID) error {
+	if mycli.readMarker != nil {
+		return mycli.readMarker(ctx, ids, timestamp, chat, sender)
+	}
+	return mycli.WAClient.MarkRead(ctx, ids, timestamp, chat, sender)
 }
 
 // processEvent does the work for one event.
@@ -2573,7 +2596,7 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 			messageID, timestamp := evt.Info.ID, evt.Info.Timestamp
 			time.AfterFunc(autoReadDelay, func() {
 				mycli.bgPool.Go(func() {
-					err := mycli.WAClient.MarkRead(context.Background(), []types.MessageID{messageID}, timestamp, readChat, readSender)
+					err := mycli.markRead(context.Background(), []types.MessageID{messageID}, timestamp, readChat, readSender)
 					if err != nil {
 						mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to auto-mark message as read: %v", mycli.userID, err)
 					} else {
@@ -2766,7 +2789,7 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 				// Handle regular media messages
 				if img != nil {
 					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Downloading image - ID: %s", mycli.userID, evt.Info.ID)
-					data, err = mycli.WAClient.Download(downloadCtx, img)
+					data, err = mycli.downloadMedia(downloadCtx, img)
 					extension = ".jpg"
 					mimeType = "image/jpeg"
 					if img.FileLength != nil {
@@ -2774,7 +2797,7 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 					}
 				} else if audio != nil {
 					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Downloading audio - ID: %s", mycli.userID, evt.Info.ID)
-					data, err = mycli.WAClient.Download(downloadCtx, audio)
+					data, err = mycli.downloadMedia(downloadCtx, audio)
 					extension = ".ogg"
 					mimeType = "audio/ogg"
 					if audio.FileLength != nil {
@@ -2782,7 +2805,7 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 					}
 				} else if document != nil {
 					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Downloading document - ID: %s, FileName: %s, Size: %d bytes", mycli.userID, evt.Info.ID, document.GetFileName(), document.GetFileLength())
-					data, err = mycli.WAClient.Download(downloadCtx, document)
+					data, err = mycli.downloadMedia(downloadCtx, document)
 					extension = getExtensionFromMimeType(document.GetMimetype())
 					mimeType = document.GetMimetype()
 					if document.FileLength != nil {
@@ -2790,7 +2813,7 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 					}
 				} else if video != nil {
 					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Downloading video - ID: %s, Size: %d bytes", mycli.userID, evt.Info.ID, video.GetFileLength())
-					data, err = mycli.WAClient.Download(downloadCtx, video)
+					data, err = mycli.downloadMedia(downloadCtx, video)
 					extension = ".mp4"
 					mimeType = "video/mp4"
 					if video.FileLength != nil {
@@ -2798,7 +2821,7 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 					}
 				} else if sticker != nil {
 					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Downloading sticker - ID: %s", mycli.userID, evt.Info.ID)
-					data, err = mycli.WAClient.Download(downloadCtx, sticker)
+					data, err = mycli.downloadMedia(downloadCtx, sticker)
 					extension = ".png"
 					mimeType = "image/png"
 					if sticker.FileLength != nil {
@@ -2825,27 +2848,27 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 					}
 					// Handle associated child media messages
 				} else if associatedImg != nil {
-					data, err = mycli.WAClient.Download(context.Background(), associatedImg)
+					data, err = mycli.downloadMedia(context.Background(), associatedImg)
 					extension = ".jpg"
 					mimeType = "image/jpeg"
 					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Processing associated child image message", mycli.userID)
 				} else if associatedAudio != nil {
-					data, err = mycli.WAClient.Download(context.Background(), associatedAudio)
+					data, err = mycli.downloadMedia(context.Background(), associatedAudio)
 					extension = ".ogg"
 					mimeType = "audio/ogg"
 					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Processing associated child audio message", mycli.userID)
 				} else if associatedDocument != nil {
-					data, err = mycli.WAClient.Download(context.Background(), associatedDocument)
+					data, err = mycli.downloadMedia(context.Background(), associatedDocument)
 					extension = getExtensionFromMimeType(associatedDocument.GetMimetype())
 					mimeType = associatedDocument.GetMimetype()
 					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Processing associated child document message", mycli.userID)
 				} else if associatedVideo != nil {
-					data, err = mycli.WAClient.Download(context.Background(), associatedVideo)
+					data, err = mycli.downloadMedia(context.Background(), associatedVideo)
 					extension = ".mp4"
 					mimeType = "video/mp4"
 					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Processing associated child video message", mycli.userID)
 				} else if associatedSticker != nil {
-					data, err = mycli.WAClient.Download(context.Background(), associatedSticker)
+					data, err = mycli.downloadMedia(context.Background(), associatedSticker)
 					extension = ".png"
 					mimeType = "image/png"
 					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Processing associated child sticker message", mycli.userID)
@@ -3598,11 +3621,9 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 			postMap["data"] = evt
 		} else if strings.HasPrefix(evt.Info.ID, "66") || strings.HasPrefix(evt.Info.ID, "67") {
 			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] ID 66 or 67 found, reconnecting client", mycli.userID)
-			mycli.WAClient.Disconnect()
-			err := mycli.WAClient.Connect()
-			if err != nil {
-				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Error reconnecting client: %s", mycli.userID, err)
-			}
+			// Off the dispatch path and through the backoff: reconnecting inline held
+			// up every event behind it, and a burst of these reconnected once each.
+			mycli.scheduleReconnect("UndecryptableMessage")
 		} else {
 			mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] ID is not 66 or 67 or view_once, skipping", mycli.userID)
 		}
@@ -3935,7 +3956,9 @@ func (w *whatsmeowService) sendToQueueOrWebhook(instance *instance_model.Instanc
 		}
 	}
 
-	if instance.Webhook != "" && instance.Webhook != "disabled" {
+	// The producer sends to the global WEBHOOK_URL itself, so a global URL alone is
+	// reason enough to call it. "disabled" opts the instance out of both.
+	if instance.Webhook != "disabled" && (instance.Webhook != "" || w.config.WebhookUrl != "") {
 		key := w.webhookSigningKey(instance)
 		var err error
 		if signer, ok := w.webhookProducer.(producer_interfaces.SignedProducer); ok && len(key) > 0 {
@@ -4566,7 +4589,7 @@ func fetchWhatsAppWebVersionUncached() (*clientVersion, error) {
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %v", err)
 	}

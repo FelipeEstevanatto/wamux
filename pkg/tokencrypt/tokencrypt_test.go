@@ -7,7 +7,8 @@ func TestHashIsDeterministic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	if c.Hash("tok") != c.Hash("tok") {
+	first, second := c.Hash("tok"), c.Hash("tok")
+	if first != second {
 		t.Fatalf("hash not deterministic")
 	}
 	if c.Hash("tok") == c.Hash("tok2") {

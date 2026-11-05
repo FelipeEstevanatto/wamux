@@ -1,9 +1,11 @@
 package rabbitmq_producer
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	applog "github.com/felipeestevanatto/wamux/pkg/applog"
@@ -12,8 +14,19 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
+// publishChannels caps the channels kept open for reuse. Opening one per event cost
+// two extra round trips each time; more than this are closed after use.
+const publishChannels = 8
+
+// publishTimeout bounds waiting for the broker to confirm one message.
+const publishTimeout = 10 * time.Second
+
 type rabbitMQProducer struct {
+	// mu guards conn: events publish from many goroutines, and they would otherwise
+	// race to reconnect and overwrite each other's connection.
+	mu                 sync.Mutex
 	conn               *amqp.Connection
+	idle               chan *amqp.Channel
 	amqpGlobalEnabled  bool
 	amqpGlobalEvents   []string
 	amqpSpecificEvents []string
@@ -38,6 +51,7 @@ func NewRabbitMQProducer(
 		connStr:            connStr,
 		maxRetries:         3,
 		loggerWrapper:      loggerWrapper,
+		idle:               make(chan *amqp.Channel, publishChannels),
 	}
 
 	return producer
@@ -65,13 +79,9 @@ func (p *rabbitMQProducer) maskConnectionString(connStr string) string {
 }
 
 // handleConnectionClose monitors connection close events and logs them
-func (p *rabbitMQProducer) handleConnectionClose() {
-	if p.conn == nil {
-		return
-	}
-
-	closeChan := make(chan *amqp.Error)
-	p.conn.NotifyClose(closeChan)
+func (p *rabbitMQProducer) handleConnectionClose(conn *amqp.Connection) {
+	closeChan := make(chan *amqp.Error, 1)
+	conn.NotifyClose(closeChan)
 
 	closeErr := <-closeChan
 	if closeErr != nil {
@@ -104,7 +114,7 @@ func (p *rabbitMQProducer) reconnect() error {
 			applog.Logger.LogInfo("Reconectado com sucesso ao RabbitMQ com heartbeat de 30s")
 
 			// Set up connection close notification
-			go p.handleConnectionClose()
+			go p.handleConnectionClose(p.conn)
 			return nil
 		}
 
@@ -116,55 +126,99 @@ func (p *rabbitMQProducer) reconnect() error {
 	return fmt.Errorf("falha ao reconectar após 3 tentativas: %v", err)
 }
 
-func (p *rabbitMQProducer) ensureConnection() error {
+// connection returns a live connection, reconnecting if needed. Callers wait on the
+// lock during a reconnect rather than each starting their own.
+func (p *rabbitMQProducer) connection() (*amqp.Connection, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	if p.conn == nil || p.conn.IsClosed() {
-		return p.reconnect()
+		if err := p.reconnect(); err != nil {
+			return nil, err
+		}
 	}
-	return nil
+	return p.conn, nil
 }
 
-func (p *rabbitMQProducer) publishWithRetry(
-	channel *amqp.Channel,
-	queueName string,
-	payload []byte,
-	userID string,
-) error {
-	var err error
-	for i := 0; i < p.maxRetries; i++ {
-		err = channel.Publish(
-			"",        // exchange
-			queueName, // routing key
-			false,     // mandatory
-			false,     // immediate
-			amqp.Publishing{
-				ContentType:  "application/json",
-				Body:         payload,
-				DeliveryMode: amqp.Persistent, // Garante persistência da mensagem
-			})
-
-		if err == nil {
-			return nil
-		}
-
-		applog.Logger.LogWarn("[%s] Falha ao publicar mensagem (tentativa %d/%d): %v",
-			userID, i+1, p.maxRetries, err)
-
-		// Se o erro for de conexão, tenta reconectar
-		if err.Error() == "Exception (504) Reason: \"channel/connection is not open\"" {
-			if err := p.ensureConnection(); err != nil {
-				continue
+// acquire returns a channel in confirm mode, reusing an idle one when it can. A
+// channel closed by an error or a lost connection is skipped.
+func (p *rabbitMQProducer) acquire() (*amqp.Channel, error) {
+	for {
+		select {
+		case channel := <-p.idle:
+			if !channel.IsClosed() {
+				return channel, nil
 			}
-
-			// Cria novo canal após reconexão
-			channel, err = p.conn.Channel()
-			if err != nil {
-				continue
-			}
+			continue
+		default:
 		}
-
-		time.Sleep(time.Second * time.Duration(i+1))
+		break
 	}
-	return err
+
+	conn, err := p.connection()
+	if err != nil {
+		return nil, fmt.Errorf("falha ao garantir conexão: %v", err)
+	}
+	channel, err := conn.Channel()
+	if err != nil {
+		return nil, fmt.Errorf("falha ao abrir canal: %v", err)
+	}
+	if err := channel.Confirm(false); err != nil {
+		channel.Close()
+		return nil, fmt.Errorf("falha ao configurar confirms do canal: %v", err)
+	}
+	return channel, nil
+}
+
+func (p *rabbitMQProducer) release(channel *amqp.Channel) {
+	select {
+	case p.idle <- channel:
+	default:
+		channel.Close()
+	}
+}
+
+// publishOnce declares the queue and publishes, returning only once the broker has
+// confirmed the message. The declare stays on every publish: to the default exchange
+// a queue deleted on the broker would swallow messages with a confirmed ack.
+func (p *rabbitMQProducer) publishOnce(queueName string, payload []byte) error {
+	channel, err := p.acquire()
+	if err != nil {
+		return err
+	}
+
+	args := amqp.Table{
+		"x-queue-type": "quorum",
+		"x-ha-policy":  "all", // Alta disponibilidade
+	}
+	if _, err := channel.QueueDeclare(queueName, true, false, false, false, args); err != nil {
+		channel.Close()
+		return fmt.Errorf("falha ao declarar fila %s: %v", queueName, err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), publishTimeout)
+	defer cancel()
+
+	confirmation, err := channel.PublishWithDeferredConfirmWithContext(ctx, "", queueName, false, false, amqp.Publishing{
+		ContentType:  "application/json",
+		Body:         payload,
+		DeliveryMode: amqp.Persistent, // Garante persistência da mensagem
+	})
+	if err != nil {
+		channel.Close()
+		return fmt.Errorf("falha ao publicar: %v", err)
+	}
+
+	acked, err := confirmation.WaitContext(ctx)
+	if err != nil {
+		// The confirm may still arrive; this channel can no longer be trusted.
+		channel.Close()
+		return fmt.Errorf("sem confirmação do broker: %v", err)
+	}
+	p.release(channel)
+	if !acked {
+		return fmt.Errorf("broker recusou a mensagem")
+	}
+	return nil
 }
 
 func (p *rabbitMQProducer) Produce(
@@ -173,55 +227,29 @@ func (p *rabbitMQProducer) Produce(
 	rabbitmqEnable string,
 	userID string,
 ) error {
+	if rabbitmqEnable != "global" && rabbitmqEnable != "enabled" && rabbitmqEnable != "true" {
+		return nil
+	}
+
 	p.loggerWrapper.GetLogger(userID).LogInfo("[%s] RabbitMQ Producer - Starting produce for queue: %s", userID, queueName)
 
 	if p.connStr == "" {
 		return fmt.Errorf("RabbitMQ connection string is empty - check AMQP_URL configuration")
 	}
 
-	if err := p.ensureConnection(); err != nil {
-		p.loggerWrapper.GetLogger(userID).LogError("[%s] Failed to ensure RabbitMQ connection: %v", userID, err)
-		return fmt.Errorf("falha ao garantir conexão: %v", err)
-	}
-
-	channel, err := p.conn.Channel()
-	if err != nil {
-		return fmt.Errorf("falha ao abrir canal: %v", err)
-	}
-	defer channel.Close()
-
-	// Configura confirmação de publicação
-	if err := channel.Confirm(false); err != nil {
-		return fmt.Errorf("falha ao configurar confirms do canal: %v", err)
-	}
-
-	args := amqp.Table{
-		"x-queue-type": "quorum",
-		"x-ha-policy":  "all", // Alta disponibilidade
-	}
-
-	if rabbitmqEnable == "global" || rabbitmqEnable == "enabled" {
-		_, err = channel.QueueDeclare(
-			queueName, // name
-			true,      // durable
-			false,     // delete when unused
-			false,     // exclusive
-			false,     // no-wait
-			args,      // arguments
-		)
-		if err != nil {
-			return fmt.Errorf("falha ao declarar fila %s: %v", queueName, err)
+	var err error
+	for i := 0; i < p.maxRetries; i++ {
+		if err = p.publishOnce(queueName, payload); err == nil {
+			p.loggerWrapper.GetLogger(userID).LogInfo("[%s] Mensagem publicada com sucesso na fila: %s", userID, queueName)
+			return nil
 		}
 
-		err = p.publishWithRetry(channel, queueName, payload, userID)
-		if err != nil {
-			return fmt.Errorf("falha ao publicar mensagem após todas as tentativas: %v", err)
+		applog.Logger.LogWarn("[%s] Falha ao publicar mensagem (tentativa %d/%d): %v", userID, i+1, p.maxRetries, err)
+		if i+1 < p.maxRetries {
+			time.Sleep(time.Second * time.Duration(i+1))
 		}
-
-		p.loggerWrapper.GetLogger(userID).LogInfo("[%s] Mensagem publicada com sucesso na fila: %s", userID, queueName)
 	}
-
-	return nil
+	return fmt.Errorf("falha ao publicar mensagem após todas as tentativas: %v", err)
 }
 
 // CreateGlobalQueues cria todas as filas globais no startup da aplicação
@@ -232,11 +260,12 @@ func (p *rabbitMQProducer) CreateGlobalQueues() error {
 
 	p.loggerWrapper.GetLogger("system").LogInfo("Creating global queues for enabled events")
 
-	if err := p.ensureConnection(); err != nil {
+	conn, err := p.connection()
+	if err != nil {
 		return fmt.Errorf("failed to ensure connection: %v", err)
 	}
 
-	channel, err := p.conn.Channel()
+	channel, err := conn.Channel()
 	if err != nil {
 		return fmt.Errorf("failed to open channel: %v", err)
 	}

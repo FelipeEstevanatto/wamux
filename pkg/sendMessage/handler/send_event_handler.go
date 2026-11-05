@@ -35,8 +35,8 @@ func (s *sendHandler) SendEvent(ctx *gin.Context) {
 		return
 	}
 
-	var data *send_service.EventStruct
-	if err := ctx.ShouldBindBodyWithJSON(&data); err != nil {
+	data := &send_service.EventStruct{}
+	if err := ctx.ShouldBindBodyWithJSON(data); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}

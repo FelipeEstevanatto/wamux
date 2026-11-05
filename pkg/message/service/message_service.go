@@ -810,11 +810,21 @@ func (m *messageService) GetHistory(data *HistoryQuery, instance *instance_model
 		all = append(all, msgs...)
 	}
 
-	all = mergeMessagesByID(all)
-	if len(all) > limit {
-		all = all[:limit]
+	return wholeSecondPage(mergeMessagesByID(all), limit), nil
+}
+
+// wholeSecondPage cuts merged rows to limit without splitting a second: the
+// `before` cursor is exclusive, so rows cut from the last second would never be
+// returned by the next page.
+func wholeSecondPage(rows []message_model.Message, limit int) []message_model.Message {
+	if len(rows) <= limit {
+		return rows
 	}
-	return all, nil
+	end := limit
+	for end < len(rows) && rows[end].Timestamp == rows[limit-1].Timestamp {
+		end++
+	}
+	return rows[:end]
 }
 
 // ListChats returns each conversation's newest message plus its message count,

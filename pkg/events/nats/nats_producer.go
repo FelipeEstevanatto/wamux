@@ -73,7 +73,7 @@ func (p *natsProducer) Produce(
 		p.loggerWrapper.GetLogger(userID).LogInfo("[%s] Message published successfully to subject: %s", userID, queueName)
 	}
 
-	if natsEnable == "enabled" {
+	if natsEnable == "enabled" || natsEnable == "true" {
 		err := p.conn.Publish(queueName, payload)
 		if err != nil {
 			p.loggerWrapper.GetLogger(userID).LogError("[%s] Failed to publish message to instance subject %s: %v", userID, queueName, err)

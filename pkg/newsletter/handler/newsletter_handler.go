@@ -46,8 +46,8 @@ func (n *newsletterHandler) CreateNewsletter(ctx *gin.Context) {
 		return
 	}
 
-	var data *newsletter_service.CreateNewsletterStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &newsletter_service.CreateNewsletterStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -119,8 +119,8 @@ func (n *newsletterHandler) GetNewsletter(ctx *gin.Context) {
 		return
 	}
 
-	var data *newsletter_service.GetNewsletterStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &newsletter_service.GetNewsletterStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -160,8 +160,8 @@ func (n *newsletterHandler) GetNewsletterInvite(ctx *gin.Context) {
 		return
 	}
 
-	var data *newsletter_service.GetNewsletterInviteStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &newsletter_service.GetNewsletterInviteStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -201,8 +201,8 @@ func (n *newsletterHandler) SubscribeNewsletter(ctx *gin.Context) {
 		return
 	}
 
-	var data *newsletter_service.GetNewsletterStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &newsletter_service.GetNewsletterStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -242,8 +242,8 @@ func (n *newsletterHandler) GetNewsletterMessages(ctx *gin.Context) {
 		return
 	}
 
-	var data *newsletter_service.GetNewsletterMessagesStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &newsletter_service.GetNewsletterMessagesStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

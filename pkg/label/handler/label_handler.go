@@ -46,8 +46,8 @@ func (l *labelHandler) ChatLabel(ctx *gin.Context) {
 		return
 	}
 
-	var data *label_service.ChatLabelStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &label_service.ChatLabelStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -97,8 +97,8 @@ func (l *labelHandler) MessageLabel(ctx *gin.Context) {
 		return
 	}
 
-	var data *label_service.MessageLabelStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &label_service.MessageLabelStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -148,8 +148,8 @@ func (l *labelHandler) EditLabel(ctx *gin.Context) {
 		return
 	}
 
-	var data *label_service.EditLabelStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &label_service.EditLabelStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -199,8 +199,8 @@ func (l *labelHandler) ChatUnlabel(ctx *gin.Context) {
 		return
 	}
 
-	var data *label_service.ChatLabelStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &label_service.ChatLabelStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -250,8 +250,8 @@ func (l *labelHandler) MessageUnlabel(ctx *gin.Context) {
 		return
 	}
 
-	var data *label_service.MessageLabelStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &label_service.MessageLabelStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

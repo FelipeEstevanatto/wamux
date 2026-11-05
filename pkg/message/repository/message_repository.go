@@ -1,6 +1,7 @@
 package message_repository
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 	"sync"
@@ -162,6 +163,64 @@ func messageUpdateColumns(message message_model.Message) []string {
 	return updates
 }
 
+// statusRankSQL ranks a delivery state. Anything else, including Sent and Received,
+// is the starting point.
+const statusRankSQL = `COALESCE(array_position(ARRAY['Delivered','Read']::text[], %s::text), 0)`
+
+// keepHighestStatus is the status assignment of every upsert. Delivery state only
+// moves forward: receipts can arrive out of order, and a send can record "Sent"
+// after its "Delivered" receipt has already landed.
+var keepHighestStatus = clause.Assignment{
+	Column: clause.Column{Name: "status"},
+	Value: gorm.Expr("CASE WHEN " + fmt.Sprintf(statusRankSQL, "excluded.status") + " >= " +
+		fmt.Sprintf(statusRankSQL, "messages.status") + " THEN excluded.status ELSE messages.status END"),
+}
+
+// statusRank is statusRankSQL for rows that have not reached the database.
+func statusRank(status string) int {
+	switch status {
+	case "Read":
+		return 2
+	case "Delivered":
+		return 1
+	}
+	return 0
+}
+
+// upsertAssignments is the DO UPDATE list for cols.
+func upsertAssignments(cols []string) clause.Set {
+	others := make([]string, 0, len(cols))
+	for _, col := range cols {
+		if col != "status" {
+			others = append(others, col)
+		}
+	}
+	return append(clause.AssignmentColumns(others), keepHighestStatus)
+}
+
+// collapseDuplicates leaves one row per message. Postgres refuses an upsert that
+// touches a row twice, which would fail the whole batch: a Delivered and a Read
+// for one message often share the batching window. The latest row wins, keeping
+// the furthest status seen.
+func collapseDuplicates(rows []message_model.Message) []message_model.Message {
+	seen := make(map[[2]string]int, len(rows))
+	out := rows[:0:0]
+	for _, row := range rows {
+		key := [2]string{row.InstanceId, row.MessageID}
+		at, dup := seen[key]
+		if !dup {
+			seen[key] = len(out)
+			out = append(out, row)
+			continue
+		}
+		if statusRank(out[at].Status) > statusRank(row.Status) {
+			row.Status = out[at].Status
+		}
+		out[at] = row
+	}
+	return out
+}
+
 // cacheKeyStatus etc. are the cache keys for the aggregate queries.
 const (
 	cacheKeyStats  = "stats"
@@ -217,7 +276,7 @@ func (m *messageRepository) writer() *gorm.DB {
 func (m *messageRepository) InsertMessage(message message_model.Message) error {
 	return m.writer().Clauses(clause.OnConflict{
 		Columns:   messageConflictColumns,
-		DoUpdates: clause.AssignmentColumns(messageUpdateColumns(message)),
+		DoUpdates: upsertAssignments(messageUpdateColumns(message)),
 	}).Create(&message).Error
 }
 
@@ -290,7 +349,7 @@ func (m *messageRepository) InsertMessages(messages []message_model.Message) err
 	}
 
 	for _, key := range order {
-		group := groups[key]
+		group := collapseDuplicates(groups[key])
 		sortForCounterLocks(group)
 		cols := strings.Split(key, ",")
 		for start := 0; start < len(group); start += batchInsertChunk {
@@ -301,7 +360,7 @@ func (m *messageRepository) InsertMessages(messages []message_model.Message) err
 			chunk := group[start:end]
 			if err := m.writer().Clauses(clause.OnConflict{
 				Columns:   messageConflictColumns,
-				DoUpdates: clause.AssignmentColumns(cols),
+				DoUpdates: upsertAssignments(cols),
 			}).Create(&chunk).Error; err != nil {
 				return err
 			}
@@ -349,7 +408,8 @@ func (m *messageRepository) DeleteAllMessages() (int64, error) {
 	return result.RowsAffected, result.Error
 }
 
-// ListMessages returns a conversation's stored messages, newest first.
+// ListMessages returns a conversation's stored messages, newest first. A full page
+// can exceed limit: see the end of the function.
 // `before` (a "YYYY-MM-DD HH:MM:SS" timestamp) pages backwards: it returns the
 // messages strictly older than the newest one already seen.
 func (m *messageRepository) ListMessages(instanceId, chatJid, before string, limit int) ([]message_model.Message, error) {
@@ -363,12 +423,33 @@ func (m *messageRepository) ListMessages(instanceId, chatJid, before string, lim
 		query = query.Where(`"timestamp" < ?`, before)
 	}
 
+	limit = clampHistoryLimit(limit)
 	err := query.
 		Order(`"timestamp" DESC`).
 		Order("id DESC").
-		Limit(clampHistoryLimit(limit)).
+		Limit(limit).
 		Find(&messages).Error
-	return messages, err
+	if err != nil || len(messages) < limit {
+		return messages, err
+	}
+
+	// The cursor has one-second precision and is exclusive, so a page ending partway
+	// through a second would lose the rest of that second: the next page starts
+	// strictly before it. A page therefore always ends on a whole second, and may
+	// run slightly over the limit to do so.
+	last := messages[len(messages)-1].Timestamp
+	var sameSecond []message_model.Message
+	err = m.db.Where(`instance_id = ? AND chat_jid = ? AND "timestamp" = ?`, instanceId, chatJid, last).
+		Order("id DESC").
+		Find(&sameSecond).Error
+	if err != nil {
+		return nil, err
+	}
+	keep := len(messages)
+	for keep > 0 && messages[keep-1].Timestamp == last {
+		keep--
+	}
+	return append(messages[:keep], sameSecond...), nil
 }
 
 // ListChats returns each conversation's newest message plus its total count,

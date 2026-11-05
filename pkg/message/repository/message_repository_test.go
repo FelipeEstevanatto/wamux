@@ -213,7 +213,7 @@ func TestInsertMessageUpsertColumns(t *testing.T) {
 	}
 
 	receiptSQL := logBuffer.String()
-	if !strings.Contains(receiptSQL, `"status"="excluded"."status"`) {
+	if !strings.Contains(receiptSQL, `"status"=CASE`) {
 		t.Fatalf("receipt upsert SQL should update status, got %q", receiptSQL)
 	}
 	for _, unwanted := range []string{

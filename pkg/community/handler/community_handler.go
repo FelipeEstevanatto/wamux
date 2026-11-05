@@ -43,8 +43,8 @@ func (c *communityHandler) CreateCommunity(ctx *gin.Context) {
 		return
 	}
 
-	var data *community_service.CreateCommunityStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &community_service.CreateCommunityStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -84,8 +84,8 @@ func (c *communityHandler) CommunityAdd(ctx *gin.Context) {
 		return
 	}
 
-	var data *community_service.AddParticipantStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &community_service.AddParticipantStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -130,8 +130,8 @@ func (c *communityHandler) CommunityRemove(ctx *gin.Context) {
 		return
 	}
 
-	var data *community_service.AddParticipantStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &community_service.AddParticipantStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

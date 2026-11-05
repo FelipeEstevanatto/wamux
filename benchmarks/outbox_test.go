@@ -79,9 +79,10 @@ func BenchmarkSendSyncLatency(b *testing.B) {
 }
 
 // BenchmarkSendAsyncEnqueueLatency is apime's 202 path: the request returns as
-// soon as the message is queued, while a worker handles the RTT.
+// soon as the message is queued. The worker's RTT is not on that path, so it is
+// zero here: with a real one, draining b.N messages takes hours.
 func BenchmarkSendAsyncEnqueueLatency(b *testing.B) {
-	o := newOutbox(b.N+1, 1, outboxRTT)
+	o := newOutbox(b.N+1, 1, 0)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		o.enqueue()

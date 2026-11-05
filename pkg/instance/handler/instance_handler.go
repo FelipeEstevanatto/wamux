@@ -70,8 +70,8 @@ var _ = docmodels.Envelope{}
 // @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /instance/create [post]
 func (i *instanceHandler) Create(ctx *gin.Context) {
-	var data *instance_service.CreateStruct
-	err := ctx.ShouldBindJSON(&data)
+	data := &instance_service.CreateStruct{}
+	err := ctx.ShouldBindJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -161,8 +161,8 @@ func (i *instanceHandler) Connect(ctx *gin.Context) {
 		return
 	}
 
-	var data *instance_service.ConnectStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &instance_service.ConnectStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -352,8 +352,8 @@ func (i *instanceHandler) Pair(ctx *gin.Context) {
 		return
 	}
 
-	var data *instance_service.PairStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &instance_service.PairStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -440,8 +440,8 @@ func (i *instanceHandler) Rename(ctx *gin.Context) {
 		return
 	}
 
-	var data *instance_service.RenameStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &instance_service.RenameStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -510,8 +510,8 @@ func (i *instanceHandler) SetProxy(ctx *gin.Context) {
 		return
 	}
 
-	var data *instance_service.SetProxyStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &instance_service.SetProxyStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -608,8 +608,8 @@ func (i *instanceHandler) TestProxy(ctx *gin.Context) {
 	// An empty body means "test what is saved", which is what the Reconnect
 	// button next to it acts on. A body means "test what I just typed", so the
 	// operator can check a proxy before committing to it.
-	var cfg *instance_service.ProxyConfig
-	if err := ctx.ShouldBindJSON(&cfg); err != nil || cfg == nil || cfg.Host == "" {
+	cfg := &instance_service.ProxyConfig{}
+	if err := ctx.ShouldBindJSON(cfg); err != nil || cfg.Host == "" {
 		saved, err := i.instanceService.GetProxy(instanceId)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -736,8 +736,8 @@ func (i *instanceHandler) ForceReconnect(ctx *gin.Context) {
 		return
 	}
 
-	var data *instance_service.ForceReconnectStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &instance_service.ForceReconnectStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -846,6 +846,7 @@ func authorizedInstanceParam(c *gin.Context) (string, bool) {
 // @Success 200 {object} instance_model.AdvancedSettings "Advanced settings retrieved successfully"
 // @Failure 400 {object} docmodels.ErrorResponse "Invalid instance ID"
 // @Failure 404 {object} docmodels.ErrorResponse "Instance not found"
+// @Failure 403 {object} docmodels.ErrorResponse "Token belongs to another instance"
 // @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /instance/{instanceId}/advanced-settings [get]
 func (h *instanceHandler) GetAdvancedSettings(c *gin.Context) {
@@ -874,6 +875,7 @@ func (h *instanceHandler) GetAdvancedSettings(c *gin.Context) {
 // @Success 200 {object} instance_model.AdvancedSettings "Advanced settings updated successfully"
 // @Failure 400 {object} docmodels.ErrorResponse "Invalid request data"
 // @Failure 404 {object} docmodels.ErrorResponse "Instance not found"
+// @Failure 403 {object} docmodels.ErrorResponse "Token belongs to another instance"
 // @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /instance/{instanceId}/advanced-settings [put]
 func (h *instanceHandler) UpdateAdvancedSettings(c *gin.Context) {

@@ -102,12 +102,24 @@ func TestPanicInMediaWorkerIsContained(t *testing.T) {
 	for i := 0; i < 4; i++ {
 		mycli.routeEvent(mediaEvent(), func(interface{}) { panic("bad message") })
 	}
-	done := make(chan struct{})
-	mycli.routeEvent(mediaEvent(), func(interface{}) { close(done) })
-	select {
-	case <-done:
-	case <-time.After(2 * time.Second):
-		t.Fatal("pool stopped taking work after a panic")
+	// Each job waits for the other, so this passes only with both workers alive. It
+	// also means their panic logging is over before the log folder is removed.
+	var both sync.WaitGroup
+	both.Add(2)
+	done := make(chan struct{}, 2)
+	for i := 0; i < 2; i++ {
+		mycli.routeEvent(mediaEvent(), func(interface{}) {
+			both.Done()
+			both.Wait()
+			done <- struct{}{}
+		})
+	}
+	for i := 0; i < 2; i++ {
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Fatal("pool stopped taking work after a panic")
+		}
 	}
 }
 

@@ -48,8 +48,8 @@ func (c *chatHandler) ChatPin(ctx *gin.Context) {
 		return
 	}
 
-	var data *chat_service.BodyStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &chat_service.BodyStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -98,8 +98,8 @@ func (c *chatHandler) ChatUnpin(ctx *gin.Context) {
 		return
 	}
 
-	var data *chat_service.BodyStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &chat_service.BodyStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -148,8 +148,8 @@ func (c *chatHandler) ChatArchive(ctx *gin.Context) {
 		return
 	}
 
-	var data *chat_service.BodyStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &chat_service.BodyStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -193,8 +193,8 @@ func (c *chatHandler) ChatUnarchive(ctx *gin.Context) {
 		return
 	}
 
-	var data *chat_service.BodyStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &chat_service.BodyStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -238,8 +238,8 @@ func (c *chatHandler) ChatMute(ctx *gin.Context) {
 		return
 	}
 
-	var data *chat_service.BodyStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &chat_service.BodyStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -283,8 +283,8 @@ func (c *chatHandler) ChatUnmute(ctx *gin.Context) {
 		return
 	}
 
-	var data *chat_service.BodyStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &chat_service.BodyStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -331,8 +331,8 @@ func (c *chatHandler) SetEphemeralExpiration(ctx *gin.Context) {
 		return
 	}
 
-	var data *chat_service.EphemeralStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &chat_service.EphemeralStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -371,8 +371,8 @@ func (c *chatHandler) HistorySyncRequest(ctx *gin.Context) {
 		return
 	}
 
-	var data *chat_service.HistorySyncRequestStruct
-	err := ctx.ShouldBindBodyWithJSON(&data)
+	data := &chat_service.HistorySyncRequestStruct{}
+	err := ctx.ShouldBindBodyWithJSON(data)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

@@ -562,6 +562,16 @@ func TestEventsWithNoWebhook(t *testing.T) {
 	}
 }
 
+// Goes through the backoff on its own goroutine. Reconnecting inline blocked every
+// event behind it, and this harness would catch it trying to dial.
+func TestUndecryptable66ReconnectsThroughTheScheduler(t *testing.T) {
+	for _, id := range []string{"66ABC", "67ABC"} {
+		h := newEventHarness(t)
+		h.none(t, &events.UndecryptableMessage{Info: types.MessageInfo{ID: id}})
+		h.wantReconnect(t)
+	}
+}
+
 func TestViewOnceUndecryptableIsForwardedAsMessage(t *testing.T) {
 	h := newEventHarness(t)
 	got := h.one(t, &events.UndecryptableMessage{

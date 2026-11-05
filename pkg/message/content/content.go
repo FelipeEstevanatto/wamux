@@ -29,6 +29,12 @@ func Summarize(msg *waE2E.Message) Summary {
 		return Summary{Type: "unknown"}
 	}
 
+	// whatsmeow unwraps this for received messages, but a document we send with a
+	// caption is still wrapped when it is recorded.
+	if inner := msg.GetDocumentWithCaptionMessage().GetMessage(); inner != nil {
+		msg = inner
+	}
+
 	// Deletes and edits are protocol messages that must be classified before
 	// the generic text cases, because the edited content lives on the protocol
 	// message, not on the top-level message.
