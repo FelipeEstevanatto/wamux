@@ -1,0 +1,25 @@
+{
+  "data": {
+    "Chat": "5511999990001@s.whatsapp.net",
+    "Sender": "5511999990001@s.whatsapp.net",
+    "IsFromMe": false,
+    "IsGroup": false,
+    "AddressingMode": "",
+    "SenderAlt": "",
+    "RecipientAlt": "",
+    "BroadcastListOwner": "",
+    "BroadcastRecipients": null,
+    "MessageIDs": [
+      "A",
+      "B"
+    ],
+    "Timestamp": "2026-01-02T03:04:05Z",
+    "Type": "read",
+    "MessageSender": ""
+  },
+  "event": "Receipt",
+  "instanceId": "11111111-2222-3333-4444-555555555555",
+  "instanceName": "test",
+  "instanceToken": "test-instance-token",
+  "state": "Read"
+}

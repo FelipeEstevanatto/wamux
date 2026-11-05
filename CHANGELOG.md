@@ -22,12 +22,20 @@
 - **Stored media is pruned** — files were never deleted, so retention only applied
   to rows. New `MEDIA_RETENTION_DAYS`, and deleting an instance removes its media.
 - `GET /chat/media/:messageId` now serves files up to 2 GiB, not 64 MiB.
+- **Label colors** — `label_color` and `predefined_id` were saved as memory
+  addresses. Existing rows correct themselves on the label's next edit.
+- **`ButtonClick`** — `phone`, `jid`, `pushName`, `messageId`, `chat` and `fromMe`
+  were always null. `phone` stays empty when only a LID is known.
+- **`LoggedOut`** was delivered twice, to webhooks and to global queues.
+- **Delivered receipts** now update every message they cover, not only the first.
 
 ### ⚠️ Behaviour changes
 - Events for files above the limit carry `mediaUrl` and `base64Omitted: true`
   instead of `base64`. `mediaUrl` is an API path needing the instance token, unless
   an object store is configured. Outbound media follows the same limit.
 - Auto-read no longer marks messages that are ignored (groups, status).
+- An instance with an empty `events` value now receives `MESSAGE` and
+  `SEND_MESSAGE`. That default never applied, so it received nothing.
 
 ## Unreleased
 

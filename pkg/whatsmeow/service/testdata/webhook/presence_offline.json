@@ -1,0 +1,14 @@
+{
+  "data": {
+    "From": "5511999990001@s.whatsapp.net",
+    "Unavailable": true,
+    "LastSeen": "2026-01-02T03:04:05Z"
+  },
+  "event": "Presence",
+  "from": "5511999990001@s.whatsapp.net",
+  "instanceId": "11111111-2222-3333-4444-555555555555",
+  "instanceName": "test",
+  "instanceToken": "test-instance-token",
+  "lastSeen": 1767323045,
+  "state": "offline"
+}

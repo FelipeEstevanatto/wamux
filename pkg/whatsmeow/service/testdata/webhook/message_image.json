@@ -1,0 +1,63 @@
+{
+  "data": {
+    "Info": {
+      "AddressingMode": "",
+      "BroadcastListOwner": "",
+      "BroadcastRecipients": null,
+      "Category": "",
+      "Chat": "5511999990001@s.whatsapp.net",
+      "DeviceSentMeta": null,
+      "Edit": "",
+      "ID": "MSG1",
+      "IsFromMe": false,
+      "IsGroup": false,
+      "IsNewsletterStatus": false,
+      "MediaType": "",
+      "MsgBotInfo": {
+        "ClientThreadID": "",
+        "EditSenderTimestampMS": "0001-01-01T00:00:00Z",
+        "EditTargetID": "",
+        "EditType": ""
+      },
+      "MsgMetaInfo": {
+        "DeprecatedLIDSession": null,
+        "TargetChat": "",
+        "TargetID": "",
+        "TargetSender": "",
+        "ThreadMessageID": "",
+        "ThreadMessageSenderJID": ""
+      },
+      "Multicast": false,
+      "PushName": "Contact",
+      "RecipientAlt": "",
+      "Sender": "5511999990001@s.whatsapp.net",
+      "SenderAlt": "",
+      "ServerID": 0,
+      "Timestamp": "2026-01-02T03:04:05Z",
+      "Type": "text",
+      "VerifiedName": null
+    },
+    "IsBotInvoke": false,
+    "IsDocumentWithCaption": false,
+    "IsEdit": false,
+    "IsEphemeral": false,
+    "IsLottieSticker": false,
+    "IsViewOnce": false,
+    "IsViewOnceV2": false,
+    "IsViewOnceV2Extension": false,
+    "Message": {
+      "imageMessage": {
+        "caption": "a photo",
+        "mimetype": "image/jpeg"
+      }
+    },
+    "NewsletterMeta": null,
+    "RetryCount": 0,
+    "SourceWebMsg": null,
+    "UnavailableRequestID": ""
+  },
+  "event": "Message",
+  "instanceId": "11111111-2222-3333-4444-555555555555",
+  "instanceName": "test",
+  "instanceToken": "test-instance-token"
+}

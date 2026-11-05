@@ -1,0 +1,17 @@
+{
+  "data": {
+    "From": "5511999990001@s.whatsapp.net",
+    "Timestamp": "2026-01-02T03:04:05Z",
+    "CallCreator": "5511999990001@s.whatsapp.net",
+    "CallCreatorAlt": "",
+    "CallID": "C1",
+    "GroupJID": "",
+    "RemotePlatform": "",
+    "RemoteVersion": "",
+    "Data": null
+  },
+  "event": "CallOffer",
+  "instanceId": "11111111-2222-3333-4444-555555555555",
+  "instanceName": "test",
+  "instanceToken": "test-instance-token"
+}

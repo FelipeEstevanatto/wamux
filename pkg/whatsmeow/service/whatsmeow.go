@@ -3100,18 +3100,26 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 
 		// Se detectou clique em botão, emite evento separado "ButtonClick"
 		if buttonClickData != nil {
+			// A LID with no known phone number leaves phone empty rather than
+			// passing the LID off as one.
+			clicker := CanonicalChatJID(context.Background(), mycli.WAClient, evt.Info.Sender)
+			phone := ""
+			if clicker.Server == types.DefaultUserServer {
+				phone = clicker.User
+			}
+
 			buttonClickMap := map[string]interface{}{
 				"event": "ButtonClick",
 				"data": map[string]interface{}{
 					"buttonId":   buttonClickData["buttonId"],
 					"buttonText": buttonClickData["buttonText"],
 					"type":       buttonClickData["type"],
-					"phone":      dataMap["Sender"],
-					"jid":        dataMap["Sender"],
-					"pushName":   dataMap["PushName"],
-					"messageId":  dataMap["ID"],
-					"chat":       dataMap["Chat"],
-					"fromMe":     dataMap["FromMe"],
+					"phone":      phone,
+					"jid":        clicker.String(),
+					"pushName":   evt.Info.PushName,
+					"messageId":  evt.Info.ID,
+					"chat":       evt.Info.Chat.String(),
+					"fromMe":     evt.Info.IsFromMe,
 					"timestamp":  evt.Info.Timestamp.Unix(),
 					"extraData":  buttonClickData,
 				},
@@ -3186,24 +3194,31 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 		} else if evt.Type == types.ReceiptTypeDelivered {
 			postMap["state"] = "Delivered"
 
-			var message message_model.Message
+			// One receipt can cover several messages. If all of them are repeats
+			// there is nothing new to report.
+			fresh := false
+			for _, v := range evt.MessageIDs {
+				messageKey := fmt.Sprintf("%s_%s_%s", mycli.userID, v, "Delivered")
+				if _, found := mycli.processedMessages.Get(messageKey); found {
+					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Message duplicated ignored: %s", mycli.userID, v)
+					continue
+				}
 
-			message.MessageID = evt.MessageIDs[0]
-			message.InstanceId = mycli.userID
-			message.Timestamp = evt.Timestamp.Format("2006-01-02 15:04:05")
-			message.Status = "Delivered"
-			message.Source = evt.Chat.ToNonAD().User
+				mycli.processedMessages.Set(messageKey, true, 30*time.Minute)
+				fresh = true
 
-			messageKey := fmt.Sprintf("%s_%s_%s", mycli.userID, evt.MessageIDs[0], "Delivered")
-			if _, found := mycli.processedMessages.Get(messageKey); found {
-				mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Message duplicated ignored: %s", mycli.userID, evt.MessageIDs[0])
-				return
+				if mycli.config.DatabaseSaveMessages {
+					mycli.persistMessageAsync(message_model.Message{
+						MessageID:  v,
+						InstanceId: mycli.userID,
+						Timestamp:  evt.Timestamp.Format("2006-01-02 15:04:05"),
+						Status:     "Delivered",
+						Source:     evt.Chat.ToNonAD().User,
+					})
+				}
 			}
-
-			mycli.processedMessages.Set(messageKey, true, 30*time.Minute)
-
-			if mycli.config.DatabaseSaveMessages {
-				mycli.persistMessageAsync(message)
+			if !fresh {
+				return
 			}
 
 			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Message delivered to %s", mycli.userID, evt.SourceString())
@@ -3341,6 +3356,8 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 
 		// Agora dispara o kill switch DEPOIS de enviar o evento
 		mycli.kill.Fire(killswitch.Restart)
+		// Already dispatched above; the common path would send it a second time.
+		return
 	case *events.ChatPresence:
 		doWebhook = true
 		postMap["event"] = "ChatPresence"
@@ -3521,8 +3538,8 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 			InstanceID:   mycli.userID,
 			LabelID:      evt.LabelID,
 			LabelName:    utils.GetStringValue(evt.Action.Name),
-			LabelColor:   fmt.Sprintf("%d", evt.Action.Color),
-			PredefinedId: fmt.Sprintf("%d", evt.Action.PredefinedID),
+			LabelColor:   fmt.Sprintf("%d", evt.Action.GetColor()),
+			PredefinedId: fmt.Sprintf("%d", evt.Action.GetPredefinedID()),
 		}
 
 		err := mycli.labelRepository.UpsertLabel(label)
@@ -3676,7 +3693,7 @@ func (w *whatsmeowService) CallWebhook(instance *instance_model.Instance, queueN
 
 	var subscriptions []string
 
-	if len(eventArray) < 1 {
+	if noSubscriptions(instance.Events) {
 		subscriptions = append(subscriptions, event_types.MESSAGE)
 		subscriptions = append(subscriptions, event_types.SEND_MESSAGE)
 	} else {
@@ -3820,6 +3837,12 @@ func (w *whatsmeowService) CallWebhook(instance *instance_model.Instance, queueN
 	default:
 		return
 	}
+}
+
+// noSubscriptions reports whether an instance chose no events. Checking the split
+// instead does not work: strings.Split("", ",") returns one empty element.
+func noSubscriptions(events string) bool {
+	return strings.TrimSpace(events) == ""
 }
 
 func contains(subscriptions []string, event string) bool {
@@ -4200,7 +4223,7 @@ func (w whatsmeowService) StartInstance(instanceId string) error {
 
 	var subscribedEvents []string
 
-	if len(eventArray) < 1 {
+	if noSubscriptions(instance.Events) {
 		subscribedEvents = append(subscribedEvents, event_types.MESSAGE)
 	} else {
 		for _, arg := range eventArray {
@@ -4606,7 +4629,7 @@ func (w whatsmeowService) UpdateInstanceSettings(instanceId string) error {
 	eventArray := strings.Split(instance.Events, ",")
 	var subscribedEvents []string
 
-	if len(eventArray) < 1 {
+	if noSubscriptions(instance.Events) {
 		subscribedEvents = append(subscribedEvents, event_types.MESSAGE)
 	} else {
 		for _, arg := range eventArray {
