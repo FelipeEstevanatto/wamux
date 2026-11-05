@@ -1,5 +1,48 @@
 # WaMux - Changelog
 
+## 0.11.1 — messages workspace, auto-reconnect, security
+
+A focused follow-up to 0.11.0: a rebuilt Messages workspace, safer boot-time
+reconnect behaviour, dashboard identity resolution, and a clean dependency/CI
+baseline. No breaking API or data changes.
+
+### 🆕 Manager
+- **Messages workspace** — chats, history, contacts, sender names and server
+  flags now use TanStack Query, with infinite history pagination, optimistic
+  sends, WebSocket-driven invalidation and polling fallback when real time is
+  unavailable.
+- **Richer thread** — day separators, quoted-message previews, sender grouping,
+  linkified text, unsupported-message placeholders and a "jump to latest"
+  action.
+- **New conversation flow** — searchable contacts/groups, recent chats and
+  phone-number entry in a dedicated dialog. Recover-history moved to the thread
+  header.
+- **Media** — image/video lightbox with navigation and download, document
+  cards, upload progress, drag/drop and clipboard-paste attachments.
+- **Mobile polish** — responsive header, bottom-sheet new-chat dialog, safe-area
+  composer and improved mobile thread navigation.
+- **Message tests** — the interactive button/list/carousel tester moved from the
+  instance cards to the Messages header, leaving card footers less crowded.
+
+### 🔧 API / reliability
+- **Boot-time reconnect** — paired instances reconnect after a restart by
+  default. A new `auto_reconnect` intent survives restarts, while an explicit
+  API disconnect or logout keeps the instance down (migration 0007).
+- **Dashboard identities** — “Conversas mais ativas” resolves LIDs to phone
+  numbers and saved contact names even when the owning instance is offline.
+  Also fixes a nil contact-store panic in `/server/stats`.
+
+### 🔐 Dependencies / CI
+- `golang.org/x/net` 0.62.0 and the patched `golang.org/x/crypto`; manager
+  `axios`, `zod`, `vite` and transitive overrides updated. `govulncheck` and
+  `bun audit` are clean.
+- Workflows pinned to `ubuntu-24.04`; `setup-go` v7 and `gitleaks-action` v3.
+- Fixed a race-job flake caused by async test loggers writing during temp-dir
+  cleanup.
+
+### 🐳 Container image
+`docker pull ghcr.io/felipeestevanatto/wamux:0.11.1`
+
 ## 0.11.0 — manager connection flow, API hardening
 
 A smoother instance connection flow in the manager, plus API and database fixes
