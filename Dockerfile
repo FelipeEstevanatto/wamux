@@ -43,10 +43,11 @@ COPY --from=manager /manager/dist/assets ./manager/dist/assets
 COPY --from=manager /manager/dist/index.html ./manager/dist/index.html
 
 ARG VERSION=dev
-# go_json selects the fast JSON encoder (goccy/go-json) via pkg/jsonx. It is a
-# drop-in and part of the standard build for this fork; drop the tag to fall back
-# to encoding/json.
-ARG GO_JSON_TAG=go_json
+# Empty builds with encoding/json. Setting this to go_json selects goccy/go-json
+# via pkg/jsonx, which is ~2 µs faster per event once warm but compiles an encoder
+# for WhatsApp's protobuf types on first use: measured 2.75 s stalling the first
+# message after every boot, and 175 MB of heap held for the life of the process.
+ARG GO_JSON_TAG=
 # -trimpath strips absolute build paths (smaller, reproducible); -s -w drops the
 # symbol table and DWARF data. The cache mounts are what make a rebuild fast —
 # see the note above the go mod download step.

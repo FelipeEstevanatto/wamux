@@ -106,6 +106,9 @@ const (
 	DB_NODE_COUNT           = "DB_NODE_COUNT"
 	// RATE_LIMIT_PER_MINUTE bounds HTTP requests per credential/IP (0 disables).
 	RATE_LIMIT_PER_MINUTE = "RATE_LIMIT_PER_MINUTE"
+	// TRUSTED_PROXIES is a comma-separated list of proxy IPs or CIDRs allowed to
+	// set X-Forwarded-For. Empty trusts none, so the client IP is the socket peer.
+	TRUSTED_PROXIES = "TRUSTED_PROXIES"
 	// CORS_ALLOWED_ORIGINS is a comma-separated allowlist ("*" reflects any).
 	CORS_ALLOWED_ORIGINS = "CORS_ALLOWED_ORIGINS"
 	// HTTP_COMPRESSION gzip-encodes responses; "false" disables it.

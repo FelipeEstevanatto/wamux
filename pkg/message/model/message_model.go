@@ -16,9 +16,13 @@ import (
 // status for those updates and never clobbers the content (see
 // messageUpdateColumns).
 type Message struct {
-	Id         string `json:"id" gorm:"type:uuid;primaryKey"`
-	MessageID  string `json:"message_id" gorm:"unique"`
-	InstanceId string `json:"instance_id" gorm:"column:instance_id;index"`
+	Id string `json:"id" gorm:"type:uuid;primaryKey"`
+	// A WhatsApp message id is only unique per account: two instances on this
+	// server in the same conversation receive the same id, each with its own view
+	// of the message (direction, chat, status). Uniqueness is therefore per
+	// instance, or one tenant's row would overwrite the other's.
+	MessageID  string `json:"message_id" gorm:"uniqueIndex:uni_messages_instance_message,priority:2"`
+	InstanceId string `json:"instance_id" gorm:"column:instance_id;index;uniqueIndex:uni_messages_instance_message,priority:1"`
 	// Timestamp is "YYYY-MM-DD HH:MM:SS" text, so it sorts and compares
 	// lexicographically. The index is what lets the retention job find the rows
 	// to delete with a range scan instead of a full table scan per batch.

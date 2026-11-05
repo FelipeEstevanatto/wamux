@@ -4060,7 +4060,7 @@ func NewSendService(
 
 // persistSentMessage records an outgoing message so counts and /server/stats
 // include sent traffic (previously only received messages were stored). It is
-// best-effort and asynchronous; the message_id unique key makes it idempotent
+// best-effort and asynchronous; the (instance_id, message_id) unique key makes it idempotent
 // if the server also echoes the message back as an event.
 func (s *sendService) persistSentMessage(instanceId string, sent *MessageSendStruct) {
 	if s.messageRepository == nil || !s.config.DatabaseSaveMessages || sent == nil {

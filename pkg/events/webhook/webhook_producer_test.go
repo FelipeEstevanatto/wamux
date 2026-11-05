@@ -1,6 +1,7 @@
 package webhook_producer
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -32,7 +33,7 @@ func newTestProducer(t *testing.T, globalURL string) *webhookProducer {
 	// otherwise a late log line races the removal and can recreate it.
 	t.Cleanup(func() {
 		deadline := time.Now().Add(3 * time.Second)
-		for len(p.inFlight) > 0 && time.Now().Before(deadline) {
+		for p.QueueDepth() > 0 && time.Now().Before(deadline) {
 			time.Sleep(time.Millisecond)
 		}
 		_ = logs.GetLogger("i1").Close()
@@ -363,11 +364,16 @@ func TestInFlightBudgetIsReleased(t *testing.T) {
 	defer server.Close()
 
 	p := newTestProducer(t, "")
-	for i := 0; i < maxInFlight*2; i++ {
+	for i := 0; i < endpointQueueSize; i++ {
 		_ = p.Produce("inst.message", []byte(`{}`), server.URL, "i1")
 	}
 
-	waitFor(t, func() bool { return len(p.inFlight) == 0 }, "in-flight slots were not released")
+	waitFor(t, func() bool { return p.QueueDepth() == 0 }, "in-flight deliveries were not released")
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if len(p.endpoints) != 0 {
+		t.Fatalf("idle endpoints were not released: %d", len(p.endpoints))
+	}
 }
 
 // The multiple-webhook fan-out must still deliver to every instance URL.
@@ -499,4 +505,113 @@ func TestNoDeadLetterConfiguredIsNotAnError(t *testing.T) {
 	// no deadLetter/errorQueue set
 	_ = p.Produce("inst.message", []byte(`{}`), server.URL, "i1")
 	// Reaching here without a panic is the assertion.
+}
+
+// One tenant's dead endpoint must not cost another tenant any events. The shared
+// budget this replaces delivered 0 of 100 here.
+func TestDeadEndpointDoesNotStarveOtherEndpoints(t *testing.T) {
+	var healthyHits atomic.Int64
+	healthy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		healthyHits.Add(1)
+	}))
+	defer healthy.Close()
+
+	release := make(chan struct{})
+	dead := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-release
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer dead.Close()
+	defer close(release)
+
+	p := newTestProducer(t, "")
+	for i := 0; i < endpointQueueSize; i++ {
+		p.deliver(dead.URL, []byte(`{}`), "i1", nil)
+	}
+	for i := 0; i < 100; i++ {
+		p.deliver(healthy.URL, []byte(`{}`), "i1", nil)
+	}
+
+	waitFor(t, func() bool { return healthyHits.Load() == 100 }, "healthy endpoint was starved")
+}
+
+type recordingDeadLetter struct {
+	mu     sync.Mutex
+	bodies [][]byte
+}
+
+func (r *recordingDeadLetter) Produce(_ string, payload []byte, _ string, _ string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.bodies = append(r.bodies, payload)
+	return nil
+}
+func (r *recordingDeadLetter) CreateGlobalQueues() error { return nil }
+
+// A full backlog is bounded, and what it refuses reaches the dead-letter queue
+// instead of disappearing.
+func TestFullBacklogGoesToDeadLetterQueue(t *testing.T) {
+	release := make(chan struct{})
+	stuck := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-release
+	}))
+	defer stuck.Close()
+	defer close(release)
+
+	p := newTestProducer(t, "")
+	dlq := &recordingDeadLetter{}
+	p.deadLetter, p.errorQueue = dlq, "errors"
+
+	const overflow = 5
+	total := endpointConcurrency + endpointQueueSize + overflow
+	for i := 0; i < total; i++ {
+		p.deliver(stuck.URL, []byte(`{}`), "i1", nil)
+		// Let the workers take their first deliveries so capacity is exact.
+		if i == endpointConcurrency-1 {
+			waitFor(t, func() bool {
+				p.mu.Lock()
+				defer p.mu.Unlock()
+				return len(p.endpoints[stuck.URL].backlog) == 0
+			}, "workers did not start")
+		}
+	}
+
+	dlq.mu.Lock()
+	defer dlq.mu.Unlock()
+	if len(dlq.bodies) != overflow {
+		t.Fatalf("dead-lettered %d, want %d", len(dlq.bodies), overflow)
+	}
+	if !bytes.Contains(dlq.bodies[0], []byte(errQueueFull.Error())) {
+		t.Fatalf("dead letter lacks the reason: %s", dlq.bodies[0])
+	}
+}
+
+// The backlog is also bounded in bytes, because an event can carry media.
+func TestBacklogIsBoundedInBytes(t *testing.T) {
+	release := make(chan struct{})
+	stuck := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-release
+	}))
+	defer stuck.Close()
+	defer close(release)
+
+	p := newTestProducer(t, "")
+	payload := make([]byte, maxEndpointQueueBytes/2+1)
+
+	p.mu.Lock()
+	p.endpoints[stuck.URL] = &endpoint{workers: endpointConcurrency} // no worker drains it
+	p.mu.Unlock()
+
+	d := delivery{url: stuck.URL, payload: payload, userID: "i1"}
+	if !p.enqueue(d) {
+		t.Fatal("a lone oversized event must be accepted")
+	}
+	if p.enqueue(d) {
+		t.Fatal("a second event over the byte budget must be refused")
+	}
+
+	p.mu.Lock()
+	delete(p.endpoints, stuck.URL)
+	p.mu.Unlock()
+	p.pending.Store(0)
 }

@@ -106,3 +106,134 @@ func TestClientKeyPrefersToken(t *testing.T) {
 		t.Fatalf("ClientKey = %q, want the token", got)
 	}
 }
+
+// authFailingRouter answers 401 unless the apikey is "good".
+func authFailingRouter(l *Limiter) *gin.Engine {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(MiddlewareWithAdmin(l, nil, "admin-key"))
+	r.GET("/x", func(c *gin.Context) {
+		if key := c.GetHeader("apikey"); key != "good" && key != "admin-key" {
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+		c.Status(http.StatusOK)
+	})
+	return r
+}
+
+func requestWithKey(r *gin.Engine, key string) int {
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/x", nil)
+	req.RemoteAddr = "203.0.113.9:1234"
+	req.Header.Set("apikey", key)
+	r.ServeHTTP(w, req)
+	return w.Code
+}
+
+// Every guess is a new key with a fresh budget, so the per-key limit alone never
+// stopped guessing: 10,000 guesses used to get through with no 429 at all.
+func TestRotatingKeysAreStoppedPerIP(t *testing.T) {
+	r := authFailingRouter(NewLimiter(600, time.Minute))
+
+	reached := 0
+	for i := 0; i < 500; i++ {
+		switch requestWithKey(r, "guess-"+itoa(i+1)) {
+		case http.StatusUnauthorized:
+			reached++
+		case http.StatusTooManyRequests:
+		default:
+			t.Fatal("unexpected status")
+		}
+	}
+	if reached != authFailureLimit {
+		t.Fatalf("%d guesses reached auth, want %d", reached, authFailureLimit)
+	}
+}
+
+// Blocked guesses must not grow the limiter either.
+func TestBlockedGuessesDoNotCreateBuckets(t *testing.T) {
+	l := NewLimiter(600, time.Minute)
+	r := authFailingRouter(l)
+	for i := 0; i < 500; i++ {
+		requestWithKey(r, "guess-"+itoa(i+1))
+	}
+	if n := len(l.hits); n != authFailureLimit {
+		t.Fatalf("limiter holds %d keys, want %d", n, authFailureLimit)
+	}
+}
+
+// A tenant already working from this IP keeps working while a neighbour on the
+// same NAT guesses.
+func TestWorkingKeySurvivesNeighbourGuessing(t *testing.T) {
+	r := authFailingRouter(NewLimiter(600, time.Minute))
+
+	if code := requestWithKey(r, "good"); code != http.StatusOK {
+		t.Fatalf("status = %d", code)
+	}
+	for i := 0; i < 100; i++ {
+		requestWithKey(r, "guess-"+itoa(i+1))
+	}
+	if code := requestWithKey(r, "good"); code != http.StatusOK {
+		t.Fatalf("working key got %d during a neighbour's guessing", code)
+	}
+}
+
+func TestAdminKeyIsNeverBlockedByFailures(t *testing.T) {
+	r := authFailingRouter(NewLimiter(600, time.Minute))
+	for i := 0; i < 100; i++ {
+		requestWithKey(r, "guess-"+itoa(i+1))
+	}
+	if code := requestWithKey(r, "admin-key"); code != http.StatusOK {
+		t.Fatalf("admin key got %d", code)
+	}
+}
+
+// The block lifts with the window.
+func TestAuthFailureBlockExpires(t *testing.T) {
+	failures := NewLimiter(1, time.Minute)
+	now := time.Now()
+	failures.nowFunc = func() time.Time { return now }
+
+	failures.Allow("ip")
+	if blocked, _ := failures.exhausted("ip"); !blocked {
+		t.Fatal("expected blocked")
+	}
+	now = now.Add(time.Minute)
+	if blocked, _ := failures.exhausted("ip"); blocked {
+		t.Fatal("expected the block to lift")
+	}
+}
+
+// New keys must not scan the map: it holds the lock every request needs, and that
+// scan is what took legitimate p50 from 0.33 ms to 100 ms under junk keys. Expired
+// windows are still dropped once per window, so the map stays bounded.
+func TestSweepRunsAtMostOncePerWindow(t *testing.T) {
+	l := NewLimiter(10, time.Minute)
+	now := time.Now()
+	l.nowFunc = func() time.Time { return now }
+
+	l.Allow("first") // t=0: sweeps an empty map and starts the clock
+	now = now.Add(2 * time.Second)
+	l.Allow("old") // t=2
+	now = now.Add(59 * time.Second)
+	l.Allow("trigger") // t=61: a sweep is due, and only "first" has expired
+	if _, ok := l.hits["first"]; ok {
+		t.Fatal("expired key survived a due sweep")
+	}
+	if _, ok := l.hits["old"]; !ok {
+		t.Fatal("swept a key that had not expired")
+	}
+
+	now = now.Add(2 * time.Second)
+	l.Allow("no-sweep") // t=63: "old" has expired, but the last sweep was 2s ago
+	if _, ok := l.hits["old"]; !ok {
+		t.Fatal("swept again inside the same window")
+	}
+
+	now = now.Add(time.Minute)
+	l.Allow("later")
+	if _, ok := l.hits["old"]; ok {
+		t.Fatal("expired key survived the next due sweep")
+	}
+}

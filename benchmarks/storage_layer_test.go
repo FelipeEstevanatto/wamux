@@ -28,7 +28,7 @@ INSERT INTO messages
   (id, message_id, instance_id, timestamp, status, source, chat_jid, sender_jid,
    message_type, text_content, media_url, media_mimetype, quoted_message_id, is_from_me)
 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
-ON CONFLICT (message_id) DO UPDATE SET
+ON CONFLICT (instance_id, message_id) DO UPDATE SET
   timestamp=EXCLUDED.timestamp, status=EXCLUDED.status, source=EXCLUDED.source,
   chat_jid=EXCLUDED.chat_jid, sender_jid=EXCLUDED.sender_jid,
   message_type=EXCLUDED.message_type, text_content=EXCLUDED.text_content,
@@ -140,7 +140,7 @@ func rawBatchInsert(db *sql.DB, msgs []message_model.Message) error {
 			m.ChatJid, m.SenderJid, m.MessageType, m.TextContent,
 			m.MediaUrl, m.MediaMimetype, m.QuotedMessageID, m.IsFromMe)
 	}
-	sb.WriteString(` ON CONFLICT (message_id) DO UPDATE SET
+	sb.WriteString(` ON CONFLICT (instance_id, message_id) DO UPDATE SET
   timestamp=EXCLUDED.timestamp, status=EXCLUDED.status, source=EXCLUDED.source,
   chat_jid=EXCLUDED.chat_jid, sender_jid=EXCLUDED.sender_jid,
   message_type=EXCLUDED.message_type, text_content=EXCLUDED.text_content,

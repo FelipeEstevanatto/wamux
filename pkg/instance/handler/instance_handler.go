@@ -817,6 +817,26 @@ func (h *instanceHandler) GetLogs(c *gin.Context) {
 	c.JSON(http.StatusOK, logs)
 }
 
+// authorizedInstanceParam returns the :instanceId path parameter after checking
+// it names the instance the token authenticated as. These routes run behind
+// per-instance auth, which proves the caller owns *an* instance, not the one in
+// the path, so without this any tenant could read or change another's settings.
+// It writes the error response itself and reports false when the caller must stop.
+func authorizedInstanceParam(c *gin.Context) (string, bool) {
+	instanceId := c.Param("instanceId")
+	if instanceId == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "instanceId is required"})
+		return "", false
+	}
+
+	instance, ok := c.MustGet("instance").(*instance_model.Instance)
+	if !ok || instance == nil || instance.Id != instanceId {
+		c.JSON(http.StatusForbidden, gin.H{"error": "not authorized for this instance"})
+		return "", false
+	}
+	return instanceId, true
+}
+
 // GetAdvancedSettings retrieves advanced settings for an instance
 // @Summary Get advanced settings
 // @Description Get advanced settings for a specific instance
@@ -829,10 +849,8 @@ func (h *instanceHandler) GetLogs(c *gin.Context) {
 // @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /instance/{instanceId}/advanced-settings [get]
 func (h *instanceHandler) GetAdvancedSettings(c *gin.Context) {
-	instanceId := c.Param("instanceId")
-
-	if instanceId == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "instanceId is required"})
+	instanceId, ok := authorizedInstanceParam(c)
+	if !ok {
 		return
 	}
 
@@ -859,10 +877,8 @@ func (h *instanceHandler) GetAdvancedSettings(c *gin.Context) {
 // @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /instance/{instanceId}/advanced-settings [put]
 func (h *instanceHandler) UpdateAdvancedSettings(c *gin.Context) {
-	instanceId := c.Param("instanceId")
-
-	if instanceId == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "instanceId is required"})
+	instanceId, ok := authorizedInstanceParam(c)
+	if !ok {
 		return
 	}
 

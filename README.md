@@ -122,6 +122,7 @@ A few of the most-used settings:
 | `SSRF_PROTECTION` | Opt-in: refuse outbound fetches to loopback/private/link-local hosts | `false` |
 | `WEBHOOK_HMAC_KEY` | Global key for webhook HMAC signing | — |
 | `RATE_LIMIT_PER_MINUTE` | Requests per credential / per IP (`0` disables) | `600` |
+| `TRUSTED_PROXIES` | Proxy IPs/CIDRs allowed to set `X-Forwarded-For`; required behind a reverse proxy | none |
 
 RabbitMQ, NATS and MinIO settings are in the same `.env.example`.
 
