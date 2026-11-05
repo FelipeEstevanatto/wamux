@@ -37,6 +37,12 @@ func buildEditProtocolMessage(target *waCommon.MessageKey, decrypted *waE2E.Mess
 		return nil
 	}
 
+	// A real edit decrypts to the finished protocol message, not to the new content.
+	// Wrapping that again would bury the text a level deeper than consumers look.
+	if inner := decrypted.GetProtocolMessage(); inner.GetType() == waE2E.ProtocolMessage_MESSAGE_EDIT && inner.GetEditedMessage() != nil {
+		return &waE2E.Message{ProtocolMessage: inner}
+	}
+
 	protocolMessage := &waE2E.ProtocolMessage{
 		Key:           target,
 		Type:          waE2E.ProtocolMessage_MESSAGE_EDIT.Enum(),

@@ -6,6 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"go.mau.fi/whatsmeow/proto/waE2E"
+	"google.golang.org/protobuf/proto"
 )
 
 func hungTool(t *testing.T) string {
@@ -45,5 +48,14 @@ func TestHungPdfToolDoesNotBlockTheThumbnail(t *testing.T) {
 	}
 	if took := time.Since(start); took > 5*time.Second {
 		t.Fatalf("took %v", took)
+	}
+}
+
+func TestMimetypeOfACaptionedDocument(t *testing.T) {
+	got := detectMessageMimetype(&waE2E.Message{DocumentWithCaptionMessage: &waE2E.FutureProofMessage{
+		Message: &waE2E.Message{DocumentMessage: &waE2E.DocumentMessage{Mimetype: proto.String("application/pdf")}},
+	}})
+	if got != "application/pdf" {
+		t.Fatalf("got %q", got)
 	}
 }

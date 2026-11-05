@@ -13,7 +13,7 @@ import "go.mau.fi/whatsmeow/proto/waE2E"
 type Summary struct {
 	// Type is one of: text, image, video, audio, document, sticker, location,
 	// contact, reaction, edit, delete, poll, poll_update, buttons_response,
-	// list_response, interactive_response, unknown.
+	// list_response, interactive_response, buttons, list, interactive, unknown.
 	Type string
 	// Text is the visible body/caption/name, or the replacement text for edits.
 	Text string
@@ -29,9 +29,11 @@ func Summarize(msg *waE2E.Message) Summary {
 		return Summary{Type: "unknown"}
 	}
 
-	// whatsmeow unwraps this for received messages, but a document we send with a
-	// caption is still wrapped when it is recorded.
+	// whatsmeow unwraps these for received messages, but what we send is still
+	// wrapped when it is recorded.
 	if inner := msg.GetDocumentWithCaptionMessage().GetMessage(); inner != nil {
+		msg = inner
+	} else if inner := msg.GetViewOnceMessage().GetMessage(); inner != nil {
 		msg = inner
 	}
 
@@ -101,6 +103,14 @@ func Summarize(msg *waE2E.Message) Summary {
 		return Summary{Type: "list_response", Text: msg.GetListResponseMessage().GetTitle()}
 	case msg.GetInteractiveResponseMessage() != nil:
 		return Summary{Type: "interactive_response"}
+	case msg.GetTemplateButtonReplyMessage() != nil:
+		return Summary{Type: "buttons_response", Text: msg.GetTemplateButtonReplyMessage().GetSelectedDisplayText()}
+	case msg.GetButtonsMessage() != nil:
+		return Summary{Type: "buttons", Text: msg.GetButtonsMessage().GetContentText()}
+	case msg.GetListMessage() != nil:
+		return Summary{Type: "list", Text: msg.GetListMessage().GetDescription()}
+	case msg.GetInteractiveMessage() != nil:
+		return Summary{Type: "interactive", Text: msg.GetInteractiveMessage().GetBody().GetText()}
 	}
 
 	return Summary{Type: "unknown"}

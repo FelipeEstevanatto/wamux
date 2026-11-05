@@ -23,3 +23,33 @@ func TestSummarizeEmptyWrapperIsUnknown(t *testing.T) {
 		t.Fatalf("got %+v", got)
 	}
 }
+
+func TestSummarizeButtons(t *testing.T) {
+	cases := []struct {
+		name string
+		msg  *waE2E.Message
+		kind string
+		text string
+	}{
+		{"tapped template button", &waE2E.Message{TemplateButtonReplyMessage: &waE2E.TemplateButtonReplyMessage{
+			SelectedDisplayText: proto.String("Tap me"),
+		}}, "buttons_response", "Tap me"},
+		{"sent buttons", &waE2E.Message{ButtonsMessage: &waE2E.ButtonsMessage{ContentText: proto.String("Pick")}}, "buttons", "Pick"},
+		{"sent list", &waE2E.Message{ListMessage: &waE2E.ListMessage{Description: proto.String("Pick")}}, "list", "Pick"},
+		{"sent interactive", &waE2E.Message{InteractiveMessage: &waE2E.InteractiveMessage{
+			Body: &waE2E.InteractiveMessage_Body{Text: proto.String("Pick")},
+		}}, "interactive", "Pick"},
+		{"wrapped interactive", &waE2E.Message{ViewOnceMessage: &waE2E.FutureProofMessage{
+			Message: &waE2E.Message{InteractiveMessage: &waE2E.InteractiveMessage{
+				Body: &waE2E.InteractiveMessage_Body{Text: proto.String("Pick")},
+			}},
+		}}, "interactive", "Pick"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := Summarize(tc.msg); got.Type != tc.kind || got.Text != tc.text {
+				t.Fatalf("got %+v", got)
+			}
+		})
+	}
+}

@@ -2527,6 +2527,12 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 			mycli.handlePollVote(evt)
 		}
 
+		// Edits arrive sealed in a secretEncryptedMessage envelope. Unwrap before typing
+		// the message, so it is classified as "edit" and the webhook carries the new text.
+		// Like a poll vote, this must run before the swap: the key is derived from the
+		// sender as it arrived, so a swapped one fails authentication.
+		mycli.unwrapSecretEncryptedEdit(evt)
+
 		// A read receipt must use the JIDs WhatsApp addressed the message with, so
 		// keep them before the swap below rewrites them.
 		readChat, readSender := evt.Info.Chat, evt.Info.Sender
@@ -2606,13 +2612,9 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 			})
 		}
 
-		// Edits arrive sealed in a secretEncryptedMessage envelope. Unwrap before typing the
-		// message, so it is classified as "edit" and the webhook carries the new text.
-		mycli.unwrapSecretEncryptedEdit(evt)
-
 		parsedMessageType := utils.GetMessageType(evt.Message)
 		if parsedMessageType == "ignore" || strings.HasPrefix(parsedMessageType, "unknown_protocol_") {
-			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Message ignored because it's a unknown protocol message", mycli.userID)
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Message %s ignored: %s", mycli.userID, evt.Info.ID, parsedMessageType)
 			return
 		}
 

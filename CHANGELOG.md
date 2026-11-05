@@ -47,6 +47,11 @@
 - **Undecryptable IDs starting 66/67** reconnect through the backoff, off the event
   path, instead of inline once per message.
 - **A `null` JSON body** returns 400 on every endpoint instead of panicking.
+- **Message edits arrived as an unreadable blob** — they were decrypted after the
+  LID was swapped for the phone number, which changes the key. They now reach
+  webhooks flagged `IsEdit` with the new text, and are stored as `edit`.
+- **Buttons** are stored as `interactive` and `buttons_response`, not `unknown`.
+- **Captioned documents we send** keep their mimetype.
 
 ### ⚠️ Behaviour changes
 - Events for files above the limit carry `mediaUrl` and `base64Omitted: true`

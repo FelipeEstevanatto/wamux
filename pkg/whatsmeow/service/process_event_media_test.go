@@ -12,10 +12,13 @@ import (
 	"time"
 
 	"go.mau.fi/whatsmeow"
+	"go.mau.fi/whatsmeow/proto/waCommon"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/store"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
+	"go.mau.fi/whatsmeow/util/gcmutil"
+	"go.mau.fi/whatsmeow/util/hkdfutil"
 	"google.golang.org/protobuf/proto"
 
 	localmedia "github.com/felipeestevanatto/wamux/pkg/media"
@@ -365,5 +368,68 @@ func TestUndecryptableVoteStillDelivers(t *testing.T) {
 	case vote := <-polls.votes:
 		t.Fatalf("saved %+v", vote)
 	case <-time.After(30 * time.Millisecond):
+	}
+}
+
+// sealedEdit encrypts an edit the way WhatsApp does: the key depends on the sender
+// as addressed on the wire, which for most contacts is now a LID.
+func sealedEdit(t *testing.T, secret []byte, originalID string, sender types.JID, text string) *waE2E.Message {
+	t.Helper()
+	// The shape a phone really sends: the sealed content is itself the edit.
+	target := &waCommon.MessageKey{RemoteJID: proto.String(sender.String()), ID: proto.String(originalID)}
+	plaintext, err := proto.Marshal(&waE2E.Message{
+		MessageContextInfo: &waE2E.MessageContextInfo{MessageSecret: []byte("secret")},
+		ProtocolMessage: &waE2E.ProtocolMessage{
+			Type: waE2E.ProtocolMessage_MESSAGE_EDIT.Enum(),
+			Key:  target,
+			EditedMessage: &waE2E.Message{ExtendedTextMessage: &waE2E.ExtendedTextMessage{
+				Text: proto.String(text),
+			}},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Mirrors whatsmeow's generateMsgSecretKey for a message edit.
+	useCase := []byte(originalID + sender.String() + sender.String() + string(whatsmeow.EncSecretMessageEdit))
+	iv := bytes.Repeat([]byte{3}, 12)
+	payload, err := gcmutil.Encrypt(hkdfutil.SHA256(secret, nil, useCase, 32), iv, plaintext, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &waE2E.Message{SecretEncryptedMessage: &waE2E.SecretEncryptedMessage{
+		SecretEncType:    waE2E.SecretEncryptedMessage_MESSAGE_EDIT.Enum(),
+		TargetMessageKey: target,
+		EncPayload:       payload,
+		EncIV:            iv,
+	}}
+}
+
+// Found with a real phone: the edit was decrypted after the LID was swapped for the
+// phone number, which changes the key, so every edit reached consumers as a blob.
+func TestEditFromALIDContactIsDecrypted(t *testing.T) {
+	h := newEventHarness(t)
+	lid := mustJID(t, testContactLID)
+	secret := bytes.Repeat([]byte{7}, 32)
+	h.cli.WAClient.Store.MsgSecrets = memorySecrets{secret: secret, sender: lid}
+	h.cli.clientPointer.Set(testInstanceID, h.cli.WAClient)
+
+	evt := inbound(t, "EDIT1", "")
+	evt.Info.Chat, evt.Info.Sender = lid, lid
+	evt.Info.SenderAlt = mustJID(t, testContact)
+	evt.Message = sealedEdit(t, secret, "ORIGINAL", lid, "the new text")
+
+	got := h.one(t, evt)
+	wantField(t, got, true, "data", "IsEdit")
+	wantField(t, got, "edit", "data", "messageType")
+	wantField(t, got, "the new text", "data", "Message", "protocolMessage", "editedMessage", "extendedTextMessage", "text")
+	if field(got, "data", "Message", "messageContextInfo") != nil {
+		t.Error("the message secret reached the payload")
+	}
+	wantField(t, got, testContact, "data", "Info", "Chat")
+
+	m := h.messages.stored()[0]
+	if m.MessageType != "edit" || m.TextContent != "the new text" || m.QuotedMessageID != "ORIGINAL" {
+		t.Errorf("stored %+v", m)
 	}
 }

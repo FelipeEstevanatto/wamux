@@ -4140,6 +4140,10 @@ func detectMessageMimetype(msg *waE2E.Message) string {
 	if msg == nil {
 		return ""
 	}
+	// A document with a caption is sent wrapped.
+	if inner := msg.GetDocumentWithCaptionMessage().GetMessage(); inner != nil {
+		msg = inner
+	}
 	switch {
 	case msg.GetImageMessage() != nil:
 		return msg.GetImageMessage().GetMimetype()
