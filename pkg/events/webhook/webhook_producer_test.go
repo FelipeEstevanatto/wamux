@@ -23,6 +23,11 @@ func newTestProducer(t *testing.T, globalURL string) *webhookProducer {
 	t.Helper()
 
 	logs := logger_wrapper.NewLoggerManager(&config.Config{LogDirectory: t.TempDir()})
+	// The logger writes asynchronously. Close it before t.TempDir's cleanup so
+	// the writer goroutine cannot touch the directory while it is being removed.
+	t.Cleanup(func() {
+		_ = logs.GetLogger("i1").Close()
+	})
 	p := NewWebhookProducer(globalURL, logs).(*webhookProducer)
 	p.maxAttempts = 3
 	p.baseDelay = time.Millisecond
