@@ -32,6 +32,9 @@ type Limiter struct {
 	limit   int
 	window  time.Duration
 	nowFunc func() time.Time // injectable for tests
+
+	// lastSweep is when expired windows were last dropped. See sweepLocked.
+	lastSweep time.Time
 }
 
 type bucket struct {
@@ -79,10 +82,45 @@ func (l *Limiter) Allow(key string) (bool, time.Duration) {
 	return true, 0
 }
 
-// sweepLocked drops windows that have expired. It runs on each new window so the
-// map cannot grow without bound as new clients appear; the cost is amortised
-// because it only touches entries while iterating for a fresh key.
+// exhausted reports whether key has used its whole budget, without spending any
+// of it, and how long until the window rolls over.
+func (l *Limiter) exhausted(key string) (bool, time.Duration) {
+	if l == nil {
+		return false, 0
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	now := l.nowFunc()
+	w, ok := l.hits[key]
+	if !ok || now.Sub(w.start) >= l.window || w.count < l.limit {
+		return false, 0
+	}
+	return true, l.window - now.Sub(w.start)
+}
+
+// active reports whether key already holds a live window.
+func (l *Limiter) active(key string) bool {
+	if l == nil {
+		return false
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	w, ok := l.hits[key]
+	return ok && l.nowFunc().Sub(w.start) < l.window
+}
+
+// sweepLocked drops windows that have expired, so the map cannot grow without
+// bound as new clients appear. It runs at most once per window: it holds the one
+// lock every request needs, and scanning on each new key made a stream of unique
+// keys O(n) per request, which measured 100 ms p50 for legitimate traffic at only
+// ~800 req/s of junk keys.
 func (l *Limiter) sweepLocked(now time.Time) {
+	if now.Sub(l.lastSweep) < l.window {
+		return
+	}
+	l.lastSweep = now
 	for k, w := range l.hits {
 		if now.Sub(w.start) >= l.window {
 			delete(l.hits, k)
@@ -127,6 +165,10 @@ var HealthPaths = map[string]struct{}{
 //     read stats) are rare and should not compete with message traffic.
 //
 // A nil limiter is a no-op passthrough.
+//
+// Failed authentication is also budgeted per client IP (see authFailureLimit).
+// The limiter keys on the presented credential, so on its own it cannot stop
+// guessing: every new guess is a new key with a fresh budget.
 func Middleware(l *Limiter) gin.HandlerFunc {
 	return MiddlewareWithAdmin(l, nil, "")
 }
@@ -148,6 +190,11 @@ func MiddlewareWithAdmin(l *Limiter, admin *Limiter, globalKey string) gin.Handl
 		admin = NewLimiter(adminLimit, l.window)
 	}
 
+	var failures *Limiter
+	if l != nil {
+		failures = NewLimiter(authFailureLimit, l.window)
+	}
+
 	return func(c *gin.Context) {
 		if l == nil {
 			c.Next()
@@ -165,30 +212,56 @@ func MiddlewareWithAdmin(l *Limiter, admin *Limiter, globalKey string) gin.Handl
 		// compete with per-instance message traffic.
 		limiter := l
 		key := ClientKey(c)
-		if globalKey != "" && key == globalKey && admin != nil {
+		isAdmin := globalKey != "" && key == globalKey && admin != nil
+		if isAdmin {
 			limiter = admin
 			key = adminKeyPrefix + key
 		}
 
+		// Stop an IP that keeps failing auth, before it can add another key to the
+		// limiter or reach the database. A credential already holding a live
+		// window passes: a neighbour guessing from a shared NAT must not lock out
+		// a working tenant, and such a key cannot be a new guess.
+		clientIP := c.ClientIP()
+		if !isAdmin && !limiter.active(key) {
+			if blocked, retryAfter := failures.exhausted(clientIP); blocked {
+				abortTooManyRequests(c, retryAfter, "too many failed authentication attempts")
+				return
+			}
+		}
+
 		ok, retryAfter := limiter.Allow(key)
 		if !ok {
-			seconds := int(retryAfter.Seconds())
-			if seconds < 1 {
-				seconds = 1
-			}
-			c.Header("Retry-After", itoa(seconds))
-			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
-				"error": "rate limit exceeded",
-			})
+			abortTooManyRequests(c, retryAfter, "rate limit exceeded")
 			return
 		}
 		c.Next()
+
+		if c.Writer.Status() == http.StatusUnauthorized {
+			failures.Allow(clientIP)
+		}
 	}
+}
+
+// abortTooManyRequests ends the request with a 429 and a Retry-After of at least
+// one second.
+func abortTooManyRequests(c *gin.Context, retryAfter time.Duration, message string) {
+	seconds := int(retryAfter.Seconds())
+	if seconds < 1 {
+		seconds = 1
+	}
+	c.Header("Retry-After", itoa(seconds))
+	c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"error": message})
 }
 
 // adminKeyPrefix namespaces admin-key buckets so they cannot collide with a
 // tenant token that happens to equal the admin key.
 const adminKeyPrefix = "admin:"
+
+// authFailureLimit is how many failed authentications one IP gets per window.
+// Far above what a misconfigured client needs to notice its key is wrong, and far
+// below what makes guessing a credential worthwhile.
+const authFailureLimit = 30
 
 // itoa avoids pulling strconv into the hot path signature; small and clear.
 func itoa(n int) string {

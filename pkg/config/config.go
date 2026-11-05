@@ -146,6 +146,10 @@ type Config struct {
 	// credentials combination was both unsafe and spec-invalid.
 	RateLimitPerMinute int
 	CorsAllowedOrigins []string
+	// TrustedProxies lists the proxy IPs/CIDRs whose X-Forwarded-For is believed.
+	// Empty trusts none. The rate limiter keys anonymous traffic on the client IP,
+	// so trusting every peer would let any caller pick their own bucket.
+	TrustedProxies []string
 
 	// CompressionEnabled gzip-encodes responses for clients that accept it. On
 	// by default; set HTTP_COMPRESSION=false when a proxy in front already
@@ -573,6 +577,7 @@ func Load() *Config {
 		rateLimitPerMinute = 600
 	}
 	corsAllowedOrigins := parseCSV(os.Getenv(config_env.CORS_ALLOWED_ORIGINS))
+	trustedProxies := parseCSV(os.Getenv(config_env.TRUSTED_PROXIES))
 
 	// Response compression. On unless explicitly disabled, because a proxy in
 	// front that already compresses would otherwise double-encode every body.
@@ -693,6 +698,7 @@ func Load() *Config {
 		DBNodeCount:              nodeCount,
 		RateLimitPerMinute:       rateLimitPerMinute,
 		CorsAllowedOrigins:       corsAllowedOrigins,
+		TrustedProxies:           trustedProxies,
 		CompressionEnabled:       compressionEnabled,
 		MaxInstances:             maxInstances,
 		SendRateLimitPerMinute:   sendRateLimitPerMinute,

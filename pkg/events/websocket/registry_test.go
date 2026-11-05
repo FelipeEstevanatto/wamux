@@ -1,10 +1,16 @@
 package websocket_producer
 
 import (
+	"bytes"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/felipeestevanatto/wamux/pkg/config"
 	logger_wrapper "github.com/felipeestevanatto/wamux/pkg/logger"
+	"github.com/gorilla/websocket"
 )
 
 // newTestProducer builds a producer backed by a real file logger (the registry
@@ -112,5 +118,147 @@ func TestBroadcastRegistry(t *testing.T) {
 	p.clientsMux.RUnlock()
 	if len(remaining) != 1 || remaining[0] != b {
 		t.Fatalf("broadcast removal = %v, want [b]", remaining)
+	}
+}
+
+// dialSubscriber connects a real subscriber through ServeWs.
+func dialSubscriber(t *testing.T, p *websocketProducer, instanceID string) *websocket.Conn {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ServeWs(w, r, instanceID, p)
+	}))
+	t.Cleanup(srv.Close)
+
+	conn, _, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(srv.URL, "http"), nil)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+	return conn
+}
+
+func subscriberCount(p *websocketProducer) int {
+	p.clientsMux.RLock()
+	defer p.clientsMux.RUnlock()
+	return len(p.broadcast)
+}
+
+func waitForCount(t *testing.T, p *websocketProducer, want int) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for subscriberCount(p) != want {
+		if time.Now().After(deadline) {
+			t.Fatalf("broadcast subscribers = %d, want %d", subscriberCount(p), want)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+// A subscriber that stops reading must not hold up the caller, which goes on to
+// deliver the same event to the webhook. The blocking writer this replaces let
+// 41 of 2,000 events through.
+func TestStalledSubscriberNeverBlocksProduce(t *testing.T) {
+	p := newTestProducer(t, "inst")
+	dialSubscriber(t, p, "") // never reads
+	waitForCount(t, p, 1)
+
+	payload := bytes.Repeat([]byte("x"), 64<<10)
+	start := time.Now()
+	for i := 0; i < 2000; i++ {
+		if err := p.Produce("q", payload, "inst", ""); err != nil {
+			t.Fatalf("Produce: %v", err)
+		}
+	}
+	if elapsed := time.Since(start); elapsed > 3*time.Second {
+		t.Fatalf("2000 events took %s: Produce waited on the socket", elapsed)
+	}
+
+	// And it is evicted, rather than kept buffering.
+	waitForCount(t, p, 0)
+}
+
+// A stalled subscriber must not cost a healthy sibling anything.
+func TestHealthySubscriberKeepsReceivingNextToStalledOne(t *testing.T) {
+	p := newTestProducer(t, "inst")
+	dialSubscriber(t, p, "") // stalled
+	healthy := dialSubscriber(t, p, "inst")
+	waitForCount(t, p, 1)
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		p.clientsMux.RLock()
+		n := len(p.clients["inst"])
+		p.clientsMux.RUnlock()
+		if n == 1 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("healthy subscriber never registered")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	const events = 600
+	received := make(chan int, 1)
+	go func() {
+		n := 0
+		for n < events {
+			_ = healthy.SetReadDeadline(time.Now().Add(5 * time.Second))
+			if _, _, err := healthy.ReadMessage(); err != nil {
+				break
+			}
+			n++
+		}
+		received <- n
+	}()
+
+	payload := bytes.Repeat([]byte("x"), 64<<10)
+	for i := 0; i < events; i++ {
+		_ = p.Produce("q", payload, "inst", "")
+		time.Sleep(200 * time.Microsecond) // a realistic reader keeps up
+	}
+	if n := <-received; n != events {
+		t.Fatalf("healthy subscriber received %d of %d", n, events)
+	}
+}
+
+// The wire format is what the manager parses.
+func TestFrameFormatIsUnchanged(t *testing.T) {
+	p := newTestProducer(t, "inst")
+	conn := dialSubscriber(t, p, "inst")
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		p.clientsMux.RLock()
+		n := len(p.clients["inst"])
+		p.clientsMux.RUnlock()
+		if n == 1 || time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	if err := p.Produce("Inst.Message", []byte(`{"event":"Message"}`), "inst", ""); err != nil {
+		t.Fatal(err)
+	}
+	_ = conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	var got map[string]string
+	if err := conn.ReadJSON(&got); err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if got["queue"] != "inst.message" || got["payload"] != `{"event":"Message"}` {
+		t.Fatalf("frame = %v", got)
+	}
+}
+
+// A payload can be a whole video in base64: with nobody listening it must not be
+// copied or encoded at all.
+func TestProduceDoesNoWorkWithoutSubscribers(t *testing.T) {
+	p := newTestProducer(t, "inst")
+	payload := bytes.Repeat([]byte("x"), 1<<20)
+
+	allocs := testing.AllocsPerRun(5, func() {
+		_ = p.Produce("q", payload, "inst", "")
+	})
+	if allocs > 5 {
+		t.Fatalf("%.0f allocations with no subscribers", allocs)
 	}
 }

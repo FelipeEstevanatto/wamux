@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	json "github.com/felipeestevanatto/wamux/pkg/jsonx"
+	"github.com/felipeestevanatto/wamux/pkg/killswitch"
 	"github.com/felipeestevanatto/wamux/pkg/safemap"
 	"image/png"
 	"io"
@@ -14,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -203,7 +205,7 @@ type whatsmeowService struct {
 	labelRepository    label_repository.LabelRepository
 	pollService        poll_service.PollService // NOVO: Serviço de enquetes
 	config             *config.Config
-	killChannel        *safemap.Map[chan bool]
+	killChannel        *safemap.Map[*killswitch.Switch]
 	userInfoCache      *cache.Cache
 	chatNameCache      *cache.Cache
 	groupInfoCache     *cache.Cache
@@ -221,6 +223,8 @@ type whatsmeowService struct {
 	passkeyCeremony    *ceremony.Store
 	persistPool        *persistPool
 	bgPool             *bgpool.Pool
+	mediaPool          *bgpool.Pool
+	largeMediaPool     *bgpool.Pool
 	// ownershipGuard guarantees one node connects an instance at a time
 	// (Postgres advisory locks). Nil/unsupported means single-node behaviour.
 	ownershipGuard *ownership.Guard
@@ -275,24 +279,31 @@ type MyClient struct {
 	pollService        poll_service.PollService // NOVO: Serviço de enquetes
 	clientPointer      *safemap.Map[*whatsmeow.Client]
 	myClientPointer    *safemap.Map[*MyClient]
-	killChannel        *safemap.Map[chan bool]
-	userInfoCache      *cache.Cache
-	config             *config.Config
-	groupInfoCache     *cache.Cache
-	historySyncID      int32
-	rabbitmqProducer   producer_interfaces.Producer
-	webhookProducer    producer_interfaces.Producer
-	websocketProducer  producer_interfaces.Producer
-	mediaStorage       storage_interfaces.MediaStorage
-	processedMessages  *cache.Cache
-	natsProducer       producer_interfaces.Producer
-	loggerWrapper      *logger_wrapper.LoggerManager
-	qrcodeCount        int
-	passkeyCeremony    *ceremony.Store
-	persistPool        *persistPool
+	// kill is this client's own switch. Held directly, not looked up by instance,
+	// so a signal can never reach a replacement client by mistake.
+	kill              *killswitch.Switch
+	userInfoCache     *cache.Cache
+	config            *config.Config
+	groupInfoCache    *cache.Cache
+	historySyncID     int32
+	rabbitmqProducer  producer_interfaces.Producer
+	webhookProducer   producer_interfaces.Producer
+	websocketProducer producer_interfaces.Producer
+	mediaStorage      storage_interfaces.MediaStorage
+	processedMessages *cache.Cache
+	natsProducer      producer_interfaces.Producer
+	loggerWrapper     *logger_wrapper.LoggerManager
+	qrcodeCount       int
+	passkeyCeremony   *ceremony.Store
+	persistPool       *persistPool
 	// bgPool bounds the fire-and-forget event work (poll votes, limit refresh,
 	// auto-read, …) so a burst cannot spawn unbounded goroutines.
-	bgPool             *bgpool.Pool
+	bgPool *bgpool.Pool
+	// mediaPool and largeMediaPool run messages that need a media download. See
+	// routeEvent.
+	mediaPool          *bgpool.Pool
+	largeMediaPool     *bgpool.Pool
+	presenceStarted    atomic.Bool
 	appStateRecoveryMu sync.Mutex
 	appStateRecovery   map[appstate.WAPatchName]appStateRecoveryAttempt
 	nctSaltSyncMu      sync.Mutex
@@ -771,36 +782,16 @@ func (w whatsmeowService) ReconnectClient(instanceId string) error {
 	// Passo 2: Limpar todos os recursos da instância
 	w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Cleaning up resources", instanceId)
 
-	// Enviar sinal de kill se o canal existir
-	if killChan, exists := w.killChannel.Lookup(instanceId); exists {
-		select {
-		case killChan <- true:
-			w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Kill signal sent", instanceId)
-		default:
-			// Canal pode estar bloqueado, continua
-		}
-	}
+	// Detach, not Stop: this function owns the instance from here on, and by the
+	// time the old loop wakes the maps may already describe the new client.
+	w.killChannel.Get(instanceId).Fire(killswitch.Detach)
 
 	// Remover das estruturas
 	w.clientPointer.Delete(instanceId)
 	w.myClientPointer.Delete(instanceId)
 	w.killChannel.Delete(instanceId)
 
-	// Release the single-writer lock so another node may take this instance.
-	if holder, exists := w.ownershipHolders.Lookup(instanceId); exists && holder != nil {
-		if err := holder.Release(context.Background()); err != nil {
-			w.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Failed to release ownership lock: %v", instanceId, err)
-		} else {
-			w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Ownership lock released", instanceId)
-		}
-		w.ownershipHolders.Delete(instanceId)
-	}
-	// Drop the visible lease too, so the instance can be adopted immediately.
-	if w.ownershipStore != nil {
-		if err := w.ownershipStore.Release(context.Background(), instanceId); err != nil {
-			w.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Failed to release ownership lease: %v", instanceId, err)
-		}
-	}
+	w.releaseOwnership(instanceId)
 
 	// Limpar cache de userInfo para esta instância
 	if instance, err := w.instanceRepository.GetInstanceByID(instanceId); err == nil {
@@ -827,6 +818,24 @@ func (w whatsmeowService) ReconnectClient(instanceId string) error {
 	// Passo 5: Iniciar nova instância como se fosse a primeira vez
 	w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Starting fresh instance", instanceId)
 	return w.StartInstance(instanceId)
+}
+
+// releaseOwnership drops the single-writer lock and the visible lease so the
+// instance can be claimed again, by this node or another.
+func (w whatsmeowService) releaseOwnership(instanceId string) {
+	if holder, exists := w.ownershipHolders.Lookup(instanceId); exists && holder != nil {
+		if err := holder.Release(context.Background()); err != nil {
+			w.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Failed to release ownership lock: %v", instanceId, err)
+		} else {
+			w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Ownership lock released", instanceId)
+		}
+		w.ownershipHolders.Delete(instanceId)
+	}
+	if w.ownershipStore != nil {
+		if err := w.ownershipStore.Release(context.Background(), instanceId); err != nil {
+			w.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Failed to release ownership lease: %v", instanceId, err)
+		}
+	}
 }
 
 func (w whatsmeowService) ForceUpdateJid(instanceId string, number string) error {
@@ -1250,6 +1259,30 @@ const (
 // triggering a retry receipt) would otherwise spawn unbounded goroutines.
 const maxParallelRetryReceipts = 10
 
+// mediaWorkers bounds concurrent media downloads across every instance. Downloads
+// wait on the network, so this is sized for overlap rather than for CPU. Queued
+// jobs hold only the event, never the bytes.
+//
+// Files of largeMediaBytes or more get their own much smaller pool, because memory
+// is what limits them: the bytes, their base64 and the encoded event all coexist,
+// which measured about 20x the file size at peak (1.1 GB RSS for a 51 MB video).
+const (
+	mediaWorkers      = 16
+	mediaQueueSize    = 1024
+	largeMediaWorkers = 2
+	largeMediaBytes   = 8 << 20
+)
+
+// replaceKillSwitch installs a fresh switch for a client that is about to start,
+// retiring any loop still holding the previous one, so an instance can never have
+// two loops however it got here.
+func (w whatsmeowService) replaceKillSwitch(instanceID string) *killswitch.Switch {
+	w.killChannel.Get(instanceID).Fire(killswitch.Detach)
+	kill := killswitch.New()
+	w.killChannel.Set(instanceID, kill)
+	return kill
+}
+
 func (w whatsmeowService) StartClient(cd *ClientData) {
 
 	w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("Starting websocket connection to Whatsapp for user '%s'", cd.Instance.Id)
@@ -1262,6 +1295,8 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 			return
 		}
 	}
+
+	kill := w.replaceKillSwitch(cd.Instance.Id)
 
 	container, err := w.getSharedSQLStoreContainer()
 	if err != nil {
@@ -1444,7 +1479,7 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		groupInfoCache:     w.groupInfoCache,
 		clientPointer:      w.clientPointer,
 		myClientPointer:    w.myClientPointer,
-		killChannel:        w.killChannel,
+		kill:               kill,
 		config:             w.config,
 		historySyncID:      0,
 		rabbitmqProducer:   w.rabbitmqProducer,
@@ -1458,6 +1493,8 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		passkeyCeremony:    w.passkeyCeremony,
 		persistPool:        w.persistPool,
 		bgPool:             w.bgPool,
+		mediaPool:          w.mediaPool,
+		largeMediaPool:     w.largeMediaPool,
 	}
 
 	mycli.eventHandlerID = mycli.WAClient.AddEventHandler(mycli.myEventHandler)
@@ -1535,66 +1572,73 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 
 	// Removed auto-reconnect logic to prevent infinite loops
 
-	for {
-		select {
-		case <-w.killChannel.Get(cd.Instance.Id):
-			w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("Received kill signal for user '%s'", cd.Instance.Id)
-			client.Disconnect()
+	<-kill.Done()
+	mode := kill.Mode()
+	w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("Received kill signal for user '%s' (mode %d)", cd.Instance.Id, mode)
+	client.Disconnect()
 
-			w.clientPointer.Delete(cd.Instance.Id)
-			w.myClientPointer.Delete(cd.Instance.Id)
+	// Whoever fired Detach owns the instance now; shared state is not ours.
+	if mode == killswitch.Detach {
+		return
+	}
 
-			// Limpar cache de userInfo para esta instância
-			w.userInfoCache.Delete(cd.Instance.Token)
-			w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] UserInfo cache cleared", cd.Instance.Id)
+	// Only clear what is still ours: a replacement may already be registered.
+	if w.clientPointer.Get(cd.Instance.Id) == client {
+		w.clientPointer.Delete(cd.Instance.Id)
+	}
+	if w.myClientPointer.Get(cd.Instance.Id) == mycli {
+		w.myClientPointer.Delete(cd.Instance.Id)
+	}
 
-			cd.Instance.Connected = false
+	// Limpar cache de userInfo para esta instância
+	w.userInfoCache.Delete(cd.Instance.Token)
+	w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] UserInfo cache cleared", cd.Instance.Id)
 
-			err := w.instanceRepository.UpdateConnected(cd.Instance.Id, cd.Instance.Connected, cd.Instance.DisconnectReason)
-			if err != nil {
-				w.loggerWrapper.GetLogger(cd.Instance.Id).LogError("[%s] Error updating instance: %s", cd.Instance.Id, err)
-			}
+	cd.Instance.Connected = false
 
-			postMap := make(map[string]interface{})
-
-			postMap["event"] = "LoggedOut"
-
-			dataMap := make(map[string]interface{})
-
-			dataMap["reason"] = "Logged out"
-
-			postMap["data"] = dataMap
-
-			postMap["instanceToken"] = mycli.token
-			postMap["instanceId"] = mycli.userID
-			postMap["instanceName"] = cd.Instance.Name
-
-			var queueName string
-
-			if _, ok := postMap["event"]; ok {
-				queueName = strings.ToLower(fmt.Sprintf("%s.%s", cd.Instance.Id, postMap["event"]))
-			}
-
-			values, err := json.Marshal(postMap)
-			if err != nil {
-				w.loggerWrapper.GetLogger(cd.Instance.Id).LogError("[%s] Failed to marshal JSON for queue", cd.Instance.Id)
-				return
-			}
-
-			go w.CallWebhook(cd.Instance, queueName, values)
-
-			if mycli.config.AmqpGlobalEnabled || mycli.config.NatsGlobalEnabled {
-				go mycli.service.SendToGlobalQueues(postMap["event"].(string), values, mycli.userID)
-			}
-
-			// restart client
-			w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] Restarting client", cd.Instance.Id)
-			w.StartClient(cd)
-			return
-		default:
-			time.Sleep(1000 * time.Millisecond)
+	// On Stop the caller persists the state, including the disconnect reason this
+	// copy of the instance does not have.
+	if mode == killswitch.Restart {
+		err := w.instanceRepository.UpdateConnected(cd.Instance.Id, cd.Instance.Connected, cd.Instance.DisconnectReason)
+		if err != nil {
+			w.loggerWrapper.GetLogger(cd.Instance.Id).LogError("[%s] Error updating instance: %s", cd.Instance.Id, err)
 		}
 	}
+
+	postMap := map[string]interface{}{
+		"event":         "LoggedOut",
+		"data":          map[string]interface{}{"reason": "Logged out"},
+		"instanceToken": mycli.token,
+		"instanceId":    mycli.userID,
+		"instanceName":  cd.Instance.Name,
+	}
+	queueName := strings.ToLower(fmt.Sprintf("%s.%s", cd.Instance.Id, "LoggedOut"))
+
+	values, err := json.Marshal(postMap)
+	if err != nil {
+		w.loggerWrapper.GetLogger(cd.Instance.Id).LogError("[%s] Failed to marshal JSON for queue", cd.Instance.Id)
+	} else {
+		go w.CallWebhook(cd.Instance, queueName, values)
+
+		if mycli.config.AmqpGlobalEnabled || mycli.config.NatsGlobalEnabled {
+			go mycli.service.SendToGlobalQueues("LoggedOut", values, mycli.userID)
+		}
+	}
+
+	if mode == killswitch.Stop {
+		// Staying down: give up the claim, or the next start on this node would
+		// wait on its own lock.
+		w.releaseOwnership(cd.Instance.Id)
+		return
+	}
+
+	// A newer client took over while this one was cleaning up.
+	if w.killChannel.Get(cd.Instance.Id) != kill {
+		return
+	}
+
+	w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] Restarting client", cd.Instance.Id)
+	w.StartClient(cd)
 }
 
 func schedulePresenceUpdates(mycli *MyClient) {
@@ -1628,7 +1672,7 @@ func schedulePresenceUpdates(mycli *MyClient) {
 			// Reset reuses the runtime timer and allocates nothing.
 			ticker.Reset(time.Duration(1+rand.Intn(3)) * time.Hour)
 
-		case <-mycli.killChannel.Get(mycli.userID):
+		case <-mycli.kill.Done():
 			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Received kill signal, stopping presence updates", mycli.userID)
 			return // Encerra a goroutine quando receber sinal de kill
 		}
@@ -1778,15 +1822,8 @@ func (mycli *MyClient) handleQRCodes(codes []string) {
 }
 
 // teardownQR clears the QR state and emits a QRTimeout event, then signals the
-// kill channel so StartClient's select loop performs the actual disconnect and
-// map cleanup. IMPORTANT: this method must NOT delete from the shared
-// clientPointer/myClientPointer/killChannel maps itself — those are unsynchronized
-// service-wide maps and this runs in the handleQRCodes goroutine; doing the
-// delete()s here (concurrent with other instances' goroutines and the whatsmeow
-// dispatch) risks a `fatal error: concurrent map writes`. The kill-channel send
-// is blocking (like the original GetQRChannel timeout branch) so the signal is
-// never dropped and the socket can't be orphaned. Cleanup happens in the
-// StartClient goroutine, the single writer of those maps for this instance.
+// client's kill switch so the StartClient goroutine performs the actual disconnect
+// and map cleanup: it is the single writer of those maps for this instance.
 // If reason is non-empty it is included in the QRTimeout payload (max-count path).
 func (mycli *MyClient) teardownQR(reason string, forceLogout bool) {
 	instanceID := mycli.userID
@@ -1826,10 +1863,8 @@ func (mycli *MyClient) teardownQR(reason string, forceLogout bool) {
 	// Signal StartClient's select loop to disconnect and clean up the shared
 	// maps (it is the single writer for this instance). Blocking send mirrors
 	// the original timeout branch so the signal is never dropped.
-	mycli.loggerWrapper.GetLogger(instanceID).LogWarn("[%s] QR timeout — signaling kill channel", instanceID)
-	if killChan, exists := mycli.killChannel.Lookup(instanceID); exists {
-		killChan <- true
-	}
+	mycli.loggerWrapper.GetLogger(instanceID).LogWarn("[%s] QR timeout — signaling kill switch", instanceID)
+	mycli.kill.Fire(killswitch.Restart)
 }
 
 // handlePollVote decrypts a poll vote and stores it.
@@ -1986,7 +2021,82 @@ func (mycli *MyClient) scheduleReconnect(reason string) {
 	}(mycli.userID)
 }
 
+// myEventHandler is what whatsmeow calls for every event.
 func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
+	mycli.routeEvent(rawEvt, mycli.processEvent)
+}
+
+// routeEvent keeps slow work off whatsmeow's dispatch. An instance's events are
+// handled strictly one at a time, and whatsmeow waits up to five minutes for each
+// before moving on, so downloading a video inline would hold up every message and
+// receipt behind it. A message that will be downloaded runs on mediaPool instead;
+// everything else stays inline and keeps its order.
+//
+// The cost is that such a message can complete after later events. Webhooks were
+// already unordered (each is sent from its own goroutine). When the pool's queue
+// is full the job runs here, which is the old behaviour and acts as backpressure
+// on this instance alone.
+func (mycli *MyClient) routeEvent(rawEvt interface{}, process func(interface{})) {
+	evt, isMessage := rawEvt.(*events.Message)
+	if !isMessage || mycli.mediaPool == nil || !mycli.willDownloadMedia(evt) {
+		process(rawEvt)
+		return
+	}
+
+	pool := mycli.mediaPool
+	if mediaFileLength(evt.Message) >= largeMediaBytes && mycli.largeMediaPool != nil {
+		pool = mycli.largeMediaPool
+	}
+
+	pool.Go(func() {
+		// whatsmeow recovers panics from its handlers. A pool worker has nothing
+		// above it, so a panic here would take down every instance in the process.
+		defer func() {
+			if r := recover(); r != nil {
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Panic handling media message %s: %v\n%s", mycli.userID, evt.Info.ID, r, debug.Stack())
+			}
+		}()
+		process(rawEvt)
+	})
+}
+
+// willDownloadMedia reports whether processEvent will fetch this message's media.
+func (mycli *MyClient) willDownloadMedia(evt *events.Message) bool {
+	keepMedia := mycli.config.DatabaseSaveMessages || mycli.config.MediaLocalStore
+	return mycli.config.WebhookFiles && keepMedia && hasDownloadableMedia(evt.Message)
+}
+
+// hasDownloadableMedia reports whether a message carries media, directly or in an
+// associated child message.
+func hasDownloadableMedia(msg *waE2E.Message) bool {
+	child := msg.GetAssociatedChildMessage().GetMessage()
+	for _, m := range []*waE2E.Message{msg, child} {
+		if m.GetImageMessage() != nil || m.GetAudioMessage() != nil || m.GetDocumentMessage() != nil ||
+			m.GetVideoMessage() != nil || m.GetStickerMessage() != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// mediaFileLength is the declared size of a message's largest attachment.
+func mediaFileLength(msg *waE2E.Message) uint64 {
+	var largest uint64
+	child := msg.GetAssociatedChildMessage().GetMessage()
+	for _, m := range []*waE2E.Message{msg, child} {
+		for _, size := range []uint64{
+			m.GetImageMessage().GetFileLength(), m.GetAudioMessage().GetFileLength(),
+			m.GetDocumentMessage().GetFileLength(), m.GetVideoMessage().GetFileLength(),
+			m.GetStickerMessage().GetFileLength(),
+		} {
+			largest = max(largest, size)
+		}
+	}
+	return largest
+}
+
+// processEvent does the work for one event.
+func (mycli *MyClient) processEvent(rawEvt interface{}) {
 	userID := mycli.userID
 	postMap := make(map[string]interface{})
 	postMap["data"] = rawEvt
@@ -2079,7 +2189,10 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			// the user's phone. When alwaysOnline is false we now send Unavailable instead.
 			var err error
 			if mycli.Instance.AlwaysOnline {
-				go schedulePresenceUpdates(mycli)
+				// This case also runs for PushNameSetting; one loop per client.
+				if mycli.presenceStarted.CompareAndSwap(false, true) {
+					go schedulePresenceUpdates(mycli)
+				}
 
 				err = mycli.WAClient.SendPresence(context.Background(), types.PresenceAvailable)
 				if err != nil {
@@ -3192,8 +3305,8 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 			}
 		}
 
-		// Agora mata o canal DEPOIS de enviar o evento
-		mycli.killChannel.Get(mycli.userID) <- true
+		// Agora dispara o kill switch DEPOIS de enviar o evento
+		mycli.kill.Fire(killswitch.Restart)
 	case *events.ChatPresence:
 		doWebhook = true
 		postMap["event"] = "ChatPresence"
@@ -4068,8 +4181,6 @@ func (w whatsmeowService) StartInstance(instanceId string) error {
 		}
 	}
 
-	w.killChannel.Set(instance.Id, make(chan bool))
-
 	clientData := &ClientData{
 		Instance:      instance,
 		Subscriptions: subscribedEvents,
@@ -4550,17 +4661,11 @@ func (w whatsmeowService) ClearInstanceCache(instanceId string, token string) er
 		w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Client pointer cleared", instanceId)
 	}
 
-	// Limpar killChannel se existir
-	if killChan, exists := w.killChannel.Lookup(instanceId); exists {
-		select {
-		case killChan <- true:
-			// Canal recebeu o sinal
-		default:
-			// Canal pode estar bloqueado, apenas fecha
-		}
-		close(killChan)
+	// Limpar kill switch se existir
+	if kill, exists := w.killChannel.Lookup(instanceId); exists {
+		kill.Fire(killswitch.Detach)
 		w.killChannel.Delete(instanceId)
-		w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Kill channel cleared", instanceId)
+		w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Kill switch cleared", instanceId)
 	}
 
 	w.loggerWrapper.GetLogger(instanceId).LogInfo("[%s] Instance cache completely cleared", instanceId)
@@ -4579,7 +4684,7 @@ func NewWhatsmeowService(
 	messageRepository message_repository.MessageRepository,
 	labelRepository label_repository.LabelRepository,
 	config *config.Config,
-	killChannel *safemap.Map[chan bool],
+	killChannel *safemap.Map[*killswitch.Switch],
 	clientPointer *safemap.Map[*whatsmeow.Client],
 	rabbitmqProducer producer_interfaces.Producer,
 	webhookProducer producer_interfaces.Producer,
@@ -4628,6 +4733,8 @@ func NewWhatsmeowService(
 		authStore:          &sharedSQLStore{},
 		persistPool:        newPersistPool(persistWorkers, persistQueueSize),
 		bgPool:             bgpool.New(bgpool.DefaultWorkers, bgpool.DefaultQueue),
+		mediaPool:          bgpool.New(mediaWorkers, mediaQueueSize),
+		largeMediaPool:     bgpool.New(largeMediaWorkers, mediaQueueSize),
 	}
 }
 

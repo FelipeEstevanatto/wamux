@@ -45,7 +45,7 @@ func contentRow(id, text string) message_model.Message {
 }
 
 func receiptRow(id string) message_model.Message {
-	return message_model.Message{MessageID: id, Status: "Read"}
+	return message_model.Message{MessageID: id, InstanceId: "sem", Status: "Read"}
 }
 
 // A content row followed by a receipt for the same message: the batch groups

@@ -1,5 +1,48 @@
 # WaMux - Changelog
 
+## Unreleased
+
+### 🔒 Security
+- **Tenant isolation** — `GET`/`PUT /instance/:instanceId/advanced-settings` now
+  return `403` unless the id is the token's own instance. Any instance token
+  could previously read or change another instance's settings.
+- **Credential guessing** — failed authentication is budgeted per IP (30 per
+  window). The limiter keys on the presented credential, so rotating keys used
+  to bypass it entirely. Credentials already active in the window are not
+  affected by a neighbour's failures.
+- **`X-Forwarded-For`** — no longer trusted by default. **Behind a reverse proxy,
+  set the new `TRUSTED_PROXIES`**, or every client shares the proxy's IP for rate
+  limiting. An invalid list stops the boot.
+
+### 🐛 Fixes
+- **Message history across instances** — uniqueness is now per instance
+  (migration `0008`). Two instances sharing a conversation overwrote each other's
+  row, because WhatsApp message ids are only unique per account.
+- **Rollup deadlocks** — batches now take `message_counters` rows in one order;
+  concurrent batches used to deadlock under load.
+- **Client teardown** — a new one-shot `killswitch` replaces the kill channels.
+  Reconnects no longer leak a loop and its client, deletes are always noticed,
+  and an `alwaysOnline` presence goroutine can no longer swallow the signal.
+- **`POST /instance/disconnect` and `DELETE /instance/logout`** now leave the
+  client down; the teardown loop used to start it again.
+
+### ⚡ Performance
+- **Media no longer blocks an instance** — messages that need a download run on a
+  bounded pool instead of whatsmeow's one-at-a-time dispatch, where a slow file
+  held up every later message and receipt. They can now finish after later events.
+- **Slow consumers only affect themselves** — WebSocket subscribers get a bounded
+  queue, write deadlines and ping/pong, and are disconnected if they fall behind.
+  Webhooks are budgeted per endpoint, so one dead URL can no longer drop other
+  tenants' events; events refused by a full backlog go to the dead-letter queue.
+- **`encoding/json` is the default build** — `go_json` compiled an encoder for
+  WhatsApp's protobuf types on first use, stalling the first message after every
+  boot for ~3 s and holding 175 MB of heap, to save ~2 µs per event. Set
+  `GO_JSON_TAG=go_json` to opt back in.
+- **Large media is limited to 2 at a time** — files of 8 MiB or more peak at about
+  20x their size in memory, so they run on their own small pool.
+- **Rate limiter** — expired windows are swept once per window rather than on each
+  new key, which let junk keys slow every request.
+
 ## 0.11.1 — messages workspace, auto-reconnect, security
 
 A focused follow-up to 0.11.0: a rebuilt Messages workspace, safer boot-time

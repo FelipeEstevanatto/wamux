@@ -3,10 +3,13 @@ package webhook_producer
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	producer_interfaces "github.com/felipeestevanatto/wamux/pkg/events/interfaces"
@@ -32,16 +35,48 @@ const (
 	// misbehaving endpoint must not be able to stream unbounded data into memory.
 	maxResponseBytes = 8 * 1024
 
-	// maxInFlight bounds concurrent deliveries across every instance. A burst of
-	// messages must not translate into unbounded goroutines and sockets.
-	maxInFlight = 64
+	// Delivery capacity is budgeted per endpoint, never shared. A dead endpoint
+	// retries for minutes, so a shared budget meant one tenant's outage dropped
+	// every other tenant's events.
+	//
+	// endpointConcurrency bounds goroutines and sockets per URL.
+	endpointConcurrency = 8
+
+	// endpointQueueSize and maxEndpointQueueBytes bound the backlog per URL. Bytes
+	// matter as well as count: an event can carry base64 media.
+	endpointQueueSize     = 256
+	maxEndpointQueueBytes = 64 << 20
 )
+
+// errQueueFull is the dead-letter reason for an event that never got a delivery
+// attempt because its endpoint's backlog was full.
+var errQueueFull = errors.New("webhook endpoint backlog is full")
+
+// delivery is one event bound for one URL.
+type delivery struct {
+	url     string
+	payload []byte
+	userID  string
+	hmacKey []byte
+}
+
+// endpoint is one URL's backlog and running workers, guarded by webhookProducer.mu.
+// It only exists while it has work.
+type endpoint struct {
+	backlog      []delivery
+	backlogBytes int
+	workers      int
+}
 
 type webhookProducer struct {
 	url           string
 	client        *http.Client
-	inFlight      chan struct{}
 	loggerWrapper *logger_wrapper.LoggerManager
+
+	mu        sync.Mutex
+	endpoints map[string]*endpoint
+	// pending counts deliveries queued or being attempted, for QueueDepth.
+	pending atomic.Int64
 
 	// Retry knobs, defaulted from the constants above. They are fields rather
 	// than plain constants so tests can shrink the waits instead of sleeping
@@ -82,7 +117,7 @@ func NewWebhookProducer(
 	p := &webhookProducer{
 		url:           url,
 		client:        &http.Client{Transport: transport, Timeout: deliveryTimeout},
-		inFlight:      make(chan struct{}, maxInFlight),
+		endpoints:     make(map[string]*endpoint),
 		loggerWrapper: loggerWrapper,
 		maxAttempts:   maxDeliveryAttempts,
 		baseDelay:     retryBaseDelay,
@@ -185,24 +220,83 @@ func splitWebhookURLs(raw string) []string {
 	return out
 }
 
-// deliver queues one delivery, dropping it only if the in-flight budget is full
-// — which means the endpoints are far behind and queueing more would just grow
-// memory until something breaks.
+// deliver queues one delivery on its endpoint. It never blocks. An event that
+// does not fit means that endpoint is far behind, so it goes to the dead-letter
+// queue rather than growing memory or affecting any other endpoint.
 func (p *webhookProducer) deliver(url string, payload []byte, userID string, hmacKey []byte) {
-	select {
-	case p.inFlight <- struct{}{}:
-	default:
-		p.loggerWrapper.GetLogger(userID).LogError(
-			"[%s] webhook dropped, %d deliveries already in flight - url: %s",
-			userID, maxInFlight, url,
-		)
+	if p.enqueue(delivery{url: url, payload: payload, userID: userID, hmacKey: hmacKey}) {
 		return
 	}
 
-	go func() {
-		defer func() { <-p.inFlight }()
-		p.sendWebhookWithRetry(url, payload, userID, hmacKey)
-	}()
+	p.loggerWrapper.GetLogger(userID).LogError(
+		"[%s] webhook dropped, endpoint backlog is full - url: %s", userID, url,
+	)
+	p.publishDeadLetter(url, payload, userID, 0, nil, errQueueFull)
+}
+
+// enqueue adds d to its endpoint's backlog, starting a worker if the endpoint has
+// capacity. It reports false when the backlog is full.
+func (p *webhookProducer) enqueue(d delivery) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	ep, ok := p.endpoints[d.url]
+	if !ok {
+		ep = &endpoint{}
+		p.endpoints[d.url] = ep
+	}
+
+	// A lone oversized event is still accepted: the byte budget exists to stop a
+	// backlog building up, not to make a large event undeliverable.
+	overBudget := ep.backlogBytes > 0 && ep.backlogBytes+len(d.payload) > maxEndpointQueueBytes
+	if len(ep.backlog) >= endpointQueueSize || overBudget {
+		return false
+	}
+
+	ep.backlog = append(ep.backlog, d)
+	ep.backlogBytes += len(d.payload)
+	p.pending.Add(1)
+
+	if ep.workers < endpointConcurrency {
+		ep.workers++
+		go p.drain(d.url, ep)
+	}
+	return true
+}
+
+// drain delivers from one endpoint's backlog until it is empty. Retries run here,
+// so a failing endpoint only ever occupies its own workers.
+func (p *webhookProducer) drain(url string, ep *endpoint) {
+	for {
+		d, ok := p.next(url, ep)
+		if !ok {
+			return
+		}
+		p.sendWebhookWithRetry(d.url, d.payload, d.userID, d.hmacKey)
+		p.pending.Add(-1)
+	}
+}
+
+// next pops the oldest delivery, or retires this worker when there is none.
+// Popping and retiring share the lock with enqueue, so a delivery can never be
+// left behind by a worker that has just decided to exit.
+func (p *webhookProducer) next(url string, ep *endpoint) (delivery, bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if len(ep.backlog) == 0 {
+		ep.workers--
+		if ep.workers == 0 {
+			delete(p.endpoints, url)
+		}
+		return delivery{}, false
+	}
+
+	d := ep.backlog[0]
+	ep.backlog[0] = delivery{} // release the payload
+	ep.backlog = ep.backlog[1:]
+	ep.backlogBytes -= len(d.payload)
+	return d, true
 }
 
 func (p *webhookProducer) sendWebhookWithRetry(url string, body []byte, userID string, hmacKey []byte) {
@@ -339,11 +433,10 @@ func (p *webhookProducer) sendWebhook(url string, body []byte, hmacKey []byte) (
 }
 
 // CreateGlobalQueues does nothing for the webhook producer.
-// QueueDepth reports how many webhook deliveries are in flight right now
-// (capacity is maxInFlight). A sustained value at capacity means the webhook
-// endpoint is slow and deliveries are backing up.
+// QueueDepth reports how many webhook deliveries are queued or being attempted,
+// across every endpoint. A sustained high value means an endpoint is slow.
 func (p *webhookProducer) QueueDepth() int {
-	return len(p.inFlight)
+	return int(p.pending.Load())
 }
 
 func (p *webhookProducer) CreateGlobalQueues() error {

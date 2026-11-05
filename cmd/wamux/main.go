@@ -45,6 +45,7 @@ import (
 	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
 	instance_repository "github.com/felipeestevanatto/wamux/pkg/instance/repository"
 	instance_service "github.com/felipeestevanatto/wamux/pkg/instance/service"
+	"github.com/felipeestevanatto/wamux/pkg/killswitch"
 	label_handler "github.com/felipeestevanatto/wamux/pkg/label/handler"
 	label_model "github.com/felipeestevanatto/wamux/pkg/label/model"
 	label_repository "github.com/felipeestevanatto/wamux/pkg/label/repository"
@@ -97,7 +98,7 @@ func init() {
 }
 
 func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.Config, conn *amqp.Connection, exPath string, messageRepository message_repository.MessageRepository) (*gin.Engine, whatsmeow_service.WhatsmeowService) {
-	killChannel := safemap.New[chan bool]()
+	killChannel := safemap.New[*killswitch.Switch]()
 	clientPointer := safemap.New[*whatsmeow.Client]()
 
 	loggerWrapper := logger_wrapper.NewLoggerManager(config)
@@ -285,6 +286,13 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	pollHandler := poll_handler.NewPollHandler(whatsmeowService.GetPollService(), loggerWrapper)
 
 	r := gin.Default()
+
+	// Gin trusts every peer's X-Forwarded-For unless told otherwise, which would
+	// let any caller choose the IP the rate limiter sees. A bad list must stop
+	// the boot rather than silently fall back to something else.
+	if err := r.SetTrustedProxies(config.TrustedProxies); err != nil {
+		log.Fatalf("invalid TRUSTED_PROXIES: %v", err)
+	}
 
 	// Profiling endpoints (CPU/heap/goroutine) for benchmarking. Off by default;
 	// enable with PPROF_ENABLED=true. Uses the standard library handlers, so it

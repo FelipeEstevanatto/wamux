@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/felipeestevanatto/wamux/pkg/killswitch"
 	"github.com/felipeestevanatto/wamux/pkg/safemap"
 	"github.com/felipeestevanatto/wamux/pkg/tokencrypt"
 	"io"
@@ -124,7 +125,7 @@ type HmacConfigStatus struct {
 type instances struct {
 	instanceRepository instance_repository.InstanceRepository
 	config             *config.Config
-	killChannel        *safemap.Map[chan bool]
+	killChannel        *safemap.Map[*killswitch.Switch]
 	clientPointer      *safemap.Map[*whatsmeow.Client]
 	whatsmeowService   whatsmeow_service.WhatsmeowService
 	loggerWrapper      *logger_wrapper.LoggerManager
@@ -421,8 +422,6 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 	if !isInstanceRunning {
 		i.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Starting new client instance", instance.Id)
 
-		i.killChannel.Set(instance.Id, make(chan bool))
-
 		clientData := &whatsmeow_service.ClientData{
 			Instance:      instance,
 			Subscriptions: subscribedEvents,
@@ -477,14 +476,8 @@ func (i instances) Disconnect(instance *instance_model.Instance) (*instance_mode
 	}
 
 	i.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Disconnection successful", instance.Id)
-	// The channel is only present while a client is running; guard it and bound
-	// the send so a missing/replaced client cannot block the request forever.
-	if ch := i.killChannel.Get(instance.Id); ch != nil {
-		select {
-		case ch <- true:
-		case <-time.After(5 * time.Second):
-		}
-	}
+	// Stop, so the client stays down; this method persists the state below.
+	i.killChannel.Get(instance.Id).Fire(killswitch.Stop)
 
 	// Do not clear instance.Events on disconnect. Wiping subscriptions
 	// leaves the instance "connected" after reconnect with an empty
@@ -530,10 +523,7 @@ func (i instances) Logout(instance *instance_model.Instance) (*instance_model.In
 	}
 	i.invalidateAuthCache()
 
-	select {
-	case i.killChannel.Get(instance.Id) <- true:
-	case <-time.After(5 * time.Second):
-	}
+	i.killChannel.Get(instance.Id).Fire(killswitch.Stop)
 
 	i.clientPointer.Delete(instance.Id)
 	i.killChannel.Delete(instance.Id)
@@ -798,10 +788,8 @@ func (i instances) Delete(id string) error {
 
 	// Limpar todos os recursos da instância antes de deletar
 	i.clientPointer.Delete(instance.Id)
-	if i.killChannel.Get(instance.Id) != nil {
-		close(i.killChannel.Get(instance.Id))
-		i.killChannel.Delete(instance.Id)
-	}
+	i.killChannel.Get(instance.Id).Fire(killswitch.Detach)
+	i.killChannel.Delete(instance.Id)
 
 	// Limpar cache via whatsmeow service
 	err = i.whatsmeowService.ClearInstanceCache(instance.Id, instance.Token)
@@ -1057,8 +1045,6 @@ func (i instances) ForceReconnect(instanceId string, number string) error {
 
 	subscribedEvents := strings.Split(instance.Events, ",")
 
-	i.killChannel.Set(instance.Id, make(chan bool))
-
 	clientData := &whatsmeow_service.ClientData{
 		Instance:      instance,
 		Subscriptions: subscribedEvents,
@@ -1083,10 +1069,8 @@ func (i instances) ForceReconnect(instanceId string, number string) error {
 		client := i.clientPointer.Get(instance.Id)
 		client.Disconnect()
 
-		select {
-		case i.killChannel.Get(instance.Id) <- true:
-		case <-time.After(5 * time.Second):
-		}
+		// Detach: the StartClient below replaces this client.
+		i.killChannel.Get(instance.Id).Fire(killswitch.Detach)
 
 		i.clientPointer.Delete(instance.Id)
 		i.killChannel.Delete(instance.Id)
@@ -1659,7 +1643,7 @@ func (i instances) TestS3Connection(instanceId string, data *S3ConfigStruct) (*S
 
 func NewInstanceService(
 	instanceRepository instance_repository.InstanceRepository,
-	killChannel *safemap.Map[chan bool],
+	killChannel *safemap.Map[*killswitch.Switch],
 	clientPointer *safemap.Map[*whatsmeow.Client],
 	whatsmeowService whatsmeow_service.WhatsmeowService,
 	config *config.Config,

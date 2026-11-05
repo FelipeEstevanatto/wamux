@@ -207,3 +207,24 @@ func TestAutoReconnectBackfillPreservesExplicitDisconnect(t *testing.T) {
 		t.Fatal("an instance disconnected via the API must stay down after a restart")
 	}
 }
+
+// Uniqueness is per instance, and the new index replaces the older one with the
+// same columns.
+func TestMessagesUniquePerInstanceIndex(t *testing.T) {
+	db := newSQLite(t)
+	if _, err := Apply(context.Background(), db, "sqlite"); err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+
+	var unique int
+	if err := db.QueryRow(`SELECT count(*) FROM sqlite_master WHERE type='index' AND name='uni_messages_instance_message'`).Scan(&unique); err != nil {
+		t.Fatal(err)
+	}
+	var replaced int
+	if err := db.QueryRow(`SELECT count(*) FROM sqlite_master WHERE type='index' AND name='idx_messages_instance_message'`).Scan(&replaced); err != nil {
+		t.Fatal(err)
+	}
+	if unique != 1 || replaced != 0 {
+		t.Fatalf("uni_messages_instance_message=%d idx_messages_instance_message=%d", unique, replaced)
+	}
+}

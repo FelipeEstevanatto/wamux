@@ -175,6 +175,28 @@ var steps = []migration{
 			`UPDATE instances SET auto_reconnect = FALSE WHERE disconnect_reason = 'Disconnected by API'`,
 		},
 	},
+	{
+		// message_id was unique across the whole table, but WhatsApp ids are only
+		// unique per account, so two instances sharing a conversation overwrote
+		// each other's row. Existing rows satisfy the new index by construction
+		// (the old constraint was stricter). The new index has the same columns as
+		// idx_messages_instance_message, which it replaces. The second constraint
+		// name is what databases created by older gorm versions have.
+		//
+		// SQLite cannot drop an inline UNIQUE, but the messages table only lives
+		// in Postgres in practice (see migrate in cmd/wamux/main.go).
+		Name: "0008_messages_unique_per_instance",
+		Postgres: []string{
+			`CREATE UNIQUE INDEX IF NOT EXISTS uni_messages_instance_message ON messages (instance_id, message_id)`,
+			`ALTER TABLE messages DROP CONSTRAINT IF EXISTS uni_messages_message_id`,
+			`ALTER TABLE messages DROP CONSTRAINT IF EXISTS messages_message_id_key`,
+			`DROP INDEX IF EXISTS idx_messages_instance_message`,
+		},
+		SQLite: []string{
+			`CREATE UNIQUE INDEX IF NOT EXISTS uni_messages_instance_message ON messages (instance_id, message_id)`,
+			`DROP INDEX IF EXISTS idx_messages_instance_message`,
+		},
+	},
 }
 
 const createMigrationsTable = `

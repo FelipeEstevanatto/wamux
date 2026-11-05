@@ -1,6 +1,7 @@
 package message_repository
 
 import (
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -202,11 +203,53 @@ func cloneStats(s *MessageStats) *MessageStats {
 	return &c
 }
 
+// messageConflictColumns is the upsert key. It must match the unique index
+// uni_messages_instance_message: see message_model.Message.
+var messageConflictColumns = []clause.Column{{Name: "instance_id"}, {Name: "message_id"}}
+
 func (m *messageRepository) InsertMessage(message message_model.Message) error {
 	return m.db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "message_id"}},
+		Columns:   messageConflictColumns,
 		DoUpdates: clause.AssignmentColumns(messageUpdateColumns(message)),
 	}).Create(&message).Error
+}
+
+// sortForCounterLocks orders rows by the message_counters key the rollup trigger
+// updates: instance, day, status, source. The trigger locks one counter row per
+// message for the whole statement, so two concurrent batches touching the same
+// counters in different orders deadlock; measured at saturation, that failed 94%
+// of batches. A shared order means they queue instead.
+//
+// The day must be compared on its own, not via the full timestamp, or two rows
+// from the same day would order by time and take their counters in an order
+// that disagrees with another batch. message_id then orders the message rows
+// themselves, for batches that update the same ids.
+func sortForCounterLocks(rows []message_model.Message) {
+	sort.Slice(rows, func(a, b int) bool {
+		x, y := &rows[a], &rows[b]
+		if x.InstanceId != y.InstanceId {
+			return x.InstanceId < y.InstanceId
+		}
+		if dx, dy := counterDay(x.Timestamp), counterDay(y.Timestamp); dx != dy {
+			return dx < dy
+		}
+		if x.Status != y.Status {
+			return x.Status < y.Status
+		}
+		if x.Source != y.Source {
+			return x.Source < y.Source
+		}
+		return x.MessageID < y.MessageID
+	})
+}
+
+// counterDay is the day part of a "YYYY-MM-DD HH:MM:SS" timestamp, matching the
+// substr(timestamp, 1, 10) in the rollup trigger.
+func counterDay(timestamp string) string {
+	if len(timestamp) > 10 {
+		return timestamp[:10]
+	}
+	return timestamp
 }
 
 // batchInsertChunk caps how many rows go in one statement. Very large INSERTs
@@ -241,6 +284,7 @@ func (m *messageRepository) InsertMessages(messages []message_model.Message) err
 
 	for _, key := range order {
 		group := groups[key]
+		sortForCounterLocks(group)
 		cols := strings.Split(key, ",")
 		for start := 0; start < len(group); start += batchInsertChunk {
 			end := start + batchInsertChunk
@@ -249,7 +293,7 @@ func (m *messageRepository) InsertMessages(messages []message_model.Message) err
 			}
 			chunk := group[start:end]
 			if err := m.db.Clauses(clause.OnConflict{
-				Columns:   []clause.Column{{Name: "message_id"}},
+				Columns:   messageConflictColumns,
 				DoUpdates: clause.AssignmentColumns(cols),
 			}).Create(&chunk).Error; err != nil {
 				return err
