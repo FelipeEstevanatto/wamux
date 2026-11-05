@@ -25,10 +25,14 @@ func (s *qrStubWhatsmeow) StartInstance(string) error {
 
 func newQRService(t *testing.T, wm whatsmeow_service.WhatsmeowService) instances {
 	t.Helper()
+	logs := logger_wrapper.NewLoggerManager(&config.Config{LogDirectory: t.TempDir()})
+	// The logger writes asynchronously; close it before t.TempDir cleanup so a
+	// late write cannot recreate the instance directory while it is removed.
+	t.Cleanup(func() { _ = logs.GetLogger("inst-1").Close() })
 	return instances{
 		clientPointer:    safemap.New[*whatsmeow.Client](),
 		whatsmeowService: wm,
-		loggerWrapper:    logger_wrapper.NewLoggerManager(&config.Config{LogDirectory: t.TempDir()}),
+		loggerWrapper:    logs,
 	}
 }
 

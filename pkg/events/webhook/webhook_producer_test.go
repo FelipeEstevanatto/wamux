@@ -23,15 +23,20 @@ func newTestProducer(t *testing.T, globalURL string) *webhookProducer {
 	t.Helper()
 
 	logs := logger_wrapper.NewLoggerManager(&config.Config{LogDirectory: t.TempDir()})
-	// The logger writes asynchronously. Close it before t.TempDir's cleanup so
-	// the writer goroutine cannot touch the directory while it is being removed.
-	t.Cleanup(func() {
-		_ = logs.GetLogger("i1").Close()
-	})
 	p := NewWebhookProducer(globalURL, logs).(*webhookProducer)
 	p.maxAttempts = 3
 	p.baseDelay = time.Millisecond
 	p.maxDelay = 2 * time.Millisecond
+	// Deliveries run in the background and log when they finish. Wait for them
+	// and close the logger before t.TempDir's cleanup removes the directory;
+	// otherwise a late log line races the removal and can recreate it.
+	t.Cleanup(func() {
+		deadline := time.Now().Add(3 * time.Second)
+		for len(p.inFlight) > 0 && time.Now().Before(deadline) {
+			time.Sleep(time.Millisecond)
+		}
+		_ = logs.GetLogger("i1").Close()
+	})
 	return p
 }
 
