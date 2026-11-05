@@ -4,8 +4,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	config "github.com/felipeestevanatto/wamux/pkg/config"
 	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
@@ -182,5 +185,63 @@ func TestAssignRoutesUnknownPathIs404(t *testing.T) {
 		if len(msgs) != 1 || msgs[0] != tc.wantMsg {
 			t.Errorf("%s %s: response.message = %v, want [%q]", tc.method, tc.path, msgs, tc.wantMsg)
 		}
+	}
+}
+
+// HTML pages must be revalidated on every load, or a deploy stays invisible until
+// the browser's guessed lifetime runs out.
+func TestAssignRoutesHTMLPagesAreRevalidated(t *testing.T) {
+	// The pages must exist: Go's 404 response strips Cache-Control.
+	dir := t.TempDir()
+	dist := filepath.Join(dir, "manager", "dist")
+	if err := os.MkdirAll(dist, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"index.html", "dashboard.html"} {
+		if err := os.WriteFile(filepath.Join(dist, name), []byte("<html></html>"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Chdir(dir)
+
+	cfg := testConfig()
+	eng := NewTestRouter(cfg, auth_middleware.NewMiddleware(cfg, &stubInstanceService{valid: "t"}))
+
+	for _, path := range []string{"/dashboard", "/manager", "/manager/messages"} {
+		w := httptest.NewRecorder()
+		eng.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
+		if w.Code != http.StatusOK {
+			t.Fatalf("GET %s: status = %d, want 200", path, w.Code)
+		}
+		if got := w.Header().Get("Cache-Control"); got != "no-cache" {
+			t.Errorf("GET %s: Cache-Control = %q, want no-cache", path, got)
+		}
+	}
+}
+
+// no-cache must keep conditional requests working, so an unchanged page costs a
+// 304 and not the whole file.
+func TestServePageAnswersConditionalRequests(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "page.html")
+	if err := os.WriteFile(file, []byte("<html></html>"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	eng := gin.New()
+	eng.GET("/page", servePage(file))
+
+	req := httptest.NewRequest(http.MethodGet, "/page", nil)
+	req.Header.Set("If-Modified-Since", info.ModTime().UTC().Add(time.Second).Format(http.TimeFormat))
+	w := httptest.NewRecorder()
+	eng.ServeHTTP(w, req)
+	if w.Code != http.StatusNotModified {
+		t.Fatalf("status = %d, want 304", w.Code)
+	}
+	if got := w.Header().Get("Cache-Control"); got != "no-cache" {
+		t.Errorf("Cache-Control = %q, want no-cache", got)
 	}
 }

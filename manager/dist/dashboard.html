@@ -21,7 +21,7 @@
   :root{
     --bg:#0a0a0a; --panel:#141414; --panel2:#1b1b1b; --border:#262626;
     --text:#e5e5e5; --muted:#8a8a8a; --accent:#10b981; --accent-dim:#0f3d2e;
-    --red:#ef4444; --amber:#f59e0b;
+    --red:#ef4444; --amber:#f59e0b; --blue:#60a5fa;
     --header-bg:#0d0d0d; --track:#0d0d0d; --log-bg:#0d0d0d; --log-text:#cfcfcf;
     --src-text:#cfcfcf; --chart-grid:#222222; --chart-tick:#8a8a8a;
     --chart-legend:#c7c7c7; --btn-text:#d1fae5;
@@ -30,7 +30,7 @@
   html[data-theme="light"]{
     --bg:#f4f5f7; --panel:#ffffff; --panel2:#eef1f4; --border:#e3e6ea;
     --text:#1b1f24; --muted:#6b7280; --accent:#059669; --accent-dim:#d1fae5;
-    --red:#dc2626; --amber:#d97706;
+    --red:#dc2626; --amber:#b45309; --blue:#2563eb;
     --header-bg:#ffffff; --track:#eef1f4; --log-bg:#f8f9fb; --log-text:#374151;
     --src-text:#374151; --chart-grid:#e5e7eb; --chart-tick:#6b7280;
     --chart-legend:#374151; --btn-text:#065f46;
@@ -68,7 +68,34 @@
   .avatar{width:24px;height:24px;border-radius:50%;background:var(--panel2);border:1px solid var(--border);display:inline-flex;align-items:center;justify-content:center;overflow:hidden;font-size:10px;color:var(--muted);flex:0 0 auto}
   .avatar img{width:100%;height:100%;object-fit:cover}
   .name-cell{display:flex;align-items:center;gap:8px}
-  #logs{max-height:320px;overflow:auto;background:var(--log-bg);border:1px solid var(--border);border-radius:8px;padding:10px;font-family:ui-monospace,monospace;font-size:12px;white-space:pre-wrap;color:var(--log-text)}
+  #log-panel{margin-top:14px;border-top:1px solid var(--border);padding-top:12px}
+  .log-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+  .log-bar .spacer{flex:1}
+  .log-title{font-size:13px;font-weight:600}
+  .log-live{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);cursor:pointer}
+  .log-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:11px;font-weight:600;letter-spacing:.3px;cursor:pointer}
+  .log-chip[aria-pressed="true"]{color:var(--lvl);border-color:var(--lvl);background:color-mix(in srgb,var(--lvl) 12%,transparent)}
+  .log-chip .n{font-weight:500;opacity:.8}
+  #log-q{flex:1 1 180px;min-width:120px;max-width:320px}
+  #logs{max-height:min(60vh,520px);overflow:auto;background:var(--log-bg);border:1px solid var(--border);border-radius:8px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.5;color:var(--log-text)}
+  .log-empty{padding:18px;text-align:center;color:var(--muted);font-family:ui-sans-serif,system-ui,sans-serif}
+  .log-row{display:grid;grid-template-columns:auto 56px minmax(0,1fr);gap:10px;padding:4px 10px;border-left:3px solid var(--lvl);border-bottom:1px solid color-mix(in srgb,var(--border) 55%,transparent)}
+  .log-row:hover{background:var(--panel2)}
+  .log-row.ERROR{background:color-mix(in srgb,var(--red) 7%,transparent)}
+  .log-time{color:var(--muted);white-space:nowrap}
+  .log-lvl{color:var(--lvl);font-weight:700;font-size:11px;line-height:18px}
+  .log-msg{white-space:pre-wrap;overflow-wrap:anywhere;min-width:0}
+  .log-msg.banner{font-weight:600}
+  .log-row.INFO .log-msg.banner{color:var(--accent)}
+  .log-row.WARN .log-msg{color:var(--amber)}
+  .log-row.ERROR .log-msg{color:var(--red)}
+  .log-msg.clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
+  .log-msg mark{background:color-mix(in srgb,var(--amber) 35%,transparent);color:inherit;border-radius:2px}
+  .lvl-ERROR{--lvl:var(--red)} .lvl-WARN{--lvl:var(--amber)} .lvl-INFO{--lvl:var(--blue)} .lvl-DEBUG{--lvl:var(--muted)}
+  @media (max-width:640px){
+    .log-row{grid-template-columns:auto minmax(0,1fr)}
+    .log-msg{grid-column:1/-1}
+  }
   .muted{color:var(--muted)}
   .gate{max-width:440px;margin:80px auto;text-align:center}
   .gate .card{text-align:left}
@@ -205,20 +232,32 @@ function shell(){
       <div class="err" id="tbl-err"></div>
       <div class="tbl-wrap"><table><thead><tr><th>Status</th><th>Nome</th><th>Número / JID</th><th>SO</th><th>Cliente</th><th>Contatos</th><th>Criada</th><th>Motivo desconexão</th></tr></thead>
       <tbody id="tbody"></tbody></table></div>
-    </div>
-    <div class="card" style="margin-top:16px">
-      <h3 style="display:flex;align-items:center;gap:8px">Logs recentes <span class="muted" id="log-inst"></span>
-        <span style="flex:1"></span>
-        <button id="log-close" style="display:none;padding:3px 10px" title="Fechar logs">✕ fechar</button>
-      </h3>
-      <div class="muted" id="log-hint">Clique numa instância acima para ver os logs.</div>
-      <div id="logs" style="display:none"></div>
+      <div class="muted" id="log-hint" style="margin-top:10px">Clique numa instância para ver os logs.</div>
+      <section id="log-panel" hidden aria-label="Logs da instância">
+        <div class="log-bar">
+          <span class="log-title">Logs</span> <span class="muted" id="log-inst"></span>
+          <span class="spacer"></span>
+          <label class="log-live"><input type="checkbox" id="log-live"> ao vivo</label>
+          <select id="log-limit" title="Quantidade de linhas">
+            <option value="100">100 linhas</option><option value="500">500 linhas</option><option value="1000">1000 linhas</option>
+          </select>
+          <button id="log-refresh" style="padding:3px 10px" title="Atualizar logs">Atualizar</button>
+          <button id="log-close" style="padding:3px 10px" title="Fechar logs">✕</button>
+        </div>
+        <div class="log-bar">
+          <span id="log-levels" class="row" style="gap:6px"></span>
+          <input id="log-q" type="search" placeholder="Filtrar texto…" aria-label="Filtrar logs por texto">
+          <span class="spacer"></span>
+          <span class="muted" id="log-count" style="font-size:12px"></span>
+        </div>
+        <div id="logs" role="log"></div>
+      </section>
     </div>
   </main>`;
   $("#refresh").onclick=load;
   $("#logout").onclick=()=>{localStorage.removeItem(LS_KEY);renderGate("");};
   $("#int").onchange=e=>{state.interval=+e.target.value;schedule();};
-  $("#log-close").onclick=closeLogs;
+  initLogs();
   pollServer();
 }
 
@@ -411,27 +450,162 @@ function renderTable(list){
   list.forEach(loadOverview);
 }
 
+// ---- Logs of the selected instance ---------------------------------------
+// The level filter goes to the server, so a rare ERROR is found however far back it
+// is; the text filter works on what was loaded. Log text can hold contact names and
+// message content, so it only ever reaches the page through textContent.
+const LOG_LEVELS=["ERROR","WARN","INFO","DEBUG"];
+const LOG_LIVE_MS=5000;
+const logs={inst:null,entries:[],levels:new Set(LOG_LEVELS),query:"",limit:100,timer:null,seq:0};
+
+function initLogs(){
+  const box=$("#log-levels");
+  LOG_LEVELS.forEach(level=>{
+    const chip=document.createElement("button");
+    chip.type="button"; chip.className="log-chip lvl-"+level; chip.dataset.level=level;
+    chip.setAttribute("aria-pressed","true");
+    chip.textContent=level;
+    const n=document.createElement("span"); n.className="n"; chip.appendChild(n);
+    chip.onclick=()=>{
+      if(logs.levels.has(level))logs.levels.delete(level); else logs.levels.add(level);
+      if(!logs.levels.size)LOG_LEVELS.forEach(l=>logs.levels.add(l)); // nothing selected means everything
+      syncLogChips(); fetchLogs();
+    };
+    box.appendChild(chip);
+  });
+  $("#log-close").onclick=closeLogs;
+  $("#log-refresh").onclick=fetchLogs;
+  $("#log-limit").onchange=e=>{logs.limit=+e.target.value;fetchLogs();};
+  $("#log-q").oninput=e=>{logs.query=e.target.value.trim().toLowerCase();renderLogs();};
+  $("#log-live").onchange=e=>setLogLive(e.target.checked);
+}
+
+function syncLogChips(){
+  document.querySelectorAll(".log-chip").forEach(c=>c.setAttribute("aria-pressed",String(logs.levels.has(c.dataset.level))));
+}
+
+function setLogLive(on){
+  if(logs.timer){clearInterval(logs.timer);logs.timer=null;}
+  if(on)logs.timer=setInterval(()=>{if(!document.hidden)fetchLogs();},LOG_LIVE_MS);
+}
+
 function closeLogs(){
   state.selected=null;
-  $("#logs").style.display="none";
-  $("#log-inst").textContent="";
-  $("#log-close").style.display="none";
+  logs.inst=null; logs.seq++;
+  setLogLive(false); $("#log-live").checked=false;
+  $("#log-panel").hidden=true;
   $("#log-hint").style.display="block";
   renderTable(state.instances);
 }
 
 function loadLogs(inst){
+  const changed=!logs.inst||logs.inst.id!==inst.id;
+  logs.inst=inst;
   $("#log-inst").textContent="— "+(inst.name||inst.id);
   $("#log-hint").style.display="none";
-  $("#log-close").style.display="inline-block";
-  const box=$("#logs"); box.style.display="block"; box.textContent="carregando…";
-  api("/instance/logs/"+inst.id).then(res=>{
-    let logs=res&&res.data?res.data:res;
-    if(Array.isArray(logs)){
-      box.textContent=logs.map(l=>typeof l==="string"?l:JSON.stringify(l)).join("\n")||"(sem logs)";
-    }else if(typeof logs==="string"){box.textContent=logs;}
-    else{box.textContent=JSON.stringify(logs,null,2);}
-  }).catch(e=>{box.textContent="erro ao carregar logs: "+e.message;});
+  $("#log-panel").hidden=false;
+  if(changed){logs.entries=[];logEmpty("carregando…");}
+  fetchLogs();
+  $("#log-panel").scrollIntoView({block:"nearest",behavior:"smooth"});
+}
+
+function fetchLogs(){
+  if(!logs.inst)return;
+  const seq=++logs.seq; // a slow reply must not overwrite a newer one
+  const params=new URLSearchParams({limit:String(logs.limit)});
+  if(logs.levels.size<LOG_LEVELS.length)params.set("level",[...logs.levels].join(","));
+  api("/instance/logs/"+encodeURIComponent(logs.inst.id)+"?"+params).then(res=>{
+    if(seq!==logs.seq)return;
+    const data=res&&res.data?res.data:res;
+    logs.entries=Array.isArray(data)?data:[];
+    renderLogs();
+  }).catch(e=>{
+    if(seq===logs.seq)logEmpty("erro ao carregar logs: "+e.message);
+  });
+}
+
+function logEmpty(text){
+  const empty=document.createElement("div");
+  empty.className="log-empty"; empty.textContent=text;
+  $("#logs").replaceChildren(empty);
+  $("#log-count").textContent="";
+}
+
+// Every message starts with "[<instance id>] ", which says nothing here.
+function logMessage(entry){
+  const raw=String(entry.message==null?"":entry.message);
+  const id=entry.instance_id||(logs.inst&&logs.inst.id)||"";
+  const prefix="["+id+"] ";
+  return raw.startsWith(prefix)?raw.slice(prefix.length):raw;
+}
+
+function logTime(value){
+  const d=new Date(value);
+  if(isNaN(d))return String(value||"");
+  const time=d.toLocaleTimeString("pt-BR");
+  return d.toDateString()===new Date().toDateString()?time:d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})+" "+time;
+}
+
+function appendHighlighted(node,text){
+  if(!logs.query){node.textContent=text;return;}
+  const lower=text.toLowerCase();
+  let at=0,hit;
+  while((hit=lower.indexOf(logs.query,at))!==-1){
+    node.append(text.slice(at,hit));
+    const mark=document.createElement("mark");
+    mark.textContent=text.slice(hit,hit+logs.query.length);
+    node.append(mark);
+    at=hit+logs.query.length;
+  }
+  node.append(text.slice(at));
+}
+
+function logRow(entry){
+  const level=LOG_LEVELS.includes(entry.level)?entry.level:"INFO";
+  const row=document.createElement("div");
+  row.className="log-row lvl-"+level+" "+level;
+
+  const time=document.createElement("span");
+  time.className="log-time"; time.textContent=logTime(entry.timestamp); time.title=String(entry.timestamp||"");
+  const badge=document.createElement("span");
+  badge.className="log-lvl"; badge.textContent=level;
+
+  let text=logMessage(entry);
+  const msg=document.createElement("span");
+  msg.className="log-msg";
+  const banner=text.match(/^=+\s*(.*?)\s*=+(.*)$/s);
+  if(banner){text=banner[1]+banner[2];msg.classList.add("banner");}
+  appendHighlighted(msg,text);
+  if(text.length>400||text.split("\n").length>3){
+    msg.classList.add("clamp"); msg.title="Clique para expandir";
+    msg.onclick=()=>msg.classList.toggle("clamp");
+  }
+  row.append(time,badge,msg);
+  return row;
+}
+
+function renderLogs(){
+  const counts={};
+  logs.entries.forEach(e=>{counts[e.level]=(counts[e.level]||0)+1;});
+  document.querySelectorAll(".log-chip").forEach(c=>{
+    const n=counts[c.dataset.level];
+    c.querySelector(".n").textContent=n?String(n):"";
+  });
+
+  const visible=logs.query
+    ?logs.entries.filter(e=>logMessage(e).toLowerCase().includes(logs.query))
+    :logs.entries;
+  if(!visible.length){
+    logEmpty(logs.entries.length?"nenhum log com esse texto":"sem logs");
+    return;
+  }
+  const box=$("#logs");
+  const top=box.scrollTop; // newest first, so a live refresh must not move a reader
+  box.replaceChildren(...visible.map(logRow));
+  box.scrollTop=top;
+  $("#log-count").textContent=visible.length===logs.entries.length
+    ?visible.length+" entradas, mais recentes primeiro"
+    :visible.length+" de "+logs.entries.length+" entradas";
 }
 
 function load(){

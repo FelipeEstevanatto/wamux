@@ -26,6 +26,17 @@ import (
 	user_handler "github.com/felipeestevanatto/wamux/pkg/user/handler"
 )
 
+// servePage serves an HTML page that must never go stale after a deploy. Without
+// a Cache-Control header browsers guess a lifetime from Last-Modified, so a page
+// untouched for weeks stays "fresh" for days, and the dashboard iframe is not
+// refreshed by reloading the manager around it. no-cache still allows a cheap 304.
+func servePage(file string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Header("Cache-Control", "no-cache")
+		c.File(file)
+	}
+}
+
 type Routes struct {
 	config                  *config.Config
 	authMiddleware          auth_middleware.Middleware
@@ -64,13 +75,8 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 	eng.Static("/assets", "./manager/dist/assets")
 
 	// Ajuste nas rotas do manager para suportar client-side routing do React
-	eng.GET("/manager/*any", func(c *gin.Context) {
-		c.File("manager/dist/index.html")
-	})
-
-	eng.GET("/manager", func(c *gin.Context) {
-		c.File("manager/dist/index.html")
-	})
+	eng.GET("/manager/*any", servePage("manager/dist/index.html"))
+	eng.GET("/manager", servePage("manager/dist/index.html"))
 
 	eng.GET("/", r.serverHandler.Root)
 	eng.GET("/server/ok", r.serverHandler.ServerOk)
@@ -82,9 +88,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 
 	// Self-hosted dashboard: static page served from the same origin (no CORS),
 	// plus the system/message metrics it consumes. Auth: Global API Key.
-	eng.GET("/dashboard", func(c *gin.Context) {
-		c.File("manager/dist/dashboard.html")
-	})
+	eng.GET("/dashboard", servePage("manager/dist/dashboard.html"))
 	eng.GET("/server/stats", r.authMiddleware.AuthAdmin, r.serverHandler.Stats)
 
 	routes := eng.Group("/instance")

@@ -20,6 +20,11 @@
 - Edited messages show the new text and an "Edited" label.
 - Message bubbles have a small gap, and the jump-to-latest button no longer covers
   the media preview's close button.
+- Dashboard logs sit with the selected instance, as colored rows instead of raw
+  JSON. Filter by level (on the server, so older errors are found) and by text,
+  choose how many lines to load, or follow them live.
+- `/manager` and `/dashboard` send `Cache-Control: no-cache`, so a deploy shows up on
+  the next load. Browsers could keep the embedded dashboard for days.
 
 ### 🔒 Security
 - The global API key no longer reaches the access log through `/ws?token=`.
