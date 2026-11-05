@@ -120,6 +120,13 @@ type Config struct {
 	// MessageRetentionDays is how long persisted messages are kept. A background
 	// job deletes anything older, in batches; zero keeps them forever.
 	MessageRetentionDays int
+	// MediaRetentionDays is how long locally stored media is kept. 0 keeps it
+	// forever. Defaults to MessageRetentionDays, so media goes with its message.
+	MediaRetentionDays int
+	// WebhookBase64MaxBytes is the largest file embedded as base64 in an event.
+	WebhookBase64MaxBytes int64
+	// HttpAccessLog selects the request log: "errors", "all" or "off".
+	HttpAccessLog string
 
 	// DatabaseMaxOpenConns / DatabaseMaxIdleConns size the Postgres connection
 	// pools (users DB, auth DB and the whatsmeow store). The default of 25/5 is
@@ -344,7 +351,7 @@ func Load() *Config {
 
 	clientName := os.Getenv(config_env.CLIENT_NAME)
 
-	waDebug := os.Getenv(config_env.WA_DEBUG)
+	waDebug := whatsmeowLogLevel(os.Getenv(config_env.WA_DEBUG))
 
 	logType := os.Getenv(config_env.LOGTYPE)
 
@@ -692,6 +699,9 @@ func Load() *Config {
 		LogCompress:              logCompress,
 		DashboardCacheTTL:        dashboardCacheTTL,
 		MessageRetentionDays:     messageRetentionDays,
+		MediaRetentionDays:       mediaRetentionDays(messageRetentionDays),
+		WebhookBase64MaxBytes:    webhookBase64MaxBytes(),
+		HttpAccessLog:            strings.ToLower(strings.TrimSpace(os.Getenv(config_env.HTTP_ACCESS_LOG))),
 		DatabaseMaxOpenConns:     dbMaxOpen,
 		DatabaseMaxIdleConns:     dbMaxIdle,
 		DBPoolBudgetPerNode:      dbPoolBudget,
@@ -781,6 +791,51 @@ func parseDBPoolConfig(openRaw, idleRaw string) (int, int) {
 
 // parseCSV splits a comma-separated env value, trimming spaces and dropping
 // empties, so an unset or blank variable yields a nil (empty) slice.
+// defaultWebhookBase64MaxBytes keeps images and voice notes inline for existing
+// integrations, while a file's in-memory copies stay in the tens of MB.
+const defaultWebhookBase64MaxBytes = 5 << 20
+
+func webhookBase64MaxBytes() int64 {
+	raw := strings.TrimSpace(os.Getenv(config_env.WEBHOOK_BASE64_MAX_BYTES))
+	if raw == "" {
+		return defaultWebhookBase64MaxBytes
+	}
+	limit, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || limit < 0 {
+		applog.Logger.LogWarn("[CONFIG] invalid %s=%q, using the default of %d", config_env.WEBHOOK_BASE64_MAX_BYTES, raw, int64(defaultWebhookBase64MaxBytes))
+		return defaultWebhookBase64MaxBytes
+	}
+	return limit
+}
+
+func mediaRetentionDays(messageDays int) int {
+	raw := strings.TrimSpace(os.Getenv(config_env.MEDIA_RETENTION_DAYS))
+	if raw == "" {
+		return messageDays
+	}
+	days, err := strconv.Atoi(raw)
+	if err != nil || days < 0 {
+		applog.Logger.LogWarn("[CONFIG] invalid %s=%q, using %d day(s)", config_env.MEDIA_RETENTION_DAYS, raw, messageDays)
+		return messageDays
+	}
+	return days
+}
+
+// whatsmeowLogLevel turns DEBUG_ENABLED into a whatsmeow level. The raw value used
+// to be passed straight through, and whatsmeow treats any name it does not know as
+// DEBUG, so DEBUG_ENABLED=0 logged every protocol node. Empty means the default.
+func whatsmeowLogLevel(raw string) string {
+	level := strings.ToUpper(strings.TrimSpace(raw))
+	switch level {
+	case "DEBUG", "INFO", "WARN", "ERROR":
+		return level
+	}
+	if config_env.Bool(config_env.WA_DEBUG, false) {
+		return "DEBUG"
+	}
+	return ""
+}
+
 func parseCSV(raw string) []string {
 	if strings.TrimSpace(raw) == "" {
 		return nil

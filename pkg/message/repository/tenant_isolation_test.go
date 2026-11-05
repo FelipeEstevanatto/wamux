@@ -137,3 +137,59 @@ func TestConcurrentBatchesDoNotDeadlockWithRollup(t *testing.T) {
 		t.Fatalf("%d of %d batches failed; first: %s", len(failures), workers*batches*2, failures[0])
 	}
 }
+
+// legacyListChats is the query ListChats replaced. It stays here as the reference:
+// the skip scan must return the same answer, just without reading every message.
+const legacyListChats = `
+SELECT * FROM (
+    SELECT DISTINCT ON (chat_jid)
+        chat_jid, message_id, "timestamp", message_type, text_content, status,
+        media_url, sender_jid, is_from_me,
+        count(*) OVER (PARTITION BY chat_jid) AS message_count
+    FROM messages
+    WHERE instance_id = ? AND chat_jid <> ''
+    ORDER BY chat_jid, "timestamp" DESC
+) t
+ORDER BY "timestamp" DESC
+LIMIT ?`
+
+func TestListChatsMatchesTheFullScan(t *testing.T) {
+	db := realDB(t)
+	repo := NewMessageRepository(db)
+	t.Cleanup(func() { db.Exec("DELETE FROM messages WHERE message_id LIKE 'sem-lc-%'") })
+
+	r := rand.New(rand.NewSource(7))
+	rows := make([]message_model.Message, 0, 1200)
+	for i := 0; i < 1200; i++ {
+		instance, chat := "sem-lc-a", fmt.Sprintf("chat-%03d@s.whatsapp.net", r.Intn(60))
+		if i%7 == 0 {
+			instance = "sem-lc-b" // must never leak into the other instance's list
+		}
+		if i%50 == 0 {
+			chat = "" // status-only rows have no chat
+		}
+		rows = append(rows, message_model.Message{
+			MessageID: fmt.Sprintf("sem-lc-%d", i), InstanceId: instance, Status: "Received", Source: "s", ChatJid: chat,
+			// Unique per row: ties have no defined winner in either query.
+			Timestamp:   fmt.Sprintf("2026-10-%02d %02d:%02d:%02d", 1+i%28, i/3600, i/60%60, i%60),
+			MessageType: "text", TextContent: fmt.Sprintf("body %d", i),
+		})
+	}
+	if err := repo.InsertMessages(rows); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, limit := range []int{1, 10, 500} {
+		var want []ChatSummary
+		if err := db.Raw(legacyListChats, "sem-lc-a", limit).Scan(&want).Error; err != nil {
+			t.Fatal(err)
+		}
+		got, err := repo.ListChats("sem-lc-a", limit)
+		if err != nil {
+			t.Fatalf("ListChats: %v", err)
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("limit %d: results differ\ngot  %+v\nwant %+v", limit, got, want)
+		}
+	}
+}

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/felipeestevanatto/wamux/pkg/killswitch"
+	localmedia "github.com/felipeestevanatto/wamux/pkg/media"
 	"github.com/felipeestevanatto/wamux/pkg/safemap"
 	"github.com/felipeestevanatto/wamux/pkg/tokencrypt"
 	"io"
@@ -795,6 +796,11 @@ func (i instances) Delete(id string) error {
 	err = i.whatsmeowService.ClearInstanceCache(instance.Id, instance.Token)
 	if err != nil {
 		i.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Failed to clear instance cache: %v", instance.Id, err)
+	}
+
+	// Stored attachments belong to the instance too.
+	if err := localmedia.RemoveInstance(instance.Id); err != nil {
+		i.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Failed to remove stored media: %v", instance.Id, err)
 	}
 
 	// Remove the device (sessions, keys, contacts) from the whatsmeow store, so

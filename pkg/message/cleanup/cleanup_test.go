@@ -103,3 +103,44 @@ func TestLoopSweepsThenStopsOnCancel(t *testing.T) {
 		t.Fatalf("cleaner kept sweeping after cancel: %d -> %d", settled, got)
 	}
 }
+
+// Message rows were pruned but their files never were, so the disk grew forever.
+func TestSweepPrunesMediaWithItsOwnRetention(t *testing.T) {
+	repo := &fakeDeleter{}
+	var cutoff time.Time
+	c := NewCleaner(repo, 365, WithMediaRetention(30, func(t time.Time) (int, error) {
+		cutoff = t
+		return 3, nil
+	})).(*cleaner)
+	now := time.Date(2026, 11, 5, 12, 0, 0, 0, time.UTC)
+	c.now = func() time.Time { return now }
+
+	c.sweep()
+
+	if want := now.AddDate(0, 0, -30); !cutoff.Equal(want) {
+		t.Fatalf("cutoff = %v, want %v", cutoff, want)
+	}
+}
+
+func TestMediaRetentionRunsWithoutMessageRetention(t *testing.T) {
+	ran := false
+	c := NewCleaner(&fakeDeleter{}, 0, WithMediaRetention(30, func(time.Time) (int, error) {
+		ran = true
+		return 0, nil
+	})).(*cleaner)
+
+	c.sweep()
+
+	if !ran {
+		t.Fatal("media was not pruned")
+	}
+}
+
+func TestZeroMediaRetentionKeepsFiles(t *testing.T) {
+	c := NewCleaner(&fakeDeleter{}, 365, WithMediaRetention(0, func(time.Time) (int, error) {
+		t.Fatal("pruned with retention disabled")
+		return 0, nil
+	})).(*cleaner)
+
+	c.sweep()
+}

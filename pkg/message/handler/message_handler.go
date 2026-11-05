@@ -632,11 +632,11 @@ func (m *messageHandler) ServeMedia(ctx *gin.Context) {
 	}
 	defer file.Close()
 
-	// Cap what a single request may stream. Stored media is bounded by the
-	// inbound download limit, but a bug or a hand-placed file must not let one
-	// authenticated caller pull arbitrary bytes. ServeContent honours Range, so
-	// a video player still works within the cap.
-	const maxServeBytes int64 = 64 << 20 // 64 MiB
+	// Cap what a single request may stream, so a bug or a hand-placed file cannot
+	// let one caller pull arbitrary bytes. This is WhatsApp's largest attachment:
+	// the file streams from disk, so size costs no memory, and large files are the
+	// ones served this way. ServeContent honours Range for video players.
+	const maxServeBytes int64 = 2 << 30 // 2 GiB
 	size := info.Size()
 	if size > maxServeBytes {
 		ctx.JSON(http.StatusRequestEntityTooLarge, gin.H{

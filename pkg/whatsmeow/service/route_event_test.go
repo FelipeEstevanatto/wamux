@@ -194,10 +194,10 @@ func TestMediaFileLengthUsesLargestAttachment(t *testing.T) {
 			VideoMessage: &waE2E.VideoMessage{FileLength: &big},
 		}},
 	}
-	if got := mediaFileLength(msg); got != big {
+	if got := MediaFileLength(msg); got != big {
 		t.Fatalf("got %d, want %d", got, big)
 	}
-	if got := mediaFileLength(nil); got != 0 {
+	if got := MediaFileLength(nil); got != 0 {
 		t.Fatalf("nil message: got %d", got)
 	}
 }

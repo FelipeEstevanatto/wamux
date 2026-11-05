@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestLocalStoreSaveOpenRemove(t *testing.T) {
@@ -78,4 +79,125 @@ func TestURLPath(t *testing.T) {
 	if got := URLPath("abc123"); got != "/chat/media/abc123" {
 		t.Fatalf("URLPath = %q", got)
 	}
+}
+
+// Adopt is what keeps a large file out of memory, so it must land exactly where
+// Open looks.
+func TestAdoptMovesTempFileIntoPlace(t *testing.T) {
+	if err := Configure(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(resetStore)
+
+	file, err := CreateTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := file.WriteString("video bytes"); err != nil {
+		t.Fatal(err)
+	}
+	file.Close()
+
+	if err := Adopt("inst", "msg", file.Name()); err != nil {
+		t.Fatalf("Adopt: %v", err)
+	}
+	opened, info, err := Open("inst", "msg")
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer opened.Close()
+	if info.Size() != int64(len("video bytes")) {
+		t.Fatalf("size = %d", info.Size())
+	}
+	if _, err := os.Stat(file.Name()); !os.IsNotExist(err) {
+		t.Fatal("temp file still exists after Adopt")
+	}
+}
+
+func TestAdoptRejectsTraversal(t *testing.T) {
+	if err := Configure(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(resetStore)
+
+	file, err := CreateTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	file.Close()
+	if err := Adopt("inst", "../escape", file.Name()); err == nil {
+		t.Fatal("expected a traversal id to be refused")
+	}
+}
+
+func TestRemoveOlderThanKeepsRecentFiles(t *testing.T) {
+	if err := Configure(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(resetStore)
+
+	if err := Save("inst", "old", []byte("x")); err != nil {
+		t.Fatal(err)
+	}
+	if err := Save("inst", "new", []byte("x")); err != nil {
+		t.Fatal(err)
+	}
+	stale, err := CreateTemp() // a crash left this behind
+	if err != nil {
+		t.Fatal(err)
+	}
+	stale.Close()
+
+	past := time.Now().Add(-48 * time.Hour)
+	old, _, err := Open("inst", "old")
+	if err != nil {
+		t.Fatal(err)
+	}
+	old.Close()
+	if err := os.Chtimes(old.Name(), past, past); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(stale.Name(), past, past); err != nil {
+		t.Fatal(err)
+	}
+
+	removed, err := RemoveOlderThan(time.Now().Add(-24 * time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if removed != 2 {
+		t.Fatalf("removed %d, want 2", removed)
+	}
+	if Exists("inst", "old") || !Exists("inst", "new") {
+		t.Fatalf("old=%v new=%v", Exists("inst", "old"), Exists("inst", "new"))
+	}
+}
+
+func TestRemoveInstanceDeletesOnlyThatInstance(t *testing.T) {
+	if err := Configure(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(resetStore)
+
+	if err := Save("gone", "m", []byte("x")); err != nil {
+		t.Fatal(err)
+	}
+	if err := Save("kept", "m", []byte("x")); err != nil {
+		t.Fatal(err)
+	}
+	if err := RemoveInstance("gone"); err != nil {
+		t.Fatal(err)
+	}
+	if err := RemoveInstance(".."); err != nil {
+		t.Fatal(err)
+	}
+	if Exists("gone", "m") || !Exists("kept", "m") {
+		t.Fatalf("gone=%v kept=%v", Exists("gone", "m"), Exists("kept", "m"))
+	}
+}
+
+func resetStore() {
+	mu.Lock()
+	store = nil
+	mu.Unlock()
 }

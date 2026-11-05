@@ -22,7 +22,7 @@ type Message struct {
 	// of the message (direction, chat, status). Uniqueness is therefore per
 	// instance, or one tenant's row would overwrite the other's.
 	MessageID  string `json:"message_id" gorm:"uniqueIndex:uni_messages_instance_message,priority:2"`
-	InstanceId string `json:"instance_id" gorm:"column:instance_id;index;uniqueIndex:uni_messages_instance_message,priority:1"`
+	InstanceId string `json:"instance_id" gorm:"column:instance_id;uniqueIndex:uni_messages_instance_message,priority:1"`
 	// Timestamp is "YYYY-MM-DD HH:MM:SS" text, so it sorts and compares
 	// lexicographically. The index is what lets the retention job find the rows
 	// to delete with a range scan instead of a full table scan per batch.
@@ -34,7 +34,7 @@ type Message struct {
 	// ChatJid is the conversation (peer for a direct chat, the group JID for a
 	// group). SenderJid is the author of the message. Both are canonical,
 	// non-device JIDs, so they join with the history endpoint's `chat` filter.
-	ChatJid   string `json:"chat_jid" gorm:"column:chat_jid;index"`
+	ChatJid   string `json:"chat_jid" gorm:"column:chat_jid"`
 	SenderJid string `json:"sender_jid"`
 
 	// MessageType is the coarse type (text/image/video/...). TextContent holds

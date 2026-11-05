@@ -1,11 +1,17 @@
 package storage_interfaces
 
-import "context"
+import (
+	"context"
+	"io"
+)
 
 // MediaStorage defines the contract for storing and retrieving media files
 type MediaStorage interface {
 	// Store saves the media data and returns a public URL to access it
 	Store(ctx context.Context, data []byte, fileName string, contentType string) (string, error)
+
+	// StoreReader is Store for media too large to hold in memory.
+	StoreReader(ctx context.Context, r io.Reader, size int64, fileName string, contentType string) (string, error)
 
 	// Delete removes the stored media
 	Delete(ctx context.Context, fileName string) error

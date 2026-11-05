@@ -2,6 +2,7 @@ package whatsmeow_service
 
 import (
 	"context"
+	"io"
 	"testing"
 
 	"github.com/felipeestevanatto/wamux/pkg/config"
@@ -31,6 +32,9 @@ func TestInstanceMediaDelivery(t *testing.T) {
 			t.Errorf("instanceMediaDelivery(%q) = %q, want %q", in, got, want)
 		}
 	}
+}
+func (stubStorage) StoreReader(context.Context, io.Reader, int64, string, string) (string, error) {
+	return "", nil
 }
 
 func TestMediaStorageForFallbacks(t *testing.T) {

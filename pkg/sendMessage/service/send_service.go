@@ -3442,35 +3442,44 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 		video := msg.GetVideoMessage()
 		sticker := msg.GetStickerMessage()
 
-		// Reuse the bytes the caller already uploaded instead of downloading the
-		// media back from WhatsApp (a full round trip plus a second in-memory
-		// copy). Stickers are excluded: the payload re-encodes them to PNG below.
-		var mediaBytes []byte
-		if data.MediaData != nil && sticker == nil {
-			mediaBytes = data.MediaData
-		} else if img != nil {
-			mediaBytes, err = s.clientPointer.Get(instance.Id).Download(context.Background(), img)
-		} else if audio != nil {
-			mediaBytes, err = s.clientPointer.Get(instance.Id).Download(context.Background(), audio)
-		} else if document != nil {
-			mediaBytes, err = s.clientPointer.Get(instance.Id).Download(context.Background(), document)
-		} else if video != nil {
-			mediaBytes, err = s.clientPointer.Get(instance.Id).Download(context.Background(), video)
-		} else if sticker != nil {
-			mediaBytes, err = s.clientPointer.Get(instance.Id).Download(context.Background(), sticker)
+		// Above the limit the event stays small, like an inbound file.
+		size := int64(whatsmeow_service.MediaFileLength(msg))
+		if data.MediaData != nil {
+			size = int64(len(data.MediaData))
+		}
+		if size > s.config.WebhookBase64MaxBytes {
+			msgMap["base64Omitted"] = true
+		} else {
+			// Reuse the bytes the caller already uploaded instead of downloading the
+			// media back from WhatsApp (a full round trip plus a second in-memory
+			// copy). Stickers are excluded: the payload re-encodes them to PNG below.
+			var mediaBytes []byte
+			if data.MediaData != nil && sticker == nil {
+				mediaBytes = data.MediaData
+			} else if img != nil {
+				mediaBytes, err = s.clientPointer.Get(instance.Id).Download(context.Background(), img)
+			} else if audio != nil {
+				mediaBytes, err = s.clientPointer.Get(instance.Id).Download(context.Background(), audio)
+			} else if document != nil {
+				mediaBytes, err = s.clientPointer.Get(instance.Id).Download(context.Background(), document)
+			} else if video != nil {
+				mediaBytes, err = s.clientPointer.Get(instance.Id).Download(context.Background(), video)
+			} else if sticker != nil {
+				mediaBytes, err = s.clientPointer.Get(instance.Id).Download(context.Background(), sticker)
 
-			webpReader := bytes.NewReader(mediaBytes)
-			decoded, decErr := webp.Decode(webpReader)
-			if decErr == nil {
-				var pngBuffer bytes.Buffer
-				if encErr := png.Encode(&pngBuffer, decoded); encErr == nil {
-					mediaBytes = pngBuffer.Bytes()
+				webpReader := bytes.NewReader(mediaBytes)
+				decoded, decErr := webp.Decode(webpReader)
+				if decErr == nil {
+					var pngBuffer bytes.Buffer
+					if encErr := png.Encode(&pngBuffer, decoded); encErr == nil {
+						mediaBytes = pngBuffer.Bytes()
+					}
 				}
 			}
-		}
 
-		if err == nil {
-			msgMap["base64"] = base64.StdEncoding.EncodeToString(mediaBytes)
+			if err == nil {
+				msgMap["base64"] = base64.StdEncoding.EncodeToString(mediaBytes)
+			}
 		}
 	}
 

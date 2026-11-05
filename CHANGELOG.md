@@ -1,5 +1,34 @@
 # WaMux - Changelog
 
+## Unreleased (develop)
+
+### ⚡ Performance
+- **Large media streams to disk** — files above `WEBHOOK_BASE64_MAX_BYTES` (5 MiB)
+  are downloaded straight to a file and handed to the local store and S3/MinIO, so
+  memory stays flat whatever the size. A file nothing would keep is not downloaded.
+- **`ListChats`** — a skip scan replaces reading every message: 1.6 s to 42 ms on an
+  instance with 1M messages. Results are identical.
+- **Inserts** — GORM's implicit transaction is skipped for single-statement writes
+  (1.15 ms to 0.50 ms per row), and two redundant indexes are gone (migration `0009`).
+- **Request log** — `HTTP_ACCESS_LOG` defaults to `errors`.
+- **Auto-read** — one call off the dispatch path, instead of two with one blocking.
+
+### 🔒 Security
+- The global API key no longer reaches the access log through `/ws?token=`.
+
+### 🐛 Fixes
+- **`DEBUG_ENABLED=0` no longer enables debug logging.** whatsmeow treats unknown
+  levels as DEBUG, so it logged every protocol node.
+- **Stored media is pruned** — files were never deleted, so retention only applied
+  to rows. New `MEDIA_RETENTION_DAYS`, and deleting an instance removes its media.
+- `GET /chat/media/:messageId` now serves files up to 2 GiB, not 64 MiB.
+
+### ⚠️ Behaviour changes
+- Events for files above the limit carry `mediaUrl` and `base64Omitted: true`
+  instead of `base64`. `mediaUrl` is an API path needing the instance token, unless
+  an object store is configured. Outbound media follows the same limit.
+- Auto-read no longer marks messages that are ignored (groups, status).
+
 ## Unreleased
 
 ### 🔒 Security

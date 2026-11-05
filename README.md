@@ -122,6 +122,9 @@ A few of the most-used settings:
 | `SSRF_PROTECTION` | Opt-in: refuse outbound fetches to loopback/private/link-local hosts | `false` |
 | `WEBHOOK_HMAC_KEY` | Global key for webhook HMAC signing | — |
 | `RATE_LIMIT_PER_MINUTE` | Requests per credential / per IP (`0` disables) | `600` |
+| `WEBHOOK_BASE64_MAX_BYTES` | Largest file embedded as base64 in an event; larger files stream to storage and the event carries `mediaUrl` (`0` never embeds) | `5242880` |
+| `MEDIA_RETENTION_DAYS` | Days to keep stored media (`0` keeps it forever) | `MESSAGE_RETENTION_DAYS` |
+| `HTTP_ACCESS_LOG` | Request log: `errors`, `all` or `off` | `errors` |
 | `TRUSTED_PROXIES` | Proxy IPs/CIDRs allowed to set `X-Forwarded-For`; required behind a reverse proxy | none |
 
 RabbitMQ, NATS and MinIO settings are in the same `.env.example`.

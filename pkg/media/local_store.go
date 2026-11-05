@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 )
 
 var (
@@ -123,4 +124,92 @@ func Remove(instanceID, messageID string) error {
 		return nil
 	}
 	return err
+}
+
+// Configured reports whether the store is active.
+func Configured() bool {
+	return current() != nil
+}
+
+// tempPattern names in-progress downloads, directly under the store root so that
+// Adopt is a rename on the same filesystem.
+const tempPattern = ".incoming-*"
+
+// CreateTemp opens a file to download into. Without a store it uses the system
+// temp directory, for media that is only passing through to an object store.
+func CreateTemp() (*os.File, error) {
+	dir := ""
+	if s := current(); s != nil {
+		dir = s.root
+	}
+	return os.CreateTemp(dir, tempPattern)
+}
+
+// Adopt moves a file made by CreateTemp into place as a message's media. The bytes
+// never pass through memory, which is the point: Save needs them all at once.
+func Adopt(instanceID, messageID, tempPath string) error {
+	s := current()
+	if s == nil {
+		return ErrNotConfigured
+	}
+	if !safeName(instanceID) || !safeName(messageID) {
+		return errors.New("invalid media id")
+	}
+	dir := filepath.Join(s.root, instanceID)
+	if err := os.MkdirAll(dir, 0o751); err != nil {
+		return err
+	}
+	if err := os.Chmod(tempPath, 0o640); err != nil {
+		return err
+	}
+	return os.Rename(tempPath, filepath.Join(dir, messageID))
+}
+
+// RemoveInstance deletes everything stored for one instance.
+func RemoveInstance(instanceID string) error {
+	s := current()
+	if s == nil || !safeName(instanceID) {
+		return nil
+	}
+	return os.RemoveAll(filepath.Join(s.root, instanceID))
+}
+
+// RemoveOlderThan deletes stored files last modified before cutoff and returns how
+// many went. That covers temp files a crash left behind. It keeps going past a
+// file it cannot remove and reports the first error.
+func RemoveOlderThan(cutoff time.Time) (int, error) {
+	s := current()
+	if s == nil {
+		return 0, nil
+	}
+
+	removed := 0
+	var firstErr error
+	err := filepath.WalkDir(s.root, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			if firstErr == nil {
+				firstErr = walkErr
+			}
+			return nil
+		}
+		if d.IsDir() {
+			return nil
+		}
+		info, err := d.Info()
+		if err != nil || !info.ModTime().Before(cutoff) {
+			return nil
+		}
+		if err := os.Remove(path); err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			return nil
+		}
+		removed++
+		return nil
+	})
+	if firstErr == nil {
+		firstErr = err
+	}
+	return removed, firstErr
 }

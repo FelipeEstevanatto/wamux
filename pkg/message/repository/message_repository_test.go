@@ -297,8 +297,8 @@ func TestListMessagesClampsLimitAndSkipsEmptyScopes(t *testing.T) {
 func TestListChatsReturnsNewestPerChat(t *testing.T) {
 	repo, mock := newMockRepo(t)
 
-	mock.ExpectQuery(`DISTINCT ON \(chat_jid\)`).
-		WithArgs("inst-1", defaultHistoryLimit).
+	mock.ExpectQuery(`WITH RECURSIVE chats`).
+		WithArgs("inst-1", "inst-1", "inst-1", defaultHistoryLimit, "inst-1").
 		WillReturnRows(sqlmock.NewRows([]string{"chat_jid", "message_id", "timestamp", "message_type", "text_content", "status", "media_url", "sender_jid", "is_from_me", "message_count"}).
 			AddRow("a@s.whatsapp.net", "m2", "2026-05-09 11:00:00", "text", "hi", "Received", "", "a@s.whatsapp.net", false, 3).
 			AddRow("b@s.whatsapp.net", "m9", "2026-05-09 09:00:00", "image", "cap", "Sent", "http://x/y.jpg", "me@s.whatsapp.net", true, 5))

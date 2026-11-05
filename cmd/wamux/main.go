@@ -285,7 +285,12 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	// NOVO: PollHandler usando PollService já inicializado no whatsmeowService (evita dupla inicialização)
 	pollHandler := poll_handler.NewPollHandler(whatsmeowService.GetPollService(), loggerWrapper)
 
-	r := gin.Default()
+	// Debug mode only adds route tables and warnings at boot.
+	if !*devMode {
+		gin.SetMode(gin.ReleaseMode)
+	}
+	r := gin.New()
+	r.Use(httpguard.AccessLog(config.HttpAccessLog), gin.Recovery())
 
 	// Gin trusts every peer's X-Forwarded-For unless told otherwise, which would
 	// let any caller choose the IP the rate limiter sees. A bad list must stop
@@ -661,7 +666,9 @@ func main() {
 	// server; the message cleanup prunes rows past MESSAGE_RETENTION_DAYS.
 	workersCtx, stopWorkers := context.WithCancel(context.Background())
 	defer stopWorkers()
-	message_cleanup.NewCleaner(messageRepository, cfg.MessageRetentionDays).Start(workersCtx)
+	message_cleanup.NewCleaner(messageRepository, cfg.MessageRetentionDays,
+		message_cleanup.WithMediaRetention(cfg.MediaRetentionDays, localmedia.RemoveOlderThan),
+	).Start(workersCtx)
 
 	r, whatsmeowService := setupRouter(db, authDB, sqliteDB, cfg, conn, exPath, messageRepository)
 

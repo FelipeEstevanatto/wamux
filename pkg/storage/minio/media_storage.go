@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/url"
 	"strings"
 	"time"
@@ -180,13 +181,22 @@ func TestConnection(o Options) error {
 	return nil
 }
 
+// uploadPartSize keeps a multipart upload's buffer small. minio-go otherwise sizes
+// parts for the largest possible object.
+const uploadPartSize = 16 << 20
+
 func (m *MinioMediaStorage) Store(ctx context.Context, data []byte, fileName string, contentType string) (string, error) {
+	return m.StoreReader(ctx, bytes.NewReader(data), int64(len(data)), fileName, contentType)
+}
+
+func (m *MinioMediaStorage) StoreReader(ctx context.Context, r io.Reader, size int64, fileName string, contentType string) (string, error) {
 	// Generate organized file path
 	filePath := generateFilePath(fileName)
-	reader := bytes.NewReader(data)
 
-	_, err := m.client.PutObject(ctx, m.bucketName, filePath, reader, int64(len(data)), minio.PutObjectOptions{
+	_, err := m.client.PutObject(ctx, m.bucketName, filePath, r, size, minio.PutObjectOptions{
 		ContentType: contentType,
+		PartSize:    uploadPartSize,
+		NumThreads:  1,
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to store object: %w", err)

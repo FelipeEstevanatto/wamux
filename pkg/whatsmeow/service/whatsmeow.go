@@ -1259,17 +1259,21 @@ const (
 // triggering a retry receipt) would otherwise spawn unbounded goroutines.
 const maxParallelRetryReceipts = 10
 
+// autoReadDelay is the pause before a message is marked read, so it looks natural.
+const autoReadDelay = time.Second
+
 // mediaWorkers bounds concurrent media downloads across every instance. Downloads
 // wait on the network, so this is sized for overlap rather than for CPU. Queued
 // jobs hold only the event, never the bytes.
 //
-// Files of largeMediaBytes or more get their own much smaller pool, because memory
-// is what limits them: the bytes, their base64 and the encoded event all coexist,
-// which measured about 20x the file size at peak (1.1 GB RSS for a 51 MB video).
+// Files of largeMediaBytes or more get their own smaller pool, so long transfers
+// cannot occupy every worker and hold up images and voice notes. It also bounds
+// memory if WEBHOOK_BASE64_MAX_BYTES is raised: a file embedded as base64 peaks at
+// about 10x its size. Above that limit files stream to disk, so size costs no memory.
 const (
 	mediaWorkers      = 16
 	mediaQueueSize    = 1024
-	largeMediaWorkers = 2
+	largeMediaWorkers = 4
 	largeMediaBytes   = 8 << 20
 )
 
@@ -2044,7 +2048,7 @@ func (mycli *MyClient) routeEvent(rawEvt interface{}, process func(interface{}))
 	}
 
 	pool := mycli.mediaPool
-	if mediaFileLength(evt.Message) >= largeMediaBytes && mycli.largeMediaPool != nil {
+	if MediaFileLength(evt.Message) >= largeMediaBytes && mycli.largeMediaPool != nil {
 		pool = mycli.largeMediaPool
 	}
 
@@ -2079,8 +2083,8 @@ func hasDownloadableMedia(msg *waE2E.Message) bool {
 	return false
 }
 
-// mediaFileLength is the declared size of a message's largest attachment.
-func mediaFileLength(msg *waE2E.Message) uint64 {
+// MediaFileLength is the declared size of a message's largest attachment.
+func MediaFileLength(msg *waE2E.Message) uint64 {
 	var largest uint64
 	child := msg.GetAssociatedChildMessage().GetMessage()
 	for _, m := range []*waE2E.Message{msg, child} {
@@ -2462,17 +2466,6 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 
 		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] ===== MESSAGE RECEIVED ===== ID: %s, From: %s, Type: %s, Size: %s", mycli.userID, evt.Info.ID, evt.Info.Chat.String(), evt.Info.Type, messageSize)
 
-		// se readMessages for true ele marca como lida
-		if mycli.Instance.ReadMessages {
-			messageIDs := []string{evt.Info.ID}
-			err := mycli.WAClient.MarkRead(context.Background(), messageIDs, time.Now(), evt.Info.Sender, evt.Info.Sender)
-			if err != nil {
-				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to auto-mark message as read: %v", mycli.userID, err)
-			} else {
-				mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Auto-marked message as read from %s", mycli.userID, evt.Info.Chat.String())
-			}
-		}
-
 		// se ignoreStatus for true e o chat for broadcast ou o id for broadcast retorna
 		if mycli.Instance.IgnoreStatus && (strings.Contains(evt.Info.Chat.String(), "@broadcast") || strings.Contains(evt.Info.ID, "@broadcast")) {
 			return
@@ -2510,6 +2503,10 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 		if evt.Message.GetPollUpdateMessage() != nil {
 			mycli.handlePollVote(evt)
 		}
+
+		// A read receipt must use the JIDs WhatsApp addressed the message with, so
+		// keep them before the swap below rewrites them.
+		readChat, readSender := evt.Info.Chat, evt.Info.Sender
 
 		// Trata o caso especial onde Sender é @lid e SenderAlt é @s.whatsapp.net
 		// Neste caso, devemos inverter: Sender e Chat devem ser @s.whatsapp.net, SenderAlt deve ser @lid
@@ -2570,16 +2567,19 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 			}
 		}
 
-		// Auto-marca mensagens como lidas se configurado
+		// Auto-marca mensagens como lidas se configurado. The delay runs on a timer
+		// so it holds no pool worker, and the network call stays off dispatch.
 		if mycli.Instance.ReadMessages && !evt.Info.IsFromMe {
-			mycli.bgPool.Go(func() {
-				time.Sleep(1 * time.Second) // Pequeno delay para parecer mais natural
-				err := mycli.WAClient.MarkRead(context.Background(), []types.MessageID{evt.Info.ID}, evt.Info.Timestamp, evt.Info.Chat, evt.Info.Sender)
-				if err != nil {
-					mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to auto-mark message as read: %v", mycli.userID, err)
-				} else {
-					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Auto-marked message as read from %s", mycli.userID, evt.Info.Chat.String())
-				}
+			messageID, timestamp := evt.Info.ID, evt.Info.Timestamp
+			time.AfterFunc(autoReadDelay, func() {
+				mycli.bgPool.Go(func() {
+					err := mycli.WAClient.MarkRead(context.Background(), []types.MessageID{messageID}, timestamp, readChat, readSender)
+					if err != nil {
+						mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to auto-mark message as read: %v", mycli.userID, err)
+					} else {
+						mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Auto-marked message as read from %s", mycli.userID, readChat.String())
+					}
+				})
 			})
 		}
 
@@ -2721,6 +2721,31 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 				associatedImg != nil || associatedAudio != nil || associatedDocument != nil ||
 				associatedVideo != nil || associatedSticker != nil {
 				isMedia = true
+			}
+
+			// Files too large to embed never enter memory: they stream to storage
+			// and the event carries a pointer.
+			if isMedia {
+				if source := streamableMedia(evt.Message, mycli.config.WebhookBase64MaxBytes); source != nil {
+					messageMap, ok := dataMap["Message"].(map[string]interface{})
+					if !ok {
+						messageMap = make(map[string]interface{})
+					}
+
+					stored := mycli.streamMedia(evt.Info.ID, source, mycli.downloadToFile(source))
+					messageMap["base64Omitted"] = true
+					messageMap["mimetype"] = source.mimeType
+					if stored.url != "" {
+						messageMap["mediaUrl"] = stored.url
+					}
+					dataMap["Message"] = messageMap
+
+					storedMediaURL, storedLocalMedia = stored.objectURL, stored.local
+					if stored.url != "" {
+						storedMediaMimetype = source.mimeType
+					}
+					isMedia = false
+				}
 			}
 
 			if isMedia {
@@ -2915,7 +2940,16 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 						}
 					}
 
-					if delivery == "base64" || delivery == "both" {
+					// The local copy is reachable through the API, so say where it is.
+					if storedLocalMedia && storedMediaURL == "" {
+						messageMap["mediaUrl"] = localmedia.URLPath(evt.Info.ID)
+						messageMap["mimetype"] = mimeType
+					}
+
+					// A file with no declared size can still turn out too large.
+					if int64(len(data)) > mycli.config.WebhookBase64MaxBytes {
+						messageMap["base64Omitted"] = true
+					} else if delivery == "base64" || delivery == "both" {
 						mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Encoding to base64 - ID: %s, Size: %d bytes", mycli.userID, evt.Info.ID, len(data))
 						encodeStart := time.Now()
 

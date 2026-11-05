@@ -15,6 +15,10 @@ const (
 	SSRF_PROTECTION = "SSRF_PROTECTION"
 	LOGTYPE         = "LOG_TYPE"
 	WEBHOOKFILES    = "WEBHOOK_FILES"
+	// WEBHOOK_BASE64_MAX_BYTES is the largest file embedded as base64 in an event.
+	// Larger files are streamed to storage and the event carries mediaUrl instead.
+	// 0 never embeds. Defaults to 5 MiB.
+	WEBHOOK_BASE64_MAX_BYTES = "WEBHOOK_BASE64_MAX_BYTES"
 	// MEDIA_LOCAL_STORE keeps a copy of message attachments on the data volume
 	// so the manager can preview them without MinIO/S3. Disable to restore the
 	// previous behaviour (no local copies written).
@@ -96,6 +100,11 @@ const (
 
 	// How long persisted messages are kept before the cleanup job removes them.
 	MESSAGE_RETENTION_DAYS = "MESSAGE_RETENTION_DAYS"
+	// MEDIA_RETENTION_DAYS is how long locally stored media is kept (0 keeps it
+	// forever). Defaults to MESSAGE_RETENTION_DAYS.
+	MEDIA_RETENTION_DAYS = "MEDIA_RETENTION_DAYS"
+	// HTTP_ACCESS_LOG is "errors" (default), "all" or "off".
+	HTTP_ACCESS_LOG = "HTTP_ACCESS_LOG"
 
 	// Postgres connection-pool sizing.
 	DB_MAX_OPEN_CONNS = "DB_MAX_OPEN_CONNS"

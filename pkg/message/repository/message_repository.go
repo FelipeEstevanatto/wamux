@@ -207,8 +207,15 @@ func cloneStats(s *MessageStats) *MessageStats {
 // uni_messages_instance_message: see message_model.Message.
 var messageConflictColumns = []clause.Column{{Name: "instance_id"}, {Name: "message_id"}}
 
+// writer skips GORM's implicit BEGIN/COMMIT. Each write here is one statement, so
+// the transaction bought nothing and cost two round trips: 1.15 ms down to 0.50 ms
+// for a single row, about what hand-written SQL measured.
+func (m *messageRepository) writer() *gorm.DB {
+	return m.db.Session(&gorm.Session{SkipDefaultTransaction: true})
+}
+
 func (m *messageRepository) InsertMessage(message message_model.Message) error {
-	return m.db.Clauses(clause.OnConflict{
+	return m.writer().Clauses(clause.OnConflict{
 		Columns:   messageConflictColumns,
 		DoUpdates: clause.AssignmentColumns(messageUpdateColumns(message)),
 	}).Create(&message).Error
@@ -292,7 +299,7 @@ func (m *messageRepository) InsertMessages(messages []message_model.Message) err
 				end = len(group)
 			}
 			chunk := group[start:end]
-			if err := m.db.Clauses(clause.OnConflict{
+			if err := m.writer().Clauses(clause.OnConflict{
 				Columns:   messageConflictColumns,
 				DoUpdates: clause.AssignmentColumns(cols),
 			}).Create(&chunk).Error; err != nil {
@@ -373,23 +380,44 @@ func (m *messageRepository) ListChats(instanceId string, limit int) ([]ChatSumma
 		return summaries, nil
 	}
 
-	// DISTINCT ON keeps the newest row per chat_jid. The window count runs over
-	// the whole partition before the distinct is applied, so it is the chat's
-	// full message count.
+	// A skip scan over idx_messages_instance_chat_ts: the recursive term jumps from
+	// one chat straight to the next, the lateral takes each chat's newest row, and
+	// only the chats that made the page are counted. The cost follows the number of
+	// chats, not messages. DISTINCT ON with a window count read every message the
+	// instance had: 5.5 s at 1M rows, on a query the manager runs on every load.
 	const query = `
-SELECT * FROM (
-    SELECT DISTINCT ON (chat_jid)
-        chat_jid, message_id, "timestamp", message_type, text_content, status,
-        media_url, sender_jid, is_from_me,
-        count(*) OVER (PARTITION BY chat_jid) AS message_count
-    FROM messages
-    WHERE instance_id = ? AND chat_jid <> ''
-    ORDER BY chat_jid, "timestamp" DESC
-) t
-ORDER BY "timestamp" DESC
-LIMIT ?`
+WITH RECURSIVE chats AS (
+    (SELECT chat_jid FROM messages
+      WHERE instance_id = ? AND chat_jid <> ''
+      ORDER BY chat_jid LIMIT 1)
+    UNION ALL
+    SELECT (SELECT m.chat_jid FROM messages m
+             WHERE m.instance_id = ? AND m.chat_jid > c.chat_jid
+             ORDER BY m.chat_jid LIMIT 1)
+      FROM chats c
+     WHERE c.chat_jid IS NOT NULL
+), latest AS (
+    SELECT l.*
+      FROM chats c
+     CROSS JOIN LATERAL (
+        SELECT x.chat_jid, x.message_id, x."timestamp", x.message_type, x.text_content,
+               x.status, x.media_url, x.sender_jid, x.is_from_me
+          FROM messages x
+         WHERE x.instance_id = ? AND x.chat_jid = c.chat_jid
+         ORDER BY x."timestamp" DESC
+         LIMIT 1
+     ) l
+     WHERE c.chat_jid IS NOT NULL
+     ORDER BY l."timestamp" DESC
+     LIMIT ?
+)
+SELECT t.*,
+       (SELECT count(*) FROM messages n
+         WHERE n.instance_id = ? AND n.chat_jid = t.chat_jid) AS message_count
+  FROM latest t
+ ORDER BY t."timestamp" DESC`
 
-	err := m.db.Raw(query, instanceId, clampHistoryLimit(limit)).Scan(&summaries).Error
+	err := m.db.Raw(query, instanceId, instanceId, instanceId, clampHistoryLimit(limit), instanceId).Scan(&summaries).Error
 	return summaries, err
 }
 

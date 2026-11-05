@@ -3,6 +3,8 @@ package config
 import (
 	"strings"
 	"testing"
+
+	config_env "github.com/felipeestevanatto/wamux/pkg/config/env"
 )
 
 func TestExtractDBNameAndAdminDSNURL(t *testing.T) {
@@ -116,6 +118,43 @@ func TestEnvInt(t *testing.T) {
 		t.Setenv(key, raw)
 		if got := envInt(key, 7); got != 7 {
 			t.Fatalf("envInt(%q) = %d, want fallback 7", raw, got)
+		}
+	}
+}
+
+// whatsmeow treats a level name it does not know as DEBUG, so DEBUG_ENABLED=0 used
+// to log every protocol node.
+func TestWhatsmeowLogLevel(t *testing.T) {
+	cases := map[string]string{
+		"": "", "0": "", "false": "", "off": "", "garbage": "",
+		"1": "DEBUG", "true": "DEBUG", "debug": "DEBUG",
+		"INFO": "INFO", "warn": "WARN", " error ": "ERROR",
+	}
+	for raw, want := range cases {
+		t.Setenv(config_env.WA_DEBUG, raw)
+		if got := whatsmeowLogLevel(raw); got != want {
+			t.Errorf("whatsmeowLogLevel(%q) = %q, want %q", raw, got, want)
+		}
+	}
+}
+
+func TestWebhookBase64MaxBytes(t *testing.T) {
+	cases := map[string]int64{"": defaultWebhookBase64MaxBytes, "0": 0, "1048576": 1 << 20, "-1": defaultWebhookBase64MaxBytes, "x": defaultWebhookBase64MaxBytes}
+	for raw, want := range cases {
+		t.Setenv(config_env.WEBHOOK_BASE64_MAX_BYTES, raw)
+		if got := webhookBase64MaxBytes(); got != want {
+			t.Errorf("%q: got %d, want %d", raw, got, want)
+		}
+	}
+}
+
+// Media goes with its message unless told otherwise.
+func TestMediaRetentionDays(t *testing.T) {
+	cases := map[string]int{"": 365, "0": 0, "30": 30, "-1": 365, "x": 365}
+	for raw, want := range cases {
+		t.Setenv(config_env.MEDIA_RETENTION_DAYS, raw)
+		if got := mediaRetentionDays(365); got != want {
+			t.Errorf("%q: got %d, want %d", raw, got, want)
 		}
 	}
 }

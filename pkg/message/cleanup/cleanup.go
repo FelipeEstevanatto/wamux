@@ -40,9 +40,29 @@ type Cleaner interface {
 	Start(ctx context.Context)
 }
 
+// MediaPruner deletes stored media files older than cutoff. localmedia.RemoveOlderThan
+// is the real one.
+type MediaPruner func(cutoff time.Time) (int, error)
+
+// Option configures a cleaner.
+type Option func(*cleaner)
+
+// WithMediaRetention also deletes stored media older than days. Message rows and
+// files are pruned independently: a row can outlive its file, which just reads as
+// media no longer available.
+func WithMediaRetention(days int, prune MediaPruner) Option {
+	return func(c *cleaner) {
+		c.mediaRetentionDays = days
+		c.pruneMedia = prune
+	}
+}
+
 type cleaner struct {
 	repo          MessageDeleter
 	retentionDays int
+
+	mediaRetentionDays int
+	pruneMedia         MediaPruner
 
 	// Overridable in tests so they do not have to wait hours.
 	runInterval time.Duration
@@ -54,18 +74,27 @@ type cleaner struct {
 
 // NewCleaner builds a cleaner that keeps messages for retentionDays days. Pass 0
 // to keep them forever (Start then only logs that it is disabled).
-func NewCleaner(repo MessageDeleter, retentionDays int) Cleaner {
-	return &cleaner{
+func NewCleaner(repo MessageDeleter, retentionDays int, opts ...Option) Cleaner {
+	c := &cleaner{
 		repo:          repo,
 		retentionDays: retentionDays,
 		runInterval:   defaultRunInterval,
 		startDelay:    defaultStartDelay,
 		now:           time.Now,
 	}
+	for _, opt := range opts {
+		opt(c)
+	}
+	return c
+}
+
+// prunesMedia reports whether stored media has a retention to enforce.
+func (c *cleaner) prunesMedia() bool {
+	return c.pruneMedia != nil && c.mediaRetentionDays > 0
 }
 
 func (c *cleaner) Start(ctx context.Context) {
-	if c.retentionDays <= 0 {
+	if c.retentionDays <= 0 && !c.prunesMedia() {
 		applog.Logger.LogInfo("[cleanup] message retention disabled (MESSAGE_RETENTION_DAYS=0); messages are kept forever")
 		return
 	}
@@ -91,6 +120,25 @@ func (c *cleaner) loop(ctx context.Context) {
 
 // sweep deletes one batch-run and logs the outcome.
 func (c *cleaner) sweep() {
+	if c.prunesMedia() {
+		c.sweepMedia()
+	}
+	if c.retentionDays > 0 {
+		c.sweepMessages()
+	}
+}
+
+func (c *cleaner) sweepMedia() {
+	removed, err := c.pruneMedia(c.now().AddDate(0, 0, -c.mediaRetentionDays))
+	if err != nil {
+		applog.Logger.LogError("[cleanup] failed to prune stored media: %v", err)
+	}
+	if removed > 0 {
+		applog.Logger.LogInfo("[cleanup] deleted %d stored media file(s) older than %d day(s)", removed, c.mediaRetentionDays)
+	}
+}
+
+func (c *cleaner) sweepMessages() {
 	cutoff := c.now().AddDate(0, 0, -c.retentionDays).Format(timeLayout)
 
 	start := time.Now()
