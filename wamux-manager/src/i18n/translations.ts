@@ -44,6 +44,8 @@ const basePt: Record<string, string> = {
   'sidebar.version': 'versão {version}',
   'sidebar.versionEmpty': 'versão —',
   'sidebar.github': 'GitHub',
+  'sidebar.collapse': 'Recolher menu',
+  'sidebar.expand': 'Expandir menu',
   'sidebar.repoTitle': 'Repositório do projeto',
   'sidebar.homeTitle': 'Ir para o Dashboard',
 
@@ -155,6 +157,8 @@ const baseEn: Record<string, string> = {
   'sidebar.version': 'version {version}',
   'sidebar.versionEmpty': 'version —',
   'sidebar.github': 'GitHub',
+  'sidebar.collapse': 'Collapse menu',
+  'sidebar.expand': 'Expand menu',
   'sidebar.repoTitle': 'Project repository',
   'sidebar.homeTitle': 'Go to the Dashboard',
 

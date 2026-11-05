@@ -710,7 +710,38 @@ func (m *messageService) EditMessage(data *EditMessageStruct, instance *instance
 		return "", "", err
 	}
 
+	m.recordEdit(instance.Id, data.MessageID, resp.ID, data.Message, resp.Timestamp)
+
 	return resp.ID, resp.Timestamp.String(), nil
+}
+
+// recordEdit stores an edit made through the API, in the same shape as one received
+// from WhatsApp, so history shows the new text. An original that is not stored means
+// there is no history to update, which also covers history being turned off.
+func (m *messageService) recordEdit(instanceId, targetID, editID, text string, at time.Time) {
+	if m.messageRepository == nil {
+		return
+	}
+	original, err := m.messageRepository.GetMessageByIDForInstance(instanceId, targetID)
+	if err != nil || original == nil {
+		return
+	}
+	err = m.messageRepository.InsertMessage(message_model.Message{
+		MessageID:       editID,
+		InstanceId:      instanceId,
+		Timestamp:       at.Format("2006-01-02 15:04:05"),
+		Status:          "Sent",
+		Source:          original.Source,
+		ChatJid:         original.ChatJid,
+		SenderJid:       original.SenderJid,
+		MessageType:     "edit",
+		TextContent:     text,
+		QuotedMessageID: targetID,
+		IsFromMe:        true,
+	})
+	if err != nil {
+		m.loggerWrapper.GetLogger(instanceId).LogError("[%s] Failed to record edit of %s: %v", instanceId, targetID, err)
+	}
 }
 
 // canonicalChat turns a phone number or JID into the canonical JID stored in

@@ -53,3 +53,13 @@ func TestSummarizeButtons(t *testing.T) {
 		})
 	}
 }
+
+func TestSummarizeEditedCaption(t *testing.T) {
+	got := Summarize(&waE2E.Message{ProtocolMessage: &waE2E.ProtocolMessage{
+		Type:          waE2E.ProtocolMessage_MESSAGE_EDIT.Enum(),
+		EditedMessage: &waE2E.Message{ImageMessage: &waE2E.ImageMessage{Caption: proto.String("new caption")}},
+	}})
+	if got.Type != "edit" || got.Text != "new caption" {
+		t.Fatalf("got %+v", got)
+	}
+}

@@ -130,5 +130,15 @@ func textOf(msg *waE2E.Message) string {
 	if c := msg.GetConversation(); c != "" {
 		return c
 	}
-	return msg.GetExtendedTextMessage().GetText()
+	if e := msg.GetExtendedTextMessage(); e != nil {
+		return e.GetText()
+	}
+	// An edited media message changes its caption.
+	if img := msg.GetImageMessage(); img != nil {
+		return img.GetCaption()
+	}
+	if vid := msg.GetVideoMessage(); vid != nil {
+		return vid.GetCaption()
+	}
+	return msg.GetDocumentMessage().GetCaption()
 }

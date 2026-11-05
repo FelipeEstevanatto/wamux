@@ -37,6 +37,8 @@ export interface HistoryMessage {
   status: string;
   source: string;
   chat_jid: string;
+  /** Set on the client by applyEdits: the text comes from a later edit. */
+  edited?: boolean;
   sender_jid: string;
   message_type: string;
   text_content: string;

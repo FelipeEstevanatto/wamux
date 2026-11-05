@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   type ClipboardEvent,
+  type CSSProperties,
   type DragEvent,
 } from 'react';
 import {
@@ -50,10 +51,12 @@ import useInstances from '@/hooks/useInstances';
 import useInstanceEvents from '@/hooks/useInstanceEvents';
 import { useInView } from '@/hooks/useInView';
 import { useMediaSrc } from '@/hooks/useMediaSrc';
+import { PANE_MAX, PANE_MIN, useResizablePane } from '@/hooks/useResizablePane';
 import * as messagesApi from '@/services/api/messages';
 import { fetchServerStats } from '@/services/api/server';
 import type { ChatSummary, HistoryMessage } from '@/types/messages';
 import { cn } from '@/utils/cn';
+import { applyEdits } from '@/utils/messageEdits';
 
 const PAGE_SIZE = 50;
 
@@ -497,7 +500,7 @@ function Bubble({
   const hasBody = Boolean(message.text_content) || isMedia;
 
   return (
-    <div className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+    <div className={`mb-1.5 flex last:mb-0 ${mine ? 'justify-end' : 'justify-start'}`}>
       <div
         className={`max-w-[85%] rounded-lg px-3 py-2 text-sm shadow-xs sm:max-w-[75%] ${
           mine ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
@@ -562,6 +565,7 @@ function Bubble({
           }`}
           title={message.timestamp}
         >
+          {message.edited && <span>{t('messages.edited')}</span>}
           {formatTime(message.timestamp)}
           {mine && <StatusTick status={message.status} />}
         </span>
@@ -621,6 +625,8 @@ export default function Messages() {
   const [atBottom, setAtBottom] = useState(true);
   const atBottomRef = useRef(true);
   const threadRef = useRef<HTMLDivElement>(null);
+  const panesRef = useRef<HTMLDivElement>(null);
+  const listPane = useResizablePane('wamux.messages.listWidth', panesRef);
   const prevChatRef = useRef('');
   const prevCountRef = useRef(0);
   const refreshTimer = useRef<number | undefined>(undefined);
@@ -750,10 +756,11 @@ export default function Messages() {
     for (const page of threadQuery.data?.pages ?? []) {
       for (const message of page) byId.set(message.message_id, message);
     }
-    return Array.from(byId.values()).sort((a, b) => {
+    const sorted = Array.from(byId.values()).sort((a, b) => {
       if (a.timestamp !== b.timestamp) return a.timestamp < b.timestamp ? 1 : -1;
       return a.id < b.id ? 1 : -1;
     });
+    return applyEdits(sorted);
   }, [threadQuery.data]);
 
   const ordered = useMemo(() => [...messages].reverse(), [messages]);
@@ -1265,7 +1272,30 @@ export default function Messages() {
         </div>
       )}
 
-      <div className="grid min-h-0 flex-1 lg:grid-cols-[340px_1fr]">
+      <div
+        ref={panesRef}
+        style={{ '--list-w': `${listPane.width}px` } as CSSProperties}
+        className={cn(
+          'relative grid min-h-0 flex-1 lg:grid-cols-[min(var(--list-w),calc(100%_-_360px))_minmax(0,1fr)]',
+          listPane.dragging && 'cursor-col-resize select-none'
+        )}
+      >
+        {/* Drag to resize the list, like WhatsApp Desktop. */}
+        <div
+          role="separator"
+          tabIndex={0}
+          aria-orientation="vertical"
+          aria-label={t('messages.resizeList')}
+          aria-valuemin={PANE_MIN}
+          aria-valuemax={PANE_MAX}
+          aria-valuenow={listPane.width}
+          {...listPane.handleProps}
+          className={cn(
+            'absolute inset-y-0 z-20 hidden w-2 -translate-x-1/2 cursor-col-resize touch-none transition-colors hover:bg-primary/30 focus-visible:bg-primary/30 focus-visible:outline-none lg:left-[min(var(--list-w),calc(100%_-_360px))] lg:block',
+            listPane.dragging && 'bg-primary/30'
+          )}
+        />
+
         {/* Conversation list */}
         <aside
           className={`min-h-0 flex-col border-r border-border ${
@@ -1454,6 +1484,9 @@ export default function Messages() {
                 </Button>
               </div>
 
+              {/* The jump button lives in here, so whatever opens below the thread
+                  (a media preview, the composer) can never end up under it. */}
+              <div className="relative flex min-h-0 flex-1 flex-col">
               <div
                 ref={threadRef}
                 onScroll={handleScroll}
@@ -1528,13 +1561,14 @@ export default function Messages() {
                   size="icon"
                   variant="outline"
                   onClick={scrollToBottom}
-                  className="absolute bottom-24 right-4 z-10 rounded-full shadow-md"
+                  className="absolute bottom-4 right-4 z-10 rounded-full shadow-md"
                   title={t('messages.jumpToLatest')}
                   aria-label={t('messages.jumpToLatest')}
                 >
                   <ArrowDown className="h-4 w-4" />
                 </Button>
               )}
+              </div>
 
               {dragging && (
                 <div className="pointer-events-none absolute inset-3 z-20 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-background/80 text-sm font-medium text-primary">

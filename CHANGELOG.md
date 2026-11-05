@@ -13,6 +13,14 @@
 - **Request log** — `HTTP_ACCESS_LOG` defaults to `errors`.
 - **Auto-read** — one call off the dispatch path, instead of two with one blocking.
 
+### ✨ Manager
+- The sidebar collapses to icons, with titles on hover.
+- The divider between conversations and chat on `/messages` can be dragged, or moved
+  with the arrow keys. A double click resets it.
+- Edited messages show the new text and an "Edited" label.
+- Message bubbles have a small gap, and the jump-to-latest button no longer covers
+  the media preview's close button.
+
 ### 🔒 Security
 - The global API key no longer reaches the access log through `/ws?token=`.
 
@@ -52,6 +60,7 @@
   webhooks flagged `IsEdit` with the new text, and are stored as `edit`.
 - **Buttons** are stored as `interactive` and `buttons_response`, not `unknown`.
 - **Captioned documents we send** keep their mimetype.
+- **Edits made through `POST /message/edit`** are now stored, so history shows them.
 
 ### ⚠️ Behaviour changes
 - Events for files above the limit carry `mediaUrl` and `base64Omitted: true`
