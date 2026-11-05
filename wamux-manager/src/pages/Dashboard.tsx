@@ -18,6 +18,10 @@ import { useDarkMode } from '@/hooks/useDarkMode';
 import GithubIcon from '@/components/base/GithubIcon';
 import { REPO } from '@/constants/branding';
 import { useI18n } from '@/i18n/I18nContext';
+import {
+  DASHBOARD_BASE_STORAGE_KEY,
+  DASHBOARD_KEY_STORAGE_KEY,
+} from '@/utils/authStorage';
 
 // (the repository link comes from @/constants/branding)
 
@@ -119,9 +123,9 @@ export default function Dashboard() {
     if (!apiKey) return;
     const sameOrigin =
       !apiUrl || apiUrl.replace(/\/+$/, '') === window.location.origin;
-    localStorage.setItem('egogo_dash_key', apiKey);
+    localStorage.setItem(DASHBOARD_KEY_STORAGE_KEY, apiKey);
     localStorage.setItem(
-      'egogo_dash_base',
+      DASHBOARD_BASE_STORAGE_KEY,
       sameOrigin ? '' : apiUrl.replace(/\/+$/, '')
     );
   }, [apiUrl, apiKey]);

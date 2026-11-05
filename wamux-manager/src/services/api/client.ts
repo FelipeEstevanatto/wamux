@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import useConnectionStore from '@/store/connectionStore';
+import { AUTH_STORAGE_KEY, clearStoredCredentials } from '@/utils/authStorage';
 
 /**
  * API Client configuration
@@ -20,7 +21,7 @@ const apiClient: AxiosInstance = axios.create({
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     // Get auth data from localStorage (Zustand persist format)
-    const authData = localStorage.getItem('wamux-auth');
+    const authData = localStorage.getItem(AUTH_STORAGE_KEY);
 
     if (authData) {
       try {
@@ -67,7 +68,7 @@ apiClient.interceptors.response.use(
     // Handle 401 Unauthorized - clear credentials and go to login
     if (error.response?.status === 401) {
       console.error('Unauthorized - clearing auth data');
-      localStorage.removeItem('wamux-auth');
+      clearStoredCredentials();
       window.location.href = '/manager/login';
       return Promise.reject(error);
     }

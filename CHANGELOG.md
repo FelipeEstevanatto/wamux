@@ -25,9 +25,12 @@
   choose how many lines to load, or follow them live.
 - `/manager` and `/dashboard` send `Cache-Control: no-cache`, so a deploy shows up on
   the next load. Browsers could keep the embedded dashboard for days.
+- Deleting an instance or removing its proxy asks in a themed, translated dialog
+  instead of the browser's `confirm`.
 
 ### 🔒 Security
 - The global API key no longer reaches the access log through `/ws?token=`.
+- Signing out, or a 401, also clears the dashboard's copy of the global API key.
 
 ### 🐛 Fixes
 - **`DEBUG_ENABLED=0` no longer enables debug logging.** whatsmeow treats unknown

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Save, Trash2, Power, Eye, EyeOff, Copy, Check, Network, RefreshCw, Pencil, X, KeyRound } from "lucide-react";
-import { Button } from "@/components/ui";
+import { Button, ConfirmDialog } from "@/components/ui";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -70,6 +70,7 @@ export default function InstanceSettings() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [isRenaming, setIsRenaming] = useState(false);
+  const [pendingConfirm, setPendingConfirm] = useState<null | "delete" | "removeProxy">(null);
   const isInitialized = useRef(false);
   const hasFetchedOnce = useRef(false);
 
@@ -316,12 +317,6 @@ export default function InstanceSettings() {
       return;
     }
 
-    const confirmed = window.confirm(
-      t('instanceSettings.confirm.delete', { name: instance.instanceName })
-    );
-
-    if (!confirmed) return;
-
     try {
       toast.info(t('instanceSettings.toast.deleting', { name: instance.instanceName }));
       await instancesApi.deleteInstance(instance.id);
@@ -509,7 +504,6 @@ export default function InstanceSettings() {
 
   const handleDeleteProxy = async () => {
     if (!instanceId) return;
-    if (!window.confirm(t('instanceSettings.confirm.removeProxy'))) return;
     setProxyBusy("delete");
     try {
       await instancesApi.deleteProxy(instanceId);
@@ -1121,7 +1115,7 @@ export default function InstanceSettings() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={handleDeleteProxy}
+                  onClick={() => setPendingConfirm("removeProxy")}
                   disabled={!proxy || proxyBusy !== null}
                   className="gap-2"
                 >
@@ -1313,7 +1307,7 @@ export default function InstanceSettings() {
                 </div>
                 <Button
                   variant="destructive"
-                  onClick={handleDelete}
+                  onClick={() => setPendingConfirm("delete")}
                   className="gap-2"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -1324,6 +1318,33 @@ export default function InstanceSettings() {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={pendingConfirm === "removeProxy"}
+        destructive
+        title={t('instanceSettings.confirm.removeProxyTitle')}
+        description={t('instanceSettings.confirm.removeProxy')}
+        confirmLabel={t('instanceSettings.proxy.remove')}
+        cancelLabel={t('common.cancel')}
+        onCancel={() => setPendingConfirm(null)}
+        onConfirm={() => {
+          setPendingConfirm(null);
+          void handleDeleteProxy();
+        }}
+      />
+      <ConfirmDialog
+        open={pendingConfirm === "delete"}
+        destructive
+        title={t('instanceSettings.danger.deleteTitle')}
+        description={t('instanceSettings.confirm.delete', { name: instance?.instanceName ?? '' })}
+        confirmLabel={t('instanceSettings.danger.delete')}
+        cancelLabel={t('common.cancel')}
+        onCancel={() => setPendingConfirm(null)}
+        onConfirm={() => {
+          setPendingConfirm(null);
+          void handleDelete();
+        }}
+      />
     </div>
   );
 }

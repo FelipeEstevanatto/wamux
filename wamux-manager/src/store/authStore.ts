@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import apiClient from '@/services/api/client';
 import type { AuthStore } from '@/types/auth';
+import { AUTH_STORAGE_KEY, clearStoredCredentials } from '@/utils/authStorage';
 
 /**
  * Authentication Store
@@ -68,7 +69,7 @@ const useAuthStore = create<AuthStore>()(
 
       // Logout method - clears credentials and localStorage
       logout: () => {
-        localStorage.removeItem('wamux-auth');
+        clearStoredCredentials();
 
         set({
           apiUrl: defaultApiUrl(),
@@ -90,7 +91,7 @@ const useAuthStore = create<AuthStore>()(
       },
     }),
     {
-      name: 'wamux-auth', // localStorage key
+      name: AUTH_STORAGE_KEY,
       partialize: (state) => ({
         apiUrl: state.apiUrl,
         apiKey: state.apiKey,

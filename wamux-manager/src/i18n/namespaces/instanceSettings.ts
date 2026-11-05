@@ -178,6 +178,7 @@ export const instanceSettingsNs: {
 
     'instanceSettings.confirm.delete':
       'Tem certeza que deseja deletar a instância {name}? Esta ação não pode ser desfeita.',
+    'instanceSettings.confirm.removeProxyTitle': 'Remover proxy',
     'instanceSettings.confirm.removeProxy':
       'Remover a configuração de proxy desta instância?',
 
@@ -376,6 +377,7 @@ export const instanceSettingsNs: {
 
     'instanceSettings.confirm.delete':
       'Are you sure you want to delete instance {name}? This action cannot be undone.',
+    'instanceSettings.confirm.removeProxyTitle': 'Remove proxy',
     'instanceSettings.confirm.removeProxy':
       'Remove the proxy configuration for this instance?',
 
