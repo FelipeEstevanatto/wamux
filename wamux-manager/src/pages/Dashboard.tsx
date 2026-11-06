@@ -16,7 +16,7 @@ import ConnectionChart from '@/components/dashboard/ConnectionChart';
 import InstanceLogs from '@/components/dashboard/InstanceLogs';
 import InstancesTable from '@/components/dashboard/InstancesTable';
 import TopConversations from '@/components/dashboard/TopConversations';
-import { Button } from '@/components/ui';
+import { Button, Skeleton } from '@/components/ui';
 import GithubIcon from '@/components/base/GithubIcon';
 import { REPO } from '@/constants/branding';
 import { useI18n } from '@/i18n/I18nContext';
@@ -48,6 +48,7 @@ function Kpi({
   sub,
   tone = 'default',
   title,
+  loading = false,
 }: {
   icon: typeof Activity;
   label: string;
@@ -55,6 +56,7 @@ function Kpi({
   sub?: string;
   tone?: 'default' | 'green' | 'red';
   title?: string;
+  loading?: boolean;
 }) {
   const valueColor =
     tone === 'green'
@@ -71,8 +73,12 @@ function Kpi({
         <Icon className="h-3.5 w-3.5" />
         {label}
       </div>
-      <div className={`mt-2 text-3xl font-bold ${valueColor}`}>{value}</div>
-      {sub && <div className="mt-1 text-xs text-muted-foreground">{sub}</div>}
+      {loading ? (
+        <Skeleton className="mt-2 h-9 w-20" />
+      ) : (
+        <div className={`mt-2 text-3xl font-bold ${valueColor}`}>{value}</div>
+      )}
+      {sub && !loading && <div className="mt-1 text-xs text-muted-foreground">{sub}</div>}
     </div>
   );
 }
@@ -105,7 +111,12 @@ export default function Dashboard() {
   const [refreshSeconds, setRefreshSeconds] = useState(DEFAULT_REFRESH_SECONDS);
   const [selectedId, setSelectedId] = useState('');
   const { stats, error, loading, updatedAt, refetch } = useServerStats(refreshSeconds * 1000);
-  const { instances, fetchInstances, overviews } = useInstances(refreshSeconds * 1000);
+  const {
+    instances,
+    isLoading: instancesLoading,
+    fetchInstances,
+    overviews,
+  } = useInstances(refreshSeconds * 1000);
   const { t, locale } = useI18n();
   const fmtNumber = (n?: number) =>
     n === undefined || n === null ? '—' : n.toLocaleString(locale);
@@ -260,12 +271,14 @@ export default function Dashboard() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Kpi
             icon={Layers}
+            loading={instancesLoading}
             label={t('sidebar.instances')}
             value={fmtNumber(total)}
             sub={t('dashboard.connectedCount', { count: connected })}
           />
           <Kpi
             icon={Activity}
+            loading={instancesLoading}
             label={t('dashboard.kpiConnected')}
             value={fmtNumber(connected)}
             sub={
@@ -279,12 +292,14 @@ export default function Dashboard() {
           />
           <Kpi
             icon={Mail}
+            loading={loading}
             label={t('sidebar.messages')}
             value={fmtNumber(messages.total)}
             sub={t('dashboard.savedInDb')}
           />
           <Kpi
             icon={Users}
+            loading={instancesLoading}
             label={t('dashboard.kpiContacts')}
             value={fmtNumber(contacts)}
             sub={t('dashboard.summingConnected')}
@@ -295,6 +310,7 @@ export default function Dashboard() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Kpi
             icon={HardDrive}
+            loading={loading}
             label={t('dashboard.kpiHostRam')}
             value={
               system.hostMemUsedPct !== undefined
@@ -309,6 +325,7 @@ export default function Dashboard() {
           />
           <Kpi
             icon={Cpu}
+            loading={loading}
             label={t('dashboard.kpiLoad')}
             value={
               loadPct !== undefined
@@ -326,12 +343,14 @@ export default function Dashboard() {
           />
           <Kpi
             icon={Activity}
+            loading={loading}
             label={t('dashboard.kpiGoroutines')}
             value={fmtNumber(system.goroutines)}
             sub={t('dashboard.heapValue', { size: fmtMB(system.heapInuseMB) })}
           />
           <Kpi
             icon={Server}
+            loading={loading}
             label={t('dashboard.kpiUptime')}
             value={fmtUptime(system.uptimeSeconds)}
             sub={system.goVersion || '—'}
@@ -439,7 +458,7 @@ export default function Dashboard() {
               {/* 2.25rem per bar keeps the labels readable on a phone, where the
                   chart scrolls horizontally instead of squashing. */}
               <div
-                className="flex h-40 items-end gap-1"
+                className="flex h-44 items-end gap-1"
                 style={{ minWidth: `${byDay.length * 2.25}rem` }}
               >
                 {byDay.map((d) => (
@@ -448,14 +467,17 @@ export default function Dashboard() {
                     className="flex flex-1 flex-col items-center gap-1"
                     title={`${d.key}: ${d.count}`}
                   >
-                    {/* The bar's height is a percentage, so its parent must have a
-                        definite height — otherwise the percentage is unresolved and
-                        every bar collapses to 0px (the chart looked empty). */}
-                    <div className="flex h-32 w-full items-end">
+                    {/* The bar's height is a share of what the count leaves free. Its
+                        parent needs a definite height, or the percentage has nothing
+                        to resolve against and every bar collapses to 0px. */}
+                    <div className="flex h-36 w-full flex-col items-center justify-end">
+                      <span className="mb-0.5 text-xs font-semibold text-foreground">
+                        {fmtNumber(d.count)}
+                      </span>
                       <div
-                        className="w-full rounded-t bg-primary/70"
+                        className="w-full max-w-16 rounded-t bg-primary/70"
                         style={{
-                          height: `${Math.max(2, (d.count / maxDay) * 100)}%`,
+                          height: `max(2px, calc((100% - 1.25rem) * ${d.count / maxDay}))`,
                         }}
                       />
                     </div>
@@ -481,12 +503,16 @@ export default function Dashboard() {
           <h2 className="mb-3 text-sm font-semibold text-foreground">
             {t('sidebar.instances')}
           </h2>
-          <InstancesTable
+          {instancesLoading ? (
+            <Skeleton className="h-12 w-full" />
+          ) : (
+            <InstancesTable
             instances={instances}
             overviews={overviews}
             selectedId={selectedId}
             onSelect={setSelectedId}
           />
+          )}
           {selected ? (
             <InstanceLogs
               instanceId={selected.id}

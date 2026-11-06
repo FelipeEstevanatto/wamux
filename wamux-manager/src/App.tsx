@@ -1,7 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
-import { Skeleton } from '@/components/ui';
 import ErrorBoundary from '@/components/base/ErrorBoundary';
 import Layout from '@/components/base/Layout';
 import Home from '@/pages/Home';
@@ -21,21 +20,6 @@ const About = lazy(() => import('@/pages/About'));
 const Terms = lazy(() => import('@/pages/Terms'));
 const Privacy = lazy(() => import('@/pages/Privacy'));
 
-function PageFallback() {
-  // Skeleton shaped like a typical page (title + card grid) so navigation feels
-  // instant and the layout does not jump when the chunk arrives.
-  return (
-    <div className="space-y-4 p-4 sm:p-6" aria-busy="true" aria-live="polite">
-      <Skeleton className="h-8 w-48" />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-40" />
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function App() {
   const { isAuthenticated } = useAuth();
 
@@ -45,7 +29,9 @@ function App() {
     <DarkModeProvider>
       <ErrorBoundary>
         <BrowserRouter>
-          <Suspense fallback={<PageFallback />}>
+          {/* Only the public legal pages wait here. The manager's pages wait inside Layout,
+              so the sidebar and header stay on screen while one loads. */}
+          <Suspense fallback={null}>
             <Routes>
               {/* Landing Page - Public. The Go server only serves the SPA under
                   /manager (and /manager/*), so the landing page lives at

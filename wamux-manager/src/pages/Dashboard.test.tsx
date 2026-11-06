@@ -177,6 +177,35 @@ describe('Dashboard page', () => {
     expect(text()).toContain('Desconectadas');
   });
 
+  it('shows the exact count on each day of the chart', async () => {
+    vi.mocked(serverApi.fetchServerStats).mockResolvedValue({
+      ...stats,
+      messages: {
+        ...stats.messages,
+        byDay: [
+          { key: '2026-01-03', count: 1250 },
+          { key: '2026-01-02', count: 7 },
+        ],
+      },
+    });
+    await render();
+
+    const days = [...document.querySelectorAll('[title^="2026-01-0"]')];
+    expect(days).toHaveLength(2);
+    // Oldest first, and formatted like every other number on the page.
+    expect(days[0].textContent).toContain('7');
+    expect(days[1].textContent).toContain('1.250');
+  });
+
+  it('shows a loading block, not a false zero, until the numbers arrive', async () => {
+    vi.mocked(instancesApi.fetchInstances).mockReturnValue(new Promise(() => {}));
+    vi.mocked(serverApi.fetchServerStats).mockReturnValue(new Promise(() => {}));
+    await render();
+
+    expect(document.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(7);
+    expect(text()).not.toContain('Nenhuma instância.');
+  });
+
   it('labels the top conversations', async () => {
     await render();
 

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import {
   Button,
-  Skeleton,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -10,6 +9,7 @@ import {
   DialogTitle,
   Input,
 } from '@/components/ui';
+import { InstanceCardsSkeleton } from '@/components/base/PageSkeleton';
 import { Trash2, Layers, PowerOff } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -494,11 +494,7 @@ export default function Instances() {
 
       <div className="flex-1 overflow-auto">
         {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Array.from({ length: 6 }).map((_, idx) => (
-              <Skeleton key={idx} className="h-48" />
-            ))}
-          </div>
+          <InstanceCardsSkeleton />
         ) : totalCount === 0 ? (
           <EmptyState
             icon={Layers}

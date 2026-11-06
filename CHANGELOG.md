@@ -34,6 +34,9 @@
 - The channel guide no longer claims documents and polls work there.
 
 ### ✨ Manager
+- Loading a page keeps the sidebar and header on screen and shows a skeleton of that
+  page, instead of replacing the whole app with a generic grid.
+- Mensagens por dia shows the exact count on each column.
 - Downloaded photos, videos and audio get a real name and extension, such as
   `WaMux Image 2026-11-06 at 00.06.12.jpg`, instead of the bare message id.
 - The media viewer fills the screen, with zoom by wheel, pinch, double click or keyboard,

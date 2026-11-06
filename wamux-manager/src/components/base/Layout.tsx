@@ -5,6 +5,7 @@ import Header from './Header';
 import ErrorBoundary from './ErrorBoundary';
 import ConnectionBanner from './ConnectionBanner';
 import CommandPalette from './CommandPalette';
+import PageSkeleton from './PageSkeleton';
 
 // The drawer (and with it Radix Dialog) is only needed once the menu is opened,
 // so it is kept out of the initial bundle.
@@ -54,7 +55,7 @@ function Layout({ children }: LayoutProps) {
         <Header onOpenMenu={() => handleMenuOpenChange(true)} />
         <main className="flex-1 overflow-y-auto">
           <ErrorBoundary key={location.pathname}>
-            {children || <Outlet />}
+            <Suspense fallback={<PageSkeleton />}>{children || <Outlet />}</Suspense>
           </ErrorBoundary>
         </main>
       </div>

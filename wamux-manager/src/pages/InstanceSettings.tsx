@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Save, Trash2, Power, Eye, EyeOff, Copy, Check, Network, RefreshCw, Pencil, X, KeyRound } from "lucide-react";
 import { Button, ConfirmDialog } from "@/components/ui";
+import { InstanceSettingsSkeleton } from "@/components/base/PageSkeleton";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -518,15 +519,7 @@ export default function InstanceSettings() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <div className="text-center">
-          <p className="text-muted-foreground">{t('common.loading')}</p>
-        </div>
-      </div>
-    );
-  }
+  if (isLoading) return <InstanceSettingsSkeleton />;
 
   if (!instance) {
     return (
