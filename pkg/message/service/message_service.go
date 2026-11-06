@@ -814,13 +814,7 @@ func (m *messageService) canonicalChat(instanceId, raw string) (string, bool) {
 	if !ok {
 		return "", false
 	}
-	jid = utils.CanonicalJID(jid)
-	if m.clientPointer != nil {
-		if client := m.clientPointer.Get(instanceId); client != nil {
-			jid = whatsmeow_service.CanonicalChatJID(context.Background(), client, jid)
-		}
-	}
-	return jid.ToNonAD().String(), true
+	return m.phoneChat(instanceId, utils.CanonicalJID(jid)).ToNonAD().String(), true
 }
 
 // chatJidVariants returns the canonical JID plus, when known, its counterpart
@@ -828,19 +822,38 @@ func (m *messageService) canonicalChat(instanceId, raw string) (string, bool) {
 // across both forms is read back together.
 func (m *messageService) chatJidVariants(instanceId, canonical string) []string {
 	variants := []string{canonical}
-	if m.clientPointer == nil {
-		return variants
-	}
-	if client := m.clientPointer.Get(instanceId); client != nil {
-		if jid, ok := utils.ParseJID(canonical); ok {
-			if alt, ok := whatsmeow_service.AlternateChatJID(context.Background(), client, jid.ToNonAD()); ok {
-				if altJid := alt.ToNonAD().String(); altJid != canonical {
-					variants = append(variants, altJid)
-				}
+	if jid, ok := utils.ParseJID(canonical); ok {
+		if alt, ok := m.alternateChat(instanceId, jid.ToNonAD()); ok {
+			if altJid := alt.ToNonAD().String(); altJid != canonical {
+				variants = append(variants, altJid)
 			}
 		}
 	}
 	return variants
+}
+
+// alternateChat finds the other form of a chat, through the shared LID map when the
+// instance has no client. An offline instance's history stays readable that way.
+func (m *messageService) alternateChat(instanceId string, jid types.JID) (types.JID, bool) {
+	if m.clientPointer != nil {
+		if client := m.clientPointer.Get(instanceId); client != nil {
+			return whatsmeow_service.AlternateChatJID(context.Background(), client, jid)
+		}
+	}
+	if m.whatsmeowService == nil {
+		return types.JID{}, false
+	}
+	return m.whatsmeowService.SharedAlternateChatJID(context.Background(), jid)
+}
+
+// phoneChat is the phone-number form of a chat, when it is known.
+func (m *messageService) phoneChat(instanceId string, jid types.JID) types.JID {
+	if jid.Server == types.HiddenUserServer {
+		if phone, ok := m.alternateChat(instanceId, jid); ok {
+			return phone
+		}
+	}
+	return jid
 }
 
 // historyLimit clamps a requested page size (same bounds as the repository).
@@ -1236,26 +1249,21 @@ func splitSource(s string) (user, server string) {
 // mergeChatSummaries canonicalizes each conversation's JID and merges entries
 // that collapse to the same one, summing counts and keeping the newest message.
 func (m *messageService) mergeChatSummaries(instanceId string, chats []message_repository.ChatSummary) []message_repository.ChatSummary {
-	var client *whatsmeow.Client
-	if m.clientPointer != nil {
-		client = m.clientPointer.Get(instanceId)
-	}
-
 	byJid := make(map[string]message_repository.ChatSummary, len(chats))
 	order := make([]string, 0, len(chats))
 	for _, c := range chats {
 		if jid, ok := utils.ParseJID(c.ChatJid); ok {
-			c.ChatJid = whatsmeow_service.CanonicalChatJID(context.Background(), client, jid.ToNonAD()).String()
+			c.ChatJid = m.phoneChat(instanceId, jid.ToNonAD()).String()
 		}
 		if existing, ok := byJid[c.ChatJid]; ok {
 			total := existing.MessageCount + c.MessageCount
+			unread := existing.UnreadCount + c.UnreadCount
+			readAt := max(existing.LastReadAt, c.LastReadAt)
 			if c.Timestamp > existing.Timestamp {
-				c.MessageCount = total
-				byJid[c.ChatJid] = c
-			} else {
-				existing.MessageCount = total
-				byJid[c.ChatJid] = existing
+				existing = c
 			}
+			existing.MessageCount, existing.UnreadCount, existing.LastReadAt = total, unread, readAt
+			byJid[c.ChatJid] = existing
 		} else {
 			byJid[c.ChatJid] = c
 			order = append(order, c.ChatJid)

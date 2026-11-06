@@ -2,6 +2,7 @@ package whatsmeow_service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -11,9 +12,11 @@ import (
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 
+	applog "github.com/felipeestevanatto/wamux/pkg/applog"
 	localmedia "github.com/felipeestevanatto/wamux/pkg/media"
 	message_content "github.com/felipeestevanatto/wamux/pkg/message/content"
 	message_model "github.com/felipeestevanatto/wamux/pkg/message/model"
+	message_repository "github.com/felipeestevanatto/wamux/pkg/message/repository"
 	"github.com/felipeestevanatto/wamux/pkg/utils"
 )
 
@@ -211,4 +214,121 @@ func appStateName(evt *events.AppState) string {
 		return "unknown"
 	}
 	return evt.Index[0]
+}
+
+// normalizeEventData turns postMap["data"], a typed whatsmeow event, into the plain map
+// handlers add fields to. It reports whether the event can still be delivered.
+func (mycli *MyClient) normalizeEventData(postMap map[string]interface{}) bool {
+	if postMap["data"] == nil {
+		postMap["data"] = make(map[string]interface{})
+		return true
+	}
+	encoded, err := json.Marshal(postMap["data"])
+	if err != nil {
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to marshal postMap['data']: %v", mycli.userID, err)
+		return false
+	}
+	var data map[string]interface{}
+	if err := json.Unmarshal(encoded, &data); err != nil {
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to unmarshal postMap['data'] to map[string]interface{}: %v", mycli.userID, err)
+		return false
+	}
+	postMap["data"] = data
+	return true
+}
+
+// persistRetryDelays are the waits between attempts. The message was already acked, so
+// WhatsApp will not deliver it again: this write is the only chance to store it, and
+// a database restart or failover should not cost messages.
+var persistRetryDelays = []time.Duration{200 * time.Millisecond, time.Second}
+
+func insertWithRetry(insert func() error) error {
+	return retryInsert(insert, persistRetryDelays)
+}
+
+func retryInsert(insert func() error, delays []time.Duration) error {
+	err := insert()
+	for _, delay := range delays {
+		if err == nil {
+			return nil
+		}
+		time.Sleep(delay)
+		err = insert()
+	}
+	return err
+}
+
+// SharedAlternateChatJID is AlternateChatJID without a client. The LID map is shared by
+// every instance, so an offline instance's history can still be read as one chat.
+func (w *whatsmeowService) SharedAlternateChatJID(ctx context.Context, jid types.JID) (types.JID, bool) {
+	container, err := w.getSharedSQLStoreContainer()
+	if err != nil || container == nil || container.LIDMap == nil {
+		return types.JID{}, false
+	}
+	var alt types.JID
+	switch jid.Server {
+	case types.HiddenUserServer:
+		alt, err = container.LIDMap.GetPNForLID(ctx, jid)
+	case types.DefaultUserServer:
+		alt, err = container.LIDMap.GetLIDForPN(ctx, jid)
+	default:
+		return types.JID{}, false
+	}
+	if err != nil || alt.IsEmpty() {
+		return types.JID{}, false
+	}
+	return alt.ToNonAD(), true
+}
+
+// BackfillLIDMessages rewrites rows stored under a LID whose phone number was unknown
+// then and is known now, so the conversation is one chat for good. Runs at boot.
+func (w *whatsmeowService) BackfillLIDMessages() {
+	if w.messageRepository == nil {
+		return
+	}
+	ctx := context.Background()
+	rewritten, err := backfillLIDMessages(w.messageRepository, func(lid types.JID) (types.JID, bool) {
+		return w.SharedAlternateChatJID(ctx, lid)
+	})
+	if err != nil {
+		applog.Logger.LogWarn("[LID backfill] stopped: %v", err)
+	}
+	if rewritten > 0 {
+		applog.Logger.LogInfo("[LID backfill] moved %d rows to their phone number", rewritten)
+	}
+}
+
+func backfillLIDMessages(repo message_repository.MessageRepository, phoneOf func(types.JID) (types.JID, bool)) (int64, error) {
+	jids, err := repo.LIDJids()
+	if err != nil {
+		return 0, err
+	}
+	var rewritten int64
+	for _, raw := range jids {
+		lid, err := types.ParseJID(raw)
+		if err != nil {
+			continue
+		}
+		phone, ok := phoneOf(lid.ToNonAD())
+		if !ok {
+			continue
+		}
+		count, err := repo.RewriteJid(raw, phone.String(), phone.User)
+		if err != nil {
+			return rewritten, err
+		}
+		rewritten += count
+	}
+	return rewritten, nil
+}
+
+// qrCodeLifetime is how long the code at index stays on screen.
+func (mycli *MyClient) qrCodeLifetime(index int) time.Duration {
+	switch {
+	case mycli.qrLifetime > 0:
+		return mycli.qrLifetime
+	case index == 0:
+		return qrFirstCodeLifetime
+	}
+	return qrNextCodeLifetime
 }

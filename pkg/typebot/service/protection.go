@@ -105,6 +105,14 @@ func (c *selfJidCache) refreshAsync() {
 	if !c.refreshing.CompareAndSwap(false, true) {
 		return
 	}
+	// The caller saw a stale cache, but a refresh may have finished since then.
+	c.mu.RLock()
+	fresh := time.Since(c.refreshed) < c.ttl
+	c.mu.RUnlock()
+	if fresh {
+		c.refreshing.Store(false)
+		return
+	}
 	go func() {
 		defer c.refreshing.Store(false)
 		c.refresh()

@@ -1,10 +1,13 @@
 package message_service
 
 import (
+	"context"
 	"errors"
 	"testing"
 
 	message_model "github.com/felipeestevanatto/wamux/pkg/message/model"
+	message_repository "github.com/felipeestevanatto/wamux/pkg/message/repository"
+	whatsmeow_service "github.com/felipeestevanatto/wamux/pkg/whatsmeow/service"
 	"go.mau.fi/whatsmeow/types"
 )
 
@@ -62,5 +65,48 @@ func TestAPIRevokeOfAnUnknownMessageStoresNothing(t *testing.T) {
 				t.Fatalf("stored %+v", repo.row)
 			}
 		})
+	}
+}
+
+type lidResolver struct {
+	whatsmeow_service.WhatsmeowService
+	alt types.JID
+}
+
+func (r lidResolver) SharedAlternateChatJID(context.Context, types.JID) (types.JID, bool) {
+	return r.alt, !r.alt.IsEmpty()
+}
+
+func TestOfflineInstanceReadsBothFormsOfAChat(t *testing.T) {
+	lid := types.NewJID("111", types.HiddenUserServer)
+	phone := types.NewJID("5511999990001", types.DefaultUserServer)
+	svc := &messageService{whatsmeowService: lidResolver{alt: lid}}
+
+	got := svc.chatJidVariants("i", phone.String())
+	if len(got) != 2 || got[1] != lid.String() {
+		t.Fatalf("variants %v", got)
+	}
+
+	svc.whatsmeowService = lidResolver{alt: phone}
+	merged := svc.mergeChatSummaries("i", []message_repository.ChatSummary{
+		{ChatJid: phone.String(), Timestamp: "2026-01-02", MessageCount: 2, UnreadCount: 1, LastReadAt: "2026-01-01"},
+		{ChatJid: lid.String(), Timestamp: "2026-01-01", MessageCount: 3, UnreadCount: 2, LastReadAt: "2026-01-03"},
+	})
+	if len(merged) != 1 {
+		t.Fatalf("merged %+v", merged)
+	}
+	if m := merged[0]; m.MessageCount != 5 || m.UnreadCount != 3 || m.LastReadAt != "2026-01-03" || m.Timestamp != "2026-01-02" {
+		t.Fatalf("merged %+v", m)
+	}
+}
+
+func TestChatStaysAsIsWithoutAMapping(t *testing.T) {
+	jid := "5511999990001@s.whatsapp.net"
+	svc := &messageService{whatsmeowService: lidResolver{}}
+	if got := svc.chatJidVariants("i", jid); len(got) != 1 || got[0] != jid {
+		t.Fatalf("variants %v", got)
+	}
+	if got := (&messageService{}).chatJidVariants("i", jid); len(got) != 1 {
+		t.Fatalf("no service: %v", got)
 	}
 }

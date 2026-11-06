@@ -104,6 +104,8 @@ type WhatsmeowService interface {
 	// MediaStorageFor resolves the storage to use for an instance's inbound
 	// media and the delivery mode ("base64", "s3" or "both"): the instance's own
 	// S3 config if enabled, else the global MinIO config, else none.
+	SharedAlternateChatJID(ctx context.Context, jid types.JID) (types.JID, bool)
+	BackfillLIDMessages()
 	MediaStorageFor(instance *instance_model.Instance) (storage_interfaces.MediaStorage, string)
 	// InvalidateMediaStorage drops a cached per-instance storage (call after
 	// the S3 config changes).
@@ -295,8 +297,10 @@ type MyClient struct {
 	natsProducer      producer_interfaces.Producer
 	loggerWrapper     *logger_wrapper.LoggerManager
 	qrcodeCount       int
-	passkeyCeremony   *ceremony.Store
-	persistPool       *persistPool
+	// qrLifetime replaces the code lifetimes below when set, for tests.
+	qrLifetime      time.Duration
+	passkeyCeremony *ceremony.Store
+	persistPool     *persistPool
 	// bgPool bounds the fire-and-forget event work (poll votes, limit refresh,
 	// auto-read, …) so a burst cannot spawn unbounded goroutines.
 	bgPool *bgpool.Pool
@@ -493,7 +497,8 @@ func (mycli *MyClient) persistMessageAsync(message message_model.Message) {
 
 	// No pool (a bare MyClient in a test) or the pool is saturated: persist
 	// inline so the message is never dropped.
-	if err := mycli.messageRepository.InsertMessage(message); err != nil && mycli.loggerWrapper != nil {
+	err := insertWithRetry(func() error { return mycli.messageRepository.InsertMessage(message) })
+	if err != nil && mycli.loggerWrapper != nil {
 		mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to persist message %s: %v", mycli.userID, message.MessageID, err)
 	}
 }
@@ -626,7 +631,7 @@ func (p *persistPool) flush(batch []persistJob) {
 		for i, job := range jobs {
 			msgs[i] = job.message
 		}
-		if err := repo.InsertMessages(msgs); err == nil {
+		if err := insertWithRetry(func() error { return repo.InsertMessages(msgs) }); err == nil {
 			continue
 		} else {
 			// Fall back to one-by-one so a single failure does not lose the batch.
@@ -739,6 +744,8 @@ type ClientData struct {
 	Subscriptions []string
 	Phone         string
 	IsProxy       bool
+	// QRCount carries the codes already shown across a restart.
+	QRCount int
 }
 
 type Values struct {
@@ -1504,7 +1511,7 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		processedMessages:  w.processedMessages,
 		natsProducer:       w.natsProducer,
 		loggerWrapper:      w.loggerWrapper,
-		qrcodeCount:        0,
+		qrcodeCount:        cd.QRCount,
 		passkeyCeremony:    w.passkeyCeremony,
 		persistPool:        w.persistPool,
 		bgPool:             w.bgPool,
@@ -1653,6 +1660,9 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 	}
 
 	w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] Restarting client", cd.Instance.Id)
+	// A batch has fewer codes than a high QRCODE_MAX_COUNT, so the count has to survive
+	// the restart for the limit to be reached at all.
+	cd.QRCount = mycli.qrcodeCount
 	w.StartClient(cd)
 }
 
@@ -1778,7 +1788,7 @@ func (mycli *MyClient) handleQRCodes(codes []string) {
 						mycli.loggerWrapper.GetLogger(instanceID).LogWarn("[%s] Error during forced logout: %v", instanceID, err)
 					}
 				}
-				mycli.teardownQR(fmt.Sprintf("Maximum QR code count (%d) reached", mycli.config.QrcodeMaxCount), true)
+				mycli.teardownQR(fmt.Sprintf("Maximum QR code count (%d) reached", mycli.config.QrcodeMaxCount), true, killswitch.Stop)
 				return
 			}
 
@@ -1814,11 +1824,7 @@ func (mycli *MyClient) handleQRCodes(codes []string) {
 				mycli.loggerWrapper.GetLogger(instanceID).LogError("[%s] Failed to marshal JSON for queue", instanceID)
 			}
 
-			timeout := qrNextCodeLifetime
-			if i == 0 {
-				timeout = qrFirstCodeLifetime
-			}
-			time.Sleep(timeout)
+			time.Sleep(mycli.qrCodeLifetime(i))
 		}
 
 		// Ran out of codes without a PairSuccess. Treat as QR timeout (mirrors
@@ -1829,7 +1835,7 @@ func (mycli *MyClient) handleQRCodes(codes []string) {
 				mycli.loggerWrapper.GetLogger(instanceID).LogInfo("[%s] QR codes exhausted but passkey ceremony active — keeping socket alive", instanceID)
 				return
 			}
-			mycli.teardownQR("", false)
+			mycli.teardownQR("", false, killswitch.Restart)
 		}
 	}()
 }
@@ -1838,7 +1844,9 @@ func (mycli *MyClient) handleQRCodes(codes []string) {
 // client's kill switch so the StartClient goroutine performs the actual disconnect
 // and map cleanup: it is the single writer of those maps for this instance.
 // If reason is non-empty it is included in the QRTimeout payload (max-count path).
-func (mycli *MyClient) teardownQR(reason string, forceLogout bool) {
+// mode is what happens next. Running out of codes restarts, to get a new batch. The
+// max-count limit stops: nobody is scanning, so the instance waits for /instance/connect.
+func (mycli *MyClient) teardownQR(reason string, forceLogout bool, mode killswitch.Mode) {
 	instanceID := mycli.userID
 
 	if err := mycli.instanceRepository.UpdateQrcode(instanceID, ""); err != nil {
@@ -1877,7 +1885,7 @@ func (mycli *MyClient) teardownQR(reason string, forceLogout bool) {
 	// maps (it is the single writer for this instance). Blocking send mirrors
 	// the original timeout branch so the signal is never dropped.
 	mycli.loggerWrapper.GetLogger(instanceID).LogInfo("[%s] QR timeout — signaling kill switch", instanceID)
-	mycli.kill.Fire(killswitch.Restart)
+	mycli.kill.Fire(mode)
 }
 
 // handlePollVote decrypts a poll vote and stores it.
@@ -2170,23 +2178,8 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 			doWebhook = true
 			postMap["event"] = "Connected"
 
-			if postMap["data"] != nil {
-				jsonBytes, err := json.Marshal(postMap["data"])
-				if err != nil {
-					mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to marshal postMap['data']: %v", mycli.userID, err)
-					return
-				}
-
-				var dataMap map[string]interface{}
-				err = json.Unmarshal(jsonBytes, &dataMap)
-				if err != nil {
-					mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to unmarshal postMap['data'] to map[string]interface{}: %v", mycli.userID, err)
-					return
-				}
-
-				postMap["data"] = dataMap
-			} else {
-				postMap["data"] = make(map[string]interface{})
+			if !mycli.normalizeEventData(postMap) {
+				return
 			}
 
 			dataMap := postMap["data"].(map[string]interface{})
@@ -2290,23 +2283,8 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] User information set for user '%s'", mycli.userID, txtid)
 		}
 
-		if postMap["data"] != nil {
-			jsonBytes, err := json.Marshal(postMap["data"])
-			if err != nil {
-				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to marshal postMap['data']: %v", mycli.userID, err)
-				return
-			}
-
-			var dataMap map[string]interface{}
-			err = json.Unmarshal(jsonBytes, &dataMap)
-			if err != nil {
-				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to unmarshal postMap['data'] to map[string]interface{}: %v", mycli.userID, err)
-				return
-			}
-
-			postMap["data"] = dataMap
-		} else {
-			postMap["data"] = make(map[string]interface{})
+		if !mycli.normalizeEventData(postMap) {
+			return
 		}
 
 		dataMap := postMap["data"].(map[string]interface{})
@@ -2434,23 +2412,8 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 		doWebhook = true
 		postMap["event"] = "TemporaryBan"
 
-		if postMap["data"] != nil {
-			jsonBytes, err := json.Marshal(postMap["data"])
-			if err != nil {
-				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to marshal postMap['data']: %v", mycli.userID, err)
-				return
-			}
-
-			var dataMap map[string]interface{}
-			err = json.Unmarshal(jsonBytes, &dataMap)
-			if err != nil {
-				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to unmarshal postMap['data'] to map[string]interface{}: %v", mycli.userID, err)
-				return
-			}
-
-			postMap["data"] = dataMap
-		} else {
-			postMap["data"] = make(map[string]interface{})
+		if !mycli.normalizeEventData(postMap) {
+			return
 		}
 
 		dataMap := postMap["data"].(map[string]interface{})
@@ -2629,23 +2592,8 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 		preview := message_content.Thumbnail(evt.Message)
 		stripMessageThumbnails(evt.Message)
 
-		if postMap["data"] != nil {
-			jsonBytes, err := json.Marshal(postMap["data"])
-			if err != nil {
-				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to marshal postMap['data']: %v", mycli.userID, err)
-				return
-			}
-
-			var dataMap map[string]interface{}
-			err = json.Unmarshal(jsonBytes, &dataMap)
-			if err != nil {
-				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to unmarshal postMap['data'] to map[string]interface{}: %v", mycli.userID, err)
-				return
-			}
-
-			postMap["data"] = dataMap
-		} else {
-			postMap["data"] = make(map[string]interface{})
+		if !mycli.normalizeEventData(postMap) {
+			return
 		}
 
 		dataMap, ok := postMap["data"].(map[string]interface{})
@@ -3300,22 +3248,8 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 		// postMap["data"] still holds the raw event at this point, so the type
 		// assertion below panicked on every Archive event. Same marshal/unmarshal
 		// step every other case in this switch already does.
-		if postMap["data"] != nil {
-			jsonBytes, err := json.Marshal(postMap["data"])
-			if err != nil {
-				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to marshal postMap['data']: %v", mycli.userID, err)
-				return
-			}
-
-			var parsed map[string]interface{}
-			if err := json.Unmarshal(jsonBytes, &parsed); err != nil {
-				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to unmarshal postMap['data'] to map[string]interface{}: %v", mycli.userID, err)
-				return
-			}
-
-			postMap["data"] = parsed
-		} else {
-			postMap["data"] = make(map[string]interface{})
+		if !mycli.normalizeEventData(postMap) {
+			return
 		}
 
 		dataMap := postMap["data"].(map[string]interface{})
@@ -3358,23 +3292,8 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Error clearing JID after logout: %s", mycli.Instance.Id, err)
 		}
 
-		if postMap["data"] != nil {
-			jsonBytes, err := json.Marshal(postMap["data"])
-			if err != nil {
-				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to marshal postMap['data']: %v", mycli.userID, err)
-				return
-			}
-
-			var dataMap map[string]interface{}
-			err = json.Unmarshal(jsonBytes, &dataMap)
-			if err != nil {
-				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to unmarshal postMap['data'] to map[string]interface{}: %v", mycli.userID, err)
-				return
-			}
-
-			postMap["data"] = dataMap
-		} else {
-			postMap["data"] = make(map[string]interface{})
+		if !mycli.normalizeEventData(postMap) {
+			return
 		}
 
 		dataMap := postMap["data"].(map[string]interface{})

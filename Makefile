@@ -107,7 +107,7 @@ test-coverage: ## Roda testes com cobertura
 
 test-race: ## Roda testes verificando race conditions
 	@echo "$(GREEN)🧪 Rodando testes com race detector...$(NC)"
-	$(GO) test -race -v ./...
+	$(GO) test -race -shuffle=on -v ./...
 
 test-manager: ## Roda os testes do manager (vitest + fast-check)
 	@echo "$(GREEN)🧪 Rodando testes do manager...$(NC)"

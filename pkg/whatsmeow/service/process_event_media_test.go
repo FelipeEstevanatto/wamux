@@ -251,11 +251,8 @@ func TestAutoReadSkipsOwnAndIgnoredMessages(t *testing.T) {
 }
 
 func TestQRCodesRotateAndThenTimeOut(t *testing.T) {
-	first, next := qrFirstCodeLifetime, qrNextCodeLifetime
-	qrFirstCodeLifetime, qrNextCodeLifetime = time.Millisecond, time.Millisecond
-	defer func() { qrFirstCodeLifetime, qrNextCodeLifetime = first, next }()
-
 	h := newEventHarness(t)
+	h.cli.qrLifetime = time.Millisecond
 	h.cli.WAClient.Store.ID = nil
 	h.cli.config.LogType = "json"
 	h.cli.processEvent(&events.QR{Codes: []string{"code-1", "code-2"}})

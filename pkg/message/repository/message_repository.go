@@ -27,6 +27,10 @@ type MessageRepository interface {
 	InsertHistoryMessages(messages []message_model.Message) error
 	// MarkMessageDeleted turns a revoked message into a tombstone. See the method.
 	MarkMessageDeleted(row message_model.Message, chats []string, direct bool) (bool, error)
+	// LIDJids lists the LID-addressed chats and senders still stored.
+	LIDJids() ([]string, error)
+	// RewriteJid moves every row from a LID to its phone number.
+	RewriteJid(lid, phone, source string) (int64, error)
 	// MarkChatsRead moves the read position of chats forward to at, never back.
 	MarkChatsRead(instanceId string, chats []string, at string) error
 	GetMessageByID(messageID string) (*message_model.Message, error)
@@ -435,6 +439,41 @@ func (m *messageRepository) InsertMessages(messages []message_model.Message) err
 		}
 	}
 	return nil
+}
+
+func (m *messageRepository) LIDJids() ([]string, error) {
+	var jids []string
+	err := m.db.Raw(`SELECT chat_jid FROM messages WHERE chat_jid LIKE '%@lid'
+		UNION SELECT sender_jid FROM messages WHERE sender_jid LIKE '%@lid'`).Scan(&jids).Error
+	return jids, err
+}
+
+// RewriteJid runs in one transaction: a chat half moved would show as two. source
+// changes with the chat, and the rollup trigger keeps the counters right.
+func (m *messageRepository) RewriteJid(lid, phone, source string) (int64, error) {
+	var rewritten int64
+	err := m.db.Transaction(func(tx *gorm.DB) error {
+		chats := tx.Exec(`UPDATE messages SET chat_jid = ?, source = ? WHERE chat_jid = ?`, phone, source, lid)
+		if chats.Error != nil {
+			return chats.Error
+		}
+		senders := tx.Exec(`UPDATE messages SET sender_jid = ? WHERE sender_jid = ?`, phone, lid)
+		if senders.Error != nil {
+			return senders.Error
+		}
+		rewritten = chats.RowsAffected + senders.RowsAffected
+
+		err := tx.Exec(`INSERT INTO chat_reads (instance_id, chat_jid, read_at)
+			SELECT instance_id, ?, read_at FROM chat_reads WHERE chat_jid = ?
+			ON CONFLICT (instance_id, chat_jid) DO UPDATE SET read_at =
+				CASE WHEN excluded.read_at > chat_reads.read_at THEN excluded.read_at ELSE chat_reads.read_at END`,
+			phone, lid).Error
+		if err != nil {
+			return err
+		}
+		return tx.Exec(`DELETE FROM chat_reads WHERE chat_jid = ?`, lid).Error
+	})
+	return rewritten, err
 }
 
 func (m *messageRepository) MarkChatsRead(instanceId string, chats []string, at string) error {

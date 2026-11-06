@@ -1,6 +1,7 @@
 package send_service
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -388,6 +389,23 @@ func TestSendTextKeepsMexicanAndArgentineMobiles(t *testing.T) {
 				t.Fatalf("sent to %s, want %s", got, number)
 			}
 		})
+	}
+}
+
+// Uploads and URLs share deliverMedia, so a type accepted by one is accepted by both.
+func TestUploadedFileAcceptsRoundVideo(t *testing.T) {
+	data, err := base64.StdEncoding.DecodeString("AAAAGGZ0eXBtcDQyAAAAAG1wNDJpc29t")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := newSendHarness(t)
+
+	_, err = h.SendMediaFile(&MediaStruct{Number: testRecipient.User, Type: "ptv"}, data, h.instance)
+	if err != nil {
+		t.Fatalf("SendMediaFile: %v", err)
+	}
+	if h.only(t).msg.GetPtvMessage() == nil {
+		t.Fatal("not sent as a round video")
 	}
 }
 

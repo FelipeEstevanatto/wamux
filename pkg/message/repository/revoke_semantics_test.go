@@ -247,3 +247,56 @@ func TestUnreadCountsInboundMessagesAfterTheReadPosition(t *testing.T) {
 		t.Fatalf("moved back: %+v", got)
 	}
 }
+
+func TestRewriteJidMergesAChatIntoItsPhoneNumber(t *testing.T) {
+	db := realDB(t)
+	const lid, phone = "sem-lid@lid", "sem-phone@s.whatsapp.net"
+	clean := func() { db.Exec("DELETE FROM chat_reads WHERE chat_jid IN (?, ?)", lid, phone) }
+	clean()
+	t.Cleanup(clean)
+	repo := NewMessageRepository(db)
+
+	asLID := contentRow("sem-lid-1", "old")
+	asLID.ChatJid, asLID.SenderJid, asLID.Source = lid, lid, "sem-lid"
+	asPhone := contentRow("sem-lid-2", "new")
+	asPhone.ChatJid, asPhone.SenderJid, asPhone.Source = phone, phone, "sem-phone"
+	if err := repo.InsertMessages([]message_model.Message{asLID, asPhone}); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.MarkChatsRead("sem", []string{lid}, "2026-10-05 00:00:00"); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.MarkChatsRead("sem", []string{phone}, "2026-10-01 00:00:00"); err != nil {
+		t.Fatal(err)
+	}
+
+	jids, err := repo.LIDJids()
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, jid := range jids {
+		found = found || jid == lid
+	}
+	if !found {
+		t.Fatalf("lid not listed: %v", jids)
+	}
+
+	rewritten, err := repo.RewriteJid(lid, phone, "sem-phone")
+	if err != nil || rewritten != 2 {
+		t.Fatalf("rewritten %d, err %v", rewritten, err)
+	}
+
+	row := storedRow(t, repo, "sem-lid-1")
+	if row.ChatJid != phone || row.SenderJid != phone || row.Source != "sem-phone" {
+		t.Fatalf("row %+v", row)
+	}
+	if got := chatSummary(t, repo, phone); got.MessageCount != 2 || got.LastReadAt != "2026-10-05 00:00:00" {
+		t.Fatalf("chat %+v", got)
+	}
+	var left int64
+	db.Raw("SELECT count(*) FROM chat_reads WHERE chat_jid = ?", lid).Scan(&left)
+	if left != 0 {
+		t.Fatalf("%d read positions left on the lid", left)
+	}
+}

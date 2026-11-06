@@ -594,8 +594,27 @@ func TestQRMaxCountEndsPairing(t *testing.T) {
 	wantField(t, got, "QRTimeout", "event")
 	wantField(t, got, "Maximum QR code count (1) reached", "data", "reason")
 
+	// A restart would start over at zero and rotate codes forever.
+	if !h.cli.kill.Fired() || h.cli.kill.Mode() != killswitch.Stop {
+		t.Errorf("kill fired=%v mode=%v", h.cli.kill.Fired(), h.cli.kill.Mode())
+	}
+	if got := h.instances.connected; len(got) != 1 || got[0].connected {
+		t.Errorf("connected updates %+v", got)
+	}
+	if got := h.instances.qrcodes; len(got) == 0 || got[len(got)-1] != "" {
+		t.Errorf("qr left behind: %q", got)
+	}
+}
+
+func TestRunningOutOfCodesAsksForMore(t *testing.T) {
+	h := newEventHarness(t)
+	h.cli.WAClient.Store.ID = nil
+
+	h.cli.teardownQR("", false, killswitch.Restart)
+	h.deliveries(t, 1)
+
 	if !h.cli.kill.Fired() || h.cli.kill.Mode() != killswitch.Restart {
-		t.Errorf("kill fired=%v", h.cli.kill.Fired())
+		t.Errorf("kill fired=%v mode=%v", h.cli.kill.Fired(), h.cli.kill.Mode())
 	}
 }
 

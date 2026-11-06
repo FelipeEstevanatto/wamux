@@ -63,7 +63,8 @@ docker logs "${network}-app" 2>&1 | grep -qF "$api_key" && fail "the generated k
 echo "ok: the key is not in the logs"
 
 applied="$(docker exec "${network}-db" psql -U wamux -d wamux_users -Atc 'select count(*) from schema_migrations')"
-[ "${applied:-0}" -gt 0 ] || fail "no migrations were recorded"
+expected="$(grep -cE '"[0-9]{4}_[a-z]' "$(dirname "$0")/../pkg/migrations/migrations.go")"
+[ "${applied:-0}" -eq "$expected" ] || fail "$applied of $expected migrations were recorded"
 echo "ok: $applied migrations applied"
 
 for _ in $(seq 60); do

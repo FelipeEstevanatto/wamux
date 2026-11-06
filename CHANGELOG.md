@@ -13,6 +13,27 @@
   that position. It only tracks reading in the history: nothing is sent to WhatsApp, so
   no blue ticks (migration `0011`).
 
+### 🐛 Fixes
+- **`QRCODE_MAX_COUNT`** stops the instance. It restarted instead, with the count back at
+  zero, so an unscanned instance rotated codes forever. `/instance/connect` starts again.
+  The count now also survives the restart between batches of codes, or a limit above
+  one batch was never reached.
+- **Logout** finishes even if saving the state fails. WhatsApp has already ended the
+  session by then, so it no longer answers `500` and leaves the client behind.
+- **Message writes** are retried, since WhatsApp will not deliver an acked message again.
+- **Offline instances** read LID and phone chats as one, and rows stored under a LID move
+  to the phone number at boot once it is known.
+- Merged LID and phone chats add up their unread counts.
+- A file upload accepts `ptv`, as URLs always did.
+- Two nodes starting together could fail installing the message counters, and a Typebot
+  cache could refresh twice. Both came up once tests ran in random order.
+
+### 🧪 Project
+- Tests run shuffled in CI, CodeQL and dependency review run on the code, and the image
+  smoke test checks every migration was applied.
+- Media uploads and URLs share one delivery path (`send_media.go`), and the repeated event
+  JSON handling is one helper.
+
 ### ✨ Deployment
 - **A new install needs no configuration.** `docker compose up -d` works with no `.env`.
   `GLOBAL_API_KEY` is generated on first boot into `global-api-key` on the data volume,

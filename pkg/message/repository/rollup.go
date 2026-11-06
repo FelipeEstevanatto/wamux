@@ -136,6 +136,14 @@ func EnsureMessageCounters(db *gorm.DB) error {
 		if err := tx.Exec(`LOCK TABLE messages IN SHARE MODE`).Error; err != nil {
 			return fmt.Errorf("lock messages: %w", err)
 		}
+		// Checked again now writes are blocked: another node may have got here first,
+		// or a write through the trigger may have landed since the check above.
+		if err := tx.Raw(`SELECT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = ? AND tgrelid = 'messages'::regclass)`, counterTrigger).Scan(&hasTrigger).Error; err != nil {
+			return fmt.Errorf("check trigger: %w", err)
+		}
+		if err := tx.Raw(`SELECT NOT EXISTS (SELECT 1 FROM ` + counterTableName + `)`).Scan(&needsBackfill).Error; err != nil {
+			return fmt.Errorf("check %s: %w", counterTableName, err)
+		}
 		if !hasTrigger {
 			if err := tx.Exec(counterTriggerSQL).Error; err != nil {
 				return fmt.Errorf("create trigger: %w", err)

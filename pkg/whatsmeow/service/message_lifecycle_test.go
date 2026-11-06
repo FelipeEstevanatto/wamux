@@ -2,6 +2,7 @@ package whatsmeow_service
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -10,8 +11,11 @@ import (
 	"go.mau.fi/whatsmeow/proto/waHistorySync"
 	"go.mau.fi/whatsmeow/proto/waSyncAction"
 	"go.mau.fi/whatsmeow/proto/waWeb"
+	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 	"google.golang.org/protobuf/proto"
+
+	message_repository "github.com/felipeestevanatto/wamux/pkg/message/repository"
 )
 
 func revokeOf(t *testing.T, id, target string) *events.Message {
@@ -249,5 +253,75 @@ func TestHistorySyncIsNotStoredWhenTurnedOff(t *testing.T) {
 				t.Fatalf("stored %+v", h.messages.history)
 			}
 		})
+	}
+}
+
+type flakyInsert struct{ failures, calls int }
+
+func (f *flakyInsert) insert() error {
+	f.calls++
+	if f.calls <= f.failures {
+		return errors.New("database restarting")
+	}
+	return nil
+}
+
+func TestInsertRetriesATemporaryFailure(t *testing.T) {
+	delays := []time.Duration{0, 0}
+
+	recovers := &flakyInsert{failures: 2}
+	if err := retryInsert(recovers.insert, delays); err != nil || recovers.calls != 3 {
+		t.Fatalf("err %v after %d calls", err, recovers.calls)
+	}
+
+	stuck := &flakyInsert{failures: 99}
+	if err := retryInsert(stuck.insert, delays); err == nil || stuck.calls != 3 {
+		t.Fatalf("err %v after %d calls", err, stuck.calls)
+	}
+
+	healthy := &flakyInsert{}
+	if err := retryInsert(healthy.insert, delays); err != nil || healthy.calls != 1 {
+		t.Fatalf("err %v after %d calls", err, healthy.calls)
+	}
+}
+
+type lidRepo struct {
+	message_repository.MessageRepository
+	jids     []string
+	rewrites []string
+	failOn   string
+}
+
+func (r *lidRepo) LIDJids() ([]string, error) { return r.jids, nil }
+
+func (r *lidRepo) RewriteJid(lid, phone, source string) (int64, error) {
+	if lid == r.failOn {
+		return 0, errors.New("down")
+	}
+	r.rewrites = append(r.rewrites, lid+">"+phone+">"+source)
+	return 2, nil
+}
+
+func TestBackfillMovesLIDsWithAKnownPhone(t *testing.T) {
+	known := func(lid types.JID) (types.JID, bool) {
+		if lid.User == "111" {
+			return types.NewJID("5511999990001", types.DefaultUserServer), true
+		}
+		return types.JID{}, false
+	}
+	repo := &lidRepo{jids: []string{"111@lid", "222@lid", "not a jid@@"}}
+
+	rewritten, err := backfillLIDMessages(repo, known)
+	if err != nil || rewritten != 2 {
+		t.Fatalf("rewritten %d, err %v", rewritten, err)
+	}
+	want := "111@lid>5511999990001@s.whatsapp.net>5511999990001"
+	if len(repo.rewrites) != 1 || repo.rewrites[0] != want {
+		t.Fatalf("rewrites %v", repo.rewrites)
+	}
+
+	broken := &lidRepo{jids: []string{"111@lid"}, failOn: "111@lid"}
+	if _, err := backfillLIDMessages(broken, known); err == nil {
+		t.Fatal("expected the failure to be reported")
 	}
 }

@@ -513,6 +513,13 @@ func (i instances) Logout(instance *instance_model.Instance) (*instance_model.In
 		return instance, err
 	}
 
+	i.finishLogout(instance)
+	return instance, nil
+}
+
+// finishLogout runs once WhatsApp has ended the session. That cannot be undone, so a
+// failed save must not stop the client being released or the request reporting success.
+func (i instances) finishLogout(instance *instance_model.Instance) {
 	instance.Connected = false
 	// Clearing the JID marks the instance as unpaired: IsPaired() must be false
 	// after logout, otherwise later requests would try to use a dead session.
@@ -520,17 +527,17 @@ func (i instances) Logout(instance *instance_model.Instance) (*instance_model.In
 	instance.Jid = ""
 	instance.AutoReconnect = false
 	if err := i.instanceRepository.Update(instance); err != nil {
-		return instance, err
+		i.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Logged out, but failed to save it: %v", instance.Id, err)
 	}
 	i.invalidateAuthCache()
 
-	i.killChannel.Get(instance.Id).Fire(killswitch.Stop)
-
+	if kill := i.killChannel.Get(instance.Id); kill != nil {
+		kill.Fire(killswitch.Stop)
+	}
 	i.clientPointer.Delete(instance.Id)
 	i.killChannel.Delete(instance.Id)
 
 	i.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Logout successful", instance.Id)
-	return instance, nil
 }
 
 func (i instances) Status(instance *instance_model.Instance) (*StatusStruct, error) {
