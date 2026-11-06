@@ -70,6 +70,12 @@ type sendService struct {
 	loggerWrapper     *logger_wrapper.LoggerManager
 	messageRepository message_repository.MessageRepository
 
+	// The calls that reach WhatsApp, so tests can run the send logic without it.
+	deliver      func(context.Context, *whatsmeow.Client, types.JID, *waE2E.Message, whatsmeow.SendRequestExtra) (whatsmeow.SendResponse, error)
+	upload       func(context.Context, *whatsmeow.Client, []byte, whatsmeow.MediaType) (whatsmeow.UploadResponse, error)
+	chatPresence func(context.Context, *whatsmeow.Client, types.JID, types.ChatPresence, types.ChatPresenceMedia) error
+	isConnected  func(*whatsmeow.Client) bool
+
 	// userExistsCache memoizes phone -> WhatsApp resolution (remoteJID / not on
 	// WhatsApp). Without it every send to a non-group recipient pays a usync
 	// round trip, which dominates the latency of a text send. Keyed by the raw
@@ -546,7 +552,7 @@ func (s *sendService) ensureClientConnected(instanceId string) (*whatsmeow.Clien
 				client != nil && client.IsConnected())
 			return nil, errors.New("no active session found")
 		}
-	} else if !client.IsConnected() {
+	} else if !s.isConnected(client) {
 		s.loggerWrapper.GetLogger(instanceId).LogError("[%s] Existing client is disconnected - Connected status: %v",
 			instanceId,
 			client.IsConnected())
@@ -926,7 +932,7 @@ func (s *sendService) sendLinkWithRetry(data *LinkStruct, instance *instance_mod
 			// Upload the thumbnail so clients can render the larger preview. The
 			// inline JPEGThumbnail alone is only a small low-res hint; on failure
 			// the link still goes out with the inline preview.
-			if uploaded, upErr := client.Upload(context.Background(), thumbJPEG, whatsmeow.MediaImage); upErr == nil {
+			if uploaded, upErr := s.upload(context.Background(), client, thumbJPEG, whatsmeow.MediaImage); upErr == nil {
 				ext.ThumbnailDirectPath = proto.String(uploaded.DirectPath)
 				ext.ThumbnailSHA256 = uploaded.FileSHA256
 				ext.ThumbnailEncSHA256 = uploaded.FileEncSHA256
@@ -1214,7 +1220,7 @@ func (s *sendService) sendMediaFileWithRetry(data *MediaStruct, fileData []byte,
 			s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Newsletter upload - Handle: %s", instance.Id, uploaded.Handle)
 		} else {
 			// Normal: upload COM criptografia
-			uploaded, err = client.Upload(context.Background(), fileData, uploadType)
+			uploaded, err = s.upload(context.Background(), client, fileData, uploadType)
 		}
 
 		if err != nil {
@@ -1591,7 +1597,7 @@ func (s *sendService) sendMediaUrlWithRetry(data *MediaStruct, instance *instanc
 			s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Newsletter upload - Handle: %s", instance.Id, uploaded.Handle)
 		} else {
 			// Upload normal com criptografia
-			uploaded, err = client.Upload(context.Background(), fileData, uploadType)
+			uploaded, err = s.upload(context.Background(), client, fileData, uploadType)
 		}
 
 		if err != nil {
@@ -1987,7 +1993,7 @@ func (s *sendService) SendSticker(data *StickerStruct, instance *instance_model.
 		}
 	}
 
-	uploaded, err := client.Upload(context.Background(), filedata, whatsmeow.MediaImage)
+	uploaded, err := s.upload(context.Background(), client, filedata, whatsmeow.MediaImage)
 	if err != nil {
 		return nil, fmt.Errorf("failed to upload sticker: %v", err)
 	}
@@ -2308,7 +2314,7 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 				fileData, readErr := readAllLimited(resp.Body)
 				resp.Body.Close()
 				if readErr == nil {
-					if uploaded, upErr := client.Upload(context.Background(), fileData, whatsmeow.MediaImage); upErr == nil {
+					if uploaded, upErr := s.upload(context.Background(), client, fileData, whatsmeow.MediaImage); upErr == nil {
 						interactive.Header = &waE2E.InteractiveMessage_Header{
 							HasMediaAttachment: proto.Bool(true),
 							Media: func() *waE2E.InteractiveMessage_Header_ImageMessage {
@@ -2334,7 +2340,7 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 				fileData, readErr := readAllLimited(resp.Body)
 				resp.Body.Close()
 				if readErr == nil {
-					if uploaded, upErr := client.Upload(context.Background(), fileData, whatsmeow.MediaVideo); upErr == nil {
+					if uploaded, upErr := s.upload(context.Background(), client, fileData, whatsmeow.MediaVideo); upErr == nil {
 						interactive.Header = &waE2E.InteractiveMessage_Header{
 							HasMediaAttachment: proto.Bool(true),
 							Media: &waE2E.InteractiveMessage_Header_VideoMessage{
@@ -3063,7 +3069,7 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 			media = "audio"
 		}
 
-		err := s.clientPointer.Get(instance.Id).SendChatPresence(context.Background(), recipient, types.ChatPresence("composing"), types.ChatPresenceMedia(media))
+		err := s.chatPresence(context.Background(), s.clientPointer.Get(instance.Id), recipient, types.ChatPresence("composing"), types.ChatPresenceMedia(media))
 		if err != nil {
 			return nil, err
 		}
@@ -3074,7 +3080,7 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 		}
 		time.Sleep(delay)
 
-		err = s.clientPointer.Get(instance.Id).SendChatPresence(context.Background(), recipient, types.ChatPresence("paused"), types.ChatPresenceMedia(media))
+		err = s.chatPresence(context.Background(), s.clientPointer.Get(instance.Id), recipient, types.ChatPresence("paused"), types.ChatPresenceMedia(media))
 		if err != nil {
 			return nil, err
 		}
@@ -3391,7 +3397,7 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 		sendExtra.AdditionalNodes = data.AdditionalNodes
 	}
 
-	response, err := s.clientPointer.Get(instance.Id).SendMessage(context.Background(), recipient, msg, sendExtra)
+	response, err := s.deliver(context.Background(), s.clientPointer.Get(instance.Id), recipient, msg, sendExtra)
 	if err != nil {
 		s.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error sending message: %v", instance.Id, err)
 		return nil, err
@@ -3588,7 +3594,7 @@ func (s *sendService) SendCarousel(data *CarouselStruct, instance *instance_mode
 					// connection open until the whole carousel is built.
 					resp.Body.Close()
 					if readErr == nil {
-						uploaded, err := client.Upload(context.Background(), fileData, whatsmeow.MediaImage)
+						uploaded, err := s.upload(context.Background(), client, fileData, whatsmeow.MediaImage)
 						if err == nil {
 							// Generate JPEG thumbnail for iOS compatibility
 							jpegThumb := makeJPEGThumbnail(fileData, 72)
@@ -3616,7 +3622,7 @@ func (s *sendService) SendCarousel(data *CarouselStruct, instance *instance_mode
 					fileData, readErr := readAllLimited(resp.Body)
 					resp.Body.Close()
 					if readErr == nil {
-						uploaded, err := client.Upload(context.Background(), fileData, whatsmeow.MediaVideo)
+						uploaded, err := s.upload(context.Background(), client, fileData, whatsmeow.MediaVideo)
 						if err == nil {
 							header.HasMediaAttachment = proto.Bool(true)
 							header.Media = &waE2E.InteractiveMessage_Header_VideoMessage{
@@ -3947,7 +3953,7 @@ func (s *sendService) sendStatusMedia(client *whatsmeow.Client, data *StatusMedi
 		return nil, errors.New("invalid media type")
 	}
 
-	uploaded, err := client.Upload(context.Background(), fileData, uploadType)
+	uploaded, err := s.upload(context.Background(), client, fileData, uploadType)
 	if err != nil {
 		return nil, err
 	}
@@ -4086,6 +4092,16 @@ func NewSendService(
 		userExistsCache:   cache.New(userExistsCacheTTL, 2*userExistsCacheTTL),
 		groupInfoCache:    cache.New(groupInfoCacheTTL, 2*groupInfoCacheTTL),
 		observer:          observer,
+		deliver: func(ctx context.Context, client *whatsmeow.Client, to types.JID, msg *waE2E.Message, extra whatsmeow.SendRequestExtra) (whatsmeow.SendResponse, error) {
+			return client.SendMessage(ctx, to, msg, extra)
+		},
+		upload: func(ctx context.Context, client *whatsmeow.Client, data []byte, mediaType whatsmeow.MediaType) (whatsmeow.UploadResponse, error) {
+			return client.Upload(ctx, data, mediaType)
+		},
+		chatPresence: func(ctx context.Context, client *whatsmeow.Client, to types.JID, state types.ChatPresence, media types.ChatPresenceMedia) error {
+			return client.SendChatPresence(ctx, to, state, media)
+		},
+		isConnected: func(client *whatsmeow.Client) bool { return client.IsConnected() },
 	}
 }
 

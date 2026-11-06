@@ -387,10 +387,10 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 	instance.AutoReconnect = true
 
 	if instance.Events != oldEvents {
-		i.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] events changed: %q -> %q", instance.Id, oldEvents, instance.Events)
+		i.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] events changed: %q -> %q", instance.Id, oldEvents, instance.Events)
 	}
 	if instance.RabbitmqEnable != oldRabbitmq {
-		i.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] rabbitmqEnable changed: %q -> %q", instance.Id, oldRabbitmq, instance.RabbitmqEnable)
+		i.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] rabbitmqEnable changed: %q -> %q", instance.Id, oldRabbitmq, instance.RabbitmqEnable)
 	}
 
 	if len(updates) > 0 {

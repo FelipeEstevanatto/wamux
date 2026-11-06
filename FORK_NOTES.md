@@ -27,7 +27,7 @@ and why.
 - **Features.** Versioned manager source, per-instance overview (picture,
   platform, counts), proxy settings and checks, account limits, Typebot,
   webhook HMAC signing, SSRF protection, message history readback, per-instance
-  S3 storage, `/server/stats` and a self-hosted `/dashboard`.
+  S3 storage and `/server/stats`.
 
 ## Distribution & compliance
 

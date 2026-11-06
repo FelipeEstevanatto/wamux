@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
 	logger_wrapper "github.com/felipeestevanatto/wamux/pkg/logger"
@@ -39,6 +40,7 @@ type MessageService interface {
 
 	// History readback.
 	GetHistory(data *HistoryQuery, instance *instance_model.Instance) ([]message_model.Message, error)
+	SearchHistory(data *HistorySearchQuery, instance *instance_model.Instance) ([]message_model.Message, error)
 	ListChats(instance *instance_model.Instance, limit int) ([]message_repository.ChatSummary, error)
 	// Contacts lists the known contacts/groups for the instance's picker, with
 	// their resolved display names.
@@ -132,6 +134,23 @@ type HistoryQuery struct {
 	Limit  int    `form:"limit" json:"limit" example:"50"`
 	Before string `form:"before" json:"before" example:"2026-05-09 10:00:00"`
 }
+
+// HistorySearchQuery finds text in one conversation. Before is the timestamp of
+// the last row of the previous page.
+type HistorySearchQuery struct {
+	Chat   string `form:"chat" json:"chat" example:"5511999999999"`
+	Q      string `form:"q" json:"q" example:"invoice"`
+	Limit  int    `form:"limit" json:"limit" example:"50"`
+	Before string `form:"before" json:"before" example:"2026-05-09 10:00:00"`
+}
+
+const (
+	minHistorySearchLength = 2
+	maxHistorySearchLength = 200
+)
+
+// ErrInvalidHistorySearch means the search text is empty, too short or too long.
+var ErrInvalidHistorySearch = errors.New("q must have 2 to 200 characters")
 
 func (m *messageService) ensureClientConnected(instanceId string) (*whatsmeow.Client, error) {
 	client := m.clientPointer.Get(instanceId)
@@ -836,6 +855,37 @@ func (m *messageService) GetHistory(data *HistoryQuery, instance *instance_model
 		msgs, err := m.messageRepository.ListMessages(instance.Id, variant, before, limit)
 		if err != nil {
 			m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to read message history for %s: %v", instance.Id, variant, err)
+			return nil, err
+		}
+		all = append(all, msgs...)
+	}
+
+	return wholeSecondPage(mergeMessagesByID(all), limit), nil
+}
+
+// SearchHistory finds text in one conversation, newest first, including rows
+// stored under the other JID form (LID vs phone number).
+func (m *messageService) SearchHistory(data *HistorySearchQuery, instance *instance_model.Instance) ([]message_model.Message, error) {
+	if data == nil || instance == nil {
+		return nil, errors.New("invalid request")
+	}
+	text := strings.TrimSpace(data.Q)
+	if n := utf8.RuneCountInString(text); n < minHistorySearchLength || n > maxHistorySearchLength {
+		return nil, ErrInvalidHistorySearch
+	}
+	chatJid, ok := m.canonicalChat(instance.Id, data.Chat)
+	if !ok {
+		return nil, errors.New("invalid chat")
+	}
+
+	limit := historyLimit(data.Limit)
+	before := strings.TrimSpace(data.Before)
+
+	var all []message_model.Message
+	for _, variant := range m.chatJidVariants(instance.Id, chatJid) {
+		msgs, err := m.messageRepository.SearchMessages(instance.Id, variant, text, before, limit)
+		if err != nil {
+			m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to search message history: %v", instance.Id, err)
 			return nil, err
 		}
 		all = append(all, msgs...)

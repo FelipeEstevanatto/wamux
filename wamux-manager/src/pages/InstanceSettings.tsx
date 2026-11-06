@@ -70,7 +70,7 @@ export default function InstanceSettings() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [isRenaming, setIsRenaming] = useState(false);
-  const [pendingConfirm, setPendingConfirm] = useState<null | "delete" | "removeProxy">(null);
+  const [pendingConfirm, setPendingConfirm] = useState<null | "delete" | "disconnect" | "removeProxy">(null);
   const isInitialized = useRef(false);
   const hasFetchedOnce = useRef(false);
 
@@ -1289,7 +1289,7 @@ export default function InstanceSettings() {
                 </div>
                 <Button
                   variant="destructive"
-                  onClick={handleDisconnect}
+                  onClick={() => setPendingConfirm("disconnect")}
                   className="gap-2"
                 >
                   <Power className="h-4 w-4" />
@@ -1330,6 +1330,19 @@ export default function InstanceSettings() {
         onConfirm={() => {
           setPendingConfirm(null);
           void handleDeleteProxy();
+        }}
+      />
+      <ConfirmDialog
+        open={pendingConfirm === "disconnect"}
+        destructive
+        title={t('instanceSettings.danger.disconnectTitle')}
+        description={t('instanceSettings.confirm.disconnect', { name: instance?.instanceName ?? '' })}
+        confirmLabel={t('instanceSettings.danger.disconnect')}
+        cancelLabel={t('common.cancel')}
+        onCancel={() => setPendingConfirm(null)}
+        onConfirm={() => {
+          setPendingConfirm(null);
+          void handleDisconnect();
         }}
       />
       <ConfirmDialog

@@ -9379,6 +9379,48 @@ paths:
       summary: HistorySyncRequest a chat
       tags:
       - Chat
+  /chat/history/search:
+    get:
+      description: Returns stored messages of one conversation whose text contains
+        `q`, ignoring case, newest first. Requires DATABASE_SAVE_MESSAGES.
+      parameters:
+      - description: Phone number or JID of the conversation
+        in: query
+        name: chat
+        required: true
+        type: string
+      - description: Text to find (2 to 200 characters)
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: Max messages (default 50, max 500)
+        in: query
+        name: limit
+        type: integer
+      - description: Return messages strictly older than this timestamp (YYYY-MM-DD
+          HH:MM:SS)
+        in: query
+        name: before
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Matching messages, newest first
+          schema:
+            $ref: '#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope'
+        "400":
+          description: Error on validation
+          schema:
+            $ref: '#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse'
+      summary: Search a conversation
+      tags:
+      - Message
   /chat/media/{messageId}:
     get:
       description: Streams the locally stored media for a message (used by the manager

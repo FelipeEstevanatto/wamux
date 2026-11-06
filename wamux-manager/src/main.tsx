@@ -5,6 +5,9 @@ import './styles/globals.css';
 import App from './App';
 import { I18nProvider } from './i18n/I18nContext';
 import queryClient from './lib/queryClient';
+import { removeLegacyCredentials } from './utils/authStorage';
+
+removeLegacyCredentials();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

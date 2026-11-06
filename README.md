@@ -49,7 +49,6 @@ docker compose pull && docker compose up -d
 | API | <http://localhost:8081> |
 | Swagger | <http://localhost:8081/swagger/index.html> |
 | Manager | <http://localhost:8081/manager> (log in with `GLOBAL_API_KEY`) |
-| Dashboard | <http://localhost:8081/dashboard> |
 
 `WAMUX_VERSION` in `.env` selects the image tag: `latest` (newest release), a
 version such as `0.9.2`, or `dev` (develop branch).
@@ -156,8 +155,8 @@ Two credentials, both sent in the `apikey` header:
 - **History** — message persistence with readback (`GET /chat/history`,
   `GET /chat/chats`, `GET /chat/media/:messageId`).
 - **Typebot** — optional chatbot integration (inert until configured).
-- **Manager** — React admin panel (source in [`wamux-manager/`](./wamux-manager))
-  plus a self-hosted `/dashboard`.
+- **Manager** — React admin panel with a dashboard (source in
+  [`wamux-manager/`](./wamux-manager)).
 
 The full endpoint list is in the
 [API reference](./docs/wiki/referencia/api-reference.md) and the live Swagger UI

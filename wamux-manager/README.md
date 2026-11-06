@@ -52,7 +52,7 @@ pnpm build          # -> dist/
 ```
 
 `make manager-build` from the repository root builds and copies `dist/` into
-`manager/dist/` (preserving the hand-written `dashboard.html`).
+`manager/dist/`.
 
 ## Authentication
 

@@ -410,13 +410,25 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		go whatsmeowService.ConnectOnStartup(config.ClientName)
 	}
 
+	r.POST("/ws/ticket", auth_middleware.RequireAdminKey(config.GlobalApiKey), func(c *gin.Context) {
+		ticket, err := websocket_producer.IssueTicket(config.GlobalApiKey, time.Now())
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "could not issue a ticket"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"ticket": ticket, "expiresIn": int(websocket_producer.TicketTTL.Seconds())})
+	})
+
 	r.GET("/ws", func(c *gin.Context) {
 		token := c.Query("token")
 		instanceId := c.Query("instanceId")
 
-		// Constant-time compare so the global key cannot be recovered byte by
-		// byte through response-timing differences (matches AuthAdmin).
-		if subtle.ConstantTimeCompare([]byte(token), []byte(config.GlobalApiKey)) != 1 {
+		// A ticket keeps the global key out of the URL, where proxies log it. The
+		// key itself stays accepted for existing integrations. Constant-time
+		// compare so it cannot be recovered byte by byte through response-timing
+		// differences (matches AuthAdmin).
+		ticketOK := websocket_producer.ValidTicket(config.GlobalApiKey, c.Query("ticket"), time.Now())
+		if !ticketOK && subtle.ConstantTimeCompare([]byte(token), []byte(config.GlobalApiKey)) != 1 {
 			applog.Logger.LogError("WebSocket connection rejected: invalid token")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token inválido"})
 			return

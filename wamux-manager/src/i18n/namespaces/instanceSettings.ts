@@ -178,6 +178,8 @@ export const instanceSettingsNs: {
 
     'instanceSettings.confirm.delete':
       'Tem certeza que deseja deletar a instância {name}? Esta ação não pode ser desfeita.',
+    'instanceSettings.confirm.disconnect':
+      'Desconectar a instância {name} do WhatsApp? Será preciso ler o QR code de novo para reconectar.',
     'instanceSettings.confirm.removeProxyTitle': 'Remover proxy',
     'instanceSettings.confirm.removeProxy':
       'Remover a configuração de proxy desta instância?',
@@ -377,6 +379,8 @@ export const instanceSettingsNs: {
 
     'instanceSettings.confirm.delete':
       'Are you sure you want to delete instance {name}? This action cannot be undone.',
+    'instanceSettings.confirm.disconnect':
+      'Disconnect instance {name} from WhatsApp? You will have to scan the QR code again to reconnect.',
     'instanceSettings.confirm.removeProxyTitle': 'Remove proxy',
     'instanceSettings.confirm.removeProxy':
       'Remove the proxy configuration for this instance?',

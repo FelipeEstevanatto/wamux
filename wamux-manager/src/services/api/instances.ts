@@ -15,6 +15,7 @@ import type {
   ConnectionState,
   InstanceStatus,
 } from '@/types/instance';
+import type { LogEntry } from '@/utils/instanceLogs';
 
 /**
  * Normalize raw instance data from WaMux API
@@ -81,6 +82,22 @@ export const fetchInstance = async (instanceId: string): Promise<Instance> => {
     data: RawInstance;
   }>(`/instance/info/${instanceId}`);
   return normalizeInstance(response.data.data);
+};
+
+/**
+ * Fetch an instance's logs, newest first
+ * GET /instance/logs/:instanceId
+ * Uses the admin apikey (default header)
+ */
+export const fetchInstanceLogs = async (
+  instanceId: string,
+  params: { limit: number; level?: string }
+): Promise<LogEntry[]> => {
+  const response = await apiClient.get<LogEntry[] | null>(
+    `/instance/logs/${encodeURIComponent(instanceId)}`,
+    { params }
+  );
+  return response.data ?? [];
 };
 
 /**

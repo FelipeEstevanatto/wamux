@@ -1,6 +1,8 @@
 package message_service
 
 import (
+	"errors"
+	"strings"
 	"testing"
 
 	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
@@ -11,6 +13,7 @@ import (
 type recordingRepo struct {
 	message_repository.MessageRepository
 	instance, chat, before string
+	text                   string
 	limit                  int
 	messages               []message_model.Message
 	chats                  []message_repository.ChatSummary
@@ -18,6 +21,11 @@ type recordingRepo struct {
 
 func (r *recordingRepo) ListMessages(instanceId, chatJid, before string, limit int) ([]message_model.Message, error) {
 	r.instance, r.chat, r.before, r.limit = instanceId, chatJid, before, limit
+	return r.messages, nil
+}
+
+func (r *recordingRepo) SearchMessages(instanceId, chatJid, text, before string, limit int) ([]message_model.Message, error) {
+	r.instance, r.chat, r.text, r.before, r.limit = instanceId, chatJid, text, before, limit
 	return r.messages, nil
 }
 
@@ -127,5 +135,61 @@ func TestMergeMessagesByIDDeduplicatesAndSorts(t *testing.T) {
 	}
 	if out[0].MessageID != "m2" {
 		t.Fatalf("newest first, got %+v", out)
+	}
+}
+
+func TestSearchHistoryTrimsAndNormalizes(t *testing.T) {
+	repo := &recordingRepo{messages: []message_model.Message{{MessageID: "m1", TextContent: "hi there"}}}
+	svc := &messageService{messageRepository: repo}
+
+	got, err := svc.SearchHistory(
+		&HistorySearchQuery{Chat: "5511999999999", Q: "  hi  ", Limit: 10, Before: " 2026-01-01 00:00:00 "},
+		&instance_model.Instance{Id: "inst"},
+	)
+	if err != nil {
+		t.Fatalf("SearchHistory: %v", err)
+	}
+	if len(got) != 1 || got[0].MessageID != "m1" {
+		t.Fatalf("got = %+v", got)
+	}
+	if repo.instance != "inst" || repo.chat != "5511999999999@s.whatsapp.net" {
+		t.Fatalf("searched instance %q chat %q", repo.instance, repo.chat)
+	}
+	if repo.text != "hi" || repo.before != "2026-01-01 00:00:00" || repo.limit != 10 {
+		t.Fatalf("searched text %q before %q limit %d", repo.text, repo.before, repo.limit)
+	}
+}
+
+func TestSearchHistoryValidatesText(t *testing.T) {
+	inst := &instance_model.Instance{Id: "inst"}
+	for name, q := range map[string]string{
+		"empty":     "",
+		"blank":     "     ",
+		"one rune":  "ã",
+		"too long":  strings.Repeat("a", 201),
+		"too runes": strings.Repeat("ã", 201),
+	} {
+		repo := &recordingRepo{}
+		svc := &messageService{messageRepository: repo}
+		_, err := svc.SearchHistory(&HistorySearchQuery{Chat: "5511999999999", Q: q}, inst)
+		if !errors.Is(err, ErrInvalidHistorySearch) {
+			t.Errorf("%s: err = %v, want ErrInvalidHistorySearch", name, err)
+		}
+		if repo.chat != "" {
+			t.Errorf("%s: searched anyway", name)
+		}
+	}
+
+	// Length is in characters, so accented text at the limit is valid.
+	svc := &messageService{messageRepository: &recordingRepo{}}
+	if _, err := svc.SearchHistory(&HistorySearchQuery{Chat: "5511999999999", Q: strings.Repeat("ã", 200)}, inst); err != nil {
+		t.Errorf("200 characters: %v", err)
+	}
+}
+
+func TestSearchHistoryRejectsEmptyChat(t *testing.T) {
+	svc := &messageService{messageRepository: &recordingRepo{}}
+	if _, err := svc.SearchHistory(&HistorySearchQuery{Chat: "  ", Q: "hello"}, &instance_model.Instance{Id: "i"}); err == nil {
+		t.Fatal("want an error for a blank chat")
 	}
 }

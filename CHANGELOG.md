@@ -13,6 +13,10 @@
 - **Request log** — `HTTP_ACCESS_LOG` defaults to `errors`.
 - **Auto-read** — one call off the dispatch path, instead of two with one blocking.
 
+### 🔌 API
+- `GET /chat/history/search` finds text in one conversation, ignoring case.
+- `POST /ws/ticket` issues a short-lived credential for `/ws`.
+
 ### ✨ Manager
 - The sidebar collapses to icons, with titles on hover.
 - The divider between conversations and chat on `/messages` can be dragged, or moved
@@ -20,24 +24,36 @@
 - Edited messages show the new text and an "Edited" label.
 - Message bubbles have a small gap, and the jump-to-latest button no longer covers
   the media preview's close button.
+- The dashboard is now part of the manager, in React, instead of a separate page in
+  an iframe: translated, themed, and complete on phones. It no longer loads Chart.js
+  from a CDN or keeps its own copy of the global API key, and copies left in the
+  browser are removed. `/dashboard` redirects to `/manager`.
 - Dashboard logs sit with the selected instance, as colored rows instead of raw
   JSON. Filter by level (on the server, so older errors are found) and by text,
   choose how many lines to load, or follow them live.
-- `/manager` and `/dashboard` send `Cache-Control: no-cache`, so a deploy shows up on
-  the next load. Browsers could keep the embedded dashboard for days.
+- `/manager` sends `Cache-Control: no-cache`, so a deploy shows up on the next load.
 - New Events page: a live feed from every instance, with filters by instance, type
   and text, pause, and the JSON of each event. Tokens and keys are hidden, long
   content is cut, and instances with WebSocket off are listed with a link to fix it.
 - The unfinished Settings page is gone. Its options live in the header and in each
   instance's settings.
-- Deleting an instance or removing its proxy asks in a themed, translated dialog
-  instead of the browser's `confirm`.
+- Deleting an instance, disconnecting it or removing its proxy asks in a themed,
+  translated dialog instead of the browser's `confirm`, or not asking at all.
+- `/messages` can search the open conversation on the server, including messages
+  not loaded yet, and jump to a result.
 
 ### 🔒 Security
 - The global API key no longer reaches the access log through `/ws?token=`.
-- Signing out, or a 401, also clears the dashboard's copy of the global API key.
+- The manager opens `/ws` with a signed ticket from `POST /ws/ticket`, valid for 30
+  seconds, so the global API key stays out of URLs and proxy logs. `?token=` still
+  works for existing integrations.
 
 ### 🐛 Fixes
+- `/messages` kept polling off whenever the socket was open, so an instance with
+  WebSocket disabled never refreshed until the page was reloaded.
+- Routine messages no longer log as `WARN`: presence updates, skipped webhooks, QR
+  timeouts, new devices and subscription changes. Failed logouts of an unpaired
+  QR session are no longer reported at all.
 - **`DEBUG_ENABLED=0` no longer enables debug logging.** whatsmeow treats unknown
   levels as DEBUG, so it logged every protocol node.
 - **Stored media is pruned** — files were never deleted, so retention only applied

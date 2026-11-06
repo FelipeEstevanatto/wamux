@@ -83,6 +83,7 @@ func TestAssignRoutesRegistersEveryEndpointGroup(t *testing.T) {
 		"POST /message/markread",
 		"POST /chat/pin",
 		"GET /chat/history",
+		"GET /chat/history/search",
 		"GET /chat/chats",
 		"GET /chat/contacts",
 		"GET /chat/senders",
@@ -197,17 +198,15 @@ func TestAssignRoutesHTMLPagesAreRevalidated(t *testing.T) {
 	if err := os.MkdirAll(dist, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"index.html", "dashboard.html"} {
-		if err := os.WriteFile(filepath.Join(dist, name), []byte("<html></html>"), 0o600); err != nil {
-			t.Fatal(err)
-		}
+	if err := os.WriteFile(filepath.Join(dist, "index.html"), []byte("<html></html>"), 0o600); err != nil {
+		t.Fatal(err)
 	}
 	t.Chdir(dir)
 
 	cfg := testConfig()
 	eng := NewTestRouter(cfg, auth_middleware.NewMiddleware(cfg, &stubInstanceService{valid: "t"}))
 
-	for _, path := range []string{"/dashboard", "/manager", "/manager/messages"} {
+	for _, path := range []string{"/manager", "/manager/messages"} {
 		w := httptest.NewRecorder()
 		eng.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
 		if w.Code != http.StatusOK {
@@ -215,6 +214,20 @@ func TestAssignRoutesHTMLPagesAreRevalidated(t *testing.T) {
 		}
 		if got := w.Header().Get("Cache-Control"); got != "no-cache" {
 			t.Errorf("GET %s: Cache-Control = %q, want no-cache", path, got)
+		}
+	}
+}
+
+// The dashboard moved into the manager, and old links must not break.
+func TestAssignRoutesDashboardRedirectsToTheManager(t *testing.T) {
+	cfg := testConfig()
+	eng := NewTestRouter(cfg, auth_middleware.NewMiddleware(cfg, &stubInstanceService{valid: "t"}))
+
+	for _, path := range []string{"/dashboard", "/dashboard?embed=1&theme=dark"} {
+		w := httptest.NewRecorder()
+		eng.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
+		if w.Code != http.StatusFound || w.Header().Get("Location") != "/manager" {
+			t.Errorf("GET %s: %d to %q", path, w.Code, w.Header().Get("Location"))
 		}
 	}
 }

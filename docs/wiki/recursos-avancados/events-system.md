@@ -464,6 +464,17 @@ Recebe eventos de **todas as instâncias**:
 ws://localhost:8081/ws?token=GLOBAL_API_KEY
 ```
 
+Em navegadores, prefira um ticket, para que a chave global não apareça em URLs e logs de proxy. Ele vale por 30 segundos:
+
+```bash
+curl -X POST http://localhost:8081/ws/ticket -H "apikey: GLOBAL_API_KEY"
+# {"ticket":"...","expiresIn":30}
+```
+
+```
+ws://localhost:8081/ws?ticket=TICKET
+```
+
 ### Gerenciamento de Conexões
 
 O WaMux gerencia automaticamente as conexões WebSocket:

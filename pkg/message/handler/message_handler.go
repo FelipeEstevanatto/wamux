@@ -1,6 +1,7 @@
 package message_handler
 
 import (
+	"errors"
 	"io"
 	"net/http"
 
@@ -25,6 +26,7 @@ type MessageHandler interface {
 	DeleteMessageEveryone(ctx *gin.Context)
 	EditMessage(ctx *gin.Context)
 	GetHistory(ctx *gin.Context)
+	SearchHistory(ctx *gin.Context)
 	ListChats(ctx *gin.Context)
 	Contacts(ctx *gin.Context)
 	SenderNames(ctx *gin.Context)
@@ -498,6 +500,52 @@ func (m *messageHandler) GetHistory(ctx *gin.Context) {
 	}
 
 	messages, err := m.messageService.GetHistory(&query, instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": messages})
+}
+
+// SearchHistory finds text in a conversation
+// @Summary Search a conversation
+// @Description Returns stored messages of one conversation whose text contains `q`, ignoring case, newest first. Requires DATABASE_SAVE_MESSAGES.
+// @Tags Message
+// @Produce json
+// @Param chat query string true "Phone number or JID of the conversation"
+// @Param q query string true "Text to find (2 to 200 characters)"
+// @Param limit query int false "Max messages (default 50, max 500)"
+// @Param before query string false "Return messages strictly older than this timestamp (YYYY-MM-DD HH:MM:SS)"
+// @Success 200 {object} docmodels.Envelope "Matching messages, newest first"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
+// @Router /chat/history/search [get]
+func (m *messageHandler) SearchHistory(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	var query message_service.HistorySearchQuery
+	if err := ctx.ShouldBindQuery(&query); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if query.Chat == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "chat is required"})
+		return
+	}
+
+	messages, err := m.messageService.SearchHistory(&query, instance)
+	if errors.Is(err, message_service.ErrInvalidHistorySearch) {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

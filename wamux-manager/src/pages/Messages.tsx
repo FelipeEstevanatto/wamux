@@ -48,6 +48,7 @@ import MediaViewer from '@/components/messages/MediaViewer';
 import TestMessageModal from '@/components/instances/TestMessageModal';
 import { useI18n } from '@/i18n/I18nContext';
 import useInstances from '@/hooks/useInstances';
+import ThreadSearch from '@/components/messages/ThreadSearch';
 import useInstanceEvents from '@/hooks/useInstanceEvents';
 import { useInView } from '@/hooks/useInView';
 import { useMediaSrc } from '@/hooks/useMediaSrc';
@@ -86,6 +87,10 @@ interface FeatureFlags {
   webhookFiles: boolean;
   loaded: boolean;
 }
+
+// How far back a search hit can be opened: 40 pages of history.
+const MAX_JUMP_PAGES = 40;
+const JUMP_HIGHLIGHT_MS = 2500;
 
 const messageKeys = {
   chats: (instanceId: string) => ['message-chats', instanceId] as const,
@@ -474,6 +479,7 @@ function Bubble({
   senderName,
   showSender,
   quotedMessage,
+  highlighted = false,
   onOpenMedia,
 }: {
   message: HistoryMessage;
@@ -482,6 +488,7 @@ function Bubble({
   senderName?: string;
   showSender: boolean;
   quotedMessage?: HistoryMessage;
+  highlighted?: boolean;
   onOpenMedia?: (message: HistoryMessage) => void;
 }) {
   const { t } = useI18n();
@@ -500,11 +507,14 @@ function Bubble({
   const hasBody = Boolean(message.text_content) || isMedia;
 
   return (
-    <div className={`mb-1.5 flex last:mb-0 ${mine ? 'justify-end' : 'justify-start'}`}>
+    <div
+      data-message-id={message.message_id}
+      className={`mb-1.5 flex last:mb-0 ${mine ? 'justify-end' : 'justify-start'}`}
+    >
       <div
         className={`max-w-[85%] rounded-lg px-3 py-2 text-sm shadow-xs sm:max-w-[75%] ${
           mine ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
-        }`}
+        } ${highlighted ? 'ring-2 ring-amber-400' : ''}`}
       >
         {showSender && !mine && (
           <p className={`mb-0.5 text-[11px] font-semibold ${senderColor(label)}`}>
@@ -607,6 +617,8 @@ export default function Messages() {
   const [tab, setTab] = useState<TabId>('all');
 
   const [selectedChat, setSelectedChat] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [jumpTarget, setJumpTarget] = useState('');
   const [draft, setDraft] = useState('');
   const [attachFile, setAttachFile] = useState<File | null>(null);
   const [attachPreview, setAttachPreview] = useState('');
@@ -688,6 +700,8 @@ export default function Messages() {
       refreshThreadAndChats(false);
     }
   });
+  // An open socket proves nothing when the instance publishes no events to it.
+  const liveUpdates = wsEnabled && wsStatus === 'open';
 
   useEffect(
     () => () => {
@@ -701,7 +715,7 @@ export default function Messages() {
     queryFn: () => messagesApi.listChats(token),
     enabled: Boolean(token),
     staleTime: 15_000,
-    refetchInterval: wsStatus === 'open' ? false : 15_000,
+    refetchInterval: liveUpdates ? false : 15_000,
   });
   const chats = useMemo(() => chatsQuery.data ?? [], [chatsQuery.data]);
   const chatsLoading = chatsQuery.isLoading;
@@ -722,8 +736,7 @@ export default function Messages() {
         : lastPage[lastPage.length - 1]?.timestamp,
     enabled: Boolean(token && selectedChat),
     staleTime: 10_000,
-    refetchInterval:
-      selectedChat && wsStatus !== 'open' ? 10_000 : false,
+    refetchInterval: selectedChat && !liveUpdates ? 10_000 : false,
   });
 
   const sendersQuery = useQuery<Record<string, string>>({
@@ -833,10 +846,40 @@ export default function Messages() {
   const openChat = useCallback((chat: string) => {
     if (!chat) return;
     setSelectedChat(chat);
+    setSearchOpen(false);
+    setJumpTarget('');
     setMobileThread(true);
     atBottomRef.current = true;
     setAtBottom(true);
   }, []);
+
+  // A hit can be older than what is loaded, so pages come in until it appears.
+  const jumpToMessage = async (messageId: string) => {
+    const isLoaded = (pages: HistoryMessage[][] | undefined) =>
+      Boolean(pages?.some((page) => page.some((m) => m.message_id === messageId)));
+
+    let pages = threadQuery.data?.pages;
+    let more = threadQuery.hasNextPage;
+    for (let i = 0; i < MAX_JUMP_PAGES && more && !isLoaded(pages); i++) {
+      const next = await threadQuery.fetchNextPage();
+      pages = next.data?.pages;
+      more = next.hasNextPage;
+    }
+
+    if (isLoaded(pages)) setJumpTarget(messageId);
+    else toast.info(t('messages.searchTooOld'));
+  };
+
+  useEffect(() => {
+    if (!jumpTarget) return;
+    const bubble = threadRef.current?.querySelector(
+      `[data-message-id="${CSS.escape(jumpTarget)}"]`
+    );
+    if (!bubble) return; // Rendered by the next update of the thread.
+    bubble.scrollIntoView({ block: 'center' });
+    const timer = window.setTimeout(() => setJumpTarget(''), JUMP_HIGHLIGHT_MS);
+    return () => window.clearTimeout(timer);
+  }, [jumpTarget, ordered.length]);
 
   const loadOlder = () => {
     if (threadQuery.hasNextPage && !threadQuery.isFetchingNextPage) {
@@ -1475,6 +1518,16 @@ export default function Messages() {
                 <Button
                   variant="outline"
                   size="icon"
+                  onClick={() => setSearchOpen((open) => !open)}
+                  aria-pressed={searchOpen}
+                  title={t('messages.searchInChat')}
+                  aria-label={t('messages.searchInChat')}
+                >
+                  <Search />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
                   onClick={() => void recoverHistory()}
                   disabled={syncing}
                   title={t('messages.recoverTitle')}
@@ -1483,6 +1536,16 @@ export default function Messages() {
                   <History className={syncing ? 'animate-spin' : ''} />
                 </Button>
               </div>
+
+              {searchOpen && (
+                <ThreadSearch
+                  key={selectedChat}
+                  token={token}
+                  chat={selectedChat}
+                  onOpen={(id) => void jumpToMessage(id)}
+                  onClose={() => setSearchOpen(false)}
+                />
+              )}
 
               {/* The jump button lives in here, so whatever opens below the thread
                   (a media preview, the composer) can never end up under it. */}
@@ -1547,6 +1610,7 @@ export default function Messages() {
                           senderName={namesForChat[jidUser(m.sender_jid)]}
                           showSender={showSender}
                           quotedMessage={quoted}
+                          highlighted={m.message_id === jumpTarget}
                           onOpenMedia={openMedia}
                         />
                       </Fragment>

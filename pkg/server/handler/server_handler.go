@@ -108,7 +108,7 @@ func (s *serverHandler) Root(ctx *gin.Context) {
 }
 
 // Stats returns system metrics (Go runtime + Linux host) and message stats.
-// Used by the self-hosted dashboard (GET /dashboard). Auth: AuthAdmin.
+// Used by the manager's dashboard. Auth: AuthAdmin.
 // @Summary System and message metrics
 // @Description Runtime/host metrics (version, RAM, load, goroutines, uptime) and message aggregates
 // @Tags Server
@@ -138,8 +138,7 @@ func (s *serverHandler) Stats(ctx *gin.Context) {
 
 	// Host context: the whole machine (may include other workloads), reported
 	// FLAT as system.loadAvg*/hostMem* because that is the documented shape
-	// (pkg/docmodels.SystemStats) and what both the manager SPA and
-	// manager/dist/dashboard.html read. These were briefly nested under
+	// (pkg/docmodels.SystemStats) and what the manager reads. These were briefly nested under
 	// system.host, which silently broke the dashboard's "RAM do host" and
 	// "Carga (1m)" cards on every platform ("host indisponível" /
 	// "load indisponível"); keep them flat.

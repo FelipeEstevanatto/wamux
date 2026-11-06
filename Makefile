@@ -77,15 +77,15 @@ manager-install: ## Instala as dependências do manager (bun, pnpm ou npm)
 	elif command -v pnpm >/dev/null 2>&1; then pnpm install; \
 	else npm install; fi
 
-manager-build: ## Compila o manager e sincroniza com manager/dist (preserva dashboard.html)
+manager-build: ## Compila o manager e sincroniza com manager/dist
 	@echo "$(GREEN)🔨 Compilando manager...$(NC)"
 	@cd wamux-manager && \
 	if command -v bun >/dev/null 2>&1; then bun run build; \
 	elif command -v pnpm >/dev/null 2>&1; then pnpm build; \
 	else npm run build; fi
-	rm -rf manager/dist/assets manager/dist/index.html
-	cp -r wamux-manager/dist/assets manager/dist/assets
-	cp wamux-manager/dist/index.html manager/dist/index.html
+	rm -rf manager/dist
+	mkdir -p manager
+	cp -r wamux-manager/dist manager/dist
 	@echo "$(GREEN)✅ manager/dist atualizado (a partir de wamux-manager/) $(NC)"
 
 install: build ## Compila e instala no GOPATH

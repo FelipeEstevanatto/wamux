@@ -21,13 +21,13 @@ const EMPTY: Instance[] = [];
  * the data itself now lives in the shared query cache (deduped fetches,
  * background refetch, per-instance overview cache).
  */
-export function useInstances() {
+export function useInstances(pollMs = POLL_MS) {
   const qc = useQueryClient();
 
   const list = useQuery<Instance[], Error>({
     queryKey: instanceKeys.list,
     queryFn: instancesApi.fetchInstances,
-    refetchInterval: POLL_MS,
+    refetchInterval: pollMs > 0 ? pollMs : false,
   });
   const instances = list.data ?? EMPTY;
 

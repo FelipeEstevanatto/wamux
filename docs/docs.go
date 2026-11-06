@@ -356,6 +356,66 @@ const docTemplate = `{
                 }
             }
         },
+        "/chat/history/search": {
+            "get": {
+                "description": "Returns stored messages of one conversation whose text contains ` + "`" + `q` + "`" + `, ignoring case, newest first. Requires DATABASE_SAVE_MESSAGES.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Message"
+                ],
+                "summary": "Search a conversation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Phone number or JID of the conversation",
+                        "name": "chat",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Text to find (2 to 200 characters)",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Max messages (default 50, max 500)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Return messages strictly older than this timestamp (YYYY-MM-DD HH:MM:SS)",
+                        "name": "before",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Matching messages, newest first",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
+                        }
+                    },
+                    "400": {
+                        "description": "Error on validation",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/chat/media/{messageId}": {
             "get": {
                 "description": "Streams the locally stored media for a message (used by the manager for previews). Requires DATABASE_SAVE_MESSAGES.",

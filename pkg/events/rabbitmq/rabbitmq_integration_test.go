@@ -2,7 +2,10 @@ package rabbitmq_producer
 
 import (
 	"fmt"
+	"net/http"
+	"net/url"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -171,5 +174,100 @@ func BenchmarkProduce(b *testing.B) {
 		if err := p.Produce(queue, payload, "enabled", "i"); err != nil {
 			b.Fatal(err)
 		}
+	}
+}
+
+// rejectAfter makes the broker nack anything past `limit` messages in queue. Only a
+// policy can do that: publishOnce declares the queue with fixed arguments, so a
+// queue pre-declared with a length limit would fail with PRECONDITION_FAILED.
+func rejectAfter(t *testing.T, queue string, limit int) {
+	t.Helper()
+	management := os.Getenv("WAMUX_TEST_AMQP_MANAGEMENT_URL")
+	if management == "" {
+		t.Skip("set WAMUX_TEST_AMQP_MANAGEMENT_URL to run broker nack tests")
+	}
+	parsed, err := url.Parse(management)
+	if err != nil {
+		t.Fatal(err)
+	}
+	password, _ := parsed.User.Password()
+	endpoint := fmt.Sprintf("%s://%s/api/policies/%%2F/%s", parsed.Scheme, parsed.Host, queue)
+
+	call := func(method, body string) {
+		t.Helper()
+		req, err := http.NewRequest(method, endpoint, strings.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.SetBasicAuth(parsed.User.Username(), password)
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode >= 300 {
+			t.Fatalf("%s policy: %s", method, resp.Status)
+		}
+	}
+
+	call(http.MethodPut, fmt.Sprintf(
+		`{"pattern":"^%s$","apply-to":"queues","definition":{"max-length":%d,"overflow":"reject-publish"}}`,
+		queue, limit,
+	))
+	t.Cleanup(func() { call(http.MethodDelete, "") })
+}
+
+// A nack must not read as delivered: the event would be lost with no error, and
+// the caller would never retry.
+func TestBrokerNackIsReportedAsAFailure(t *testing.T) {
+	p, channel := realProducer(t)
+	queue := queueFor(t)
+	drop(t, channel, queue)
+
+	if err := p.publishOnce(queue, []byte("creates the queue")); err != nil {
+		t.Fatalf("first publish: %v", err)
+	}
+	rejectAfter(t, queue, 1)
+
+	// The policy reaches the queue shortly after the API accepts it.
+	var err error
+	for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); time.Sleep(100 * time.Millisecond) {
+		if err = p.publishOnce(queue, []byte("over the limit")); err != nil {
+			break
+		}
+	}
+
+	if err == nil || !strings.Contains(err.Error(), "broker recusou") {
+		t.Fatalf("err = %v, want a broker refusal", err)
+	}
+}
+
+// The channel survives a nack, so the next publish after room appears succeeds.
+func TestProducerRecoversAfterABrokerNack(t *testing.T) {
+	p, channel := realProducer(t)
+	queue := queueFor(t)
+	drop(t, channel, queue)
+
+	if err := p.publishOnce(queue, []byte("creates the queue")); err != nil {
+		t.Fatal(err)
+	}
+	rejectAfter(t, queue, 1)
+
+	var err error
+	for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); time.Sleep(100 * time.Millisecond) {
+		if err = p.publishOnce(queue, []byte("over the limit")); err != nil {
+			break
+		}
+	}
+	if err == nil {
+		t.Fatal("the broker never refused a message")
+	}
+
+	if _, err := channel.QueuePurge(queue, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := p.publishOnce(queue, []byte("room again")); err != nil {
+		t.Fatalf("publish after the nack: %v", err)
 	}
 }

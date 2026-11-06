@@ -1,8 +1,7 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Activity,
   Cpu,
-  ExternalLink,
   HardDrive,
   Layers,
   Mail,
@@ -13,17 +12,19 @@ import {
 } from 'lucide-react';
 import useServerStats from '@/hooks/useServerStats';
 import useInstances from '@/hooks/useInstances';
-import useAuth from '@/hooks/useAuth';
-import { useDarkMode } from '@/hooks/useDarkMode';
+import ConnectionChart from '@/components/dashboard/ConnectionChart';
+import InstanceLogs from '@/components/dashboard/InstanceLogs';
+import InstancesTable from '@/components/dashboard/InstancesTable';
+import TopConversations from '@/components/dashboard/TopConversations';
+import { Button } from '@/components/ui';
 import GithubIcon from '@/components/base/GithubIcon';
 import { REPO } from '@/constants/branding';
 import { useI18n } from '@/i18n/I18nContext';
-import {
-  DASHBOARD_BASE_STORAGE_KEY,
-  DASHBOARD_KEY_STORAGE_KEY,
-} from '@/utils/authStorage';
 
 // (the repository link comes from @/constants/branding)
+
+const REFRESH_SECONDS = [0, 10, 15, 30, 60];
+const DEFAULT_REFRESH_SECONDS = 15;
 
 const fmtNumber = (n?: number) =>
   n === undefined || n === null ? '—' : n.toLocaleString('pt-BR');
@@ -104,31 +105,14 @@ function StorageRow({
 }
 
 export default function Dashboard() {
-  const { stats, error, loading } = useServerStats(15000);
-  const { instances, fetchInstances, overviews, fetchOverviews } =
-    useInstances();
-  const { apiUrl, apiKey } = useAuth();
-  const { theme } = useDarkMode();
-  const { t } = useI18n();
-
-  // The embedded dashboard only makes sense once credentials are available.
-  // Derived rather than stored, so the effect below has no state to set.
-  const embedReady = Boolean(apiUrl && apiKey);
-
-  // The static self-hosted dashboard at /dashboard has its own charts, top
-  // sources and per-instance logs; rather than duplicate it, it is embedded
-  // below. It reads its credentials from its own localStorage keys, so seed
-  // them here (same origin) before mounting the iframe to avoid a second login.
-  useEffect(() => {
-    if (!apiKey) return;
-    const sameOrigin =
-      !apiUrl || apiUrl.replace(/\/+$/, '') === window.location.origin;
-    localStorage.setItem(DASHBOARD_KEY_STORAGE_KEY, apiKey);
-    localStorage.setItem(
-      DASHBOARD_BASE_STORAGE_KEY,
-      sameOrigin ? '' : apiUrl.replace(/\/+$/, '')
-    );
-  }, [apiUrl, apiKey]);
+  const [refreshSeconds, setRefreshSeconds] = useState(DEFAULT_REFRESH_SECONDS);
+  const [selectedId, setSelectedId] = useState('');
+  const { stats, error, loading, updatedAt, refetch } = useServerStats(refreshSeconds * 1000);
+  const { instances, fetchInstances, overviews, fetchOverviews } = useInstances(
+    refreshSeconds * 1000
+  );
+  const { t, lang } = useI18n();
+  const selected = instances.find((i) => i.id === selectedId);
 
   useEffect(() => {
     fetchInstances();
@@ -225,6 +209,41 @@ export default function Dashboard() {
                 ? t('sidebar.version', { version: system.version })
                 : t('sidebar.versionEmpty')}
             </span>
+            <span
+              role="status"
+              className="inline-flex items-center gap-2 rounded-md border border-sidebar-border bg-sidebar px-3 py-2 text-xs text-muted-foreground"
+            >
+              <span className={`h-2 w-2 rounded-full ${error ? 'bg-red-500' : 'bg-green-500'}`} />
+              {error ? t('dashboard.serverOffline') : t('dashboard.serverOnline')}
+              {updatedAt > 0 &&
+                ` · ${new Date(updatedAt).toLocaleTimeString(lang === 'pt' ? 'pt-BR' : 'en-US')}`}
+            </span>
+            <select
+              value={refreshSeconds}
+              onChange={(e) => setRefreshSeconds(Number(e.target.value))}
+              aria-label={t('dashboard.refreshInterval')}
+              className="h-9 rounded-md border border-sidebar-border bg-sidebar px-2 text-xs text-muted-foreground"
+            >
+              {REFRESH_SECONDS.map((seconds) => (
+                <option key={seconds} value={seconds}>
+                  {seconds === 0
+                    ? t('dashboard.refreshManual')
+                    : t('dashboard.refreshEvery', { seconds })}
+                </option>
+              ))}
+            </select>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => {
+                void refetch();
+                void fetchInstances();
+              }}
+              title={t('dashboard.refresh')}
+              aria-label={t('dashboard.refresh')}
+            >
+              <RefreshCw />
+            </Button>
             <a
               href={REPO}
               target="_blank"
@@ -400,8 +419,16 @@ export default function Dashboard() {
           </div>
         </div>
 
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="rounded-xl border border-sidebar-border bg-sidebar p-4">
+            <h2 className="mb-4 text-sm font-semibold text-foreground">
+              {t('dashboard.connectionStatus')}
+            </h2>
+            <ConnectionChart connected={connected} total={total} />
+          </div>
+
         {/* Messages per day */}
-        <div className="rounded-xl border border-sidebar-border bg-sidebar p-4">
+        <div className="min-w-0 rounded-xl border border-sidebar-border bg-sidebar p-4 lg:col-span-2">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-foreground">
               {t('dashboard.messagesPerDay')}
@@ -448,39 +475,37 @@ export default function Dashboard() {
             </div>
           )}
         </div>
+        </div>
 
-        {/* Full self-hosted dashboard (charts, top sources, per-instance logs).
-            Embedded instead of duplicated; it hides its own KPI grid when
-            embedded (see dashboard.html). On a phone a nested-scrolling iframe
-            is unusable, so small screens get a link to the full page instead. */}
-        {embedReady && (
-          <>
-            <div className="rounded-xl border border-sidebar-border bg-sidebar p-4 md:hidden">
-              <h2 className="text-sm font-semibold text-foreground">
-                {t('dashboard.fullDashboard')}
-              </h2>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {t('dashboard.fullDashboardDesc')}
-              </p>
-              <a
-                href={`/dashboard?theme=${theme}`}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="mt-3 inline-flex items-center gap-2 rounded-md border border-sidebar-border px-3 py-2 text-xs text-foreground transition-colors hover:bg-sidebar-accent"
-              >
-                <ExternalLink className="h-3.5 w-3.5" />
-                {t('dashboard.openFullDashboard')}
-              </a>
-            </div>
-            <div className="hidden overflow-hidden rounded-xl border border-sidebar-border bg-sidebar md:block">
-              <iframe
-                src={`/dashboard?embed=1&theme=${theme}`}
-                title={t('dashboard.fullDashboard')}
-                className="h-[70vh] w-full border-0"
-              />
-            </div>
-          </>
-        )}
+        <div className="rounded-xl border border-sidebar-border bg-sidebar p-4">
+          <h2 className="mb-4 text-sm font-semibold text-foreground">
+            {t('dashboard.topConversations')}
+          </h2>
+          <TopConversations sources={messages.topSources ?? []} />
+        </div>
+
+        <div className="rounded-xl border border-sidebar-border bg-sidebar p-4">
+          <h2 className="mb-3 text-sm font-semibold text-foreground">
+            {t('sidebar.instances')}
+          </h2>
+          <InstancesTable
+            instances={instances}
+            overviews={overviews}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+          />
+          {selected ? (
+            <InstanceLogs
+              instanceId={selected.id}
+              instanceName={selected.instanceName}
+              onClose={() => setSelectedId('')}
+            />
+          ) : (
+            instances.length > 0 && (
+              <p className="mt-3 text-xs text-muted-foreground">{t('dashboard.logsHint')}</p>
+            )
+          )}
+        </div>
       </div>
     </div>
   );

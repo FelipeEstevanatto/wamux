@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	json "github.com/felipeestevanatto/wamux/pkg/jsonx"
 	"github.com/felipeestevanatto/wamux/pkg/killswitch"
@@ -1327,12 +1328,12 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 			return
 		}
 	} else {
-		w.loggerWrapper.GetLogger(cd.Instance.Id).LogWarn("[%s] No jid found. Creating new device", cd.Instance.Id)
+		w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] No jid found. Creating new device", cd.Instance.Id)
 		deviceStore = container.NewDevice()
 	}
 
 	if deviceStore == nil {
-		w.loggerWrapper.GetLogger(cd.Instance.Id).LogWarn("[%s] No store found. Creating new one", cd.Instance.Id)
+		w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] No store found. Creating new one", cd.Instance.Id)
 		deviceStore = container.NewDevice()
 
 		cd.Instance.Connected = false
@@ -1769,10 +1770,11 @@ func (mycli *MyClient) handleQRCodes(codes []string) {
 					mycli.loggerWrapper.GetLogger(instanceID).LogInfo("[%s] QR max-count reached but passkey ceremony active — not tearing down", instanceID)
 					return
 				}
-				mycli.loggerWrapper.GetLogger(instanceID).LogWarn("[%s] Maximum QR code count reached (%d), forcing logout and QRTimeout", instanceID, mycli.config.QrcodeMaxCount)
+				mycli.loggerWrapper.GetLogger(instanceID).LogInfo("[%s] Maximum QR code count reached (%d), forcing logout and QRTimeout", instanceID, mycli.config.QrcodeMaxCount)
 
 				if mycli.WAClient.IsConnected() {
-					if err := mycli.WAClient.Logout(context.Background()); err != nil {
+					// Nobody scanned the code, so there is usually no session to log out of.
+					if err := mycli.WAClient.Logout(context.Background()); err != nil && !errors.Is(err, whatsmeow.ErrNotLoggedIn) {
 						mycli.loggerWrapper.GetLogger(instanceID).LogWarn("[%s] Error during forced logout: %v", instanceID, err)
 					}
 				}
@@ -1876,7 +1878,7 @@ func (mycli *MyClient) teardownQR(reason string, forceLogout bool) {
 	// Signal StartClient's select loop to disconnect and clean up the shared
 	// maps (it is the single writer for this instance). Blocking send mirrors
 	// the original timeout branch so the signal is never dropped.
-	mycli.loggerWrapper.GetLogger(instanceID).LogWarn("[%s] QR timeout — signaling kill switch", instanceID)
+	mycli.loggerWrapper.GetLogger(instanceID).LogInfo("[%s] QR timeout — signaling kill switch", instanceID)
 	mycli.kill.Fire(killswitch.Restart)
 }
 
@@ -2150,7 +2152,7 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 			if err != nil {
 				mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Failed to send unavailable presence %v", mycli.userID, err)
 			} else {
-				mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Marked self as unavailable", mycli.userID)
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Marked self as unavailable", mycli.userID)
 			}
 		}
 	case *events.Connected, *events.PushNameSetting:
@@ -2225,7 +2227,7 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 				if err != nil {
 					mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Failed to send available presence %v", mycli.userID, err)
 				} else {
-					mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Marked self as available", mycli.userID)
+					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Marked self as available", mycli.userID)
 				}
 			} else {
 				err = mycli.WAClient.SendPresence(context.Background(), types.PresenceUnavailable)
@@ -3666,7 +3668,7 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 			go mycli.service.SendToGlobalQueues(postMap["event"].(string), values, mycli.userID)
 		}
 	} else {
-		mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] ===== WEBHOOK SKIPPED ===== doWebhook=false", mycli.userID)
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogDebug("[%s] ===== WEBHOOK SKIPPED ===== doWebhook=false", mycli.userID)
 	}
 }
 

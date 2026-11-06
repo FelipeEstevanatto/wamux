@@ -38,6 +38,7 @@ type MessageRepository interface {
 
 	// History readback (GET /chat/history and GET /chat/chats).
 	ListMessages(instanceId, chatJid, before string, limit int) ([]message_model.Message, error)
+	SearchMessages(instanceId, chatJid, text, before string, limit int) ([]message_model.Message, error)
 	ListChats(instanceId string, limit int) ([]ChatSummary, error)
 
 	// DistinctSenders lists the bare `sender_jid` values that authored messages
@@ -413,12 +414,38 @@ func (m *messageRepository) DeleteAllMessages() (int64, error) {
 // `before` (a "YYYY-MM-DD HH:MM:SS" timestamp) pages backwards: it returns the
 // messages strictly older than the newest one already seen.
 func (m *messageRepository) ListMessages(instanceId, chatJid, before string, limit int) ([]message_model.Message, error) {
-	messages := make([]message_model.Message, 0)
 	if instanceId == "" || chatJid == "" {
-		return messages, nil
+		return make([]message_model.Message, 0), nil
 	}
+	return m.pageMessages(func() *gorm.DB {
+		return m.db.Where("instance_id = ? AND chat_jid = ?", instanceId, chatJid)
+	}, before, limit)
+}
 
-	query := m.db.Where("instance_id = ? AND chat_jid = ?", instanceId, chatJid)
+// likeEscaper keeps user input literal inside a LIKE pattern.
+var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+
+// SearchMessages finds text in one conversation, newest first, paged like
+// ListMessages. It relies on the (instance, chat, timestamp) index to narrow the
+// rows, so it stays cheap for a conversation but would not for a whole instance.
+func (m *messageRepository) SearchMessages(instanceId, chatJid, text, before string, limit int) ([]message_model.Message, error) {
+	if instanceId == "" || chatJid == "" || text == "" {
+		return make([]message_model.Message, 0), nil
+	}
+	pattern := "%" + likeEscaper.Replace(text) + "%"
+	return m.pageMessages(func() *gorm.DB {
+		return m.db.Where(
+			`instance_id = ? AND chat_jid = ? AND LOWER(text_content) LIKE LOWER(?) ESCAPE '\'`,
+			instanceId, chatJid, pattern,
+		)
+	}, before, limit)
+}
+
+// pageMessages reads one page newest first. scoped builds the filter, and is a
+// function because a GORM statement cannot be reused for the second query.
+func (m *messageRepository) pageMessages(scoped func() *gorm.DB, before string, limit int) ([]message_model.Message, error) {
+	messages := make([]message_model.Message, 0)
+	query := scoped()
 	if before != "" {
 		query = query.Where(`"timestamp" < ?`, before)
 	}
@@ -439,7 +466,7 @@ func (m *messageRepository) ListMessages(instanceId, chatJid, before string, lim
 	// run slightly over the limit to do so.
 	last := messages[len(messages)-1].Timestamp
 	var sameSecond []message_model.Message
-	err = m.db.Where(`instance_id = ? AND chat_jid = ? AND "timestamp" = ?`, instanceId, chatJid, last).
+	err = scoped().Where(`"timestamp" = ?`, last).
 		Order("id DESC").
 		Find(&sameSecond).Error
 	if err != nil {

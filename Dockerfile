@@ -35,12 +35,9 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 # Copiar o restante do código
 COPY . .
 
-# Use the freshly built manager assets instead of the committed ones. Fork-only
-# files under manager/dist (e.g. dashboard.html) are not produced by the Vite
-# build, so they come from the repo copy above and are preserved.
-RUN rm -rf manager/dist/assets manager/dist/index.html
-COPY --from=manager /manager/dist/assets ./manager/dist/assets
-COPY --from=manager /manager/dist/index.html ./manager/dist/index.html
+# The manager is only ever the fresh build, never a stale local copy.
+RUN rm -rf manager/dist
+COPY --from=manager /manager/dist ./manager/dist
 
 ARG VERSION=dev
 # Empty builds with encoding/json. Setting this to go_json selects goccy/go-json

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import useAuth from '@/hooks/useAuth';
+import apiClient from '@/services/api/client';
 import type { InstanceEvent } from '@/types/messages';
 
 export type WsStatus = 'connecting' | 'open' | 'closed';
@@ -39,9 +40,9 @@ export function parseFrame(raw: string): InstanceEvent | null {
  * Subscribes to one instance's events over /ws, or to all of them with
  * ALL_INSTANCES, and reports the connection status.
  *
- * The socket is authenticated with the global API key (the manager's stored
- * credential) and scoped to `instanceId`, so it only receives that instance's
- * events. It reconnects with a capped backoff. `onEvent` is held in a ref so a
+ * The socket opens with a short-lived ticket, because a browser can only send
+ * credentials in the URL and the global API key must not end up in proxy logs.
+ * Each attempt gets a new ticket. It reconnects with a capped backoff. `onEvent` is held in a ref so a
  * changing callback never forces a reconnect. The returned status lets the UI
  * warn the operator when live updates are down.
  */
@@ -72,16 +73,36 @@ export default function useInstanceEvents(
 
     const scope =
       instanceId === ALL_INSTANCES ? '' : `&instanceId=${encodeURIComponent(instanceId)}`;
-    const wsUrl = `${apiUrl.replace(/^http/, 'ws')}/ws?token=${encodeURIComponent(apiKey)}${scope}`;
 
     let stopped = false;
     let attempt = 0;
     let retryTimer: number | undefined;
     let ws: WebSocket | null = null;
 
-    const connect = () => {
+    const retry = () => {
+      attempt = Math.min(attempt + 1, 6);
+      retryTimer = window.setTimeout(() => void connect(), attempt * 1000);
+    };
+
+    const connect = async () => {
       if (stopped) return;
-      ws = new WebSocket(wsUrl);
+
+      let ticket: string;
+      try {
+        const response = await apiClient.post<{ ticket: string }>('/ws/ticket', null, {
+          baseURL: apiUrl,
+          headers: { apikey: apiKey },
+        });
+        ticket = response.data.ticket;
+      } catch {
+        if (!stopped) retry();
+        return;
+      }
+      if (stopped) return;
+
+      ws = new WebSocket(
+        `${apiUrl.replace(/^http/, 'ws')}/ws?ticket=${encodeURIComponent(ticket)}${scope}`
+      );
 
       // State is written only from the socket's own callbacks, never
       // synchronously in this effect body. Between attempts the public status is
@@ -100,8 +121,7 @@ export default function useInstanceEvents(
       ws.onclose = () => {
         if (stopped) return;
         setConn({ key: targetKey, open: false });
-        attempt = Math.min(attempt + 1, 6);
-        retryTimer = window.setTimeout(connect, attempt * 1000);
+        retry();
       };
 
       ws.onerror = () => {
@@ -110,7 +130,7 @@ export default function useInstanceEvents(
       };
     };
 
-    connect();
+    void connect();
 
     return () => {
       stopped = true;

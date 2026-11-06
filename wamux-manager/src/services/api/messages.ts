@@ -32,6 +32,23 @@ export const listChats = async (
  * `before` (a "YYYY-MM-DD HH:MM:SS" timestamp) pages backwards.
  * GET /chat/history
  */
+export const searchHistory = async (
+  instanceToken: string,
+  chat: string,
+  q: string,
+  limit = 50,
+  before?: string
+): Promise<HistoryMessage[]> => {
+  const response = await apiClient.get<{ message: string; data: HistoryMessage[] }>(
+    '/chat/history/search',
+    {
+      ...asInstance(instanceToken),
+      params: before ? { chat, q, limit, before } : { chat, q, limit },
+    }
+  );
+  return response.data.data ?? [];
+};
+
 export const getHistory = async (
   instanceToken: string,
   chat: string,

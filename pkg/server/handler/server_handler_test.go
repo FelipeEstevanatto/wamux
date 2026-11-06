@@ -81,6 +81,9 @@ func (fakeMessageRepo) DeleteMessagesOlderThan(string) (int64, error) { return 0
 func (fakeMessageRepo) ListMessages(string, string, string, int) ([]message_model.Message, error) {
 	return nil, nil
 }
+func (fakeMessageRepo) SearchMessages(string, string, string, string, int) ([]message_model.Message, error) {
+	return nil, nil
+}
 func (fakeMessageRepo) ListChats(string, int) ([]message_repository.ChatSummary, error) {
 	return nil, nil
 }

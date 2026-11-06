@@ -19,6 +19,8 @@ export function useServerStats(pollMs = 0) {
     stats: query.data ?? null,
     error: query.error ? query.error.message : null,
     loading: query.isLoading,
+    updatedAt: query.dataUpdatedAt,
+    refetch: query.refetch,
   };
 }
 

@@ -28,8 +28,7 @@ import (
 
 // servePage serves an HTML page that must never go stale after a deploy. Without
 // a Cache-Control header browsers guess a lifetime from Last-Modified, so a page
-// untouched for weeks stays "fresh" for days, and the dashboard iframe is not
-// refreshed by reloading the manager around it. no-cache still allows a cheap 304.
+// untouched for weeks stays "fresh" for days. no-cache still allows a cheap 304.
 func servePage(file string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Header("Cache-Control", "no-cache")
@@ -86,9 +85,11 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 	eng.GET("/server/health", r.serverHandler.HealthHandler)
 	eng.GET("/metrics", r.serverHandler.MetricsHandler)
 
-	// Self-hosted dashboard: static page served from the same origin (no CORS),
-	// plus the system/message metrics it consumes. Auth: Global API Key.
-	eng.GET("/dashboard", servePage("manager/dist/dashboard.html"))
+	// The dashboard lives in the manager now; old links and bookmarks still land.
+	eng.GET("/dashboard", func(c *gin.Context) {
+		c.Redirect(http.StatusFound, "/manager")
+	})
+	// The system/message metrics the dashboard reads. Auth: Global API Key.
 	eng.GET("/server/stats", r.authMiddleware.AuthAdmin, r.serverHandler.Stats)
 
 	routes := eng.Group("/instance")
@@ -214,6 +215,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.POST("/history-sync", r.chatHandler.HistorySyncRequest)
 			// Read stored history back (requires DATABASE_SAVE_MESSAGES).
 			routes.GET("/history", r.messageHandler.GetHistory)
+			routes.GET("/history/search", r.messageHandler.SearchHistory)
 			routes.GET("/chats", r.messageHandler.ListChats)
 			routes.GET("/contacts", r.messageHandler.Contacts)
 			routes.GET("/senders", r.messageHandler.SenderNames)
