@@ -117,6 +117,7 @@ http://localhost:8081
 - `POST /chat/unarchive` - Desarquivar
 - `POST /chat/mute` - Silenciar
 - `POST /chat/unmute` - Reativar notificações
+- `POST /chat/markunread` - Marcar conversa como não lida
 - `POST /chat/history-sync` - Sincronizar histórico
 
 **Documentação completa:** [API de Chats](../guias-api/api-chats.md)

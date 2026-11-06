@@ -120,7 +120,7 @@ func (lm *LoggerManager) Flush(instanceId string) {
 func newLogger(instanceId string, config *config.Config) *Logger {
 	// Garante que o diretório existe
 	logPath := filepath.Join(config.LogDirectory, instanceId)
-	os.MkdirAll(logPath, 0755)
+	_ = os.MkdirAll(logPath, 0755) // Opening the file below reports any failure.
 
 	logFile := filepath.Join(logPath, "instance.log")
 

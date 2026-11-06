@@ -212,7 +212,7 @@ curl -H "apikey: SUA-CHAVE" \
 ### Habilitar Logs Detalhados
 
 ```env
-WADEBUG=DEBUG
+DEBUG_ENABLED=DEBUG
 ```
 
 ### Verificar Logs
@@ -224,7 +224,7 @@ docker-compose logs -f wamux
 # Docker (container específico)
 docker logs -f wamux --tail=100
 
-# Arquivo (se LOGTYPE=file)
+# Arquivo (se LOG_TYPE=file)
 tail -f logs/wamux.log
 ```
 

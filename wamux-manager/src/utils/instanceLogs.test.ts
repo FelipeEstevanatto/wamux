@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   countLevels,
+  isQrDrawing,
   levelFilter,
   LOG_LEVELS,
   logTime,
@@ -96,5 +97,16 @@ describe('levelFilter', () => {
 
   it('lists the chosen levels in a stable order', () => {
     expect(levelFilter(new Set<LogLevel>(['WARN', 'ERROR']))).toBe('ERROR,WARN');
+  });
+});
+
+describe('isQrDrawing', () => {
+  it('finds a drawing', () => {
+    expect(isQrDrawing('Instance a, QR code #1\n████ ▄▄▀▀ █\n')).toBe(true);
+  });
+
+  it('leaves other lines alone', () => {
+    expect(isQrDrawing('QR code generated #1')).toBe(false);
+    expect(isQrDrawing('first line\nsecond line')).toBe(false);
   });
 });

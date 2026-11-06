@@ -82,8 +82,8 @@ services:
       POSTGRES_USERS_DB: "postgresql://postgres:postgres@postgres:5432/wamux_users?sslmode=disable"
       DATABASE_SAVE_MESSAGES: "false"
 
-      WADEBUG: "INFO"
-      LOGTYPE: "console"
+      DEBUG_ENABLED: "INFO"
+      LOG_TYPE: "console"
       CONNECT_ON_STARTUP: "true"
       WEBHOOK_FILES: "true"
 
@@ -466,8 +466,8 @@ metadata:
 data:
   SERVER_PORT: "8080"
   CLIENT_NAME: "wamux"
-  WADEBUG: "INFO"
-  LOGTYPE: "console"
+  DEBUG_ENABLED: "INFO"
+  LOG_TYPE: "console"
   CONNECT_ON_STARTUP: "true"
   WEBHOOK_FILES: "true"
   DATABASE_SAVE_MESSAGES: "false"

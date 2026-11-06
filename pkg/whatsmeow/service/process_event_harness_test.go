@@ -166,8 +166,17 @@ func (r *fakeInstanceRepo) UpdateConnectSettings(_ string, updates map[string]in
 // stored by the time processEvent returns.
 type fakeMessageRepo struct {
 	message_repository.MessageRepository
-	mu       sync.Mutex
-	messages []message_model.Message
+	mu           sync.Mutex
+	messages     []message_model.Message
+	history      []message_model.Message
+	revoked      []revokedCall
+	refuseRevoke bool
+}
+
+type revokedCall struct {
+	row    message_model.Message
+	chats  []string
+	direct bool
 }
 
 func (r *fakeMessageRepo) InsertMessage(m message_model.Message) error {
@@ -175,6 +184,20 @@ func (r *fakeMessageRepo) InsertMessage(m message_model.Message) error {
 	defer r.mu.Unlock()
 	r.messages = append(r.messages, m)
 	return nil
+}
+
+func (r *fakeMessageRepo) InsertHistoryMessages(rows []message_model.Message) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.history = append(r.history, rows...)
+	return nil
+}
+
+func (r *fakeMessageRepo) MarkMessageDeleted(row message_model.Message, chats []string, direct bool) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.revoked = append(r.revoked, revokedCall{row, chats, direct})
+	return !r.refuseRevoke, nil
 }
 
 func (r *fakeMessageRepo) stored() []message_model.Message {

@@ -131,13 +131,6 @@ func (x *memIdempotency) first(key, hash string) error {
 	return nil
 }
 
-func (x *memIdempotency) replay(key string) (bool, error) {
-	x.mu.Lock()
-	defer x.mu.Unlock()
-	_, ok := x.m[key]
-	return ok, nil
-}
-
 func BenchmarkIdempotencyInMemory(b *testing.B) {
 	x := newMemIdempotency()
 	b.ReportAllocs()

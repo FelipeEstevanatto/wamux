@@ -279,11 +279,19 @@ curl -X POST http://localhost:8081/chat/unmute \
 
 ---
 
+### Marcar Conversa como Não Lida
+
+**Endpoint**: `POST /chat/markunread`
+
+Mostra a conversa como não lida nos dispositivos da conta. Corpo: `{"chat": "5511999999999@s.whatsapp.net"}`.
+
 ## Sincronizar Histórico
 
 Solicita sincronização de histórico de mensagens antigas (WhatsApp Multi-Device).
 
 **Endpoint**: `POST /chat/history-sync`
+
+> A resposta só confirma que o pedido foi enviado: o celular responde depois, se tiver mensagens para enviar. Com `DATABASE_SAVE_MESSAGES=true` e `DATABASE_SAVE_HISTORY_SYNC=true`, o que chegar é salvo no histórico, sem baixar a mídia e sem alterar mensagens já salvas.
 
 **Body**:
 ```json

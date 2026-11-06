@@ -8,6 +8,7 @@ import { fetchInstanceLogs } from '@/services/api/instances';
 import { cn } from '@/utils/cn';
 import {
   countLevels,
+  isQrDrawing,
   levelFilter,
   LOG_LEVELS,
   logTime,
@@ -82,7 +83,12 @@ const LogLine = memo(function LogLine({
         {logTime(row.timestamp, locale)}
       </time>
       <span className={cn('font-semibold', levelBadge[row.level])}>{row.level}</span>
-      {row.long ? (
+      {isQrDrawing(row.text) ? (
+        // Black behind the blocks and no line gaps, or a phone cannot read it.
+        <pre className="col-span-2 w-fit max-w-full overflow-x-auto bg-black p-2 font-mono leading-none text-white sm:col-span-1">
+          {row.text}
+        </pre>
+      ) : row.long ? (
         <button
           type="button"
           aria-expanded={expanded}

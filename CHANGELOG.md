@@ -14,6 +14,9 @@
 - **Auto-read** — one call off the dispatch path, instead of two with one blocking.
 
 ### 🔌 API
+- Pairing QR codes are drawn in the instance log and on the terminal, so an instance
+  can be paired from `docker logs`. `QRCODE_TERMINAL=false` turns this off.
+- `POST /chat/markunread` shows a chat as unread on the account's devices.
 - `GET /chat/media/:messageId/preview` gives a JPEG of a stored PDF's first page.
 - History adds `file_name`, `file_size`, `is_forwarded`, `page_count` and
   `file_thumbnail`, for new messages.
@@ -78,6 +81,24 @@
   works for existing integrations.
 
 ### 🐛 Fixes
+- **Revoked messages** — a message deleted for everyone no longer stays readable. Its
+  row becomes a `deleted` tombstone with no text, media details or preview, its local
+  file is removed and any edits go with it. An object store copy is not removed. A
+  revoke only counts inside the chat it arrived in, and in a direct chat only for the
+  sender's own messages. `delete` rows now carry `quoted_message_id`.
+- **Retry receipts** — a revoked message can no longer be sent again in reply to a
+  recipient's retry receipt.
+- **History sync** — batches are now stored, so **Recuperar** can show what the phone
+  sends back. Stored rows are never changed by a sync, media is not downloaded, and
+  `DATABASE_SAVE_HISTORY_SYNC=false` turns this off.
+- **Repeated messages** — a message delivered twice fires its webhook and Typebot once.
+- **Logs** — vCards and whole call, presence, label, app-state and undecryptable
+  message events no longer reach the logs or stdout.
+- **Docs** — `WADEBUG` and `LOGTYPE` were documented, but the server reads
+  `DEBUG_ENABLED` and `LOG_TYPE`.
+- **Mexican and Argentine numbers** — `formatJid` no longer rewrites them. Mexican
+  13-digit numbers lost two digits, one of them from the subscriber number, and
+  Argentine `549...` mobiles lost the 9, so sends could fail as "not registered".
 - Dashboard totals counted receipts for messages that were never stored, such as
   status posts. Those rows are no longer counted and are removed after a day, and migration `0010` clears the existing ones. The receipt
   still reaches its message when it arrives first.
@@ -139,6 +160,9 @@
 - **Edits made through `POST /message/edit`** are now stored, so history shows them.
 
 ### ⚠️ Behaviour changes
+- With `DATABASE_SAVE_MESSAGES=true`, the history sent after pairing is now stored.
+  This can add many rows to `messages`; set `DATABASE_SAVE_HISTORY_SYNC=false` to keep
+  the old behaviour. The webhook is unchanged.
 - Events for files above the limit carry `mediaUrl` and `base64Omitted: true`
   instead of `base64`. `mediaUrl` is an API path needing the instance token, unless
   an object store is configured. Outbound media follows the same limit.
@@ -425,10 +449,8 @@ Three additive features, all disabled/unchanged by default unless configured.
 - **On-demand recovery (manager)** — the Messages screen can list the instance's
   contacts (`GET /user/contacts`) to start a chat, and a **Recuperar** button
   asks the phone for older messages of the open chat (`POST /chat/history-sync`
-  with the newest known message as the cursor, then reloads history). Inbound
-  `HistorySync` batches are still forwarded to the webhook but not persisted, so
-  recovered messages only appear once message persistence is enabled and the
-  batches are stored.
+  with the newest known message as the cursor). Inbound `HistorySync` batches were
+  forwarded to the webhook but not persisted at this point.
 
 ### 🔒 Security
 - **Instance tokens encrypted at rest** (`pkg/tokencrypt`) — tokens are stored

@@ -61,6 +61,8 @@ import { applyEdits } from '@/utils/messageEdits';
 import { captionOf, humanSize, showsInline } from '@/utils/fileInfo';
 
 const PAGE_SIZE = 50;
+// When to look for what a history request brought in.
+const RECOVER_RELOAD_DELAYS_MS = [4000, 12000, 30000];
 
 type ChatKind = 'contact' | 'group' | 'channel';
 type TabId = 'all' | ChatKind;
@@ -569,7 +571,9 @@ function Bubble({
           </p>
         ) : !hasBody ? (
           <p className="italic opacity-80">
-            [{message.message_type || t('messages.unsupportedMessage')}]
+            {message.message_type === 'deleted'
+              ? t('messages.deleted')
+              : `[${message.message_type || t('messages.unsupportedMessage')}]`}
           </p>
         ) : null}
 
@@ -1061,7 +1065,7 @@ export default function Messages() {
     }
   };
 
-  // Ask WhatsApp for historical messages, then reload what we have stored.
+  // Ask WhatsApp for historical messages, then reload as they get stored.
   // Uses the newest known message of the selected chat as the cursor.
   const recoverHistory = async () => {
     if (!token || syncing) return;
@@ -1096,6 +1100,13 @@ export default function Messages() {
       }
       await messagesApi.requestHistorySync(token, messageInfo, PAGE_SIZE);
       toast.success(t('messages.syncRequested'));
+      // The phone answers on its own time, with no reply to wait on.
+      for (const delay of RECOVER_RELOAD_DELAYS_MS) {
+        window.setTimeout(() => {
+          void threadQuery.refetch();
+          void chatsQuery.refetch();
+        }, delay);
+      }
     } catch {
       toast.error(t('messages.errorSync'));
     } finally {
@@ -1462,10 +1473,12 @@ export default function Messages() {
                       <span className="flex items-center justify-between gap-2">
                         <span className="truncate text-xs text-muted-foreground">
                           {c.last_from_me ? t('messages.youPrefix') : ''}
-                          {c.last_text_content ||
-                            (c.last_message_type
-                              ? `[${c.last_message_type}]`
-                              : '')}
+                          {['delete', 'deleted'].includes(c.last_message_type)
+                            ? t('messages.deleted')
+                            : c.last_text_content ||
+                              (c.last_message_type
+                                ? `[${c.last_message_type}]`
+                                : '')}
                         </span>
                         <span className="shrink-0 text-[10px] text-muted-foreground">
                           {t('messages.messageCount', {

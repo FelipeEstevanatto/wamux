@@ -10,10 +10,8 @@ import (
 	"gorm.io/gorm"
 
 	label_model "github.com/felipeestevanatto/wamux/pkg/label/model"
-	label_repository "github.com/felipeestevanatto/wamux/pkg/label/repository"
 
 	message_model "github.com/felipeestevanatto/wamux/pkg/message/model"
-	message_repository "github.com/felipeestevanatto/wamux/pkg/message/repository"
 )
 
 type InstanceRepository interface {
@@ -47,9 +45,7 @@ type InstanceRepository interface {
 }
 
 type instanceRepository struct {
-	db          *gorm.DB
-	labelRepo   label_repository.LabelRepository
-	messageRepo message_repository.MessageRepository
+	db *gorm.DB
 	// tokenCodec decrypts the stored token ciphertext into the in-memory Token
 	// field on every read, so callers keep using it normally while the database
 	// only ever holds the hash + ciphertext. Nil keeps the legacy plaintext path.

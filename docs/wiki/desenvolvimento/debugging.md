@@ -20,8 +20,8 @@ Guia para resolver problemas comuns no WaMux.
 
 ```env
 # .env
-WADEBUG=DEBUG
-LOGTYPE=console  # ou 'file'
+DEBUG_ENABLED=DEBUG
+LOG_TYPE=console  # ou 'file'
 ```
 
 ### Visualizar Logs

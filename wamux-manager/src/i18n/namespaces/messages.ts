@@ -37,6 +37,7 @@ export const messagesNs: {
     'messages.dropFile': 'Solte o arquivo para anexar',
     'messages.jumpToLatest': 'Ir para a mensagem mais recente',
     'messages.contacts': 'Contatos',
+    'messages.deleted': 'Mensagem apagada',
     'messages.recover': 'Recuperar',
     'messages.recoverTitle':
       'Pede ao WhatsApp as mensagens antigas. Requer a opção de guardar mensagens (DATABASE_SAVE_MESSAGES) para aparecerem aqui.',
@@ -187,6 +188,7 @@ export const messagesNs: {
     'messages.dropFile': 'Drop the file to attach it',
     'messages.jumpToLatest': 'Jump to latest message',
     'messages.contacts': 'Contacts',
+    'messages.deleted': 'Message deleted',
     'messages.recover': 'Recover',
     'messages.recoverTitle':
       'Requests old messages from WhatsApp. Requires the save-messages option (DATABASE_SAVE_MESSAGES) for them to appear here.',

@@ -588,7 +588,7 @@ func (m *messageService) DownloadMedia(data *DownloadMediaStruct, instance *inst
 				}
 			}
 		}
-		return nil, "", fmt.Errorf("Failed to download %s %v", job.label, err)
+		return nil, "", fmt.Errorf("failed to download %s: %v", job.label, err)
 	}
 	mimetype = job.mime
 
@@ -699,7 +699,34 @@ func (m *messageService) DeleteMessageEveryone(data *MessageStruct, instance *in
 
 	response := resp.ID
 
+	whatsmeow_service.ForgetSentMessage(client, data.MessageID, recipient)
+	m.tombstoneRevoked(instance.Id, data.MessageID, recipient)
+
 	return response, ts.String(), nil
+}
+
+// tombstoneRevoked empties the stored copy of a message revoked through the API. The
+// revoke does not come back as an event, so nothing else would.
+func (m *messageService) tombstoneRevoked(instanceId, targetID string, chat types.JID) {
+	if m.messageRepository == nil {
+		return
+	}
+	logger := m.loggerWrapper.GetLogger(instanceId)
+	original, err := m.messageRepository.GetMessageByIDForInstance(instanceId, targetID)
+	if err != nil || original == nil {
+		return
+	}
+	applied, err := m.messageRepository.MarkMessageDeleted(*original, m.chatJidVariants(instanceId, original.ChatJid), chat.Server != types.GroupServer)
+	if err != nil {
+		logger.LogError("[%s] Failed to mark %s as deleted: %v", instanceId, targetID, err)
+		return
+	}
+	if !applied {
+		return
+	}
+	if err := localmedia.Remove(instanceId, targetID); err != nil {
+		logger.LogWarn("[%s] Failed to remove the media of %s: %v", instanceId, targetID, err)
+	}
 }
 
 func (m *messageService) EditMessage(data *EditMessageStruct, instance *instance_model.Instance) (string, string, error) {

@@ -195,8 +195,8 @@ POSTGRES_AUTH_DB=postgresql://postgres:postgres@localhost:5432/wamux_auth?sslmod
 POSTGRES_USERS_DB=postgresql://postgres:postgres@localhost:5432/wamux_users?sslmode=disable
 DATABASE_SAVE_MESSAGES=false
 
-WADEBUG=DEBUG
-LOGTYPE=console
+DEBUG_ENABLED=DEBUG
+LOG_TYPE=console
 CONNECT_ON_STARTUP=true
 WEBHOOK_FILES=true
 OS_NAME=Linux

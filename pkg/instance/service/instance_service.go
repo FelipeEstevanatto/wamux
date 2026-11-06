@@ -410,17 +410,13 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 	subscribedEvents := splitSubscribedEvents(instance.Events)
 	eventString := instance.Events
 
-	// Verifica se a instância já está rodando
-	isInstanceRunning := i.clientPointer.Get(instance.Id) != nil
-
 	// Sincroniza as configurações na instância em execução (se já estiver conectada)
 	err := i.whatsmeowService.UpdateInstanceSettings(instance.Id)
+	isInstanceRunning := err == nil
 	if err != nil {
 		i.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Instance not in runtime yet, will be updated when connected", instance.Id)
-		isInstanceRunning = false
 	} else {
 		i.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Instance settings updated successfully in runtime", instance.Id)
-		isInstanceRunning = true
 	}
 
 	// Se a instância não estiver rodando, inicia uma nova
@@ -786,7 +782,9 @@ func (i instances) Delete(id string) error {
 
 	if i.clientPointer.Get(instance.Id) != nil && i.clientPointer.Get(instance.Id).IsConnected() {
 		if i.clientPointer.Get(instance.Id).IsLoggedIn() {
-			i.clientPointer.Get(instance.Id).Logout(context.Background())
+			if err := i.clientPointer.Get(instance.Id).Logout(context.Background()); err != nil {
+				i.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Failed to log out: %v", instance.Id, err)
+			}
 		}
 		i.clientPointer.Get(instance.Id).Disconnect()
 	}
@@ -987,7 +985,7 @@ func (i instances) SetProxy(id string, proxyConfig *ProxyConfig) error {
 	i.invalidateAuthCache()
 
 	// Reconnect to apply proxy changes
-	go i.Reconnect(instance)
+	go i.reconnectForProxy(instance)
 
 	return nil
 }
@@ -1025,7 +1023,7 @@ func (i instances) RemoveProxy(id string) error {
 
 	i.invalidateAuthCache()
 
-	go i.Reconnect(instance)
+	go i.reconnectForProxy(instance)
 
 	return nil
 }
@@ -1683,5 +1681,13 @@ func NewInstanceService(
 		loggerWrapper:      loggerWrapper,
 		authCache:          cache.New(authCacheTTL, 2*authCacheTTL),
 		tokenCodec:         codec,
+	}
+}
+
+// reconnectForProxy applies a proxy change in the background, where the caller has
+// already answered and only the log can report a failure.
+func (i instances) reconnectForProxy(instance *instance_model.Instance) {
+	if err := i.Reconnect(instance); err != nil {
+		i.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Failed to reconnect after the proxy change: %v", instance.Id, err)
 	}
 }

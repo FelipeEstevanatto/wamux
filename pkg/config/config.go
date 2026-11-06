@@ -30,10 +30,12 @@ type Config struct {
 	PostgresPassword     string
 	PostgresDB           string
 	DatabaseSaveMessages bool
-	GlobalApiKey         string
-	WaDebug              string
-	LogType              string
-	WebhookFiles         bool
+	// DatabaseSaveHistorySync also stores the batches a history sync delivers.
+	DatabaseSaveHistorySync bool
+	GlobalApiKey            string
+	WaDebug                 string
+	LogType                 string
+	WebhookFiles            bool
 	// MediaLocalStore keeps attachment copies under <dataDir>/media for manager
 	// previews. Defaults to true; set MEDIA_LOCAL_STORE=false to disable.
 	MediaLocalStore      bool
@@ -69,7 +71,9 @@ type Config struct {
 	EventIgnoreGroup     bool
 	EventIgnoreStatus    bool
 	QrcodeMaxCount       int
-	CheckUserExists      bool
+	// QrcodeTerminal draws pairing codes in the instance log and on the terminal.
+	QrcodeTerminal  bool
+	CheckUserExists bool
 
 	// WebhookHmacGlobalKey signs webhook deliveries for instances that have no
 	// per-instance key. Empty disables the global fallback.
@@ -347,6 +351,7 @@ func Load() *Config {
 	databaseSaveMessagesRaw := os.Getenv(config_env.DATABASE_SAVE_MESSAGES)
 	panicIfEmpty(config_env.DATABASE_SAVE_MESSAGES, databaseSaveMessagesRaw)
 	databaseSaveMessages := config_env.Bool(config_env.DATABASE_SAVE_MESSAGES, false)
+	databaseSaveHistorySync := config_env.Bool(config_env.DATABASE_SAVE_HISTORY_SYNC, true)
 
 	globalApiKey := os.Getenv(config_env.GLOBAL_API_KEY)
 	panicIfEmpty(config_env.GLOBAL_API_KEY, globalApiKey)
@@ -398,6 +403,7 @@ func Load() *Config {
 	eventIgnoreGroup := config_env.Bool(config_env.EVENT_IGNORE_GROUP, false)
 	eventIgnoreStatus := config_env.Bool(config_env.EVENT_IGNORE_STATUS, false)
 	qrcodeMaxCount := os.Getenv(config_env.QRCODE_MAX_COUNT)
+	qrcodeTerminal := config_env.Bool(config_env.QRCODE_TERMINAL, true)
 	checkUserExists := config_env.Bool(config_env.CHECK_USER_EXISTS, true)
 
 	// Webhook HMAC signing. A global key is optional (it signs deliveries for
@@ -648,6 +654,7 @@ func Load() *Config {
 		PostgresAuthDB:           postgresAuthDB,
 		postgresUsersDB:          postgresUsersDB,
 		DatabaseSaveMessages:     databaseSaveMessages,
+		DatabaseSaveHistorySync:  databaseSaveHistorySync,
 		GlobalApiKey:             globalApiKey,
 		WaDebug:                  waDebug,
 		LogType:                  logType,
@@ -677,6 +684,7 @@ func Load() *Config {
 		EventIgnoreGroup:         eventIgnoreGroup,
 		EventIgnoreStatus:        eventIgnoreStatus,
 		QrcodeMaxCount:           qrMaxCount,
+		QrcodeTerminal:           qrcodeTerminal,
 		CheckUserExists:          checkUserExists, // Default true, set to false to disable
 		SwaggerEnabled:           swaggerEnabled,
 		PprofEnabled:             pprofEnabled,

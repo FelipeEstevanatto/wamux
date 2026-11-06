@@ -922,6 +922,8 @@ Deleta uma mensagem para todos (revoke).
 
 **Endpoint**: `POST /message/delete`
 
+> No histórico, a mensagem apagada continua como um registro `message_type: "deleted"`, sem texto, mídia ou prévia. O mesmo vale quando o contato apaga a mensagem dele. O arquivo local é removido; uma cópia no S3/MinIO não é.
+
 **Body**:
 ```json
 {

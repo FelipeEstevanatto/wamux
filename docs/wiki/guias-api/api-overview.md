@@ -145,6 +145,7 @@ Gerenciar conversas
 - `POST /chat/unarchive` - Desarquivar
 - `POST /chat/mute` - Silenciar notificações
 - `POST /chat/unmute` - Reativar notificações
+- `POST /chat/markunread` - Marcar conversa como não lida
 - `POST /chat/history-sync` - Solicitar sincronização de histórico
 
 ### Labels (Etiquetas)

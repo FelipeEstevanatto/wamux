@@ -7,8 +7,14 @@ import type { HistoryMessage } from '@/types/messages';
  *
  * An edit whose original is not loaded (an older page, or never stored) stays
  * visible on its own, so the new text is not lost.
+ *
+ * A revoke is also its own row. The message it removed already shows as deleted, so
+ * the row has nothing to add, and an edit cannot bring that message's text back.
  */
-export function applyEdits(messages: HistoryMessage[]): HistoryMessage[] {
+export function applyEdits(rows: HistoryMessage[]): HistoryMessage[] {
+  const messages = rows.some((m) => m.message_type === 'delete')
+    ? rows.filter((m) => m.message_type !== 'delete')
+    : rows;
   const latest = new Map<string, HistoryMessage>();
   for (const row of messages) {
     if (row.message_type !== 'edit' || !row.quoted_message_id) continue;
@@ -26,7 +32,7 @@ export function applyEdits(messages: HistoryMessage[]): HistoryMessage[] {
       out.push({ ...row, message_type: 'text', quoted_message_id: '', edited: true });
       continue;
     }
-    const edit = latest.get(row.message_id);
+    const edit = row.message_type === 'deleted' ? undefined : latest.get(row.message_id);
     out.push(
       edit
         ? { ...row, text_content: edit.text_content || row.text_content, edited: true }

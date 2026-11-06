@@ -25,6 +25,17 @@ const edit = (id: string, target: string, text: string, timestamp = '2026-01-01 
   row({ message_id: id, message_type: 'edit', text_content: text, quoted_message_id: target, timestamp });
 
 describe('applyEdits', () => {
+  it('hides the row of a revoke', () => {
+    const tombstone = row({ message_type: 'deleted', text_content: '' });
+    const revoke = row({ message_id: 'R', message_type: 'delete', quoted_message_id: 'A', text_content: '' });
+    expect(applyEdits([tombstone, revoke])).toEqual([tombstone]);
+  });
+
+  it('does not put text back on a deleted message', () => {
+    const tombstone = row({ message_type: 'deleted', text_content: '' });
+    expect(applyEdits([tombstone, edit('E', 'A', 'kept?')])).toEqual([tombstone]);
+  });
+
   it('returns the same list when nothing was edited', () => {
     const list = [row({})];
     expect(applyEdits(list)).toBe(list);

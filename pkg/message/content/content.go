@@ -129,7 +129,7 @@ func summarize(msg *waE2E.Message) Summary {
 	if p := msg.GetProtocolMessage(); p != nil {
 		switch p.GetType() {
 		case waE2E.ProtocolMessage_REVOKE:
-			return Summary{Type: "delete"}
+			return Summary{Type: "delete", QuotedID: p.GetKey().GetID()}
 		case waE2E.ProtocolMessage_MESSAGE_EDIT:
 			quoted := ""
 			if p.GetKey() != nil {

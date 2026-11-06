@@ -381,7 +381,7 @@ Publica eventos em tópicos NATS. Ideal para comunicação em tempo real com lat
 NATS_URL=nats://localhost:4222
 
 # Habilitar NATS
-NATS_ENABLED=true
+NATS_GLOBAL_ENABLED=true
 ```
 
 ### Tópicos
@@ -565,7 +565,7 @@ AMQP_SPECIFIC_EVENTS=message,sendmessage,receipt,presence,calloffer
 
 # ===== NATS =====
 NATS_URL=nats://nats:4222
-NATS_ENABLED=true
+NATS_GLOBAL_ENABLED=true
 
 # ===== WEBSOCKET =====
 # WebSocket é habilitado automaticamente
@@ -806,7 +806,7 @@ WEBHOOK_URL=https://api.exemplo.com/webhook
 AMQP_URL=amqp://localhost:5672/
 AMQP_GLOBAL_ENABLED=true
 NATS_URL=nats://localhost:4222
-NATS_ENABLED=true
+NATS_GLOBAL_ENABLED=true
 ```
 
 ```bash

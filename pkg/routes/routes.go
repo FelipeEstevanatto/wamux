@@ -221,6 +221,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.POST("/unpin", r.jidValidationMiddleware.ValidateNumberField(), r.chatHandler.ChatUnpin)
 			routes.POST("/archive", r.jidValidationMiddleware.ValidateNumberField(), r.chatHandler.ChatArchive)
 			routes.POST("/unarchive", r.jidValidationMiddleware.ValidateNumberField(), r.chatHandler.ChatUnarchive)
+			routes.POST("/markunread", r.jidValidationMiddleware.ValidateNumberField(), r.chatHandler.ChatMarkUnread)
 			routes.POST("/mute", r.jidValidationMiddleware.ValidateNumberField(), r.chatHandler.ChatMute)
 			routes.POST("/unmute", r.jidValidationMiddleware.ValidateNumberField(), r.chatHandler.ChatUnmute)
 			routes.POST("/ephemeral", r.chatHandler.SetEphemeralExpiration)

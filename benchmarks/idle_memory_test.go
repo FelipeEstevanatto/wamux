@@ -102,7 +102,6 @@ func TestFreeOSMemoryReclaimsTransientHeap(t *testing.T) {
 	}
 	peak, _ := readRSSBytes()
 	runtime.KeepAlive(hold)
-	hold = nil
 
 	// FreeOSMemory forces a GC and scavenges free pages back to the OS. The
 	// kernel updates RSS asynchronously, so allow a few short retries.

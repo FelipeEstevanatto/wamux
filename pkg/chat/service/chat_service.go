@@ -8,11 +8,14 @@ import (
 
 	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
 	logger_wrapper "github.com/felipeestevanatto/wamux/pkg/logger"
+	message_repository "github.com/felipeestevanatto/wamux/pkg/message/repository"
 	"github.com/felipeestevanatto/wamux/pkg/utils"
 	whatsmeow_service "github.com/felipeestevanatto/wamux/pkg/whatsmeow/service"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/appstate"
+	"go.mau.fi/whatsmeow/proto/waCommon"
 	"go.mau.fi/whatsmeow/types"
+	"google.golang.org/protobuf/proto"
 )
 
 type ChatService interface {
@@ -20,6 +23,7 @@ type ChatService interface {
 	ChatUnpin(data *BodyStruct, instance *instance_model.Instance) (string, error)
 	ChatArchive(data *BodyStruct, instance *instance_model.Instance) (string, error)
 	ChatUnarchive(data *BodyStruct, instance *instance_model.Instance) (string, error)
+	ChatMarkUnread(data *BodyStruct, instance *instance_model.Instance) (string, error)
 	ChatMute(data *BodyStruct, instance *instance_model.Instance) (string, error)
 	ChatUnmute(data *BodyStruct, instance *instance_model.Instance) (string, error)
 	SetEphemeralExpiration(data *EphemeralStruct, instance *instance_model.Instance) error
@@ -27,9 +31,10 @@ type ChatService interface {
 }
 
 type chatService struct {
-	clientPointer    *safemap.Map[*whatsmeow.Client]
-	whatsmeowService whatsmeow_service.WhatsmeowService
-	loggerWrapper    *logger_wrapper.LoggerManager
+	clientPointer     *safemap.Map[*whatsmeow.Client]
+	whatsmeowService  whatsmeow_service.WhatsmeowService
+	messageRepository message_repository.MessageRepository
+	loggerWrapper     *logger_wrapper.LoggerManager
 }
 
 type BodyStruct struct {
@@ -212,6 +217,57 @@ func (c *chatService) ChatUnarchive(data *BodyStruct, instance *instance_model.I
 	return ts.String(), nil
 }
 
+// ChatMarkUnread shows the chat as unread on the account's devices. WhatsApp applies
+// the change up to a message, so the newest stored one is sent when there is one.
+func (c *chatService) ChatMarkUnread(data *BodyStruct, instance *instance_model.Instance) (string, error) {
+	client, err := c.ensureClientConnected(instance.Id)
+	if err != nil {
+		return "", err
+	}
+
+	recipient, ok := utils.ParseJID(data.Chat)
+	if !ok {
+		c.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Error validating message fields", instance.Id)
+		return "", errors.New("invalid phone number")
+	}
+	// The JID is the app-state index, which has no "+". See utils.CanonicalJID.
+	recipient = utils.CanonicalJID(recipient)
+
+	lastTimestamp, lastKey := c.lastMessageOf(instance.Id, recipient)
+	err = client.SendAppState(context.Background(), appstate.BuildMarkChatAsRead(recipient, false, lastTimestamp, lastKey))
+	if err != nil {
+		c.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error marking chat unread: %v", instance.Id, err)
+		return "", err
+	}
+
+	return time.Now().String(), nil
+}
+
+// lastMessageOf is the newest stored message of a chat, in app-state form. Without
+// stored history it is empty, which WhatsApp accepts.
+func (c *chatService) lastMessageOf(instanceId string, chat types.JID) (time.Time, *waCommon.MessageKey) {
+	if c.messageRepository == nil {
+		return time.Time{}, nil
+	}
+	rows, err := c.messageRepository.ListMessages(instanceId, chat.String(), "", 1)
+	if err != nil || len(rows) == 0 {
+		return time.Time{}, nil
+	}
+	at, err := time.Parse("2006-01-02 15:04:05", rows[0].Timestamp)
+	if err != nil {
+		return time.Time{}, nil
+	}
+	key := &waCommon.MessageKey{
+		RemoteJID: proto.String(chat.String()),
+		FromMe:    proto.Bool(rows[0].IsFromMe),
+		ID:        proto.String(rows[0].MessageID),
+	}
+	if chat.Server == types.GroupServer && !rows[0].IsFromMe {
+		key.Participant = proto.String(rows[0].SenderJid)
+	}
+	return at, key
+}
+
 func (c *chatService) ChatMute(data *BodyStruct, instance *instance_model.Instance) (string, error) {
 	client, err := c.ensureClientConnected(instance.Id)
 	if err != nil {
@@ -294,11 +350,13 @@ func (c *chatService) HistorySyncRequest(ctx context.Context, data *HistorySyncR
 func NewChatService(
 	clientPointer *safemap.Map[*whatsmeow.Client],
 	whatsmeowService whatsmeow_service.WhatsmeowService,
+	messageRepository message_repository.MessageRepository,
 	loggerWrapper *logger_wrapper.LoggerManager,
 ) ChatService {
 	return &chatService{
-		clientPointer:    clientPointer,
-		whatsmeowService: whatsmeowService,
-		loggerWrapper:    loggerWrapper,
+		clientPointer:     clientPointer,
+		whatsmeowService:  whatsmeowService,
+		messageRepository: messageRepository,
+		loggerWrapper:     loggerWrapper,
 	}
 }

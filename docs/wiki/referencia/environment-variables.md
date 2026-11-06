@@ -45,8 +45,8 @@ POSTGRES_USERS_DB=postgresql://user:pass@host:5432/wamux_users?sslmode=disable
 
 | Variável | Padrão | Valores | Descrição |
 |----------|--------|---------|-----------|
-| `WADEBUG` | `INFO` | `DEBUG`, `INFO`, `WARN`, `ERROR` | Nível de log |
-| `LOGTYPE` | `console` | `console`, `file` | Destino de saída |
+| `DEBUG_ENABLED` | `INFO` | `DEBUG`, `INFO`, `WARN`, `ERROR` | Nível de log |
+| `LOG_TYPE` | `console` | `console`, `file` | Destino de saída |
 | `LOG_DIRECTORY` | `/app/logs` | - | Diretório de arquivos de log |
 | `LOG_MAX_SIZE` | `100` | - | Tamanho máximo por arquivo (MB) |
 | `LOG_MAX_BACKUPS` | `5` | - | Arquivos de backup a manter |
@@ -61,6 +61,7 @@ POSTGRES_USERS_DB=postgresql://user:pass@host:5432/wamux_users?sslmode=disable
 |----------|--------|-----------|
 | `CONNECT_ON_STARTUP` | `true` | Reconectar instâncias pareadas ao iniciar (desconexões explícitas via API permanecem paradas) |
 | `WEBHOOK_FILES` | `true` | Enviar URLs de mídia em webhooks |
+| `QRCODE_TERMINAL` | `true` | Desenha o QR Code no log da instância e no terminal (`docker logs`). Com `LOG_TYPE=json`, só no log da instância |
 | `QRCODE_MAX_COUNT` | `5` | Tentativas máximas de QR Code |
 | `CHECK_USER_EXISTS` | `true` | Validar destinatário antes de enviar |
 
@@ -193,8 +194,8 @@ POSTGRES_AUTH_DB=postgresql://postgres:senha@postgres:5432/wamux_auth?sslmode=di
 POSTGRES_USERS_DB=postgresql://postgres:senha@postgres:5432/wamux_users?sslmode=disable
 
 # Logs
-WADEBUG=INFO
-LOGTYPE=console
+DEBUG_ENABLED=INFO
+LOG_TYPE=console
 
 # Comportamento
 CONNECT_ON_STARTUP=true

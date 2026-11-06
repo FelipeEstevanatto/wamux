@@ -3,11 +3,14 @@ package send_service
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
+	"github.com/felipeestevanatto/wamux/pkg/utils"
 	waBinary "go.mau.fi/whatsmeow/binary"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 )
@@ -320,7 +323,7 @@ func TestSendCarouselSingleCardWithoutMediaIsAPlainMessage(t *testing.T) {
 
 // A number sent with formatJid false must reach WhatsApp exactly as given.
 func TestSendCarouselRespectsFormatJid(t *testing.T) {
-	const number = "5215551234567" // Formatting would drop two digits.
+	const number = "5541990000005" // Formatting would drop the Brazilian ninth digit.
 	exact := testRecipient
 	exact.User = number
 	card := func(title string) CarouselCardStruct {
@@ -346,7 +349,7 @@ func TestSendCarouselRespectsFormatJid(t *testing.T) {
 }
 
 func TestSendTextRespectsFormatJid(t *testing.T) {
-	const number = "5215551234567"
+	const number = "5541990000005"
 	format := true
 
 	for name, tc := range map[string]struct {
@@ -354,8 +357,8 @@ func TestSendTextRespectsFormatJid(t *testing.T) {
 		want      string
 	}{
 		"off":        {raw(), number},
-		"on":         {&format, "52551234567"},
-		"by default": {nil, "52551234567"},
+		"on":         {&format, "554190000005"},
+		"by default": {nil, "554190000005"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			h := newSendHarness(t)
@@ -368,6 +371,50 @@ func TestSendTextRespectsFormatJid(t *testing.T) {
 				t.Fatalf("sent to %s, want %s", got, tc.want)
 			}
 		})
+	}
+}
+
+// Mexican and Argentine mobiles reach WhatsApp with every digit, formatted or not.
+func TestSendTextKeepsMexicanAndArgentineMobiles(t *testing.T) {
+	for _, number := range []string{"5215551234567", "5491123456789"} {
+		t.Run(number, func(t *testing.T) {
+			h := newSendHarness(t)
+
+			if _, err := h.SendText(&TextStruct{Number: number, Text: "x"}, h.instance); err != nil {
+				t.Fatalf("SendText: %v", err)
+			}
+
+			if got := h.only(t).to.User; got != number {
+				t.Fatalf("sent to %s, want %s", got, number)
+			}
+		})
+	}
+}
+
+// A vCard holds someone's name and phone number, so it stays out of stdout.
+func TestSendContactPrintsNothing(t *testing.T) {
+	h := newSendHarness(t)
+	read, write, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	stdout := os.Stdout
+	os.Stdout = write
+	t.Cleanup(func() { os.Stdout = stdout })
+
+	_, err = h.SendContact(&ContactStruct{Number: testRecipient.User, Vcard: utils.VCardStruct{FullName: "Secret Name", Phone: "5541900000005"}}, h.instance)
+	os.Stdout = stdout
+	write.Close()
+	if err != nil {
+		t.Fatalf("SendContact: %v", err)
+	}
+
+	printed, err := io.ReadAll(read)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(printed) != 0 {
+		t.Fatalf("printed %q", printed)
 	}
 }
 

@@ -22,6 +22,11 @@ type MessageRepository interface {
 	// with mixed update-column sets is split into homogeneous groups so the
 	// upsert semantics of InsertMessage are preserved.
 	InsertMessages(messages []message_model.Message) error
+	// InsertHistoryMessages stores rows recovered from a history sync. A row that
+	// already exists is left as it is.
+	InsertHistoryMessages(messages []message_model.Message) error
+	// MarkMessageDeleted turns a revoked message into a tombstone. See the method.
+	MarkMessageDeleted(row message_model.Message, chats []string, direct bool) (bool, error)
 	GetMessageByID(messageID string) (*message_model.Message, error)
 	// GetMessageByIDForInstance is the tenant-safe lookup: it returns the message
 	// only when it belongs to instanceId. Handlers that serve one instance must
@@ -277,10 +282,68 @@ func (m *messageRepository) writer() *gorm.DB {
 }
 
 func (m *messageRepository) InsertMessage(message message_model.Message) error {
-	return m.writer().Clauses(clause.OnConflict{
+	return m.writer().Clauses(upsertClause(messageUpdateColumns(message))).Create(&message).Error
+}
+
+// upsertClause is the conflict handling of a write. A content row must not bring
+// back a revoked message: the persist pool can land the original after its revoke,
+// since the two run on different workers. Receipts still move a tombstone's status.
+func upsertClause(cols []string) clause.OnConflict {
+	conflict := clause.OnConflict{Columns: messageConflictColumns, DoUpdates: upsertAssignments(cols)}
+	if len(cols) > 1 {
+		conflict.Where = clause.Where{Exprs: []clause.Expression{
+			clause.Expr{SQL: "messages.message_type IS DISTINCT FROM ?", Vars: []any{message_model.TypeDeleted}},
+		}}
+	}
+	return conflict
+}
+
+// tombstoneAssignments empties everything a revoked message said. Its place in the
+// conversation (timestamp, chat, sender, direction) and its delivery state stay.
+var tombstoneAssignments = clause.Set{
+	{Column: clause.Column{Name: "message_type"}, Value: message_model.TypeDeleted},
+	{Column: clause.Column{Name: "text_content"}, Value: ""},
+	{Column: clause.Column{Name: "media_url"}, Value: ""},
+	{Column: clause.Column{Name: "media_mimetype"}, Value: ""},
+	{Column: clause.Column{Name: "quoted_message_id"}, Value: ""},
+	{Column: clause.Column{Name: "file_name"}, Value: ""},
+	{Column: clause.Column{Name: "file_size"}, Value: 0},
+	{Column: clause.Column{Name: "page_count"}, Value: 0},
+	{Column: clause.Column{Name: "is_forwarded"}, Value: false},
+	{Column: clause.Column{Name: "file_thumbnail"}, Value: nil},
+	{Column: clause.Column{Name: "referral"}, Value: nil},
+}
+
+// MarkMessageDeleted empties the message row.MessageID, reporting whether it did.
+// row is what gets stored when the original is not there, which also covers a
+// revoke that overtook its message.
+//
+// A revoke is just a message someone sent, so it is only obeyed inside the chat it
+// arrived in (chats holds that chat's JIDs). In a direct chat each side can revoke
+// only what it wrote, so direct also requires row.IsFromMe to match. In a group an
+// admin may revoke anyone's message, which the stored row cannot tell apart.
+//
+// Edits of the message hold its text in their own rows, so they go with it.
+func (m *messageRepository) MarkMessageDeleted(row message_model.Message, chats []string, direct bool) (bool, error) {
+	row.MessageType = message_model.TypeDeleted
+
+	scope := []clause.Expression{clause.Expr{SQL: "messages.chat_jid IN ?", Vars: []any{chats}}}
+	if direct {
+		scope = append(scope, clause.Expr{SQL: "messages.is_from_me = ?", Vars: []any{row.IsFromMe}})
+	}
+	result := m.writer().Clauses(clause.OnConflict{
 		Columns:   messageConflictColumns,
-		DoUpdates: upsertAssignments(messageUpdateColumns(message)),
-	}).Create(&message).Error
+		DoUpdates: tombstoneAssignments,
+		Where:     clause.Where{Exprs: scope},
+	}).Create(&row)
+	if result.Error != nil || result.RowsAffected == 0 {
+		return false, result.Error
+	}
+
+	err := m.writer().Model(&message_model.Message{}).
+		Where("instance_id = ? AND quoted_message_id = ? AND message_type = ?", row.InstanceId, row.MessageID, "edit").
+		Updates(map[string]any{"message_type": "delete", "text_content": ""}).Error
+	return true, err
 }
 
 // sortForCounterLocks orders rows by the message_counters key the rollup trigger
@@ -361,12 +424,26 @@ func (m *messageRepository) InsertMessages(messages []message_model.Message) err
 				end = len(group)
 			}
 			chunk := group[start:end]
-			if err := m.writer().Clauses(clause.OnConflict{
-				Columns:   messageConflictColumns,
-				DoUpdates: upsertAssignments(cols),
-			}).Create(&chunk).Error; err != nil {
+			if err := m.writer().Clauses(upsertClause(cols)).Create(&chunk).Error; err != nil {
 				return err
 			}
+		}
+	}
+	return nil
+}
+
+// InsertHistoryMessages never updates: what a history sync says about a message is
+// older than what was recorded live, whether that is its status, its stored media
+// or the fact that it was revoked.
+func (m *messageRepository) InsertHistoryMessages(messages []message_model.Message) error {
+	rows := collapseDuplicates(messages)
+	sortForCounterLocks(rows)
+	for start := 0; start < len(rows); start += batchInsertChunk {
+		end := min(start+batchInsertChunk, len(rows))
+		chunk := rows[start:end]
+		err := m.writer().Clauses(clause.OnConflict{Columns: messageConflictColumns, DoNothing: true}).Create(&chunk).Error
+		if err != nil {
+			return err
 		}
 	}
 	return nil

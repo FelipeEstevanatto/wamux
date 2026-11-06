@@ -3,6 +3,7 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
+	"math/rand/v2"
 	"net"
 	"net/http"
 	"net/url"
@@ -15,7 +16,6 @@ import (
 	"go.mau.fi/whatsmeow/proto/waCompanionReg"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	whatsmeow_types "go.mau.fi/whatsmeow/types"
-	"golang.org/x/exp/rand"
 	"golang.org/x/net/proxy"
 )
 
@@ -33,7 +33,7 @@ func GenerateRandomString(length int) string {
 	characters := "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	b := make([]byte, length)
 	for i := range b {
-		b[i] = characters[rand.Intn(len(characters))]
+		b[i] = characters[rand.IntN(len(characters))]
 	}
 	return string(b)
 }
@@ -109,8 +109,9 @@ func CreateJID(number string) (string, error) {
 		return "", fmt.Errorf("invalid number format")
 	}
 
-	// Format MX (52) or AR (54) numbers
-	number = formatMXOrARNumber(number)
+	// Mexican (521...) and Argentine (549...) mobiles stay as given: the digit after
+	// the country code is part of how WhatsApp addresses them, and dropping it left
+	// a number that may not exist. Only Brazil has a rule here.
 
 	// Format BR (55) numbers
 	number = formatBRNumber(number)
@@ -121,28 +122,6 @@ func CreateJID(number string) (string, error) {
 	}
 
 	return number + "@s.whatsapp.net", nil
-}
-
-// formatMXOrARNumber formats Mexican (52) or Argentine (54) numbers
-func formatMXOrARNumber(jid string) string {
-	if len(jid) < 2 {
-		return jid
-	}
-
-	countryCode := jid[:2]
-
-	// Check if it's MX (52) or AR (54)
-	if countryCode == "52" && len(jid) == 13 {
-		// Mexico: remove 2 digits (positions 2-3)
-		// 5215551234567 -> 52 + 551234567 = 52551234567
-		return countryCode + jid[4:]
-	} else if countryCode == "54" && len(jid) == 13 {
-		// Argentina: remove 1 digit (position 2)
-		// 5411123456789 -> 54 + 11123456789 = 5411123456789
-		return countryCode + jid[3:]
-	}
-
-	return jid
 }
 
 // formatBRNumber formats Brazilian (55) numbers according to the mobile number rules

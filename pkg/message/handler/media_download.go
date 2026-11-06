@@ -30,7 +30,7 @@ const (
 
 func signDownload(secret, instanceID, messageID string, expires int64) string {
 	mac := hmac.New(sha256.New, []byte(secret))
-	fmt.Fprintf(mac, "wamux-download|%s|%s|%d", instanceID, messageID, expires)
+	_, _ = fmt.Fprintf(mac, "wamux-download|%s|%s|%d", instanceID, messageID, expires)
 	return hex.EncodeToString(mac.Sum(nil))
 }
 

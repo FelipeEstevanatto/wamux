@@ -17,6 +17,7 @@ type ChatHandler interface {
 	ChatPin(ctx *gin.Context)
 	ChatUnpin(ctx *gin.Context)
 	ChatArchive(ctx *gin.Context)
+	ChatMarkUnread(ctx *gin.Context)
 	ChatUnarchive(ctx *gin.Context)
 	ChatMute(ctx *gin.Context)
 	ChatUnmute(ctx *gin.Context)
@@ -126,6 +127,46 @@ func (c *chatHandler) ChatUnpin(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
+}
+
+// Mark a chat as unread
+// @Summary Mark a chat as unread
+// @Description Shows the chat as unread on the account's devices.
+// @Tags Chat
+// @Accept json
+// @Produce json
+// @Param message body chat_service.BodyStruct true "Chat"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.ChatActionResult} "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
+// @Router /chat/markunread [post]
+func (c *chatHandler) ChatMarkUnread(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	data := &chat_service.BodyStruct{}
+	if err := ctx.ShouldBindBodyWithJSON(data); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if data.Chat == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "chat is required"})
+		return
+	}
+
+	ts, err := c.chatService.ChatMarkUnread(data, instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": gin.H{"timestamp": ts}})
 }
 
 // Archive a chat

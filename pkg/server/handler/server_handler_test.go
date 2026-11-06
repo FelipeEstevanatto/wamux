@@ -54,8 +54,12 @@ type fakeMessageRepo struct {
 	dbMessages int64
 }
 
-func (fakeMessageRepo) InsertMessage(message_model.Message) error             { return nil }
-func (fakeMessageRepo) InsertMessages([]message_model.Message) error          { return nil }
+func (fakeMessageRepo) InsertMessage(message_model.Message) error           { return nil }
+func (fakeMessageRepo) InsertMessages([]message_model.Message) error        { return nil }
+func (fakeMessageRepo) InsertHistoryMessages([]message_model.Message) error { return nil }
+func (fakeMessageRepo) MarkMessageDeleted(message_model.Message, []string, bool) (bool, error) {
+	return true, nil
+}
 func (fakeMessageRepo) GetMessageByID(string) (*message_model.Message, error) { return nil, nil }
 func (fakeMessageRepo) GetMessageByIDForInstance(string, string) (*message_model.Message, error) {
 	return nil, nil

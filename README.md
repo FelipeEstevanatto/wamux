@@ -115,6 +115,7 @@ A few of the most-used settings:
 |---|---|---|
 | `GLOBAL_API_KEY` | Admin key (`/instance/all`, `/server/stats`, Manager) | **required** |
 | `DATABASE_SAVE_MESSAGES` | Persist messages (enables history readback + dashboard counts) | `false` (compose: `true`) |
+| `DATABASE_SAVE_HISTORY_SYNC` | Also store history sync batches, including the one sent after pairing | `true` |
 | `MESSAGE_RETENTION_DAYS` | Prune stored messages after N days (`0` = keep forever) | `365` |
 | `CONNECT_ON_STARTUP` | Reconnect paired instances on boot | `true` (explicit API disconnects stay down) |
 | `SWAGGER_ENABLED` | Serve `/swagger` publicly | `true` |

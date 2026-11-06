@@ -7,6 +7,10 @@ import (
 	"gorm.io/gorm"
 )
 
+// TypeDeleted is the message_type of a message revoked for everyone. The row stays
+// as a tombstone, so the conversation keeps its place, but none of the content does.
+const TypeDeleted = "deleted"
+
 // Message is one row of the message history. Historically it stored only
 // enough for dashboard counts (status/source/timestamp); the content columns
 // exist so callers can read a conversation back through GET /chat/history.

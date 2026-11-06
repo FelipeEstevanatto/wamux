@@ -74,3 +74,8 @@ export function levelFilter(levels: ReadonlySet<LogLevel>): string | undefined {
   if (levels.size === 0 || levels.size === LOG_LEVELS.length) return undefined;
   return LOG_LEVELS.filter((level) => levels.has(level)).join(',');
 }
+
+/** A pairing QR drawn in the log, which only reads as a picture. */
+export function isQrDrawing(text: string): boolean {
+  return text.includes('\n') && /[█▀▄]{4}/.test(text);
+}

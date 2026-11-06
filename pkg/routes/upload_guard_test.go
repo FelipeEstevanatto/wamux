@@ -2,7 +2,6 @@ package routes
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -145,6 +144,6 @@ func TestUploadGuardOutlivesTheServerTimeouts(t *testing.T) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK || !reached {
-		t.Fatal(fmt.Sprintf("status %d, reached %v", resp.StatusCode, reached))
+		t.Fatalf("status %d, reached %v", resp.StatusCode, reached)
 	}
 }

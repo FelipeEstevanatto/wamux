@@ -68,13 +68,19 @@ func TestCreateJID(t *testing.T) {
 
 		// Mexican numbers (52)
 		{
-			name:     "MX number with extra digit - should remove",
+			name:     "MX mobile keeps the 1",
 			input:    "5215551234567",
-			expected: "+52551234567@s.whatsapp.net",
+			expected: "+5215551234567@s.whatsapp.net",
 			hasError: false,
 		},
 		{
-			name:     "MX number without extra digit",
+			name:     "MX mobile written with spaces and +",
+			input:    "+52 1 55 5123 4567",
+			expected: "+5215551234567@s.whatsapp.net",
+			hasError: false,
+		},
+		{
+			name:     "MX number without the 1 is left alone",
 			input:    "525551234567",
 			expected: "+525551234567@s.whatsapp.net",
 			hasError: false,
@@ -82,9 +88,33 @@ func TestCreateJID(t *testing.T) {
 
 		// Argentine numbers (54)
 		{
-			name:     "AR number with extra digit - should remove",
-			input:    "5411123456789",
+			name:     "AR mobile keeps the 9",
+			input:    "5491123456789",
+			expected: "+5491123456789@s.whatsapp.net",
+			hasError: false,
+		},
+		{
+			name:     "AR mobile with a four digit area code",
+			input:    "5492966123456",
+			expected: "+5492966123456@s.whatsapp.net",
+			hasError: false,
+		},
+		{
+			name:     "AR mobile written with spaces and +",
+			input:    "+54 9 11 2345-6789",
+			expected: "+5491123456789@s.whatsapp.net",
+			hasError: false,
+		},
+		{
+			name:     "AR number without the 9 is left alone",
+			input:    "541123456789",
 			expected: "+541123456789@s.whatsapp.net",
+			hasError: false,
+		},
+		{
+			name:     "AR jid passes through",
+			input:    "5491123456789@s.whatsapp.net",
+			expected: "5491123456789@s.whatsapp.net",
 			hasError: false,
 		},
 
@@ -165,49 +195,6 @@ func TestCreateJID(t *testing.T) {
 				return
 			}
 
-			if result != tt.expected {
-				t.Errorf("For input %q, expected %q, but got %q", tt.input, tt.expected, result)
-			}
-		})
-	}
-}
-
-func TestFormatMXOrARNumber(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		{
-			name:     "MX number with 13 digits",
-			input:    "5215551234567",
-			expected: "52551234567",
-		},
-		{
-			name:     "MX number with 12 digits",
-			input:    "525551234567",
-			expected: "525551234567",
-		},
-		{
-			name:     "AR number with 13 digits",
-			input:    "5411123456789",
-			expected: "541123456789",
-		},
-		{
-			name:     "Non-MX/AR number",
-			input:    "5511987654321",
-			expected: "5511987654321",
-		},
-		{
-			name:     "Short number",
-			input:    "52",
-			expected: "52",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := formatMXOrARNumber(tt.input)
 			if result != tt.expected {
 				t.Errorf("For input %q, expected %q, but got %q", tt.input, tt.expected, result)
 			}

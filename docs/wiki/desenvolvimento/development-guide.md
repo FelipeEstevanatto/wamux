@@ -142,8 +142,8 @@ POSTGRES_USERS_DB=postgresql://postgres:postgres@localhost:5432/wamux_users?sslm
 DATABASE_SAVE_MESSAGES=false
 
 # Logs
-WADEBUG=DEBUG
-LOGTYPE=console
+DEBUG_ENABLED=DEBUG
+LOG_TYPE=console
 
 # Configurações de desenvolvimento
 CONNECT_ON_STARTUP=true
@@ -480,7 +480,7 @@ Salvar em `.vscode/tasks.json`.
       "program": "${workspaceFolder}/cmd/wamux",
       "args": ["-dev"],
       "env": {
-        "WADEBUG": "DEBUG"
+        "DEBUG_ENABLED": "DEBUG"
       },
       "showLog": true
     }
@@ -501,7 +501,7 @@ Salvar em `.vscode/launch.json`.
    - **Run kind**: Directory
    - **Directory**: `cmd/wamux`
    - **Program arguments**: `-dev`
-   - **Environment**: `WADEBUG=DEBUG`
+   - **Environment**: `DEBUG_ENABLED=DEBUG`
    - **Working directory**: Raiz do projeto
 
 #### File Watchers (opcional)

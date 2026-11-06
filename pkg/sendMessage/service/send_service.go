@@ -2124,8 +2124,6 @@ func (s *sendService) SendContact(data *ContactStruct, instance *instance_model.
 		Organization: data.Vcard.Organization,
 	})
 
-	fmt.Println(VCstring)
-
 	msg := &waE2E.Message{ContactMessage: &waE2E.ContactMessage{
 		DisplayName: &data.Vcard.FullName,
 		Vcard:       &VCstring,
@@ -2494,10 +2492,6 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 	}
 
 	return message, nil
-}
-
-func stringPointer(s string) *string {
-	return &s
 }
 
 // makeJPEGThumbnail decodes raw image bytes and produces a small JPEG
