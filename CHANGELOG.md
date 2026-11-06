@@ -1,6 +1,8 @@
 # WaMux - Changelog
 
-## Unreleased (develop)
+## 1.0.0 — complete message history, large files, a React dashboard
+
+Upgrade notes are in `.github/release-notes/1.0.0.md`.
 
 ### ⚡ Performance
 - **Large media streams to disk** — files above `WEBHOOK_BASE64_MAX_BYTES` (5 MiB)
@@ -173,7 +175,7 @@
 - With `WEBHOOK_URL` set, instances without a webhook start sending to it.
 - Instances with `rabbitmqEnable` or `natsEnable` set to `"true"` start publishing.
 
-## Unreleased
+## 1.0.0 — security, teardown and performance
 
 ### 🔒 Security
 - **Tenant isolation** — `GET`/`PUT /instance/:instanceId/advanced-settings` now
