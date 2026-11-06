@@ -83,6 +83,10 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # Audio, video and GIF sends shell out to it. Their tests skip without it.
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+
       # GitHub service containers cannot pass a command, and MinIO needs one.
       - name: Start MinIO
         run: |

@@ -53,7 +53,7 @@ async function fetchQrCodeWithRetry(instanceToken: string, attempts = 4) {
 export default function Instances() {
   const navigate = useNavigate();
   const { t } = useI18n();
-  const { instances, isLoading, fetchInstances, refreshInstances, isRefreshing, removeInstance, updateInstance, overviews, fetchOverviews } =
+  const { instances, isLoading, fetchInstances, refreshInstances, isRefreshing, removeInstance, updateInstance, overviews } =
     useInstances();
   const [query, setQuery] = useState('');
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -121,12 +121,6 @@ export default function Instances() {
     // Polling is handled centrally by the useInstances query (refetchInterval),
     // so the page no longer needs its own interval.
   }, [fetchInstances]);
-
-  // Per-instance overviews (avatar + contacts/messages counts). fetchOverviews
-  // throttles itself, so calling it on every instances change is cheap.
-  useEffect(() => {
-    fetchOverviews(instances);
-  }, [instances, fetchOverviews]);
 
   const { paginatedInstances, totalCount } = useMemo(() => {
     // First filter by search query

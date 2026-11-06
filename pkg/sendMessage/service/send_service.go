@@ -76,6 +76,10 @@ type sendService struct {
 	chatPresence func(context.Context, *whatsmeow.Client, types.JID, types.ChatPresence, types.ChatPresenceMedia) error
 	isConnected  func(*whatsmeow.Client) bool
 
+	uploadNewsletter func(context.Context, *whatsmeow.Client, []byte, whatsmeow.MediaType) (whatsmeow.UploadResponse, error)
+	isOnWhatsApp     func(context.Context, *whatsmeow.Client, []string) ([]types.IsOnWhatsAppResponse, error)
+	groupInfo        func(context.Context, *whatsmeow.Client, types.JID) (*types.GroupInfo, error)
+
 	// userExistsCache memoizes phone -> WhatsApp resolution (remoteJID / not on
 	// WhatsApp). Without it every send to a non-group recipient pays a usync
 	// round trip, which dominates the latency of a text send. Keyed by the raw
@@ -603,6 +607,16 @@ func (s *sendService) ensureClientConnectedWithRetry(instanceId string, maxRetri
 	return nil, fmt.Errorf("failed to connect client after %d attempts", maxRetries)
 }
 
+// isBareNumber reports whether phone is only digits, in the length of a phone number.
+// CreateJID reads 18 or more digits as a group id.
+func isBareNumber(phone string) bool {
+	number := strings.TrimPrefix(phone, "+")
+	if number == "" || len(number) >= 18 {
+		return false
+	}
+	return strings.IndexFunc(number, func(r rune) bool { return r < '0' || r > '9' }) < 0
+}
+
 func validateMessageFields(phone string, formatJid *bool, messageID *string, participant *string) (types.JID, error) {
 	// Apply formatting if formatJid is true (default)
 	shouldFormat := true // Default value
@@ -630,8 +644,12 @@ func validateMessageFields(phone string, formatJid *bool, messageID *string, par
 			finalPhone = normalizedJID
 		}
 	} else {
-		// Use phone as received without formatting
+		// Use phone as received without formatting. ParseJID below formats anything
+		// without a server, so a bare number has to get its server here.
 		finalPhone = phone
+		if isBareNumber(phone) {
+			finalPhone = phone + "@" + types.DefaultUserServer
+		}
 	}
 
 	recipient, ok := utils.ParseJID(finalPhone)
@@ -737,7 +755,7 @@ func (s *sendService) checkSingleUserExists(client *whatsmeow.Client, phone stri
 	}
 
 	// Check if the number exists on WhatsApp
-	resp, err := client.IsOnWhatsApp(context.Background(), phoneNumbers)
+	resp, err := s.isOnWhatsApp(context.Background(), client, phoneNumbers)
 	if err != nil {
 		return "", false, fmt.Errorf("failed to check if number %s exists on WhatsApp: %v", phoneNumbers[0], err)
 	}
@@ -835,13 +853,14 @@ func fetchLinkMetadata(url string) (string, string, string, error) {
 		return "", "", "", err
 	}
 
-	var title, description, imgURL string
+	var pageTitle, ogTitle, description, imgURL string
 
 	var f func(*html.Node)
 	f = func(n *html.Node) {
 		if n.Type == html.ElementNode {
-			if n.Data == "title" && n.FirstChild != nil {
-				title = n.FirstChild.Data
+			// The first one is the page's: inline SVG icons have titles too.
+			if n.Data == "title" && n.FirstChild != nil && pageTitle == "" {
+				pageTitle = n.FirstChild.Data
 			}
 			if n.Data == "meta" {
 				var property, content string
@@ -852,6 +871,10 @@ func fetchLinkMetadata(url string) (string, string, string, error) {
 					if attr.Key == "content" {
 						content = attr.Val
 					}
+				}
+
+				if property == "og:title" && content != "" {
+					ogTitle = content
 				}
 
 				if (property == "description" || property == "og:description") && content != "" {
@@ -871,7 +894,10 @@ func fetchLinkMetadata(url string) (string, string, string, error) {
 
 	f(doc)
 
-	return title, description, imgURL, nil
+	if ogTitle != "" {
+		return ogTitle, description, imgURL, nil
+	}
+	return pageTitle, description, imgURL, nil
 }
 
 func (s *sendService) SendLink(data *LinkStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
@@ -1208,7 +1234,7 @@ func (s *sendService) sendMediaFileWithRetry(data *MediaStruct, fileData []byte,
 
 		// Validar se é documento em newsletter (não suportado)
 		if isNewsletter && data.Type == "document" {
-			return nil, errors.New("documentos não são suportados em canais do WhatsApp. Use imagem, vídeo, áudio ou enquete")
+			return nil, errors.New("documentos não são suportados em canais do WhatsApp. Use imagem, vídeo ou áudio")
 		}
 
 		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] SendMediaFile - Upload iniciado (Newsletter: %v)...", instance.Id, isNewsletter)
@@ -1216,7 +1242,7 @@ func (s *sendService) sendMediaFileWithRetry(data *MediaStruct, fileData []byte,
 		var uploaded whatsmeow.UploadResponse
 		if isNewsletter {
 			// Newsletter: upload SEM criptografia
-			uploaded, err = client.UploadNewsletter(context.Background(), fileData, uploadType)
+			uploaded, err = s.uploadNewsletter(context.Background(), client, fileData, uploadType)
 			s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Newsletter upload - Handle: %s", instance.Id, uploaded.Handle)
 		} else {
 			// Normal: upload COM criptografia
@@ -1584,7 +1610,7 @@ func (s *sendService) sendMediaUrlWithRetry(data *MediaStruct, instance *instanc
 
 		// Validar se é documento em newsletter (não suportado)
 		if isNewsletter && data.Type == "document" {
-			return nil, errors.New("documentos não são suportados em canais do WhatsApp. Use imagem, vídeo, áudio ou enquete")
+			return nil, errors.New("documentos não são suportados em canais do WhatsApp. Use imagem, vídeo ou áudio")
 		}
 
 		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Iniciando upload para WhatsApp (Newsletter: %v)...", instance.Id, isNewsletter)
@@ -1593,7 +1619,7 @@ func (s *sendService) sendMediaUrlWithRetry(data *MediaStruct, instance *instanc
 		var uploaded whatsmeow.UploadResponse
 		if isNewsletter {
 			// Newsletter: upload sem criptografia
-			uploaded, err = client.UploadNewsletter(context.Background(), fileData, uploadType)
+			uploaded, err = s.uploadNewsletter(context.Background(), client, fileData, uploadType)
 			s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Newsletter upload - Handle: %s", instance.Id, uploaded.Handle)
 		} else {
 			// Upload normal com criptografia
@@ -1854,6 +1880,12 @@ func (s *sendService) SendPoll(data *PollStruct, instance *instance_model.Instan
 }
 
 func (s *sendService) sendPollWithRetry(data *PollStruct, instance *instance_model.Instance, maxRetries int) (*MessageSendStruct, error) {
+	// whatsmeow sends channel messages without the poll marker, and the server
+	// answers 479. Say so instead of retrying a request that cannot work.
+	if strings.Contains(data.Number, "@newsletter") {
+		return nil, errors.New("enquetes não são suportadas em canais do WhatsApp")
+	}
+
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] SendPoll attempt %d/%d", instance.Id, attempt, maxRetries)
 
@@ -2783,7 +2815,7 @@ func (s *sendService) getGroupInfoCached(instanceId string, recipient types.JID)
 	if client == nil {
 		return nil, fmt.Errorf("client not found for instance %s", instanceId)
 	}
-	info, err := client.GetGroupInfo(context.Background(), recipient)
+	info, err := s.groupInfo(context.Background(), client, recipient)
 	if err != nil {
 		return nil, err
 	}
@@ -3363,7 +3395,12 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 			}
 
 			var mentionedJIDs []string
+			own := s.clientPointer.Get(instance.Id).Store.ID
 			for _, participant := range groupInfo.Participants {
+				// "Everyone" is everyone else: the text would tag the sender too.
+				if own != nil && participant.PhoneNumber.User == own.User {
+					continue
+				}
 				mentionedJIDs = append(mentionedJIDs, participantMentionJID(participant))
 			}
 			setMessageMentionedJIDs(msg, messageType, mentionedJIDs)
@@ -3538,6 +3575,22 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 	return messageSent, nil
 }
 
+// fetchCardMedia downloads a carousel card's image or video. A card still goes out
+// without it, so a failure only drops the media. An error page is a failure too:
+// uploaded as the file, it would deliver a broken card.
+func fetchCardMedia(url string) ([]byte, bool) {
+	resp, err := mediaHTTPClient.Get(url)
+	if err != nil {
+		return nil, false
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, false
+	}
+	data, err := readAllLimited(resp.Body)
+	return data, err == nil
+}
+
 func (s *sendService) SendCarousel(data *CarouselStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
 	client, err := s.ensureClientConnected(instance.Id)
 	if err != nil {
@@ -3586,56 +3639,42 @@ func (s *sendService) SendCarousel(data *CarouselStruct, instance *instance_mode
 			header := interactiveCard.Header
 
 			if card.Header.ImageUrl != "" {
-				// Download image
-				resp, err := mediaHTTPClient.Get(card.Header.ImageUrl)
-				if err == nil {
-					fileData, readErr := readAllLimited(resp.Body)
-					// Close per card: deferring here would hold every card's
-					// connection open until the whole carousel is built.
-					resp.Body.Close()
-					if readErr == nil {
-						uploaded, err := s.upload(context.Background(), client, fileData, whatsmeow.MediaImage)
-						if err == nil {
-							// Generate JPEG thumbnail for iOS compatibility
-							jpegThumb := makeJPEGThumbnail(fileData, 72)
+				if fileData, ok := fetchCardMedia(card.Header.ImageUrl); ok {
+					uploaded, err := s.upload(context.Background(), client, fileData, whatsmeow.MediaImage)
+					if err == nil {
+						// Generate JPEG thumbnail for iOS compatibility
+						jpegThumb := makeJPEGThumbnail(fileData, 72)
 
-							header.HasMediaAttachment = proto.Bool(true)
-							img := &waE2E.ImageMessage{
-								URL:           proto.String(uploaded.URL),
-								DirectPath:    proto.String(uploaded.DirectPath),
-								MediaKey:      uploaded.MediaKey,
-								Mimetype:      proto.String("image/jpeg"),
-								FileEncSHA256: uploaded.FileEncSHA256,
-								FileSHA256:    uploaded.FileSHA256,
-								FileLength:    proto.Uint64(uint64(len(fileData))),
-								JPEGThumbnail: jpegThumb,
-							}
-							applyImageDims(img, fileData)
-							header.Media = &waE2E.InteractiveMessage_Header_ImageMessage{ImageMessage: img}
+						header.HasMediaAttachment = proto.Bool(true)
+						img := &waE2E.ImageMessage{
+							URL:           proto.String(uploaded.URL),
+							DirectPath:    proto.String(uploaded.DirectPath),
+							MediaKey:      uploaded.MediaKey,
+							Mimetype:      proto.String("image/jpeg"),
+							FileEncSHA256: uploaded.FileEncSHA256,
+							FileSHA256:    uploaded.FileSHA256,
+							FileLength:    proto.Uint64(uint64(len(fileData))),
+							JPEGThumbnail: jpegThumb,
 						}
+						applyImageDims(img, fileData)
+						header.Media = &waE2E.InteractiveMessage_Header_ImageMessage{ImageMessage: img}
 					}
 				}
 			} else if card.Header.VideoUrl != "" {
-				// Download and upload video
-				resp, err := mediaHTTPClient.Get(card.Header.VideoUrl)
-				if err == nil {
-					fileData, readErr := readAllLimited(resp.Body)
-					resp.Body.Close()
-					if readErr == nil {
-						uploaded, err := s.upload(context.Background(), client, fileData, whatsmeow.MediaVideo)
-						if err == nil {
-							header.HasMediaAttachment = proto.Bool(true)
-							header.Media = &waE2E.InteractiveMessage_Header_VideoMessage{
-								VideoMessage: &waE2E.VideoMessage{
-									URL:           proto.String(uploaded.URL),
-									DirectPath:    proto.String(uploaded.DirectPath),
-									MediaKey:      uploaded.MediaKey,
-									Mimetype:      proto.String("video/mp4"),
-									FileEncSHA256: uploaded.FileEncSHA256,
-									FileSHA256:    uploaded.FileSHA256,
-									FileLength:    proto.Uint64(uint64(len(fileData))),
-								},
-							}
+				if fileData, ok := fetchCardMedia(card.Header.VideoUrl); ok {
+					uploaded, err := s.upload(context.Background(), client, fileData, whatsmeow.MediaVideo)
+					if err == nil {
+						header.HasMediaAttachment = proto.Bool(true)
+						header.Media = &waE2E.InteractiveMessage_Header_VideoMessage{
+							VideoMessage: &waE2E.VideoMessage{
+								URL:           proto.String(uploaded.URL),
+								DirectPath:    proto.String(uploaded.DirectPath),
+								MediaKey:      uploaded.MediaKey,
+								Mimetype:      proto.String("video/mp4"),
+								FileEncSHA256: uploaded.FileEncSHA256,
+								FileSHA256:    uploaded.FileSHA256,
+								FileLength:    proto.Uint64(uint64(len(fileData))),
+							},
 						}
 					}
 				}
@@ -3749,6 +3788,7 @@ func (s *sendService) SendCarousel(data *CarouselStruct, instance *instance_mode
 		message, err := s.SendMessage(instance, &waE2E.Message{InteractiveMessage: cards[0]}, "InteractiveMessage", &SendDataStruct{
 			Number:          data.Number,
 			Delay:           data.Delay,
+			FormatJid:       data.FormatJid,
 			Quoted:          data.Quoted,
 			AdditionalNodes: &fallbackNodes,
 		})
@@ -3810,8 +3850,9 @@ func (s *sendService) SendCarousel(data *CarouselStruct, instance *instance_mode
 	}
 
 	message, err := s.SendMessage(instance, msg, "InteractiveMessage", &SendDataStruct{
-		Number: data.Number,
-		Delay:  data.Delay,
+		Number:    data.Number,
+		Delay:     data.Delay,
+		FormatJid: data.FormatJid,
 	})
 
 	if err != nil {
@@ -3846,7 +3887,7 @@ func (s *sendService) SendStatusText(data *StatusTextStruct, instance *instance_
 
 	recipient := types.NewJID("status", "broadcast")
 
-	response, err := client.SendMessage(context.Background(), recipient, msg, whatsmeow.SendRequestExtra{ID: messageID})
+	response, err := s.deliver(context.Background(), client, recipient, msg, whatsmeow.SendRequestExtra{ID: messageID})
 	if err != nil {
 		return nil, err
 	}
@@ -4009,7 +4050,7 @@ func (s *sendService) sendStatusMedia(client *whatsmeow.Client, data *StatusMedi
 
 	recipient := types.NewJID("status", "broadcast")
 
-	response, err := client.SendMessage(context.Background(), recipient, media, whatsmeow.SendRequestExtra{ID: messageID})
+	response, err := s.deliver(context.Background(), client, recipient, media, whatsmeow.SendRequestExtra{ID: messageID})
 	if err != nil {
 		return nil, err
 	}
@@ -4102,6 +4143,15 @@ func NewSendService(
 			return client.SendChatPresence(ctx, to, state, media)
 		},
 		isConnected: func(client *whatsmeow.Client) bool { return client.IsConnected() },
+		uploadNewsletter: func(ctx context.Context, client *whatsmeow.Client, data []byte, mediaType whatsmeow.MediaType) (whatsmeow.UploadResponse, error) {
+			return client.UploadNewsletter(ctx, data, mediaType)
+		},
+		isOnWhatsApp: func(ctx context.Context, client *whatsmeow.Client, phones []string) ([]types.IsOnWhatsAppResponse, error) {
+			return client.IsOnWhatsApp(ctx, phones)
+		},
+		groupInfo: func(ctx context.Context, client *whatsmeow.Client, group types.JID) (*types.GroupInfo, error) {
+			return client.GetGroupInfo(ctx, group)
+		},
 	}
 }
 

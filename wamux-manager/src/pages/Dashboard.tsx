@@ -26,9 +26,6 @@ import { useI18n } from '@/i18n/I18nContext';
 const REFRESH_SECONDS = [0, 10, 15, 30, 60];
 const DEFAULT_REFRESH_SECONDS = 15;
 
-const fmtNumber = (n?: number) =>
-  n === undefined || n === null ? '—' : n.toLocaleString('pt-BR');
-
 const fmtMB = (mb?: number) => {
   if (mb === undefined || mb === null || Number.isNaN(mb)) return '—';
   return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${Math.round(mb)} MB`;
@@ -108,19 +105,15 @@ export default function Dashboard() {
   const [refreshSeconds, setRefreshSeconds] = useState(DEFAULT_REFRESH_SECONDS);
   const [selectedId, setSelectedId] = useState('');
   const { stats, error, loading, updatedAt, refetch } = useServerStats(refreshSeconds * 1000);
-  const { instances, fetchInstances, overviews, fetchOverviews } = useInstances(
-    refreshSeconds * 1000
-  );
-  const { t, lang } = useI18n();
+  const { instances, fetchInstances, overviews } = useInstances(refreshSeconds * 1000);
+  const { t, locale } = useI18n();
+  const fmtNumber = (n?: number) =>
+    n === undefined || n === null ? '—' : n.toLocaleString(locale);
   const selected = instances.find((i) => i.id === selectedId);
 
   useEffect(() => {
     fetchInstances();
   }, [fetchInstances]);
-
-  useEffect(() => {
-    fetchOverviews(instances);
-  }, [instances, fetchOverviews]);
 
   const connected = instances.filter((i) => i.connected).length;
   const total = instances.length;
@@ -216,7 +209,7 @@ export default function Dashboard() {
               <span className={`h-2 w-2 rounded-full ${error ? 'bg-red-500' : 'bg-green-500'}`} />
               {error ? t('dashboard.serverOffline') : t('dashboard.serverOnline')}
               {updatedAt > 0 &&
-                ` · ${new Date(updatedAt).toLocaleTimeString(lang === 'pt' ? 'pt-BR' : 'en-US')}`}
+                ` · ${new Date(updatedAt).toLocaleTimeString(locale)}`}
             </span>
             <select
               value={refreshSeconds}

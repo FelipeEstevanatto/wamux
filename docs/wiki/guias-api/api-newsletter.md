@@ -489,13 +489,15 @@ curl -X POST http://localhost:8081/send/text \
   }'
 ```
 
-Funciona com todos os tipos de mensagem:
-- Texto
-- Imagem
-- Vídeo
-- Documento
-- Localização
-- Poll (enquete)
+Nem todo tipo de mensagem funciona em canais:
+
+| Tipo | Canal |
+|------|-------|
+| Texto | ✅ Testado em 05/11/2026 |
+| Imagem | ✅ Testado em 05/11/2026 |
+| Vídeo, áudio | Aceitos pela API, não testados em um canal real |
+| Documento | ❌ A API recusa, pois o WhatsApp não aceita documentos em canais |
+| Enquete | ❌ A API recusa. O WhatsApp responde `479` porque a biblioteca `whatsmeow` não envia o marcador de enquete para canais |
 
 ---
 

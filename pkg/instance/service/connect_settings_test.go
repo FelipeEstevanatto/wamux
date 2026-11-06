@@ -1,10 +1,14 @@
 package instance_service
 
 import (
+	"errors"
 	"testing"
 
+	"github.com/felipeestevanatto/wamux/pkg/config"
 	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
+	instance_repository "github.com/felipeestevanatto/wamux/pkg/instance/repository"
 	event_types "github.com/felipeestevanatto/wamux/pkg/internal/event_types"
+	logger_wrapper "github.com/felipeestevanatto/wamux/pkg/logger"
 )
 
 func TestApplyConnectSettings(t *testing.T) {
@@ -121,6 +125,42 @@ func TestApplyConnectSettings(t *testing.T) {
 				if _, ok := updates[tt.wantNoUpdateKey]; ok {
 					t.Fatalf("expected updates to omit %q, got %#v", tt.wantNoUpdateKey, updates)
 				}
+			}
+		})
+	}
+}
+
+type createRepo struct {
+	instance_repository.InstanceRepository
+	created instance_model.Instance
+}
+
+func (r *createRepo) GetInstanceByName(string) (*instance_model.Instance, error) {
+	return nil, errors.New("not found")
+}
+
+func (r *createRepo) Create(instance instance_model.Instance) (*instance_model.Instance, error) {
+	r.created = instance
+	return &instance, nil
+}
+
+// The manager asks for this at creation, because its live pages depend on it. Other
+// API clients keep the old default by not sending it.
+func TestCreateStoresTheWebSocketChoice(t *testing.T) {
+	for name, want := range map[string]string{"requested": "enabled", "left out": ""} {
+		t.Run(name, func(t *testing.T) {
+			repo := &createRepo{}
+			cfg := &config.Config{LogDirectory: t.TempDir()}
+			logs := logger_wrapper.NewLoggerManager(cfg)
+			t.Cleanup(func() { logs.Flush("x") })
+			svc := instances{instanceRepository: repo, config: cfg, loggerWrapper: logs}
+
+			if _, err := svc.Create(&CreateStruct{InstanceId: "x", Name: "One", Token: "token", WebSocketEnable: want}); err != nil {
+				t.Fatalf("Create: %v", err)
+			}
+
+			if repo.created.WebSocketEnable != want {
+				t.Fatalf("WebSocketEnable = %q, want %q", repo.created.WebSocketEnable, want)
 			}
 		})
 	}

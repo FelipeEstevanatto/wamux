@@ -94,7 +94,11 @@ func Summarize(msg *waE2E.Message) Summary {
 
 	switch {
 	case msg.GetPollCreationMessage() != nil, msg.GetPollCreationMessageV2() != nil, msg.GetPollCreationMessageV3() != nil:
-		return Summary{Type: "poll"}
+		return Summary{Type: "poll", Text: pollQuestion(msg)}
+	case msg.GetEventMessage() != nil:
+		return Summary{Type: "event", Text: msg.GetEventMessage().GetName()}
+	case msg.GetProductMessage() != nil:
+		return Summary{Type: "product", Text: msg.GetProductMessage().GetProduct().GetTitle()}
 	case msg.GetPollUpdateMessage() != nil:
 		return Summary{Type: "poll_update"}
 	case msg.GetButtonsResponseMessage() != nil:
@@ -114,6 +118,19 @@ func Summarize(msg *waE2E.Message) Summary {
 	}
 
 	return Summary{Type: "unknown"}
+}
+
+func pollQuestion(msg *waE2E.Message) string {
+	if name := msg.GetPollCreationMessage().GetName(); name != "" {
+		return name
+	}
+	if name := msg.GetPollCreationMessageV2().GetName(); name != "" {
+		return name
+	}
+	if name := msg.GetPollCreationMessageV3().GetName(); name != "" {
+		return name
+	}
+	return ""
 }
 
 func quotedID(ctx *waE2E.ContextInfo) string {

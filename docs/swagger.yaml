@@ -1216,6 +1216,10 @@ definitions:
         $ref: '#/definitions/github_com_felipeestevanatto_wamux_pkg_instance_service.ProxyConfig'
       token:
         type: string
+      websocketEnable:
+        description: 'WebSocketEnable publishes the instance''s events to /ws: "enabled"
+          or "disabled".'
+        type: string
     type: object
   github_com_felipeestevanatto_wamux_pkg_instance_service.ForceReconnectStruct:
     properties:

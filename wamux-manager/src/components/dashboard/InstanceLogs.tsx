@@ -116,8 +116,7 @@ function InstanceLogs({
   instanceName: string;
   onClose: () => void;
 }) {
-  const { t, lang } = useI18n();
-  const locale = lang === 'pt' ? 'pt-BR' : 'en-US';
+  const { t, locale } = useI18n();
 
   const [levels, setLevels] = useState<ReadonlySet<LogLevel>>(new Set(LOG_LEVELS));
   const [limit, setLimit] = useState(LIMITS[0]);

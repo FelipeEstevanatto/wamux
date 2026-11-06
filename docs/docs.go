@@ -8070,6 +8070,10 @@ const docTemplate = `{
                 },
                 "token": {
                     "type": "string"
+                },
+                "websocketEnable": {
+                    "description": "WebSocketEnable publishes the instance's events to /ws: \"enabled\" or \"disabled\".",
+                    "type": "string"
                 }
             }
         },

@@ -73,6 +73,7 @@ export interface CreateInstancePayload {
   instanceId?: string;
   name: string;
   token: string;
+  websocketEnable?: string;
   proxy?: {
     host: string;
     port: string;

@@ -84,6 +84,9 @@ export default function CreateInstanceModal({
       const payload: CreateInstancePayload = {
         name: data.instanceName,
         token: data.token || uuidv4(), // Generate UUID if not provided
+        // The manager's live pages read this feed, and an instance left without it
+        // sends them nothing.
+        websocketEnable: 'enabled',
       };
 
       // Add proxy configuration if provided

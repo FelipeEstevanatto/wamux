@@ -14,10 +14,18 @@
 - **Auto-read** — one call off the dispatch path, instead of two with one blocking.
 
 ### 🔌 API
+- `POST /instance/create` accepts `websocketEnable`. The manager turns it on.
 - `GET /chat/history/search` finds text in one conversation, ignoring case.
 - `POST /ws/ticket` issues a short-lived credential for `/ws`.
 
+### 📚 Docs
+- The compatibility table now shows real results per client. PIX failed everywhere,
+  lists were missing on Desktop and carousels were missing on the phone app, even
+  with a `200` and a `Read` receipt.
+- The channel guide no longer claims documents and polls work there.
+
 ### ✨ Manager
+- Dates, numbers, form errors and connection errors follow the chosen language.
 - The sidebar collapses to icons, with titles on hover.
 - The divider between conversations and chat on `/messages` can be dragged, or moved
   with the arrow keys. A double click resets it.
@@ -49,6 +57,21 @@
   works for existing integrations.
 
 ### 🐛 Fixes
+- `mentionAll` and `mentionedJid` tagged nobody unless the text already had `@number`.
+  The API now adds the missing tokens to text and captions, and `mentionAll` leaves
+  out the sender.
+- `GET /instance/logs` stopped at the end of the UTC day in timezones west of UTC, so
+  in `-03` nothing logged after 21:00 showed until local midnight.
+- A poll sent to a channel fails with a clear error instead of retrying into a `479`,
+  and the document error no longer suggests polls.
+- Polls, events and products are stored with their question or title, instead of as
+  empty or `unknown` messages.
+- `formatJid: false` was ignored: every send reformatted the number anyway. Numbers
+  now go out as given.
+- Carousels never honored `formatJid`, and uploaded the error page as the card's
+  media when an image or video failed to download.
+- Link previews use `og:title`, and an inline SVG's title no longer replaces the
+  page title.
 - `/messages` kept polling off whenever the socket was open, so an instance with
   WebSocket disabled never refreshed until the page was reloaded.
 - Routine messages no longer log as `WARN`: presence updates, skipped webhooks, QR

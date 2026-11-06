@@ -148,22 +148,22 @@ function parseTs(ts: string): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-function formatShort(ts: string): string {
+function formatShort(ts: string, locale: string): string {
   const d = parseTs(ts);
-  return d ? d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit' }) : '';
+  return d ? d.toLocaleString(locale, { day: '2-digit', month: '2-digit' }) : '';
 }
 
-function formatTime(ts: string): string {
+function formatTime(ts: string, locale: string): string {
   const d = parseTs(ts);
   return d
-    ? d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    ? d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
     : '';
 }
 
-function formatDay(ts: string): string {
+function formatDay(ts: string, locale: string): string {
   const d = parseTs(ts);
   return d
-    ? d.toLocaleDateString('pt-BR', {
+    ? d.toLocaleDateString(locale, {
         weekday: 'short',
         day: '2-digit',
         month: 'short',
@@ -491,7 +491,7 @@ function Bubble({
   highlighted?: boolean;
   onOpenMedia?: (message: HistoryMessage) => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const mine = message.is_from_me;
   const isMedia =
     !!message.media_url ||
@@ -576,7 +576,7 @@ function Bubble({
           title={message.timestamp}
         >
           {message.edited && <span>{t('messages.edited')}</span>}
-          {formatTime(message.timestamp)}
+          {formatTime(message.timestamp, locale)}
           {mine && <StatusTick status={message.status} />}
         </span>
       </div>
@@ -585,7 +585,7 @@ function Bubble({
 }
 
 export default function Messages() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const queryClient = useQueryClient();
   const {
     instances,
@@ -1436,7 +1436,7 @@ export default function Messages() {
                           {title}
                         </span>
                         <span className="shrink-0 text-[11px] text-muted-foreground">
-                          {formatShort(c.last_timestamp)}
+                          {formatShort(c.last_timestamp, locale)}
                         </span>
                       </span>
                       {showNumber && (
@@ -1583,7 +1583,7 @@ export default function Messages() {
                   ordered.map((m, index) => {
                     const prev = ordered[index - 1];
                     const newDay =
-                      !prev || formatDay(prev.timestamp) !== formatDay(m.timestamp);
+                      !prev || formatDay(prev.timestamp, locale) !== formatDay(m.timestamp, locale);
                     const quoted = m.quoted_message_id
                       ? messagesById.get(m.quoted_message_id)
                       : undefined;
@@ -1599,7 +1599,7 @@ export default function Messages() {
                         {newDay && (
                           <div className="my-3 flex justify-center">
                             <span className="rounded-full bg-muted px-3 py-1 text-[11px] text-muted-foreground">
-                              {formatDay(m.timestamp)}
+                              {formatDay(m.timestamp, locale)}
                             </span>
                           </div>
                         )}

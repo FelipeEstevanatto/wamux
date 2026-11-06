@@ -7,56 +7,41 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { translations, type Lang } from './translations';
-
-type Vars = Record<string, string | number>;
+import type { Lang } from './translations';
+import { detectLang, LANG_STORAGE_KEY, localeOf, translateTo, type Vars } from './translate';
 
 interface I18nValue {
   lang: Lang;
+  /** The BCP 47 locale for dates and numbers. */
+  locale: string;
   setLang: (lang: Lang) => void;
   /** Translate a dotted key, interpolating `{name}` placeholders. */
   t: (key: string, vars?: Vars) => string;
 }
 
 const I18nContext = createContext<I18nValue | undefined>(undefined);
-const STORAGE_KEY = 'wamux-lang';
-
-function detectLang(): Lang {
-  if (typeof window === 'undefined') return 'pt';
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved === 'pt' || saved === 'en') return saved;
-  return navigator.language?.toLowerCase().startsWith('en') ? 'en' : 'pt';
-}
-
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>(detectLang);
 
   useEffect(() => {
-    document.documentElement.lang = lang === 'pt' ? 'pt-BR' : 'en';
+    document.documentElement.lang = localeOf(lang);
   }, [lang]);
 
   const setLang = useCallback((next: Lang) => {
     setLangState(next);
     try {
-      localStorage.setItem(STORAGE_KEY, next);
+      localStorage.setItem(LANG_STORAGE_KEY, next);
     } catch {
       /* ignore */
     }
   }, []);
 
-  const t = useCallback(
-    (key: string, vars?: Vars) => {
-      const raw =
-        translations[lang][key] ?? translations.pt[key] ?? key;
-      if (!vars) return raw;
-      return raw.replace(/\{(\w+)\}/g, (_, name: string) =>
-        String(vars[name] ?? `{${name}}`)
-      );
-    },
-    [lang]
-  );
+  const t = useCallback((key: string, vars?: Vars) => translateTo(lang, key, vars), [lang]);
 
-  const value = useMemo(() => ({ lang, setLang, t }), [lang, setLang, t]);
+  const value = useMemo(
+    () => ({ lang, locale: localeOf(lang), setLang, t }),
+    [lang, setLang, t]
+  );
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
 

@@ -184,6 +184,8 @@ type CreateStruct struct {
 	Token            string                           `json:"token"`
 	Proxy            *ProxyConfig                     `json:"proxy"`
 	AdvancedSettings *instance_model.AdvancedSettings `json:"advancedSettings"`
+	// WebSocketEnable publishes the instance's events to /ws: "enabled" or "disabled".
+	WebSocketEnable string `json:"websocketEnable"`
 }
 
 type ConnectStruct struct {
@@ -325,6 +327,8 @@ func (i instances) Create(data *CreateStruct) (*instance_model.Instance, error) 
 		Connected:     false,
 		AutoReconnect: true,
 		ClientName:    i.config.ClientName,
+
+		WebSocketEnable: data.WebSocketEnable,
 	}
 
 	// Set advanced settings if provided (nil pointers are left as defaults).
@@ -1244,12 +1248,12 @@ func (i instances) GetLogs(instanceId string, startDate, endDate time.Time, leve
 
 	// Se não foi fornecida data inicial, usa 7 dias atrás
 	if startDate.IsZero() {
-		startDate = time.Now().AddDate(0, 0, -7)
+		startDate = time.Now().UTC().AddDate(0, 0, -7)
 	}
 
 	// Se não foi fornecida data final, usa data atual
 	if endDate.IsZero() {
-		endDate = time.Now()
+		endDate = time.Now().UTC()
 	}
 
 	// Ajusta as datas para início e fim do dia

@@ -1,8 +1,11 @@
 package send_service
 
 import (
+	"strings"
+
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/types"
+	"google.golang.org/protobuf/proto"
 )
 
 // participantMentionJID prefers the phone-number JID when available.
@@ -14,12 +17,73 @@ func participantMentionJID(p types.GroupParticipant) string {
 	return p.JID.String()
 }
 
+// mentionToken is how a JID is written in message text: "@" and the user part.
+func mentionToken(jid string) string {
+	user, _, _ := strings.Cut(jid, "@")
+	user, _, _ = strings.Cut(user, ":")
+	return "@" + user
+}
+
+// hasMentionToken finds token as a whole number, so "@551" is not found in "@5511".
+func hasMentionToken(text, token string) bool {
+	for rest := text; ; {
+		at := strings.Index(rest, token)
+		if at < 0 {
+			return false
+		}
+		rest = rest[at+len(token):]
+		if rest == "" || rest[0] < '0' || rest[0] > '9' {
+			return true
+		}
+	}
+}
+
+// withMentionTokens adds the tokens the text does not have yet. WhatsApp only tags
+// someone when the text has their "@number": with MentionedJID alone, nobody is
+// tagged. The clients show the token as the contact's name.
+func withMentionTokens(text string, mentionedJIDs []string) string {
+	var missing []string
+	for _, jid := range mentionedJIDs {
+		if token := mentionToken(jid); !hasMentionToken(text, token) {
+			missing = append(missing, token)
+		}
+	}
+	if len(missing) == 0 {
+		return text
+	}
+	tokens := strings.Join(missing, " ")
+	if text == "" {
+		return tokens
+	}
+	return text + "\n\n" + tokens
+}
+
+// writeMentionTokens puts the tokens in the text or caption, for the types that have
+// one. The others have nowhere to show them, so nobody is tagged by those.
+func writeMentionTokens(msg *waE2E.Message, mentionedJIDs []string) {
+	switch {
+	case msg.ExtendedTextMessage != nil:
+		msg.ExtendedTextMessage.Text = proto.String(withMentionTokens(msg.ExtendedTextMessage.GetText(), mentionedJIDs))
+	case msg.ImageMessage != nil:
+		msg.ImageMessage.Caption = proto.String(withMentionTokens(msg.ImageMessage.GetCaption(), mentionedJIDs))
+	case msg.VideoMessage != nil:
+		msg.VideoMessage.Caption = proto.String(withMentionTokens(msg.VideoMessage.GetCaption(), mentionedJIDs))
+	case msg.DocumentMessage != nil:
+		msg.DocumentMessage.Caption = proto.String(withMentionTokens(msg.DocumentMessage.GetCaption(), mentionedJIDs))
+	case msg.GetDocumentWithCaptionMessage().GetMessage().GetDocumentMessage() != nil:
+		doc := msg.DocumentWithCaptionMessage.Message.DocumentMessage
+		doc.Caption = proto.String(withMentionTokens(doc.GetCaption(), mentionedJIDs))
+	}
+}
+
 // setMessageMentionedJIDs writes ContextInfo.MentionedJID for the given message type.
 // DocumentMessage may live under DocumentWithCaptionMessage when a caption is set.
 func setMessageMentionedJIDs(msg *waE2E.Message, messageType string, mentionedJIDs []string) {
 	if msg == nil || len(mentionedJIDs) == 0 {
 		return
 	}
+
+	writeMentionTokens(msg, mentionedJIDs)
 
 	switch messageType {
 	case "ExtendedTextMessage":

@@ -4,6 +4,8 @@ export const modalsNs: {
   en: Record<string, string>;
 } = {
   pt: {
+    'modals.numberRequired': 'Número é obrigatório',
+    'modals.messageRequired': 'Mensagem é obrigatória',
     // TestMessageModal UI
     'modals.testTokenMissing': 'Token da instância não encontrado',
     'modals.invalidNumber':
@@ -155,6 +157,8 @@ export const modalsNs: {
     'modals.payload.carouselCopy.copyVipCoupon': 'Copiar cupom VIP',
   },
   en: {
+    'modals.numberRequired': 'Number is required',
+    'modals.messageRequired': 'Message is required',
     // TestMessageModal UI
     'modals.testTokenMissing': 'Instance token not found',
     'modals.invalidNumber':

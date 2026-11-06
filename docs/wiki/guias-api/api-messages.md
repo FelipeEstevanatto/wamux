@@ -1178,6 +1178,8 @@ Para citar/responder uma mensagem, adicione o objeto `quoted` em qualquer endpoi
 
 Para mencionar usuários em grupos, use `mentionedJid` ou `mentionAll`:
 
+> O WhatsApp só marca alguém quando o texto contém `@número`. Se o texto ou a legenda não tiver, a API acrescenta ao final, e os aplicativos mostram o nome do contato. `mentionAll` não inclui quem envia. Em tipos sem texto, como áudio, figurinha, localização e enquete, ninguém é marcado.
+
 ```json
 {
   "number": "120363XXXXXXXXXX@g.us",

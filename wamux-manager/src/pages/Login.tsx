@@ -40,15 +40,15 @@ export const Login: React.FC = () => {
   const loginSchema = z.object({
     apiUrl: z
       .string()
-      .min(1, { message: 'URL da API é obrigatória' })
-      .url({ message: `URL inválida. Use o formato: ${currentUrl}` })
+      .min(1, { message: t('login.urlRequired') })
+      .url({ message: t('login.urlInvalid', { example: currentUrl }) })
       .refine((url) => url.startsWith('http://') || url.startsWith('https://'), {
-        message: 'URL deve começar com http:// ou https://',
+        message: t('login.urlScheme'),
       }),
     apiKey: z
       .string()
-      .min(1, { message: 'API Key é obrigatória' })
-      .min(10, { message: 'API Key deve ter pelo menos 10 caracteres' }),
+      .min(1, { message: t('login.keyRequired') })
+      .min(10, { message: t('login.keyTooShort') }),
   });
 
   type LoginFormData = z.infer<typeof loginSchema>;

@@ -198,6 +198,19 @@ describe('Messages page', () => {
     expect(document.querySelectorAll('[data-message-id]')).toHaveLength(1);
   });
 
+  it.each([
+    ['pt', 'jan'],
+    ['en', 'Jan'],
+  ])('shows dates in the chosen language: %s', async (lang, month) => {
+    localStorage.setItem('wamux-lang', lang);
+    await render();
+    await openChat();
+
+    expect(document.body.textContent).toContain(month);
+    expect(document.body.textContent).toContain('2026');
+    if (lang === 'en') expect(document.body.textContent).toMatch(/\d{1,2}:\d{2}\s[AP]M/);
+  });
+
   it('polls when the instance publishes no events, even with the socket open', async () => {
     live.websocketEnable = 'disabled';
     await render();

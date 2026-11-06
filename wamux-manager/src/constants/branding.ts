@@ -6,8 +6,6 @@
  * UI.
  */
 export const PRODUCT_NAME = 'WaMux';
-export const PRODUCT_TAGLINE =
-  'API WhatsApp self-hosted para gerenciar instâncias';
 
 /** This project's repository. */
 export const REPO = 'https://github.com/FelipeEstevanatto/wamux';

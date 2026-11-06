@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { translate } from '@/i18n/translate';
 import apiClient from '@/services/api/client';
 import type { AuthStore } from '@/types/auth';
 import { AUTH_STORAGE_KEY, clearStoredCredentials } from '@/utils/authStorage';
@@ -60,7 +61,7 @@ const useAuthStore = create<AuthStore>()(
             throw err;
           }
           const err = new Error(
-            'Nao foi possivel conectar. Verifique a URL e a API Key.'
+            translate('login.connectError')
           );
           err.cause = error;
           throw err;

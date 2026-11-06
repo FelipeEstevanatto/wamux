@@ -767,6 +767,24 @@ type GetLogsQuery struct {
 	Limit     int    `form:"limit"`
 }
 
+// logDateRange resolves the requested dates, which are UTC days. The defaults use
+// the UTC date too: the local date, read as a UTC day, ends hours early west of
+// Greenwich, and everything logged after that was missing until local midnight.
+func logDateRange(startRaw, endRaw string, now time.Time) (time.Time, time.Time) {
+	now = now.UTC()
+
+	start, err := time.Parse("2006-01-02", startRaw)
+	if err != nil {
+		start = now.AddDate(0, 0, -7)
+	}
+	end, err := time.Parse("2006-01-02", endRaw)
+	if err != nil {
+		end = now
+	}
+
+	return start, time.Date(end.Year(), end.Month(), end.Day(), 23, 59, 59, 999999999, time.UTC)
+}
+
 // GetLogs returns the log entries for an instance
 // @Summary Get instance logs
 // @Description Returns log entries for an instance, filterable by date range, level and limit
@@ -790,19 +808,7 @@ func (h *instanceHandler) GetLogs(c *gin.Context) {
 		return
 	}
 
-	// Converte as datas
-	startDate, err := time.Parse("2006-01-02", query.StartDate)
-	if err != nil {
-		startDate = time.Now().AddDate(0, 0, -7) // Default: 7 dias atrás
-	}
-
-	endDate, err := time.Parse("2006-01-02", query.EndDate)
-	if err != nil {
-		endDate = time.Now()
-	}
-
-	// Ajusta o endDate para o final do dia
-	endDate = time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 23, 59, 59, 999999999, time.UTC)
+	startDate, endDate := logDateRange(query.StartDate, query.EndDate, time.Now())
 
 	if query.Limit == 0 {
 		query.Limit = 100 // Default: 100 registros

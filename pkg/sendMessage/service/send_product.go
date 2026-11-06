@@ -128,7 +128,7 @@ func (s *sendService) SendProduct(data *ProductStruct, instance *instance_model.
 	if err != nil {
 		return nil, err
 	}
-	uploaded, err := client.Upload(context.Background(), imgBytes, whatsmeow.MediaImage)
+	uploaded, err := s.upload(context.Background(), client, imgBytes, whatsmeow.MediaImage)
 	if err != nil {
 		return nil, fmt.Errorf("failed to upload product image: %w", err)
 	}

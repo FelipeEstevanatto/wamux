@@ -43,8 +43,7 @@ function InstancesTable({
   selectedId: string;
   onSelect: (id: string) => void;
 }) {
-  const { t, lang } = useI18n();
-  const locale = lang === 'pt' ? 'pt-BR' : 'en-US';
+  const { t, locale } = useI18n();
 
   const formatDate = (value?: string) => {
     if (!value) return '—';

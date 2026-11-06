@@ -25,6 +25,8 @@ import { eventsNs } from './namespaces/events';
 
 const basePt: Record<string, string> = {
   'common.cancel': 'Cancelar',
+  'common.connectionError': 'Erro de conexão. Verifique sua internet e tente novamente.',
+  'common.unknownError': 'Erro desconhecido',
   'common.close': 'Fechar',
   'common.confirm': 'Confirmar',
   'common.loading': 'Carregando…',
@@ -93,6 +95,12 @@ const basePt: Record<string, string> = {
   'home.footer': '{product} Manager — gerencie suas instâncias WhatsApp de forma simples e eficiente',
 
   'login.title': 'Entrar no Manager',
+  'login.urlRequired': 'URL da API é obrigatória',
+  'login.urlInvalid': 'URL inválida. Use o formato: {example}',
+  'login.urlScheme': 'URL deve começar com http:// ou https://',
+  'login.keyRequired': 'API Key é obrigatória',
+  'login.keyTooShort': 'API Key deve ter pelo menos 10 caracteres',
+  'login.connectError': 'Não foi possível conectar. Verifique a URL e a API Key.',
   'login.apiUrl': 'URL da API',
   'login.apiKey': 'API Key',
   'login.submit': 'Entrar',
@@ -139,6 +147,8 @@ const basePt: Record<string, string> = {
 
 const baseEn: Record<string, string> = {
   'common.cancel': 'Cancel',
+  'common.connectionError': 'Connection error. Check your internet and try again.',
+  'common.unknownError': 'Unknown error',
   'common.close': 'Close',
   'common.confirm': 'Confirm',
   'common.loading': 'Loading…',
@@ -207,6 +217,12 @@ const baseEn: Record<string, string> = {
   'home.footer': '{product} Manager — manage your WhatsApp instances simply and efficiently',
 
   'login.title': 'Sign in to the Manager',
+  'login.urlRequired': 'API URL is required',
+  'login.urlInvalid': 'Invalid URL. Use the format: {example}',
+  'login.urlScheme': 'URL must start with http:// or https://',
+  'login.keyRequired': 'API Key is required',
+  'login.keyTooShort': 'API Key must have at least 10 characters',
+  'login.connectError': 'Could not connect. Check the URL and the API Key.',
   'login.apiUrl': 'API URL',
   'login.apiKey': 'API Key',
   'login.submit': 'Sign in',

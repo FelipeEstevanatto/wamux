@@ -127,6 +127,8 @@ curl -X POST http://localhost:8081/send/button \
 
 ### Exemplo 3: Botão PIX
 
+> ⚠️ Em nosso teste o botão PIX **não** funcionou: no WhatsApp Desktop mostrou "This message couldn't load" e no Android não apareceu. Veja [Compatibilidade Testada](#compatibilidade-testada).
+
 Deve ser enviado **sozinho**, sem outros botões.
 
 ```bash
@@ -152,6 +154,8 @@ curl -X POST http://localhost:8081/send/button \
 ---
 
 ## Enviar Lista
+
+> ⚠️ Em nosso teste a lista apareceu no Android, mas **não** no WhatsApp Desktop. Veja [Compatibilidade Testada](#compatibilidade-testada).
 
 Envia uma mensagem com lista de opções organizadas em seções. O usuário toca no botão para abrir a lista e seleciona uma opção.
 
@@ -309,6 +313,8 @@ curl -X POST http://localhost:8081/send/list \
 ---
 
 ## Enviar Carrossel
+
+> ⚠️ Em nosso teste o carrossel apareceu no WhatsApp Desktop, mas **não** no Android. Veja [Compatibilidade Testada](#compatibilidade-testada).
 
 Envia uma mensagem com cards deslizáveis (carrossel), cada um com imagem, texto, rodapé e botões. Ideal para catálogos de produtos, planos e portfólios.
 
@@ -713,12 +719,26 @@ A instância deve ter o evento `BUTTON_CLICK` ou `MESSAGE` habilitado na configu
 
 ### Compatibilidade Testada
 
-| Tipo de Mensagem | Android | iOS (iPhone) | WhatsApp Web |
-|------------------|---------|--------------|--------------|
-| Botões (reply) | ✅ | ✅ | ✅ |
-| Botões (url) | ✅ | ✅ | ✅ |
-| Botões (call) | ✅ | ✅ | ✅ |
-| Botões (copy) | ✅ | ✅ | ✅ |
-| Botões (pix) | ✅ | ✅ | ✅ |
-| Lista | ✅ | ✅ | ✅ |
-| Carrossel | ✅ | ✅ | ✅ |
+> ⚠️ **Status `200` não significa que a mensagem apareceu.** A API confirma que o WhatsApp aceitou o envio, e o recibo pode até chegar como `Read`. Mesmo assim, o aplicativo do destinatário pode não exibir a mensagem. A Meta não documenta esses formatos e o comportamento muda sem aviso, então **teste nos aparelhos dos seus clientes** antes de depender de um tipo interativo.
+
+Resultado de um teste real em **05/11/2026**, enviando de uma conta WhatsApp comum (sem WhatsApp Business) para o aplicativo no **Android** e para o WhatsApp Desktop. Os testes foram feitos em conversa individual e repetidos em grupo para lista e carrossel, com o mesmo resultado:
+
+| Tipo de Mensagem | Android | WhatsApp Desktop | Observação |
+|------------------|----------------|------------------|------------|
+| Botões (reply) | ✅ | ✅ | |
+| Botões (url + copy) | ✅ | ✅ | |
+| Botões (call) | ✅ | ✅ | |
+| Botões (pix) | ❌ Não aparece | ❌ "This message couldn't load. Open the message on your phone to view it." | Não funcionou em nenhum dos dois. O teste usou uma chave fictícia e uma conta sem Business, e não foi verificado se isso influencia |
+| Lista | ✅ | ❌ Não aparece | Só no Android, em conversa e em grupo |
+| Carrossel | ❌ Não aparece | ✅ | Só no Desktop, em conversa e em grupo. Toques nos botões do Desktop chegam à API |
+| Carrossel com imagem quebrada | ❌ Não aparece | ✅ | Mesmo comportamento: o card vai sem mídia |
+| Card único sem mídia | ✅ | ✅ | Enviado como mensagem interativa comum, não como carrossel |
+| Link, enquete, localização, contato, imagem, documento, figurinha, evento | ✅ | ✅ | |
+
+Nos itens marcados com ✅, nenhum problema foi relatado no teste. iPhone e WhatsApp Web não foram testados.
+
+**Na prática**:
+
+- Nenhum dos tipos com falha aparece nos dois clientes. Para algo importante, envie também uma mensagem de texto comum, ou prefira botões de resposta.
+- Lista e carrossel se complementam neste teste: um só aparece no Android e o outro só no Desktop.
+- Se um cliente relatar que não recebeu uma mensagem marcada como `Read`, verifique primeiro esta tabela.

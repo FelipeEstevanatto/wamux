@@ -22,12 +22,13 @@ interface SendMessageModalProps {
   instance: Instance | null;
 }
 
-const sendMessageSchema = z.object({
-  number: z.string().min(1, 'Número é obrigatório'),
-  message: z.string().min(1, 'Mensagem é obrigatória'),
-});
+const buildSchema = (numberRequired: string, messageRequired: string) =>
+  z.object({
+    number: z.string().min(1, numberRequired),
+    message: z.string().min(1, messageRequired),
+  });
 
-type SendMessageFormData = z.infer<typeof sendMessageSchema>;
+type SendMessageFormData = z.infer<ReturnType<typeof buildSchema>>;
 
 /**
  * Built on the shared Dialog primitive, so it traps focus, closes on Escape and
@@ -41,7 +42,7 @@ function SendMessageModal({ open, onClose, instance }: SendMessageModalProps) {
     formState: { errors, isSubmitting },
     reset,
   } = useForm<SendMessageFormData>({
-    resolver: zodResolver(sendMessageSchema),
+    resolver: zodResolver(buildSchema(t('modals.numberRequired'), t('modals.messageRequired'))),
   });
 
   const onSubmit = async (data: SendMessageFormData) => {

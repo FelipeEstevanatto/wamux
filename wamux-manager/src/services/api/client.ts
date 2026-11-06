@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { translate } from '@/i18n/translate';
 import useConnectionStore from '@/store/connectionStore';
 import { AUTH_STORAGE_KEY, clearStoredCredentials } from '@/utils/authStorage';
 
@@ -78,7 +79,7 @@ apiClient.interceptors.response.use(
       console.error('Network error:', error.message);
       useConnectionStore.getState().setReconnecting(true);
       return Promise.reject({
-        message: 'Erro de conexão. Verifique sua internet e tente novamente.',
+        message: translate('common.connectionError'),
         originalError: error,
       });
     }
@@ -87,7 +88,7 @@ apiClient.interceptors.response.use(
     const errorMessage = error.response?.data
       ? (error.response.data as { error?: string; message?: string }).error ||
         (error.response.data as { error?: string; message?: string }).message ||
-        'Erro desconhecido'
+        translate('common.unknownError')
       : error.message;
 
     console.error('API Error:', errorMessage);

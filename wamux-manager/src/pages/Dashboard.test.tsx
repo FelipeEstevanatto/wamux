@@ -156,6 +156,20 @@ describe('Dashboard page', () => {
     expect(localStorage.getItem('egogo_dash_key')).toBeNull();
   });
 
+  it('formats numbers in the chosen language', async () => {
+    const big = { ...stats, messages: { ...stats.messages, total: 1234567 } };
+    vi.mocked(serverApi.fetchServerStats).mockResolvedValue(big);
+
+    await render();
+    expect(text()).toContain('1.234.567');
+
+    act(() => root.unmount());
+    localStorage.setItem('wamux-lang', 'en');
+    root = createRoot(host);
+    await render();
+    expect(text()).toContain('1,234,567');
+  });
+
   it('shows the connection split', async () => {
     await render();
 

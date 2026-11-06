@@ -120,3 +120,23 @@ func TestSummarizeNilAndUnknown(t *testing.T) {
 		t.Fatalf("empty = %+v, want unknown", got)
 	}
 }
+
+func TestSummarizePollEventAndProduct(t *testing.T) {
+	question := proto.String("Lunch?")
+	for name, tc := range map[string]struct {
+		msg  *waE2E.Message
+		want Summary
+	}{
+		"poll":     {&waE2E.Message{PollCreationMessage: &waE2E.PollCreationMessage{Name: question}}, Summary{Type: "poll", Text: "Lunch?"}},
+		"poll v3":  {&waE2E.Message{PollCreationMessageV3: &waE2E.PollCreationMessage{Name: question}}, Summary{Type: "poll", Text: "Lunch?"}},
+		"event":    {&waE2E.Message{EventMessage: &waE2E.EventMessage{Name: proto.String("Sales")}}, Summary{Type: "event", Text: "Sales"}},
+		"product":  {&waE2E.Message{ProductMessage: &waE2E.ProductMessage{Product: &waE2E.ProductMessage_ProductSnapshot{Title: proto.String("Shirt")}}}, Summary{Type: "product", Text: "Shirt"}},
+		"no title": {&waE2E.Message{ProductMessage: &waE2E.ProductMessage{}}, Summary{Type: "product"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got := Summarize(tc.msg); got.Type != tc.want.Type || got.Text != tc.want.Text {
+				t.Fatalf("got %+v, want %+v", got, tc.want)
+			}
+		})
+	}
+}

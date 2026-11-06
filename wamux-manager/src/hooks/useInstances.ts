@@ -15,11 +15,8 @@ const POLL_MS = 30_000;
 const EMPTY: Instance[] = [];
 
 /**
- * React Query-backed replacement for the old Zustand instances store. It keeps
- * the same surface (`instances`, `isLoading`, `refreshInstances`, `overviews`,
- * `updateInstance`, ...) so consumers migrate by swapping the hook import, while
- * the data itself now lives in the shared query cache (deduped fetches,
- * background refetch, per-instance overview cache).
+ * The instances list and each connected instance's overview, from the shared query
+ * cache. Pass `pollMs` to change how often the list refreshes, or 0 to stop.
  */
 export function useInstances(pollMs = POLL_MS) {
   const qc = useQueryClient();
@@ -55,7 +52,7 @@ export function useInstances(pollMs = POLL_MS) {
   }, [connected, overviewResults]);
 
   const fetchInstances = useCallback(
-    async (_options?: { silent?: boolean }) => {
+    async () => {
       await qc.refetchQueries({ queryKey: instanceKeys.list, type: 'active' });
     },
     [qc]
@@ -71,12 +68,6 @@ export function useInstances(pollMs = POLL_MS) {
       await new Promise((resolve) => setTimeout(resolve, 500 - elapsed));
     }
   }, [qc]);
-
-  // Overviews are their own queries; this is kept for API compatibility.
-  const fetchOverviews = useCallback(
-    async (_instances?: Instance[]) => undefined,
-    []
-  );
 
   const addInstance = useCallback(
     (instance: Instance) => {
@@ -107,11 +98,6 @@ export function useInstances(pollMs = POLL_MS) {
     [qc]
   );
 
-  // Kept for API compatibility; errors surface through the query result.
-  const setError = useCallback((_error: string | null) => undefined, []);
-  const clearError = useCallback(() => undefined, []);
-  const setLoading = useCallback((_isLoading: boolean) => undefined, []);
-
   return {
     instances,
     isLoading: list.isLoading,
@@ -120,13 +106,9 @@ export function useInstances(pollMs = POLL_MS) {
     overviews,
     fetchInstances,
     refreshInstances,
-    fetchOverviews,
     addInstance,
     updateInstance,
     removeInstance,
-    setError,
-    clearError,
-    setLoading,
   };
 }
 
