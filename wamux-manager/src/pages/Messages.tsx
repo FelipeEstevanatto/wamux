@@ -22,8 +22,6 @@ import {
   ArrowLeft,
   Check,
   CheckCheck,
-  Download,
-  FileText,
   FlaskConical,
   History,
   Info,
@@ -39,6 +37,7 @@ import {
   Wifi,
   WifiOff,
   X,
+  Forward,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -48,6 +47,7 @@ import MediaViewer from '@/components/messages/MediaViewer';
 import TestMessageModal from '@/components/instances/TestMessageModal';
 import { useI18n } from '@/i18n/I18nContext';
 import useInstances from '@/hooks/useInstances';
+import FileCard from '@/components/messages/FileCard';
 import ThreadSearch from '@/components/messages/ThreadSearch';
 import useInstanceEvents from '@/hooks/useInstanceEvents';
 import { useInView } from '@/hooks/useInView';
@@ -58,6 +58,7 @@ import { fetchServerStats } from '@/services/api/server';
 import type { ChatSummary, HistoryMessage } from '@/types/messages';
 import { cn } from '@/utils/cn';
 import { applyEdits } from '@/utils/messageEdits';
+import { captionOf, humanSize, showsInline } from '@/utils/fileInfo';
 
 const PAGE_SIZE = 50;
 
@@ -85,6 +86,7 @@ interface FeatureFlags {
   historyEnabled: boolean;
   mediaLocal: boolean;
   webhookFiles: boolean;
+  maxUploadBytes?: number;
   loaded: boolean;
 }
 
@@ -135,7 +137,13 @@ function displayTitle(
   return chat?.name?.trim() || chatTitle(jid, t);
 }
 
+// Larger files stream through the server, which only works for these two kinds.
+const MAX_IN_MEMORY_BYTES = 64 * 1024 * 1024;
+
 function fileKind(file: File): 'image' | 'video' | 'audio' | 'document' {
+  if (file.size > MAX_IN_MEMORY_BYTES) {
+    return file.type === 'video/mp4' ? 'video' : 'document';
+  }
   if (file.type.startsWith('image/')) return 'image';
   if (file.type.startsWith('video/')) return 'video';
   if (file.type.startsWith('audio/')) return 'audio';
@@ -256,12 +264,6 @@ function StatusTick({ status }: { status: string }) {
   return <Check className="h-3.5 w-3.5 opacity-70" />;
 }
 
-function humanSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
 // Profile-picture URLs are cached. The empty string is a cached "no picture",
 // so a contact without one is not re-requested every render.
 const avatarCache = new Map<string, string>();
@@ -378,15 +380,22 @@ function MediaContent({
   message,
   token,
   mediaLocal,
+  mine,
   onOpenMedia,
 }: {
   message: HistoryMessage;
   token: string;
   mediaLocal: boolean;
+  mine: boolean;
   onOpenMedia?: (message: HistoryMessage) => void;
 }) {
   const { t } = useI18n();
-  const { src, loading, failed } = useMediaSrc(message.media_url || '', token);
+  const inline = showsInline(message);
+  const { src, loading, failed } = useMediaSrc(inline ? message.media_url : '', token);
+
+  if (!inline && (message.media_url || message.file_name)) {
+    return <FileCard message={message} token={token} mine={mine} />;
+  }
 
   if (!message.media_url) {
     const label = message.message_type || t('messages.mediaFallback');
@@ -455,21 +464,7 @@ function MediaContent({
   if (mime.startsWith('audio/')) {
     return <audio src={src} controls className="mb-1 w-64 max-w-full" />;
   }
-  return (
-    <a
-      href={src}
-      download
-      target="_blank"
-      rel="noreferrer noopener"
-      className="mb-1 flex max-w-xs items-center gap-2 rounded-md border border-current/20 bg-black/5 p-2 text-xs underline-offset-2 hover:underline"
-    >
-      <FileText className="h-5 w-5 shrink-0" />
-      <span className="min-w-0 flex-1 truncate">
-        {message.message_type || t('messages.fileFallback')}
-      </span>
-      <Download className="h-4 w-4 shrink-0" />
-    </a>
-  );
+  return null;
 }
 
 function Bubble({
@@ -504,7 +499,8 @@ function Bubble({
     senderName?.trim() ||
     jidUser(message.sender_jid) ||
     t('messages.unknownSender');
-  const hasBody = Boolean(message.text_content) || isMedia;
+  const caption = captionOf(message);
+  const hasBody = Boolean(caption) || isMedia;
 
   return (
     <div
@@ -519,6 +515,13 @@ function Bubble({
         {showSender && !mine && (
           <p className={`mb-0.5 text-[11px] font-semibold ${senderColor(label)}`}>
             {label}
+          </p>
+        )}
+
+        {message.is_forwarded && (
+          <p className="mb-0.5 flex items-center gap-1 text-[11px] italic opacity-70">
+            <Forward className="h-3 w-3" />
+            {t('messages.forwarded')}
           </p>
         )}
 
@@ -556,12 +559,13 @@ function Bubble({
             message={message}
             token={token}
             mediaLocal={mediaLocal}
+            mine={mine}
             onOpenMedia={onOpenMedia}
           />
         )}
-        {message.text_content ? (
+        {caption ? (
           <p className="break-words whitespace-pre-wrap">
-            <MessageText text={message.text_content} />
+            <MessageText text={caption} />
           </p>
         ) : !hasBody ? (
           <p className="italic opacity-80">
@@ -760,6 +764,7 @@ export default function Messages() {
       historyEnabled: s?.historyEnabled ?? true,
       mediaLocal: s?.mediaLocal ?? true,
       webhookFiles: s?.webhookFiles ?? true,
+      maxUploadBytes: s?.maxUploadBytes,
       loaded: flagsQuery.isFetched,
     };
   }, [flagsQuery.data, flagsQuery.isFetched]);
@@ -1004,6 +1009,13 @@ export default function Messages() {
     const text = draft.trim();
     if (!token || !selectedChat || sending) return;
     if (!text && !attachFile) return;
+
+    // Refused here because the server cuts the upload off, which reaches the browser
+    // as a connection error instead of the reason.
+    if (attachFile && flags.maxUploadBytes && attachFile.size > flags.maxUploadBytes) {
+      toast.error(t('messages.fileTooLarge', { limit: humanSize(flags.maxUploadBytes) }));
+      return;
+    }
 
     const file = attachFile;
     const chatAtSend = selectedChat;

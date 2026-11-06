@@ -31,10 +31,14 @@ type MessageHandler interface {
 	Contacts(ctx *gin.Context)
 	SenderNames(ctx *gin.Context)
 	ServeMedia(ctx *gin.Context)
+	MediaDownloadLink(ctx *gin.Context)
+	DownloadStoredMedia(ctx *gin.Context)
 }
 
 type messageHandler struct {
 	messageService message_service.MessageService
+	// downloadSecret signs the links DownloadStoredMedia accepts.
+	downloadSecret string
 }
 
 // React a message
@@ -673,6 +677,10 @@ func (m *messageHandler) ServeMedia(ctx *gin.Context) {
 		return
 	}
 
+	m.serveStoredMedia(ctx, messageID, instance)
+}
+
+func (m *messageHandler) serveStoredMedia(ctx *gin.Context, messageID string, instance *instance_model.Instance) {
 	file, info, contentType, err := m.messageService.GetStoredMedia(messageID, instance)
 	if err != nil {
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "media not found"})
@@ -703,8 +711,10 @@ func (m *messageHandler) ServeMedia(ctx *gin.Context) {
 
 func NewMessageHandler(
 	messageService message_service.MessageService,
+	downloadSecret string,
 ) MessageHandler {
 	return &messageHandler{
 		messageService: messageService,
+		downloadSecret: downloadSecret,
 	}
 }

@@ -158,3 +158,19 @@ func TestMediaRetentionDays(t *testing.T) {
 		}
 	}
 }
+
+func TestMaxUploadBytes(t *testing.T) {
+	for raw, want := range map[string]int64{
+		"":      DefaultMaxUploadBytes,
+		"1000":  1000,
+		" 500 ": 500,
+		"0":     DefaultMaxUploadBytes,
+		"-1":    DefaultMaxUploadBytes,
+		"big":   DefaultMaxUploadBytes,
+	} {
+		t.Setenv(config_env.MAX_UPLOAD_BYTES, raw)
+		if got := maxUploadBytes(); got != want {
+			t.Errorf("%q = %d, want %d", raw, got, want)
+		}
+	}
+}

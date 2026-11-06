@@ -35,6 +35,7 @@ type MessageRepository interface {
 	CountChatsByInstance(instanceId string) (int64, error)
 	DatabaseSizeBytes() (totalBytes int64, messagesBytes int64, err error)
 	DeleteMessagesOlderThan(cutoff string) (int64, error)
+	DeleteOrphanReceipts(cutoff string) (int64, error)
 
 	// History readback (GET /chat/history and GET /chat/chats).
 	ListMessages(instanceId, chatJid, before string, limit int) ([]message_model.Message, error)
@@ -156,6 +157,7 @@ func messageUpdateColumns(message message_model.Message) []string {
 		"timestamp", "status", "source",
 		"chat_jid", "sender_jid", "message_type", "text_content",
 		"media_url", "media_mimetype", "quoted_message_id", "is_from_me",
+		"file_name", "file_size", "is_forwarded",
 	}
 	if len(message.Referral) > 0 {
 		updates = append(updates, "referral")
@@ -623,7 +625,7 @@ func (m *messageRepository) countByInstanceLive(instanceId string) (int64, error
 
 	var total int64
 	err := m.db.Model(&message_model.Message{}).
-		Where("instance_id = ?", instanceId).
+		Where("instance_id = ? AND chat_jid <> ''", instanceId).
 		Count(&total).Error
 	if err != nil {
 		return 0, err
@@ -656,7 +658,7 @@ func (m *messageRepository) countChatsByInstanceLive(instanceId string) (int64, 
 
 	var total int64
 	row := m.db.Model(&message_model.Message{}).
-		Where("instance_id = ?", instanceId).
+		Where("instance_id = ? AND chat_jid <> ''", instanceId).
 		Select("COUNT(DISTINCT source)").
 		Row()
 	if err := row.Scan(&total); err != nil {
@@ -707,22 +709,24 @@ func (m *messageRepository) statsLive() (*MessageStats, error) {
 
 	stats := &MessageStats{ByStatus: []StatKV{}, ByDay: []StatKV{}, TopSources: []StatKV{}}
 
-	if err := m.db.Model(&message_model.Message{}).Count(&stats.Total).Error; err != nil {
+	stored := func() *gorm.DB { return m.db.Model(&message_model.Message{}).Where("chat_jid <> ''") }
+
+	if err := stored().Count(&stats.Total).Error; err != nil {
 		return nil, err
 	}
 
-	m.db.Model(&message_model.Message{}).
+	stored().
 		Select("status as label, count(*) as total").
 		Group("status").Order("total desc").
 		Scan(&stats.ByStatus)
 
-	m.db.Model(&message_model.Message{}).
+	stored().
 		Select(`substr("timestamp", 1, 10) as label, count(*) as total`).
 		Group(`substr("timestamp", 1, 10)`).Order("label desc").
 		Limit(14).
 		Scan(&stats.ByDay)
 
-	m.db.Model(&message_model.Message{}).
+	stored().
 		Select("source as label, count(*) as total").
 		Group("source").Order("total desc").
 		Limit(25).
@@ -760,6 +764,26 @@ func (m *messageRepository) DatabaseSizeBytes() (int64, int64, error) {
 // single statement would hold locks for a long time and bloat the transaction
 // log; batches keep each statement short and let the sweep be interrupted.
 const deleteBatchSize = 5000
+
+// DeleteOrphanReceipts removes receipts whose message never arrived. A receipt writes
+// a row in case it beat its message here, so the status is not lost. Many never get
+// one: receipts for status posts, or for messages sent before the instance was linked.
+func (m *messageRepository) DeleteOrphanReceipts(cutoff string) (int64, error) {
+	var total int64
+	for {
+		result := m.db.Exec(
+			`DELETE FROM messages WHERE id IN (
+				SELECT id FROM messages WHERE chat_jid = '' AND "timestamp" < ? ORDER BY "timestamp" LIMIT ?
+			)`, cutoff, deleteBatchSize)
+		if result.Error != nil {
+			return total, result.Error
+		}
+		total += result.RowsAffected
+		if result.RowsAffected < deleteBatchSize {
+			return total, nil
+		}
+	}
+}
 
 // DeleteMessagesOlderThan removes every message whose timestamp is before cutoff
 // ("YYYY-MM-DD HH:MM:SS", compared lexicographically as Postgres text) and

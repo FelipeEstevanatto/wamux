@@ -79,6 +79,7 @@ func newSendHarness(t *testing.T) *sendHarness {
 		LogDirectory:          t.TempDir(),
 		DatabaseSaveMessages:  true,
 		WebhookBase64MaxBytes: 1 << 20,
+		MaxUploadBytes:        1 << 30,
 	}
 	logs := logger_wrapper.NewLoggerManager(cfg)
 	t.Cleanup(func() { _ = logs.GetLogger(testInstanceID).Close() })

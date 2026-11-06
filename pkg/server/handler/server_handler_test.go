@@ -78,6 +78,7 @@ func (f fakeMessageRepo) DatabaseSizeBytes() (int64, int64, error) {
 	return f.dbTotal, f.dbMessages, nil
 }
 func (fakeMessageRepo) DeleteMessagesOlderThan(string) (int64, error) { return 0, nil }
+func (fakeMessageRepo) DeleteOrphanReceipts(string) (int64, error) { return 0, nil }
 func (fakeMessageRepo) ListMessages(string, string, string, int) ([]message_model.Message, error) {
 	return nil, nil
 }

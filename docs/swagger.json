@@ -443,6 +443,41 @@
                 }
             }
         },
+        "/chat/media/{messageId}/link": {
+            "post": {
+                "description": "Returns a link valid for 5 minutes that downloads one stored file without an API key, so a browser can save it straight to disk.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Message"
+                ],
+                "summary": "Create a download link for stored media",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Message id",
+                        "name": "messageId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The link",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "No stored file",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/chat/mute": {
             "post": {
                 "description": "Mute a chat",
@@ -941,6 +976,68 @@
                     },
                     "500": {
                         "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/download/{messageId}": {
+            "get": {
+                "description": "Streams one stored file as an attachment, with Range support. The link comes from POST /chat/media/{messageId}/link.",
+                "produces": [
+                    "application/octet-stream"
+                ],
+                "tags": [
+                    "Message"
+                ],
+                "summary": "Download stored media through a signed link",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Message id",
+                        "name": "messageId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance id",
+                        "name": "instance",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Expiry, in Unix seconds",
+                        "name": "expires",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Signature",
+                        "name": "sig",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The file",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "403": {
+                        "description": "Invalid or expired link",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No stored file",
                         "schema": {
                             "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }

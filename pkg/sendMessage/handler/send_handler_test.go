@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -24,6 +25,8 @@ type fakeSender struct {
 	err   error
 	media *send_service.MediaStruct
 	file  []byte
+	// streamed is the size of a file received through SendMediaStream.
+	streamed int
 }
 
 func (f *fakeSender) done() (*send_service.MessageSendStruct, error) {
@@ -42,6 +45,16 @@ func (f *fakeSender) SendText(*send_service.TextStruct, *inst) (*send_service.Me
 func (f *fakeSender) SendLink(*send_service.LinkStruct, *inst) (*send_service.MessageSendStruct, error) {
 	return f.done()
 }
+func (f *fakeSender) SendMediaStream(d *send_service.MediaStruct, file *os.File, _ *inst) (*send_service.MessageSendStruct, error) {
+	f.media = d
+	info, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
+	f.streamed = int(info.Size())
+	return f.done()
+}
+
 func (f *fakeSender) SendMediaUrl(d *send_service.MediaStruct, _ *inst) (*send_service.MessageSendStruct, error) {
 	f.media = d
 	return f.done()
@@ -292,7 +305,59 @@ func TestMultipartMediaRefusals(t *testing.T) {
 }
 
 func TestReadUploadRefusesOversizedFile(t *testing.T) {
-	if _, err := readUpload(bytes.NewReader(make([]byte, maxUploadBytes+1))); err == nil {
-		t.Fatal("expected an error")
+	_, err := readUpload(bytes.NewReader(make([]byte, send_service.MaxInMemoryMediaBytes+1)))
+	if !errors.Is(err, send_service.ErrLargeMediaType) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+// Over the in-memory limit the file must reach the service as a file, never as bytes.
+func TestLargeUploadStreamsFromDisk(t *testing.T) {
+	f := &fakeSender{}
+	w := httptest.NewRecorder()
+	router(f).ServeHTTP(w, multipartRequest(t, map[string]string{
+		"number": "1", "type": "document", "filename": "big.bin",
+	}, make([]byte, send_service.MaxInMemoryMediaBytes+1)))
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", w.Code, w.Body)
+	}
+	if f.streamed != send_service.MaxInMemoryMediaBytes+1 {
+		t.Fatalf("streamed %d bytes", f.streamed)
+	}
+	if f.file != nil {
+		t.Fatal("the file was also read into memory")
+	}
+	if f.media.Filename != "big.bin" {
+		t.Errorf("filename = %q", f.media.Filename)
+	}
+}
+
+func TestUploadAtTheLimitStaysInMemory(t *testing.T) {
+	f := &fakeSender{}
+	w := httptest.NewRecorder()
+	router(f).ServeHTTP(w, multipartRequest(t, map[string]string{"number": "1", "type": "image"},
+		make([]byte, send_service.MaxInMemoryMediaBytes)))
+
+	if w.Code != http.StatusOK || len(f.file) != send_service.MaxInMemoryMediaBytes || f.streamed != 0 {
+		t.Fatalf("status %d, in memory %d, streamed %d", w.Code, len(f.file), f.streamed)
+	}
+}
+
+func TestRefusedMediaSaysWhy(t *testing.T) {
+	for name, err := range map[string]error{
+		"over the limit": send_service.ErrMediaTooLarge,
+		"wrong type":     send_service.ErrLargeMediaType,
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := &fakeSender{err: err}
+			w := httptest.NewRecorder()
+			router(f).ServeHTTP(w, multipartRequest(t, map[string]string{"number": "1", "type": "video"},
+				make([]byte, send_service.MaxInMemoryMediaBytes+1)))
+
+			if w.Code != http.StatusRequestEntityTooLarge || !strings.Contains(w.Body.String(), err.Error()) {
+				t.Fatalf("status %d: %s", w.Code, w.Body)
+			}
+		})
 	}
 }

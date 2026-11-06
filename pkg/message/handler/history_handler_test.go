@@ -40,7 +40,7 @@ func newMessageRouter(svc message_service.MessageService) *gin.Engine {
 	r.Use(func(c *gin.Context) {
 		c.Set("instance", &instance_model.Instance{Id: "inst-1"})
 	})
-	h := NewMessageHandler(svc)
+	h := NewMessageHandler(svc, "test-secret")
 	r.GET("/chat/history", h.GetHistory)
 	r.GET("/chat/chats", h.ListChats)
 	return r

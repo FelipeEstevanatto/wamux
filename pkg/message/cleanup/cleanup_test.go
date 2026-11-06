@@ -9,10 +9,18 @@ import (
 
 // fakeDeleter records the cutoffs it was asked to delete before.
 type fakeDeleter struct {
-	mu      sync.Mutex
-	cutoffs []string
-	deleted int64
-	err     error
+	orphanCutoffs []string
+	mu            sync.Mutex
+	cutoffs       []string
+	deleted       int64
+	err           error
+}
+
+func (f *fakeDeleter) DeleteOrphanReceipts(cutoff string) (int64, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.orphanCutoffs = append(f.orphanCutoffs, cutoff)
+	return 0, nil
 }
 
 func (f *fakeDeleter) DeleteMessagesOlderThan(cutoff string) (int64, error) {
@@ -143,4 +151,20 @@ func TestZeroMediaRetentionKeepsFiles(t *testing.T) {
 	})).(*cleaner)
 
 	c.sweep()
+}
+
+// Keeping messages forever must not mean keeping receipts that never found one.
+func TestOrphanReceiptsAreSweptEvenWithoutRetention(t *testing.T) {
+	repo := &fakeDeleter{}
+	c := NewCleaner(repo, 0).(*cleaner)
+	c.now = func() time.Time { return time.Date(2026, 11, 6, 12, 0, 0, 0, time.UTC) }
+
+	c.sweep()
+
+	if len(repo.orphanCutoffs) != 1 || repo.orphanCutoffs[0] != "2026-11-05 12:00:00" {
+		t.Fatalf("cutoffs = %v", repo.orphanCutoffs)
+	}
+	if len(repo.cutoffs) != 0 {
+		t.Fatalf("deleted messages with retention off: %v", repo.cutoffs)
+	}
 }

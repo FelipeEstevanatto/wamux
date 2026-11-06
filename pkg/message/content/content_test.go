@@ -140,3 +140,35 @@ func TestSummarizePollEventAndProduct(t *testing.T) {
 		})
 	}
 }
+
+func TestSummarizeFileDetails(t *testing.T) {
+	size := proto.Uint64(2048)
+	forwarded := &waE2E.ContextInfo{IsForwarded: proto.Bool(true)}
+	document := &waE2E.DocumentMessage{FileName: proto.String("a.pdf"), FileLength: size, ContextInfo: forwarded}
+
+	for name, tc := range map[string]struct {
+		msg       *waE2E.Message
+		file      string
+		size      int64
+		forwarded bool
+	}{
+		"document": {&waE2E.Message{DocumentMessage: document}, "a.pdf", 2048, true},
+		"captioned document": {
+			&waE2E.Message{DocumentWithCaptionMessage: &waE2E.FutureProofMessage{Message: &waE2E.Message{DocumentMessage: document}}},
+			"a.pdf", 2048, true,
+		},
+		"image":          {&waE2E.Message{ImageMessage: &waE2E.ImageMessage{FileLength: size}}, "", 2048, false},
+		"video":          {&waE2E.Message{VideoMessage: &waE2E.VideoMessage{FileLength: size, ContextInfo: forwarded}}, "", 2048, true},
+		"audio":          {&waE2E.Message{AudioMessage: &waE2E.AudioMessage{FileLength: size}}, "", 2048, false},
+		"forwarded text": {&waE2E.Message{ExtendedTextMessage: &waE2E.ExtendedTextMessage{Text: proto.String("x"), ContextInfo: forwarded}}, "", 0, true},
+		"plain text":     {&waE2E.Message{Conversation: proto.String("x")}, "", 0, false},
+		"location":       {&waE2E.Message{LocationMessage: &waE2E.LocationMessage{ContextInfo: forwarded}}, "", 0, true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got := Summarize(tc.msg)
+			if got.FileName != tc.file || got.FileSize != tc.size || got.Forwarded != tc.forwarded {
+				t.Fatalf("got %+v", got)
+			}
+		})
+	}
+}

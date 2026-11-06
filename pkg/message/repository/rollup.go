@@ -41,6 +41,10 @@ LANGUAGE plpgsql AS $$
 DECLARE
     old_key text;
     new_key text;
+    -- A row with no chat is a receipt for a message that was not stored: it stays out
+    -- of the counts unless the message arrives and fills it in.
+    old_counts boolean := TG_OP <> 'INSERT' AND COALESCE(OLD.chat_jid,'') <> '';
+    new_counts boolean := TG_OP <> 'DELETE' AND COALESCE(NEW.chat_jid,'') <> '';
 BEGIN
     IF TG_OP <> 'INSERT' THEN
         old_key := COALESCE(OLD.instance_id,'') || '|' || substr(COALESCE(OLD."timestamp",''),1,10)
@@ -52,11 +56,11 @@ BEGIN
     END IF;
 
     -- UPDATE that does not move the row between buckets changes nothing.
-    IF TG_OP = 'UPDATE' AND old_key = new_key THEN
+    IF TG_OP = 'UPDATE' AND old_key = new_key AND old_counts = new_counts THEN
         RETURN NULL;
     END IF;
 
-    IF TG_OP <> 'INSERT' THEN
+    IF old_counts THEN
         UPDATE ` + counterTableName + ` SET total = total - 1
          WHERE instance_id = COALESCE(OLD.instance_id,'')
            AND day = substr(COALESCE(OLD."timestamp",''),1,10)
@@ -70,7 +74,7 @@ BEGIN
            AND source = COALESCE(OLD.source,'');
     END IF;
 
-    IF TG_OP <> 'DELETE' THEN
+    IF new_counts THEN
         INSERT INTO ` + counterTableName + ` (instance_id, day, status, source, total)
         VALUES (COALESCE(NEW.instance_id,''), substr(COALESCE(NEW."timestamp",''),1,10),
                 COALESCE(NEW.status,''), COALESCE(NEW.source,''), 1)
@@ -93,6 +97,7 @@ INSERT INTO ` + counterTableName + ` (instance_id, day, status, source, total)
 SELECT COALESCE(instance_id,''), substr(COALESCE("timestamp",''),1,10),
        COALESCE(status,''), COALESCE(source,''), count(*)
 FROM messages
+WHERE COALESCE(chat_jid,'') <> ''
 GROUP BY 1, 2, 3, 4`
 )
 

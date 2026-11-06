@@ -46,6 +46,10 @@ export interface HistoryMessage {
   media_mimetype: string;
   quoted_message_id: string;
   is_from_me: boolean;
+  /** Empty on messages stored before these were recorded. */
+  file_name?: string;
+  file_size?: number;
+  is_forwarded?: boolean;
 }
 
 /** One frame from /ws: `{ queue, payload }`, payload being the event JSON. */

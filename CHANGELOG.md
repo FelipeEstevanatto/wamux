@@ -14,6 +14,13 @@
 - **Auto-read** — one call off the dispatch path, instead of two with one blocking.
 
 ### 🔌 API
+- History adds `file_name`, `file_size` and `is_forwarded`, for new messages.
+- `POST /chat/media/:messageId/link` gives a 5-minute link that downloads one stored
+  file without an API key.
+- `/send/media` accepts files up to `MAX_UPLOAD_BYTES` (2 GiB by default), by upload or
+  by URL, up from 64 MiB. Files over 64 MiB stream through disk with flat memory and
+  must be a document or an MP4 video. Refused files now answer `413` with the reason,
+  not a `500` saying "cannot read file".
 - `POST /instance/create` accepts `websocketEnable`. The manager turns it on.
 - `GET /chat/history/search` finds text in one conversation, ignoring case.
 - `POST /ws/ticket` issues a short-lived credential for `/ws`.
@@ -25,6 +32,9 @@
 - The channel guide no longer claims documents and polls work there.
 
 ### ✨ Manager
+- Files in `/messages` show their name, type and size with a download button, like
+  WhatsApp, and messages are marked Forwarded. Downloads go straight to disk, and a
+  document or a large video is no longer loaded into the page to draw the chat.
 - Dates, numbers, form errors and connection errors follow the chosen language.
 - The sidebar collapses to icons, with titles on hover.
 - The divider between conversations and chat on `/messages` can be dragged, or moved
@@ -57,6 +67,9 @@
   works for existing integrations.
 
 ### 🐛 Fixes
+- Dashboard totals counted receipts for messages that were never stored, such as
+  status posts. Those rows are no longer counted and are removed after a day, and migration `0010` clears the existing ones. The receipt
+  still reaches its message when it arrives first.
 - `mentionAll` and `mentionedJid` tagged nobody unless the text already had `@number`.
   The API now adds the missing tokens to text and captions, and `mentionAll` leaves
   out the sender.

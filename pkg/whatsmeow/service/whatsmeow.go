@@ -3062,6 +3062,9 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 				IsFromMe:        evt.Info.IsFromMe,
 				MediaUrl:        mediaURL,
 				MediaMimetype:   storedMediaMimetype,
+				FileName:        summary.FileName,
+				FileSize:        summary.FileSize,
+				IsForwarded:     summary.Forwarded,
 			}
 
 			mycli.persistMessageAsync(message)

@@ -211,6 +211,26 @@ var steps = []migration{
 			`DROP INDEX IF EXISTS idx_messages_chat_jid`,
 		},
 	},
+	{
+		// Receipts for messages that were never stored each left a row with no chat,
+		// and those rows inflated every dashboard count. The counters are cleared so
+		// EnsureMessageCounters rebuilds them from what is left. The partial index
+		// keeps the sweep for new ones off the rest of the table.
+		Name: "0010_messages_orphan_receipts",
+		Postgres: []string{
+			`DELETE FROM messages WHERE COALESCE(chat_jid, '') = ''`,
+			`DO $$ BEGIN
+				IF to_regclass('message_counters') IS NOT NULL THEN
+					DELETE FROM message_counters;
+				END IF;
+			END $$`,
+			`CREATE INDEX IF NOT EXISTS idx_messages_orphan_receipts ON messages ("timestamp") WHERE chat_jid = ''`,
+		},
+		SQLite: []string{
+			`DELETE FROM messages WHERE COALESCE(chat_jid, '') = ''`,
+			`CREATE INDEX IF NOT EXISTS idx_messages_orphan_receipts ON messages ("timestamp") WHERE chat_jid = ''`,
+		},
+	},
 }
 
 const createMigrationsTable = `

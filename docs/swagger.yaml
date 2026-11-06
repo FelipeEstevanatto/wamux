@@ -9449,6 +9449,30 @@ paths:
       summary: Serve a stored attachment
       tags:
       - Message
+  /chat/media/{messageId}/link:
+    post:
+      description: Returns a link valid for 5 minutes that downloads one stored file
+        without an API key, so a browser can save it straight to disk.
+      parameters:
+      - description: Message id
+        in: path
+        name: messageId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The link
+          schema:
+            $ref: '#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope'
+        "404":
+          description: No stored file
+          schema:
+            $ref: '#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse'
+      summary: Create a download link for stored media
+      tags:
+      - Message
   /chat/mute:
     post:
       consumes:
@@ -9757,6 +9781,49 @@ paths:
       summary: Remove participant from community
       tags:
       - Community
+  /download/{messageId}:
+    get:
+      description: Streams one stored file as an attachment, with Range support. The
+        link comes from POST /chat/media/{messageId}/link.
+      parameters:
+      - description: Message id
+        in: path
+        name: messageId
+        required: true
+        type: string
+      - description: Instance id
+        in: query
+        name: instance
+        required: true
+        type: string
+      - description: Expiry, in Unix seconds
+        in: query
+        name: expires
+        required: true
+        type: integer
+      - description: Signature
+        in: query
+        name: sig
+        required: true
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: The file
+          schema:
+            type: file
+        "403":
+          description: Invalid or expired link
+          schema:
+            $ref: '#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse'
+        "404":
+          description: No stored file
+          schema:
+            $ref: '#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse'
+      summary: Download stored media through a signed link
+      tags:
+      - Message
   /group/create:
     post:
       consumes:

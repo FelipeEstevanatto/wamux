@@ -47,6 +47,12 @@ type Message struct {
 	MediaMimetype   string `json:"media_mimetype"`
 	QuotedMessageID string `json:"quoted_message_id"`
 	IsFromMe        bool   `json:"is_from_me"`
+
+	// FileName and FileSize describe an attachment as WhatsApp reports it, so they
+	// are known even when the file itself was not stored.
+	FileName    string `json:"file_name"`
+	FileSize    int64  `json:"file_size"`
+	IsForwarded bool   `json:"is_forwarded"`
 }
 
 func (m *Message) BeforeCreate(tx *gorm.DB) (err error) {

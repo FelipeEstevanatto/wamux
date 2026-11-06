@@ -2,9 +2,10 @@ package send_handler
 
 import (
 	"encoding/base64"
-	"fmt"
+	"errors"
 	"io"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -39,21 +40,25 @@ type sendHandler struct {
 	sendMessageService send_service.SendService
 }
 
-// maxUploadBytes caps a single multipart upload. The handler reads the whole
-// file into memory before sending it, so an unbounded upload is an OOM vector
-// for the process that hosts every instance.
-const maxUploadBytes = 64 << 20 // 64 MiB
-
-// readUpload reads a multipart file, rejecting anything over maxUploadBytes.
+// readUpload reads a multipart file that has to be in memory.
 func readUpload(r io.Reader) ([]byte, error) {
-	data, err := io.ReadAll(io.LimitReader(r, maxUploadBytes+1))
+	data, err := io.ReadAll(io.LimitReader(r, send_service.MaxInMemoryMediaBytes+1))
 	if err != nil {
 		return nil, err
 	}
-	if int64(len(data)) > maxUploadBytes {
-		return nil, fmt.Errorf("file exceeds %d bytes", maxUploadBytes)
+	if len(data) > send_service.MaxInMemoryMediaBytes {
+		return nil, send_service.ErrLargeMediaType
 	}
 	return data, nil
+}
+
+// writeMediaError answers with the real reason a file was refused.
+func writeMediaError(ctx *gin.Context, err error) {
+	status := http.StatusInternalServerError
+	if errors.Is(err, send_service.ErrMediaTooLarge) || errors.Is(err, send_service.ErrLargeMediaType) {
+		status = http.StatusRequestEntityTooLarge
+	}
+	ctx.JSON(status, gin.H{"error": err.Error()})
 }
 
 // Send a text message
@@ -233,11 +238,6 @@ func (s *sendHandler) SendMedia(ctx *gin.Context) {
 			return
 		}
 		defer fileData.Close()
-		fileBytes, err := readUpload(fileData)
-		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "cannot read file"})
-			return
-		}
 
 		// Create MediaStruct
 		data = &send_service.MediaStruct{
@@ -252,10 +252,27 @@ func (s *sendHandler) SendMedia(ctx *gin.Context) {
 			Quoted:       quoted,
 		}
 
+		// A file this large is already on disk, where the multipart parser put it.
+		if onDisk, ok := fileData.(*os.File); ok && file.Size > send_service.MaxInMemoryMediaBytes {
+			message, err := s.sendMessageService.SendMediaStream(data, onDisk, instance)
+			if err != nil {
+				writeMediaError(ctx, err)
+				return
+			}
+			ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": message})
+			return
+		}
+
+		fileBytes, err := readUpload(fileData)
+		if err != nil {
+			writeMediaError(ctx, err)
+			return
+		}
+
 		// Pass fileBytes to the send service
 		message, err := s.sendMessageService.SendMediaFile(data, fileBytes, instance)
 		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			writeMediaError(ctx, err)
 			return
 		}
 
@@ -301,7 +318,7 @@ func (s *sendHandler) SendMedia(ctx *gin.Context) {
 		} else {
 			message, err = s.sendMessageService.SendMediaUrl(data, instance)
 			if err != nil {
-				ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				writeMediaError(ctx, err)
 				return
 			}
 		}
@@ -812,7 +829,7 @@ func (s *sendHandler) SendStatusMedia(ctx *gin.Context) {
 		defer fileData.Close()
 		fileBytes, err := readUpload(fileData)
 		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "cannot read file"})
+			writeMediaError(ctx, err)
 			return
 		}
 

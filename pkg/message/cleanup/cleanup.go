@@ -17,6 +17,9 @@ const (
 	// defaultRunInterval is how often the sweep repeats.
 	defaultRunInterval = 6 * time.Hour
 
+	// orphanReceiptAge is how long a receipt waits for its message to arrive.
+	orphanReceiptAge = 24 * time.Hour
+
 	// defaultStartDelay lets the process finish starting (database, instances)
 	// before the first sweep touches the messages table.
 	defaultStartDelay = time.Minute
@@ -31,12 +34,14 @@ const (
 // repository.
 type MessageDeleter interface {
 	DeleteMessagesOlderThan(cutoff string) (int64, error)
+	DeleteOrphanReceipts(cutoff string) (int64, error)
 }
 
 // Cleaner deletes messages older than the configured retention.
 type Cleaner interface {
 	// Start begins the periodic sweep and returns immediately. It stops when ctx
-	// is cancelled. A non-positive retention disables it.
+	// is cancelled. A non-positive retention keeps messages, but receipts whose
+	// message never arrived are still removed.
 	Start(ctx context.Context)
 }
 
@@ -96,10 +101,10 @@ func (c *cleaner) prunesMedia() bool {
 func (c *cleaner) Start(ctx context.Context) {
 	if c.retentionDays <= 0 && !c.prunesMedia() {
 		applog.Logger.LogInfo("[cleanup] message retention disabled (MESSAGE_RETENTION_DAYS=0); messages are kept forever")
-		return
+	} else {
+		applog.Logger.LogInfo("[cleanup] keeping messages for %d day(s); first sweep in %s, then every %s",
+			c.retentionDays, c.startDelay, c.runInterval)
 	}
-	applog.Logger.LogInfo("[cleanup] keeping messages for %d day(s); first sweep in %s, then every %s",
-		c.retentionDays, c.startDelay, c.runInterval)
 	go c.loop(ctx)
 }
 
@@ -120,11 +125,24 @@ func (c *cleaner) loop(ctx context.Context) {
 
 // sweep deletes one batch-run and logs the outcome.
 func (c *cleaner) sweep() {
+	c.sweepOrphanReceipts()
 	if c.prunesMedia() {
 		c.sweepMedia()
 	}
 	if c.retentionDays > 0 {
 		c.sweepMessages()
+	}
+}
+
+// sweepOrphanReceipts runs whatever the retention: these rows hold nothing to keep.
+func (c *cleaner) sweepOrphanReceipts() {
+	deleted, err := c.repo.DeleteOrphanReceipts(c.now().Add(-orphanReceiptAge).Format(timeLayout))
+	if err != nil {
+		applog.Logger.LogError("[cleanup] failed to delete orphan receipts: %v", err)
+		return
+	}
+	if deleted > 0 {
+		applog.Logger.LogInfo("[cleanup] deleted %d receipt(s) whose message never arrived", deleted)
 	}
 }
 

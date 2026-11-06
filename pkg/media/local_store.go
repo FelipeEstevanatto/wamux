@@ -9,6 +9,7 @@ package media
 
 import (
 	"errors"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -143,6 +144,23 @@ func CreateTemp() (*os.File, error) {
 		dir = s.root
 	}
 	return os.CreateTemp(dir, tempPattern)
+}
+
+// SaveFrom stores a file too large to hold in memory.
+func SaveFrom(instanceID, messageID string, r io.Reader) error {
+	if current() == nil {
+		return ErrNotConfigured
+	}
+	temp, err := CreateTemp()
+	if err != nil {
+		return err
+	}
+	defer os.Remove(temp.Name()) // A no-op once Adopt has moved it.
+	defer temp.Close()
+	if _, err := io.Copy(temp, r); err != nil {
+		return err
+	}
+	return Adopt(instanceID, messageID, temp.Name())
 }
 
 // Adopt moves a file made by CreateTemp into place as a message's media. The bytes

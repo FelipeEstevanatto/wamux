@@ -48,6 +48,7 @@ type SendService interface {
 	SendText(data *TextStruct, instance *instance_model.Instance) (*MessageSendStruct, error)
 	SendLink(data *LinkStruct, instance *instance_model.Instance) (*MessageSendStruct, error)
 	SendMediaUrl(data *MediaStruct, instance *instance_model.Instance) (*MessageSendStruct, error)
+	SendMediaStream(data *MediaStruct, file *os.File, instance *instance_model.Instance) (*MessageSendStruct, error)
 	SendMediaFile(data *MediaStruct, fileData []byte, instance *instance_model.Instance) (*MessageSendStruct, error)
 	SendPoll(data *PollStruct, instance *instance_model.Instance) (*MessageSendStruct, error)
 	SendSticker(data *StickerStruct, instance *instance_model.Instance) (*MessageSendStruct, error)
@@ -75,6 +76,9 @@ type sendService struct {
 	upload       func(context.Context, *whatsmeow.Client, []byte, whatsmeow.MediaType) (whatsmeow.UploadResponse, error)
 	chatPresence func(context.Context, *whatsmeow.Client, types.JID, types.ChatPresence, types.ChatPresenceMedia) error
 	isConnected  func(*whatsmeow.Client) bool
+
+	uploadReader           func(context.Context, *whatsmeow.Client, io.Reader, whatsmeow.MediaType) (whatsmeow.UploadResponse, error)
+	uploadNewsletterReader func(context.Context, *whatsmeow.Client, io.ReadSeeker, whatsmeow.MediaType) (whatsmeow.UploadResponse, error)
 
 	uploadNewsletter func(context.Context, *whatsmeow.Client, []byte, whatsmeow.MediaType) (whatsmeow.UploadResponse, error)
 	isOnWhatsApp     func(context.Context, *whatsmeow.Client, []string) ([]types.IsOnWhatsAppResponse, error)
@@ -136,6 +140,8 @@ type SendDataStruct struct {
 	// payload does not have to download the media back from WhatsApp. Only set
 	// for plain media (not stickers, whose payload is re-encoded to PNG).
 	MediaData []byte
+	// MediaFile is the path of a file sent from disk, in place of MediaData.
+	MediaFile string
 }
 
 type QuotedStruct struct {
@@ -164,6 +170,10 @@ func quotedMessageContent(text string) *waE2E.Message {
 // is SSRF-guarded: a caller-supplied URL cannot reach loopback, private,
 // link-local (cloud metadata) or multicast addresses. See pkg/ssrf.
 var mediaHTTPClient = ssrf.DefaultClient(60 * time.Second)
+
+// largeMediaHTTPClient downloads media by URL, which can run far past the timeout
+// above. Each request carries its own deadline instead.
+var largeMediaHTTPClient = ssrf.DefaultClient(0)
 
 // maxRemoteMediaBytes caps a single outbound fetch (URL media, link preview,
 // button/carousel headers). A malicious or broken remote host must not be able
@@ -524,6 +534,8 @@ type MessageSendStruct struct {
 	// MediaData is the outbound attachment's bytes, used to keep a local copy
 	// for the manager's history preview. Never serialized in API responses.
 	MediaData []byte `json:"-"`
+	// MediaFile is the same for a file sent from disk.
+	MediaFile string `json:"-"`
 	// MediaMimetype is the stored attachment's content type. Not serialized.
 	MediaMimetype string `json:"-"`
 }
@@ -1509,7 +1521,13 @@ func (s *sendService) sendMediaUrlWithRetry(data *MediaStruct, instance *instanc
 
 		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Iniciando download da URL: %s", instance.Id, data.Url)
 
-		resp, err := mediaHTTPClient.Get(data.Url)
+		downloadCtx, cancelDownload := context.WithTimeout(context.Background(), largeDownloadTimeout)
+		defer cancelDownload()
+		req, err := http.NewRequestWithContext(downloadCtx, http.MethodGet, data.Url, nil)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := largeMediaHTTPClient.Do(req)
 		if err != nil {
 			return nil, err
 		}
@@ -1526,12 +1544,17 @@ func (s *sendService) sendMediaUrlWithRetry(data *MediaStruct, instance *instanc
 		}
 
 		downloadStart := time.Now()
-		fileData, err := readAllLimited(resp.Body)
+		fileData, spooled, err := readOrSpool(resp.Body, s.config.MaxUploadBytes)
 		// Close per attempt: this is inside a retry loop, so a deferred close
 		// would hold every attempt's connection open until the function returns.
 		resp.Body.Close()
 		if err != nil {
 			return nil, err
+		}
+		if spooled != nil {
+			defer os.Remove(spooled.Name())
+			defer spooled.Close()
+			return s.SendMediaStream(data, spooled, instance)
 		}
 		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Leitura dos dados concluída em %v. Tamanho: %d bytes", instance.Id, time.Since(downloadStart), len(fileData))
 
@@ -2678,13 +2701,21 @@ func probeVideo(fileData []byte) (videoMetadata, bool) {
 		return videoMetadata{}, false
 	}
 	tmp.Close()
+	return probeVideoFile(tmp.Name())
+}
+
+// probeVideoFile reads a video's size and length from a file on disk.
+func probeVideoFile(path string) (videoMetadata, bool) {
+	if ffprobeBin == "" {
+		return videoMetadata{}, false
+	}
 
 	cmd, cancel := mediaCommand(mediaThumbnailTimeout, ffprobeBin,
 		"-v", "error",
 		"-select_streams", "v:0",
 		"-show_entries", "stream=width,height:format=duration",
 		"-of", "default=noprint_wrappers=1:nokey=1",
-		tmp.Name(),
+		path,
 	)
 	defer cancel()
 	out, err := cmd.Output()
@@ -2736,11 +2767,19 @@ func makeVideoThumbnail(fileData []byte, maxWidth int) []byte {
 		return nil
 	}
 	tmp.Close()
+	return videoThumbnailFromFile(tmp.Name(), maxWidth)
+}
+
+// videoThumbnailFromFile grabs a preview frame from a file on disk.
+func videoThumbnailFromFile(path string, maxWidth int) []byte {
+	if ffmpegBin == "" {
+		return nil
+	}
 
 	// -frames:v 1 grabs a single frame; scale keeps the aspect ratio.
 	cmd, cancel := mediaCommand(mediaThumbnailTimeout, ffmpegBin,
 		"-v", "error",
-		"-i", tmp.Name(),
+		"-i", path,
 		"-frames:v", "1",
 		"-vf", fmt.Sprintf("scale=%d:-1", maxWidth),
 		"-f", "mjpeg",
@@ -3466,6 +3505,7 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 		// Keep the attachment bytes (when present) so a local copy can be
 		// stored for the manager's history preview.
 		MediaData:     data.MediaData,
+		MediaFile:     data.MediaFile,
 		MediaMimetype: detectMessageMimetype(msg),
 	}
 
@@ -4143,6 +4183,13 @@ func NewSendService(
 			return client.SendChatPresence(ctx, to, state, media)
 		},
 		isConnected: func(client *whatsmeow.Client) bool { return client.IsConnected() },
+		// nil: whatsmeow creates the temporary file the encryption needs, and removes it.
+		uploadReader: func(ctx context.Context, client *whatsmeow.Client, data io.Reader, mediaType whatsmeow.MediaType) (whatsmeow.UploadResponse, error) {
+			return client.UploadReader(ctx, data, nil, mediaType)
+		},
+		uploadNewsletterReader: func(ctx context.Context, client *whatsmeow.Client, data io.ReadSeeker, mediaType whatsmeow.MediaType) (whatsmeow.UploadResponse, error) {
+			return client.UploadNewsletterReader(ctx, data, mediaType)
+		},
 		uploadNewsletter: func(ctx context.Context, client *whatsmeow.Client, data []byte, mediaType whatsmeow.MediaType) (whatsmeow.UploadResponse, error) {
 			return client.UploadNewsletter(ctx, data, mediaType)
 		},
@@ -4153,6 +4200,18 @@ func NewSendService(
 			return client.GetGroupInfo(ctx, group)
 		},
 	}
+}
+
+func saveLocalCopy(instanceId string, sent *MessageSendStruct) error {
+	if sent.MediaFile == "" {
+		return localmedia.Save(instanceId, sent.Info.ID, sent.MediaData)
+	}
+	file, err := os.Open(sent.MediaFile)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	return localmedia.SaveFrom(instanceId, sent.Info.ID, file)
 }
 
 // persistSentMessage records an outgoing message so counts and /server/stats
@@ -4182,11 +4241,14 @@ func (s *sendService) persistSentMessage(instanceId string, sent *MessageSendStr
 		TextContent:     summary.Text,
 		QuotedMessageID: summary.QuotedID,
 		IsFromMe:        true,
+		FileName:        summary.FileName,
+		FileSize:        summary.FileSize,
+		IsForwarded:     summary.Forwarded,
 	}
 	// Store a local copy of an outbound attachment so it can be previewed from
 	// history without an object store (MinIO/S3), when local storage is on.
-	if len(sent.MediaData) > 0 && s.config.MediaLocalStore {
-		if err := localmedia.Save(instanceId, sent.Info.ID, sent.MediaData); err == nil {
+	if (len(sent.MediaData) > 0 || sent.MediaFile != "") && s.config.MediaLocalStore {
+		if err := saveLocalCopy(instanceId, sent); err == nil {
 			msg.MediaUrl = localmedia.URLPath(sent.Info.ID)
 			msg.MediaMimetype = sent.MediaMimetype
 		} else if err != localmedia.ErrNotConfigured {

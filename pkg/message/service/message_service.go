@@ -52,6 +52,7 @@ type MessageService interface {
 	// GetStoredMedia opens a locally stored attachment for a message, scoped to
 	// the given instance. It also returns the stored content type.
 	GetStoredMedia(messageID string, instance *instance_model.Instance) (*os.File, fs.FileInfo, string, error)
+	StoredMediaName(messageID string, instance *instance_model.Instance) string
 }
 
 type messageService struct {
@@ -979,6 +980,18 @@ func (m *messageService) GetStoredMedia(messageID string, instance *instance_mod
 		return nil, nil, "", err
 	}
 	return file, info, msg.MediaMimetype, nil
+}
+
+// StoredMediaName is the name to save a stored file under, when it has one.
+func (m *messageService) StoredMediaName(messageID string, instance *instance_model.Instance) string {
+	if instance == nil || m.messageRepository == nil {
+		return ""
+	}
+	msg, err := m.messageRepository.GetMessageByIDForInstance(instance.Id, messageID)
+	if err != nil || msg == nil {
+		return ""
+	}
+	return msg.FileName
 }
 
 // ContactSummary is one picker row: the chat identifier the UI sends back and a

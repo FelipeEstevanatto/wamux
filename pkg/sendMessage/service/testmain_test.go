@@ -15,6 +15,7 @@ import (
 func TestMain(m *testing.M) {
 	permissive := ssrf.New(ssrf.WithAllowPrivateNetworks(true))
 	mediaHTTPClient = permissive.Client(60 * time.Second)
+	largeMediaHTTPClient = permissive.Client(0)
 	stickerHTTPClient = permissive.Client(30 * time.Second)
 	productImageHTTPClient = permissive.Client(30 * time.Second)
 

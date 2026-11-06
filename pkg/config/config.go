@@ -125,6 +125,8 @@ type Config struct {
 	MediaRetentionDays int
 	// WebhookBase64MaxBytes is the largest file embedded as base64 in an event.
 	WebhookBase64MaxBytes int64
+	// MaxUploadBytes is the largest file /send/media accepts.
+	MaxUploadBytes int64
 	// HttpAccessLog selects the request log: "errors", "all" or "off".
 	HttpAccessLog string
 
@@ -701,6 +703,7 @@ func Load() *Config {
 		MessageRetentionDays:     messageRetentionDays,
 		MediaRetentionDays:       mediaRetentionDays(messageRetentionDays),
 		WebhookBase64MaxBytes:    webhookBase64MaxBytes(),
+		MaxUploadBytes:           maxUploadBytes(),
 		HttpAccessLog:            strings.ToLower(strings.TrimSpace(os.Getenv(config_env.HTTP_ACCESS_LOG))),
 		DatabaseMaxOpenConns:     dbMaxOpen,
 		DatabaseMaxIdleConns:     dbMaxIdle,
@@ -804,6 +807,22 @@ func webhookBase64MaxBytes() int64 {
 	if err != nil || limit < 0 {
 		applog.Logger.LogWarn("[CONFIG] invalid %s=%q, using the default of %d", config_env.WEBHOOK_BASE64_MAX_BYTES, raw, int64(defaultWebhookBase64MaxBytes))
 		return defaultWebhookBase64MaxBytes
+	}
+	return limit
+}
+
+// DefaultMaxUploadBytes is the size usually quoted as WhatsApp's own limit.
+const DefaultMaxUploadBytes = 2 << 30
+
+func maxUploadBytes() int64 {
+	raw := strings.TrimSpace(os.Getenv(config_env.MAX_UPLOAD_BYTES))
+	if raw == "" {
+		return DefaultMaxUploadBytes
+	}
+	limit, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || limit <= 0 {
+		applog.Logger.LogWarn("[CONFIG] invalid %s=%q, using the default of %d", config_env.MAX_UPLOAD_BYTES, raw, DefaultMaxUploadBytes)
+		return DefaultMaxUploadBytes
 	}
 	return limit
 }

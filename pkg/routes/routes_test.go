@@ -84,6 +84,8 @@ func TestAssignRoutesRegistersEveryEndpointGroup(t *testing.T) {
 		"POST /chat/pin",
 		"GET /chat/history",
 		"GET /chat/history/search",
+		"POST /chat/media/:messageId/link",
+		"GET /download/:messageId",
 		"GET /chat/chats",
 		"GET /chat/contacts",
 		"GET /chat/senders",

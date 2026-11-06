@@ -1,9 +1,11 @@
 package media
 
 import (
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -200,4 +202,57 @@ func resetStore() {
 	mu.Lock()
 	store = nil
 	mu.Unlock()
+}
+
+func TestSaveFromStoresAndLeavesNoTempFile(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "media")
+	if err := Configure(root); err != nil {
+		t.Fatalf("Configure: %v", err)
+	}
+
+	if err := SaveFrom("instance-1", "big", strings.NewReader("large file")); err != nil {
+		t.Fatalf("SaveFrom: %v", err)
+	}
+
+	f, info, err := Open("instance-1", "big")
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer f.Close()
+	if info.Size() != int64(len("large file")) {
+		t.Errorf("size = %d", info.Size())
+	}
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Errorf("left behind: %v", entries)
+	}
+}
+
+type failingReader struct{}
+
+func (failingReader) Read([]byte) (int, error) { return 0, errors.New("disk error") }
+
+func TestSaveFromCleansUpAfterAFailure(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "media")
+	if err := Configure(root); err != nil {
+		t.Fatalf("Configure: %v", err)
+	}
+
+	if err := SaveFrom("instance-1", "big", failingReader{}); err == nil {
+		t.Fatal("want an error")
+	}
+
+	if Exists("instance-1", "big") {
+		t.Error("stored a partial file")
+	}
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("left behind: %v", entries)
+	}
 }

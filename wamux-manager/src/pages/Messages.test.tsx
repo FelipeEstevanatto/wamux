@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { I18nProvider } from '@/i18n/I18nContext';
 import * as messagesApi from '@/services/api/messages';
+import * as serverApi from '@/services/api/server';
 import type { ChatSummary, HistoryMessage } from '@/types/messages';
 import type { WsStatus } from '@/hooks/useInstanceEvents';
 import Messages from './Messages';
@@ -21,6 +22,7 @@ const live = vi.hoisted(() => ({
   onEvent: (() => {}) as (event: { event: string }) => void,
 }));
 const toastInfo = vi.hoisted(() => vi.fn());
+const toastError = vi.hoisted(() => vi.fn());
 
 vi.mock('@/hooks/useInstanceEvents', () => ({
   default: (_id: string, onEvent: (event: { event: string }) => void) => {
@@ -47,7 +49,7 @@ vi.mock('@/hooks/useInstances', () => ({
 }));
 
 vi.mock('sonner', () => ({
-  toast: { info: toastInfo, success: vi.fn(), error: vi.fn() },
+  toast: { info: toastInfo, success: vi.fn(), error: toastError },
 }));
 
 vi.mock('@/services/api/messages', async (original) => ({
@@ -56,6 +58,14 @@ vi.mock('@/services/api/messages', async (original) => ({
   getHistory: vi.fn(),
   searchHistory: vi.fn(),
   getSenderNames: vi.fn(),
+  sendMedia: vi.fn(),
+  fetchMediaObjectUrl: vi.fn(),
+  getMediaDownloadUrl: vi.fn(),
+}));
+
+vi.mock('@/services/api/server', async (original) => ({
+  ...(await original<typeof serverApi>()),
+  fetchServerStats: vi.fn(),
 }));
 
 const chat: ChatSummary = {
@@ -83,6 +93,13 @@ const row = (id: string, text: string, overrides: Partial<HistoryMessage> = {}):
     is_from_me: false,
     ...overrides,
   }) as HistoryMessage;
+
+// A file of any size without allocating it.
+const bigFile = (name: string, type: string, size: number) => {
+  const file = new File(['x'], name, { type });
+  Object.defineProperty(file, 'size', { value: size });
+  return file;
+};
 
 const flush = async (ms = 0) => {
   await act(async () => {
@@ -114,6 +131,13 @@ describe('Messages page', () => {
     await flush();
   };
 
+  const attach = async (file: File) => {
+    const input = document.querySelector<HTMLInputElement>('input[type="file"]');
+    Object.defineProperty(input, 'files', { value: [file], configurable: true });
+    await act(async () => input?.dispatchEvent(new Event('change', { bubbles: true })));
+    await flush();
+  };
+
   const search = async (text: string) => {
     await act(async () => button('Buscar nesta conversa').click());
     const input = document.querySelector<HTMLInputElement>(
@@ -140,6 +164,11 @@ describe('Messages page', () => {
     live.status = 'open';
     live.websocketEnable = 'enabled';
     toastInfo.mockClear();
+    toastError.mockClear();
+    vi.mocked(messagesApi.sendMedia).mockReset();
+    vi.mocked(messagesApi.fetchMediaObjectUrl).mockReset().mockResolvedValue('blob:x');
+    vi.mocked(messagesApi.getMediaDownloadUrl).mockReset();
+    vi.mocked(serverApi.fetchServerStats).mockReset().mockResolvedValue({ system: {}, messages: {} });
     vi.mocked(messagesApi.listChats).mockReset().mockResolvedValue([chat]);
     vi.mocked(messagesApi.getHistory)
       .mockReset()
@@ -339,6 +368,138 @@ describe('Messages page', () => {
 
     expect(page).toBe(41);
     expect(toastInfo).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ['a large MP4 stays a video', 'clip.mp4', 'video/mp4', 'video'],
+    ['a large MKV goes as a document', 'clip.mkv', 'video/x-matroska', 'document'],
+    ['a large image goes as a document', 'scan.png', 'image/png', 'document'],
+  ])('%s', async (_, name, type, kind) => {
+    vi.mocked(messagesApi.sendMedia).mockResolvedValue({});
+    await render();
+    await openChat();
+    await attach(bigFile(name, type, 100 * 1024 * 1024));
+
+    await act(async () => button('Enviar').click());
+    await flush();
+
+    expect(vi.mocked(messagesApi.sendMedia).mock.calls[0][1].type).toBe(kind);
+  });
+
+  it('refuses a file over the server limit before uploading it', async () => {
+    vi.mocked(serverApi.fetchServerStats).mockResolvedValue({
+      system: {},
+      messages: {},
+      storage: { maxUploadBytes: 1024 * 1024 },
+    });
+    await render();
+    await openChat();
+    await attach(bigFile('big.bin', 'application/zip', 2 * 1024 * 1024));
+
+    await act(async () => button('Enviar').click());
+    await flush();
+
+    expect(messagesApi.sendMedia).not.toHaveBeenCalled();
+    expect(toastError).toHaveBeenCalledWith('Este arquivo passa do limite de 1.0 MB.');
+  });
+
+  const fileRow = (overrides: Partial<HistoryMessage> = {}) =>
+    row('doc', '', {
+      message_type: 'document',
+      media_url: '/chat/media/doc',
+      media_mimetype: 'application/pdf',
+      file_name: 'report.final.pdf',
+      file_size: 2 * 1024 * 1024,
+      ...overrides,
+    });
+
+  it('shows a file with its name, type, size and a download button', async () => {
+    vi.mocked(messagesApi.getHistory).mockResolvedValue([fileRow()]);
+    await render();
+    await openChat();
+
+    expect(document.body.textContent).toContain('report.final.pdf');
+    expect(document.body.textContent).toContain('PDF · 2.0 MB');
+    expect(document.querySelector('[aria-label="Baixar report.final.pdf"]')).not.toBeNull();
+  });
+
+  // A 1.9 GB document must not reach the browser just because its chat was opened.
+  it('does not fetch a file until it is downloaded', async () => {
+    vi.mocked(messagesApi.getHistory).mockResolvedValue([
+      fileRow(),
+      row('big', '', {
+        message_type: 'video',
+        media_url: '/chat/media/big',
+        media_mimetype: 'video/mp4',
+        file_size: 500 * 1024 * 1024,
+      }),
+    ]);
+    await render();
+    await openChat();
+
+    expect(messagesApi.fetchMediaObjectUrl).not.toHaveBeenCalled();
+  });
+
+  it('downloads through a link the browser can open', async () => {
+    vi.mocked(messagesApi.getHistory).mockResolvedValue([fileRow()]);
+    vi.mocked(messagesApi.getMediaDownloadUrl).mockResolvedValue('http://api.test/download/doc?sig=x');
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    await render();
+    await openChat();
+
+    await act(async () =>
+      document.querySelector<HTMLButtonElement>('[aria-label="Baixar report.final.pdf"]')?.click()
+    );
+    await flush();
+
+    expect(messagesApi.getMediaDownloadUrl).toHaveBeenCalledWith('instance-token', expect.anything());
+    expect(click).toHaveBeenCalledOnce();
+    click.mockRestore();
+  });
+
+  it('explains a failed download', async () => {
+    vi.mocked(messagesApi.getHistory).mockResolvedValue([fileRow()]);
+    vi.mocked(messagesApi.getMediaDownloadUrl).mockRejectedValue(new Error('gone'));
+    await render();
+    await openChat();
+
+    await act(async () =>
+      document.querySelector<HTMLButtonElement>('[aria-label="Baixar report.final.pdf"]')?.click()
+    );
+    await flush();
+
+    expect(toastError).toHaveBeenCalledWith('Não foi possível baixar o arquivo.');
+  });
+
+  it('still describes a file that was not stored', async () => {
+    vi.mocked(messagesApi.getHistory).mockResolvedValue([fileRow({ media_url: '' })]);
+    await render();
+    await openChat();
+
+    expect(document.body.textContent).toContain('report.final.pdf');
+    expect(document.body.textContent).toContain('Não salvo');
+    expect(document.querySelector('[aria-label="Baixar report.final.pdf"]')).toBeNull();
+  });
+
+  it('does not repeat a caption that is just the file name', async () => {
+    vi.mocked(messagesApi.getHistory).mockResolvedValue([fileRow({ text_content: 'report.final.pdf' })]);
+    await render();
+    await openChat();
+
+    const bubble = document.querySelector('[data-message-id="doc"]');
+    expect(bubble?.textContent?.match(/report\.final\.pdf/g)).toHaveLength(1);
+  });
+
+  it('marks forwarded messages, and only those', async () => {
+    vi.mocked(messagesApi.getHistory).mockResolvedValue([
+      row('m2', 'passed on', { is_forwarded: true }),
+      row('m1', 'mine'),
+    ]);
+    await render();
+    await openChat();
+
+    expect(document.querySelector('[data-message-id="m2"]')?.textContent).toContain('Encaminhada');
+    expect(document.querySelector('[data-message-id="m1"]')?.textContent).not.toContain('Encaminhada');
   });
 
   it('closes the search when another conversation opens', async () => {

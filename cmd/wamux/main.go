@@ -394,7 +394,7 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		instance_handler.NewInstanceHandler(instanceService, config),
 		user_handler.NewUserHandler(userService),
 		send_handler.NewSendHandler(sendMessageService),
-		message_handler.NewMessageHandler(messageService),
+		message_handler.NewMessageHandler(messageService, config.GlobalApiKey),
 		chat_handler.NewChatHandler(chatService),
 		group_handler.NewGroupHandler(groupService),
 		call_handler.NewCallHandler(callService),
@@ -402,7 +402,7 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		label_handler.NewLabelHandler(labelService),
 		newsletter_handler.NewNewsletterHandler(newsletterService),
 		pollHandler,
-		server_handler.NewServerHandler(messageRepository, version, whatsmeowService, dataDir, mediaBackend, config.DatabaseSaveMessages, config.MediaLocalStore, config.WebhookFiles, config.ClientName, configError, observability),
+		server_handler.NewServerHandler(messageRepository, version, whatsmeowService, dataDir, mediaBackend, config.DatabaseSaveMessages, config.MediaLocalStore, config.WebhookFiles, config.ClientName, configError, observability, config.MaxUploadBytes),
 		typebot_handler.NewTypebotHandler(typebotRepository, loggerWrapper),
 	).AssignRoutes(r)
 

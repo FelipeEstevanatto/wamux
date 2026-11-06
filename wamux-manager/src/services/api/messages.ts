@@ -142,6 +142,8 @@ export const sendMedia = async (
     form,
     {
       headers: { apikey: instanceToken, 'Content-Type': null },
+      // A large file takes minutes: the upload here, then WhatsApp's on the server.
+      timeout: 0,
       onUploadProgress: (event) => {
         if (!onProgress) return;
         const total = event.total ?? 0;
@@ -160,6 +162,22 @@ export const sendMedia = async (
  * or an API path like `/chat/media/<id>`, which requires the instance token.
  * GET /chat/media/:messageId
  */
+/** A link the browser can download on its own, without the API key. */
+export const getMediaDownloadUrl = async (
+  instanceToken: string,
+  message: HistoryMessage
+): Promise<string> => {
+  // An object-store URL is already public.
+  if (/^https?:\/\//.test(message.media_url)) return message.media_url;
+
+  const response = await apiClient.post<{ data: { url: string } }>(
+    `/chat/media/${encodeURIComponent(message.message_id)}/link`,
+    null,
+    asInstance(instanceToken)
+  );
+  return new URL(response.data.data.url, response.config.baseURL).toString();
+};
+
 export const fetchMediaObjectUrl = async (
   instanceToken: string,
   path: string

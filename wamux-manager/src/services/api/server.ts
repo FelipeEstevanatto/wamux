@@ -54,6 +54,7 @@ export interface ServerStorageStats {
   historyEnabled?: boolean;
   mediaLocal?: boolean;
   webhookFiles?: boolean;
+  maxUploadBytes?: number;
 }
 
 export interface ServerStats {

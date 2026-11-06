@@ -165,6 +165,8 @@ curl -X POST http://localhost:8081/send/link \
 
 ### Enviar Mídia
 
+> **Arquivos grandes**: `/send/media` aceita até `MAX_UPLOAD_BYTES` (2 GiB por padrão), por upload ou por URL. Acima de 64 MiB o arquivo passa pelo disco, sem ocupar memória, e precisa ser `document` ou um vídeo MP4: imagem, áudio e outros formatos de vídeo devem ser enviados como `document`. Documentos PDF desse tamanho vão sem miniatura. O servidor precisa de espaço livre de cerca de duas vezes o tamanho do arquivo durante o envio, e mais uma cópia fica guardada se `MEDIA_LOCAL_STORE` estiver ativo. Atrás de um proxy reverso, aumente também o limite dele, como `client_max_body_size` e os timeouts no nginx. Um arquivo acima do limite recebe `413`.
+
 Envia imagem, vídeo, áudio ou documento. Suporta envio via **URL** ou **arquivo local** (multipart/form-data).
 
 **Endpoint**: `POST /send/media`

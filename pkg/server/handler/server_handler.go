@@ -59,6 +59,7 @@ type serverHandler struct {
 	historyEnabled bool
 	mediaLocal     bool
 	webhookFiles   bool
+	maxUploadBytes int64
 }
 
 // ServerOk implements ServerHandler.
@@ -246,6 +247,7 @@ func (s *serverHandler) storageStats() gin.H {
 	storage["historyEnabled"] = s.historyEnabled
 	storage["mediaLocal"] = s.mediaLocal
 	storage["webhookFiles"] = s.webhookFiles
+	storage["maxUploadBytes"] = s.maxUploadBytes
 	return storage
 }
 
@@ -396,7 +398,7 @@ func parseMeminfoKB(line string) float64 {
 	return v
 }
 
-func NewServerHandler(messageRepo message_repository.MessageRepository, version string, overview OverviewProvider, dataDir string, mediaBackend string, historyEnabled bool, mediaLocal bool, webhookFiles bool, clientName string, configError string, observability *Observability) ServerHandler {
+func NewServerHandler(messageRepo message_repository.MessageRepository, version string, overview OverviewProvider, dataDir string, mediaBackend string, historyEnabled bool, mediaLocal bool, webhookFiles bool, clientName string, configError string, observability *Observability, maxUploadBytes int64) ServerHandler {
 	return &serverHandler{
 		messageRepo:    messageRepo,
 		overview:       overview,
@@ -408,6 +410,7 @@ func NewServerHandler(messageRepo message_repository.MessageRepository, version 
 		historyEnabled: historyEnabled,
 		mediaLocal:     mediaLocal,
 		webhookFiles:   webhookFiles,
+		maxUploadBytes: maxUploadBytes,
 		clientName:     clientName,
 		configError:    configError,
 		observability:  observability,

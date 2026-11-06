@@ -19,6 +19,9 @@ const (
 	// Larger files are streamed to storage and the event carries mediaUrl instead.
 	// 0 never embeds. Defaults to 5 MiB.
 	WEBHOOK_BASE64_MAX_BYTES = "WEBHOOK_BASE64_MAX_BYTES"
+	// MAX_UPLOAD_BYTES is the largest file /send/media accepts, by upload or by URL.
+	// Files over 64 MiB stream through disk. Defaults to 2 GiB.
+	MAX_UPLOAD_BYTES = "MAX_UPLOAD_BYTES"
 	// MEDIA_LOCAL_STORE keeps a copy of message attachments on the data volume
 	// so the manager can preview them without MinIO/S3. Disable to restore the
 	// previous behaviour (no local copies written).

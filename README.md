@@ -122,6 +122,7 @@ A few of the most-used settings:
 | `WEBHOOK_HMAC_KEY` | Global key for webhook HMAC signing | — |
 | `RATE_LIMIT_PER_MINUTE` | Requests per credential / per IP (`0` disables) | `600` |
 | `WEBHOOK_BASE64_MAX_BYTES` | Largest file embedded as base64 in an event; larger files stream to storage and the event carries `mediaUrl` (`0` never embeds) | `5242880` |
+| `MAX_UPLOAD_BYTES` | Largest file `/send/media` accepts; files over 64 MiB stream through disk and must be a document or an MP4 video | `2147483648` |
 | `MEDIA_RETENTION_DAYS` | Days to keep stored media (`0` keeps it forever) | `MESSAGE_RETENTION_DAYS` |
 | `HTTP_ACCESS_LOG` | Request log: `errors`, `all` or `off` | `errors` |
 | `TRUSTED_PROXIES` | Proxy IPs/CIDRs allowed to set `X-Forwarded-For`; required behind a reverse proxy | none |

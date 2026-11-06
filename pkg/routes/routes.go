@@ -36,6 +36,14 @@ func servePage(file string) gin.HandlerFunc {
 	}
 }
 
+func (r *Routes) uploadGuard() gin.HandlerFunc {
+	limit := int64(config.DefaultMaxUploadBytes)
+	if r.config != nil && r.config.MaxUploadBytes > 0 {
+		limit = r.config.MaxUploadBytes
+	}
+	return uploadGuard(limit)
+}
+
 type Routes struct {
 	config                  *config.Config
 	authMiddleware          auth_middleware.Middleware
@@ -76,6 +84,10 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 	// Ajuste nas rotas do manager para suportar client-side routing do React
 	eng.GET("/manager/*any", servePage("manager/dist/index.html"))
 	eng.GET("/manager", servePage("manager/dist/index.html"))
+
+	// Public: the signed link is the credential, because a browser download cannot
+	// send an API key.
+	eng.GET("/download/:messageId", r.messageHandler.DownloadStoredMedia)
 
 	eng.GET("/", r.serverHandler.Root)
 	eng.GET("/server/ok", r.serverHandler.ServerOk)
@@ -151,7 +163,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 		{
 			routes.POST("/text", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendText)
 			routes.POST("/link", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendLink)
-			routes.POST("/media", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendMedia)
+			routes.POST("/media", r.uploadGuard(), r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendMedia)
 			routes.POST("/poll", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendPoll)
 			routes.POST("/sticker", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendSticker)
 			routes.POST("/location", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendLocation)
@@ -162,7 +174,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.POST("/event", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendEvent)
 			routes.POST("/product", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendProduct)
 			routes.POST("/status/text", r.sendHandler.SendStatusText)
-			routes.POST("/status/media", r.sendHandler.SendStatusMedia)
+			routes.POST("/status/media", r.uploadGuard(), r.sendHandler.SendStatusMedia)
 		}
 	}
 	routes = eng.Group("/user")
@@ -220,6 +232,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.GET("/contacts", r.messageHandler.Contacts)
 			routes.GET("/senders", r.messageHandler.SenderNames)
 			routes.GET("/media/:messageId", r.messageHandler.ServeMedia)
+			routes.POST("/media/:messageId/link", r.messageHandler.MediaDownloadLink)
 		}
 	}
 	routes = eng.Group("/group")
