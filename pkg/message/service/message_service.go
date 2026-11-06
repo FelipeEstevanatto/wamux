@@ -44,6 +44,7 @@ type MessageService interface {
 	GetHistory(data *HistoryQuery, instance *instance_model.Instance) ([]message_model.Message, error)
 	SearchHistory(data *HistorySearchQuery, instance *instance_model.Instance) ([]message_model.Message, error)
 	ListChats(instance *instance_model.Instance, limit int) ([]message_repository.ChatSummary, error)
+	MarkChatRead(data *ChatReadStruct, instance *instance_model.Instance) error
 	// Contacts lists the known contacts/groups for the instance's picker, with
 	// their resolved display names.
 	Contacts(instance *instance_model.Instance) ([]ContactSummary, error)
@@ -116,6 +117,13 @@ type MessageStatusStruct struct {
 type MessageStruct struct {
 	Chat      string `json:"chat" example:"5511999999999@s.whatsapp.net"`
 	MessageID string `json:"messageId" example:"3EB0A1B2C3D4E5F6A7B8C9"`
+}
+
+// ChatReadStruct is the body of POST /chat/read. Timestamp is the newest message seen,
+// in the history's format; empty means now.
+type ChatReadStruct struct {
+	Chat      string `json:"chat" example:"5511999999999@s.whatsapp.net"`
+	Timestamp string `json:"timestamp" example:"2026-01-02 15:04:05"`
 }
 
 type EditMessageStruct struct {
@@ -937,6 +945,22 @@ func wholeSecondPage(rows []message_model.Message, limit int) []message_model.Me
 		end++
 	}
 	return rows[:end]
+}
+
+// MarkChatRead moves the manager's read position for a chat. It sends nothing to
+// WhatsApp: looking at a chat here does not show the sender blue ticks.
+func (m *messageService) MarkChatRead(data *ChatReadStruct, instance *instance_model.Instance) error {
+	if instance == nil || data.Chat == "" {
+		return errors.New("invalid request")
+	}
+	if m.messageRepository == nil {
+		return nil
+	}
+	at := data.Timestamp
+	if at == "" {
+		at = time.Now().Format("2006-01-02 15:04:05")
+	}
+	return m.messageRepository.MarkChatsRead(instance.Id, m.chatJidVariants(instance.Id, data.Chat), at)
 }
 
 // ListChats returns each conversation's newest message plus its message count,

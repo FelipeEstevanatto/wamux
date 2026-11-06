@@ -27,37 +27,41 @@ fully operational and never contacts a third party on its own.
 | **License** | Apache-2.0 — [`LICENSE`](./LICENSE) · [`NOTICE`](./NOTICE) · [`TRADEMARKS.md`](./TRADEMARKS.md) |
 | **Security** | [`SECURITY.md`](./SECURITY.md) · what changed vs. upstream: [`FORK_NOTES.md`](./FORK_NOTES.md) |
 
-## Quick start (prebuilt image)
+## Quick start
 
-Requires Docker with the Compose plugin. No clone, no build.
+Requires Docker with Compose 2.24 or newer. Nothing to clone, build or configure.
 
 ```bash
 mkdir wamux && cd wamux
-
-curl -fsSL -o docker-compose.yml \
-  https://raw.githubusercontent.com/FelipeEstevanatto/wamux/main/docker/examples/docker-compose.ghcr.yml
-curl -fsSL -o .env \
-  https://raw.githubusercontent.com/FelipeEstevanatto/wamux/main/docker/examples/.env.example
-
-# Set a strong admin key (required), then start
-sed -i "s/^GLOBAL_API_KEY=.*/GLOBAL_API_KEY=$(openssl rand -hex 24)/" .env
-docker compose pull && docker compose up -d
+curl -fsSL -O https://raw.githubusercontent.com/FelipeEstevanatto/wamux/main/docker/examples/docker-compose.yml
+docker compose up -d
+docker compose exec wamux cat /app/data/global-api-key
 ```
+
+Open <http://localhost:8081/manager> and log in with that key. It is generated on
+first boot and kept in the `wamux_data` volume, so back that volume up along with the
+database.
 
 | | |
 |---|---|
 | API | <http://localhost:8081> |
 | Swagger | <http://localhost:8081/swagger/index.html> |
-| Manager | <http://localhost:8081/manager> (log in with `GLOBAL_API_KEY`) |
+| Manager | <http://localhost:8081/manager> |
 
-`WAMUX_VERSION` in `.env` selects the image tag: `latest` (newest release), a
-version such as `0.9.2`, or `dev` (develop branch).
+Every setting is optional. Put overrides in a `.env` next to the compose file, such as
+`CLIENT_NAME`, `WAMUX_PORT`, `WAMUX_VERSION` (`latest`, a version such as `1.0.0`, or `dev`) or
+`GLOBAL_API_KEY`. See [`.env.example`](./docker/examples/.env.example). Change
+`POSTGRES_PASSWORD` before the first boot, if at all: the database is not published
+outside Docker.
+
+[`docker-compose.full.yml`](./docker/examples/docker-compose.full.yml) adds RabbitMQ,
+NATS and MinIO, and [`docker-compose.swarm.yml`](./docker/examples/docker-compose.swarm.yml)
+runs behind Traefik on Swarm.
 
 Or with a plain `docker run` (bring your own Postgres):
 
 ```bash
 docker run -d --name wamux -p 8081:8080 \
-  -e GLOBAL_API_KEY=your-secure-api-key-here \
   -e POSTGRES_AUTH_DB='postgresql://user:pass@host:5432/wamux_auth?sslmode=disable' \
   -e POSTGRES_USERS_DB='postgresql://user:pass@host:5432/wamux_users?sslmode=disable' \
   -v wamux_data:/app/data \
@@ -69,8 +73,8 @@ docker run -d --name wamux -p 8081:8080 \
 ```bash
 git clone https://github.com/FelipeEstevanatto/wamux.git
 cd wamux
-cp .env.example .env          # set GLOBAL_API_KEY
-docker compose up -d --build  # also builds the manager SPA (an oven/bun stage)
+docker build -t ghcr.io/felipeestevanatto/wamux:local .
+WAMUX_VERSION=local docker compose -f docker/examples/docker-compose.yml up -d
 ```
 
 > Building the image requires **BuildKit** (Docker Engine 23+ or Docker Desktop,
@@ -83,7 +87,7 @@ docker compose up -d --build  # also builds the manager SPA (an oven/bun stage)
 git clone https://github.com/FelipeEstevanatto/wamux.git
 cd wamux
 make setup                    # installs deps + prepares .env
-# edit .env: GLOBAL_API_KEY and POSTGRES_* pointing at a reachable Postgres
+# edit .env: POSTGRES_* pointing at a reachable Postgres
 make dev
 ```
 
@@ -99,10 +103,10 @@ for the reference):
 
 ```env
 SERVER_PORT=8080
-CLIENT_NAME=wamux
+CLIENT_NAME=wamux                                 # names this server; see the table below
 OS_NAME=WaMux
 
-GLOBAL_API_KEY=your-secure-api-key-here          # required admin key
+GLOBAL_API_KEY=your-secure-api-key-here          # admin key; generated when empty
 
 POSTGRES_AUTH_DB=postgresql://user:pass@localhost:5432/wamux_auth?sslmode=disable
 POSTGRES_USERS_DB=postgresql://user:pass@localhost:5432/wamux_users?sslmode=disable
@@ -113,9 +117,10 @@ A few of the most-used settings:
 
 | Variable | Description | Default |
 |---|---|---|
-| `GLOBAL_API_KEY` | Admin key (`/instance/all`, `/server/stats`, Manager) | **required** |
-| `DATABASE_SAVE_MESSAGES` | Persist messages (enables history readback + dashboard counts) | `false` (compose: `true`) |
-| `DATABASE_SAVE_HISTORY_SYNC` | Also store history sync batches, including the one sent after pairing | `true` |
+| `GLOBAL_API_KEY` | Admin key (`/instance/all`, `/server/stats`, Manager) | generated on first boot |
+| `CLIENT_NAME` | Names this server. Instances belong to it, so changing it hides them until it is changed back. Servers sharing a database need different names | `wamux` |
+| `DATABASE_SAVE_MESSAGES` | Persist messages (enables history readback + dashboard counts) | `true` |
+| `DATABASE_SAVE_HISTORY_SYNC` | Also store history sync batches, up to `MESSAGE_RETENTION_DAYS` old | `true` |
 | `MESSAGE_RETENTION_DAYS` | Prune stored messages after N days (`0` = keep forever) | `365` |
 | `CONNECT_ON_STARTUP` | Reconnect paired instances on boot | `true` (explicit API disconnects stay down) |
 | `SWAGGER_ENABLED` | Serve `/swagger` publicly | `true` |
@@ -126,7 +131,7 @@ A few of the most-used settings:
 | `MAX_UPLOAD_BYTES` | Largest file `/send/media` accepts; files over 64 MiB stream through disk and must be a document or an MP4 video | `2147483648` |
 | `MEDIA_RETENTION_DAYS` | Days to keep stored media (`0` keeps it forever) | `MESSAGE_RETENTION_DAYS` |
 | `HTTP_ACCESS_LOG` | Request log: `errors`, `all` or `off` | `errors` |
-| `TRUSTED_PROXIES` | Proxy IPs/CIDRs allowed to set `X-Forwarded-For`; required behind a reverse proxy | none |
+| `TRUSTED_PROXIES` | Who may set `X-Forwarded-For`: IPs/CIDRs, or `none` | private addresses, so a local reverse proxy needs nothing |
 
 RabbitMQ, NATS and MinIO settings are in the same `.env.example`.
 

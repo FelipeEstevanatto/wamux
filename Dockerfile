@@ -97,4 +97,8 @@ USER wamux
 ENV TZ=America/Sao_Paulo
 ENV LOG_DIRECTORY=/app/data/logs
 
+# Lets `docker ps` and `depends_on` tell a booted server from one still starting.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD wget -q --spider "http://127.0.0.1:${SERVER_PORT:-8080}/server/ok" || exit 1
+
 ENTRYPOINT ["/app/server"]

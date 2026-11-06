@@ -7,7 +7,6 @@ set -euo pipefail
 
 image="${1:?usage: image-smoke.sh <image>}"
 network="wamux-smoke-$$"
-api_key="smoke-test-key"
 port="${SMOKE_PORT:-18080}"
 base="http://127.0.0.1:${port}"
 
@@ -41,9 +40,6 @@ docker run -d --name "${network}-app" --network "$network" -p "127.0.0.1:${port}
 	-e SERVER_PORT=8080 \
 	-e POSTGRES_AUTH_DB="${db}/wamux_auth?sslmode=disable" \
 	-e POSTGRES_USERS_DB="${db}/wamux_users?sslmode=disable" \
-	-e DATABASE_SAVE_MESSAGES=true \
-	-e GLOBAL_API_KEY="$api_key" \
-	-e CLIENT_NAME=smoke \
 	"$image" >/dev/null
 
 for _ in $(seq 60); do
@@ -59,9 +55,20 @@ echo "ok: /manager"
 
 status="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "$base/instance/all")"
 [ "$status" = "401" ] || fail "/instance/all without a key answered $status"
-curl -fsS --max-time 5 -H "apikey: $api_key" "$base/instance/all" >/dev/null || fail "/instance/all refused the API key"
-echo "ok: authentication"
+api_key="$(docker exec "${network}-app" cat /app/data/global-api-key)"
+curl -fsS --max-time 5 -H "apikey: $api_key" "$base/instance/all" >/dev/null || fail "/instance/all refused the generated key"
+echo "ok: authentication with the generated key"
+
+docker logs "${network}-app" 2>&1 | grep -qF "$api_key" && fail "the generated key reached the logs"
+echo "ok: the key is not in the logs"
 
 applied="$(docker exec "${network}-db" psql -U wamux -d wamux_users -Atc 'select count(*) from schema_migrations')"
 [ "${applied:-0}" -gt 0 ] || fail "no migrations were recorded"
 echo "ok: $applied migrations applied"
+
+for _ in $(seq 60); do
+	[ "$(docker inspect -f '{{.State.Health.Status}}' "${network}-app")" = "healthy" ] && break
+	sleep 1
+done
+[ "$(docker inspect -f '{{.State.Health.Status}}' "${network}-app")" = "healthy" ] || fail "the healthcheck never passed"
+echo "ok: healthcheck"

@@ -107,7 +107,6 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     networks:
       - wamux_network
 
@@ -121,13 +120,7 @@ networks:
     driver: bridge
 ```
 
-#### init-db.sql
-
-```sql
-CREATE DATABASE wamux_auth;
-CREATE DATABASE wamux_users;
-SELECT 'Databases criados com sucesso!' as message;
-```
+> Os bancos `wamux_auth` e `wamux_users` são criados automaticamente no boot.
 
 #### Deploy
 
@@ -194,7 +187,6 @@ services:
       POSTGRES_DB: postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
 
   rabbitmq:
     image: rabbitmq:3-management-alpine

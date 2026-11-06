@@ -31,7 +31,7 @@ func benchRepo(b *testing.B) MessageRepository {
 	if err != nil {
 		b.Fatalf("open postgres: %v", err)
 	}
-	if err := db.AutoMigrate(&message_model.Message{}); err != nil {
+	if err := db.AutoMigrate(&message_model.Message{}, &message_model.ChatRead{}); err != nil {
 		b.Fatalf("migrate: %v", err)
 	}
 	b.Cleanup(func() {

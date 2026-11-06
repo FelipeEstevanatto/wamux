@@ -1,90 +1,53 @@
 # =============================================================================
-# WaMux (community fork) — Docker Swarm stack
-#
-# For a Traefik-fronted Swarm deployment. The volumes/network are declared
-# external, so create them first:
+# WaMux — Docker Swarm behind Traefik, with a Postgres you provide.
 #
 #   docker network create --driver overlay network_public
-#   docker volume create wamux_data
-#
-# The app talks to a Postgres you provide (set the POSTGRES_*_DB URLs below).
-# Adjust the Traefik host to your domain, then:
-#
+#   export WAMUX_DOMAIN=wamux.example.com
+#   export POSTGRES_URL=postgresql://user:pass@host:5432
 #   docker stack deploy -c docker-compose.swarm.yml wamux
+#
+# The API key is generated on first boot, in the wamux_data volume. Read it with
+# `cat /app/data/global-api-key` inside the container, or set GLOBAL_API_KEY. The app
+# stays on one node, because a WhatsApp session can only run in one place.
+#
+# Traefik on the overlay network is trusted for client IPs by default.
 # =============================================================================
-
 
 services:
   wamux:
-    image: ghcr.io/felipeestevanatto/wamux:${WAMUX_VERSION:-dev}
+    image: ghcr.io/felipeestevanatto/wamux:${WAMUX_VERSION:-latest}
     networks:
       - network_public
     environment:
-      SERVER_PORT: 4000
-      CLIENT_NAME: wamux
-      OS_NAME: WaMux
-
-      # REQUIRED: change this.
-      GLOBAL_API_KEY: change-me-to-a-long-random-key
-
-      # Point these at your managed Postgres.
-      POSTGRES_AUTH_DB: postgresql://wamux_user:wamux_pass@postgres:5432/wamux_auth?sslmode=disable
-      POSTGRES_USERS_DB: postgresql://wamux_user:wamux_pass@postgres:5432/wamux_users?sslmode=disable
-      DATABASE_SAVE_MESSAGES: "true"
-      MESSAGE_RETENTION_DAYS: "365"
-
-      CONNECT_ON_STARTUP: "true"
-      WEBHOOK_FILES: "true"
-      LOG_DIRECTORY: /app/data/logs
-      DEBUG_ENABLED: "0"
-      LOG_TYPE: console
-      SWAGGER_ENABLED: "true"
-
-      # Optional integrations.
-      WEBHOOK_URL: ""
-      AMQP_URL: ""
-      AMQP_GLOBAL_ENABLED: "false"
-      AMQP_GLOBAL_EVENTS: ""
-      NATS_URL: ""
-      NATS_GLOBAL_ENABLED: "false"
-      MINIO_ENABLED: "false"
-      MINIO_ENDPOINT: ""
-      MINIO_ACCESS_KEY: ""
-      MINIO_SECRET_KEY: ""
-      MINIO_BUCKET: ""
-      MINIO_USE_SSL: "false"
-      PROXY_HOST: ""
-      PROXY_PORT: ""
-      PROXY_USERNAME: ""
-      PROXY_PASSWORD: ""
-      API_AUDIO_CONVERTER: ""
-      API_AUDIO_CONVERTER_KEY: ""
-
+      SERVER_PORT: 8080
+      # Names this server. Instances belong to the name they were created under, so
+      # changing it hides them until it is changed back. Nothing is deleted. Servers
+      # sharing a database need different names.
+      CLIENT_NAME: ${CLIENT_NAME:-wamux}
+      GLOBAL_API_KEY: ${GLOBAL_API_KEY:-}
+      POSTGRES_AUTH_DB: ${POSTGRES_URL:?set POSTGRES_URL}/wamux_auth?sslmode=${POSTGRES_SSLMODE:-disable}
+      POSTGRES_USERS_DB: ${POSTGRES_URL:?set POSTGRES_URL}/wamux_users?sslmode=${POSTGRES_SSLMODE:-disable}
     volumes:
       - wamux_data:/app/data
-
     deploy:
       replicas: 1
       placement:
         constraints:
           - node.role == manager
       restart_policy:
-        condition: on-failure
+        condition: any
         delay: 5s
-        max_attempts: 3
       labels:
         - traefik.enable=true
-        - traefik.http.routers.wamux.rule=Host(`wamux.example.com`)
+        - traefik.http.routers.wamux.rule=Host(`${WAMUX_DOMAIN:?set WAMUX_DOMAIN}`)
         - traefik.http.routers.wamux.entrypoints=websecure
         - traefik.http.routers.wamux.tls.certresolver=letsencryptresolver
         - traefik.http.routers.wamux.service=wamux
-        - traefik.http.services.wamux.loadbalancer.server.port=4000
+        - traefik.http.services.wamux.loadbalancer.server.port=8080
         - traefik.http.services.wamux.loadbalancer.passHostHeader=true
 
 volumes:
   wamux_data:
-    external: true
-    name: wamux_data
 
 networks:
   network_public:

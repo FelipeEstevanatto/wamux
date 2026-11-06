@@ -1401,6 +1401,15 @@ definitions:
         example: composing
         type: string
     type: object
+  github_com_felipeestevanatto_wamux_pkg_message_service.ChatReadStruct:
+    properties:
+      chat:
+        example: 5511999999999@s.whatsapp.net
+        type: string
+      timestamp:
+        example: "2026-01-02 15:04:05"
+        type: string
+    type: object
   github_com_felipeestevanatto_wamux_pkg_message_service.DownloadMediaStruct:
     properties:
       chat:
@@ -9602,6 +9611,37 @@ paths:
       summary: Pin a chat
       tags:
       - Chat
+  /chat/read:
+    post:
+      consumes:
+      - application/json
+      description: Moves the read position behind `unread_count` in GET /chat/chats.
+        Nothing is sent to WhatsApp.
+      parameters:
+      - description: Chat and newest message seen
+        in: body
+        name: message
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_felipeestevanatto_wamux_pkg_message_service.ChatReadStruct'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: success
+          schema:
+            $ref: '#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope'
+        "400":
+          description: Error on validation
+          schema:
+            $ref: '#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse'
+      summary: Mark a chat as read in the history
+      tags:
+      - Message
   /chat/senders:
     get:
       description: Maps each message sender (by JID user part) to a display name so

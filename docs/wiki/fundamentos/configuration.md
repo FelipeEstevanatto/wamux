@@ -15,7 +15,8 @@ e o template comentado em
 | `GLOBAL_API_KEY` | Chave administrativa (`/instance/all`, `/server/stats`, Manager) | **sim** |
 | `POSTGRES_AUTH_DB` / `POSTGRES_USERS_DB` | Connection strings dos bancos (criados no primeiro boot se ausentes) | sim |
 | `SERVER_PORT` | Porta HTTP dentro do container | não (`8080`) |
-| `CLIENT_NAME` / `OS_NAME` | Identificador e nome exibido do dispositivo no WhatsApp | não |
+| `CLIENT_NAME` | Nome deste servidor. As instâncias pertencem a ele: ao trocá-lo, elas somem do manager até voltar ao nome antigo, sem perder dados | não (`wamux`) |
+| `OS_NAME` | Nome exibido do dispositivo no WhatsApp | não (`WaMux`) |
 | `DATABASE_SAVE_MESSAGES` | Persistir mensagens (habilita histórico e contadores) | não |
 
 ## Onde configurar

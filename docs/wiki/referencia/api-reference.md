@@ -107,6 +107,7 @@ http://localhost:8081
 ### Chats (12 endpoints)
 
 - `GET /chat/history` - Ler o histórico salvo de uma conversa
+- `POST /chat/read` - Marcar até onde a conversa foi lida no histórico (não envia nada ao WhatsApp)
 - `GET /chat/chats` - Listar conversas (nome resolvido em `name`)
 - `GET /chat/contacts` - Contatos e grupos conhecidos (para o seletor)
 - `GET /chat/senders` - Mapa autor → nome de exibição (grupos)

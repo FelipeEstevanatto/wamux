@@ -235,6 +235,18 @@ export const listContacts = async (instanceToken: string): Promise<Contact[]> =>
 };
 
 /**
+ * Record how far a chat was read here. Nothing is sent to WhatsApp.
+ * POST /chat/read
+ */
+export const markChatRead = async (
+  instanceToken: string,
+  chat: string,
+  timestamp: string
+): Promise<void> => {
+  await apiClient.post('/chat/read', { chat, timestamp }, asInstance(instanceToken));
+};
+
+/**
  * Ask the phone for historical messages/chats (on-demand backfill).
  *
  * The API needs an anchor message: `messageInfo` identifies the newest message

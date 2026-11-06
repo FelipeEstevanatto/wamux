@@ -28,6 +28,7 @@ type MessageHandler interface {
 	GetHistory(ctx *gin.Context)
 	SearchHistory(ctx *gin.Context)
 	ListChats(ctx *gin.Context)
+	MarkChatRead(ctx *gin.Context)
 	Contacts(ctx *gin.Context)
 	SenderNames(ctx *gin.Context)
 	ServeMedia(ctx *gin.Context)
@@ -557,6 +558,43 @@ func (m *messageHandler) SearchHistory(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": messages})
+}
+
+// MarkChatRead records how far a chat was read in the manager
+// @Summary Mark a chat as read in the history
+// @Description Moves the read position behind `unread_count` in GET /chat/chats. Nothing is sent to WhatsApp.
+// @Tags Message
+// @Accept json
+// @Produce json
+// @Param message body message_service.ChatReadStruct true "Chat and newest message seen"
+// @Success 200 {object} docmodels.Envelope "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
+// @Router /chat/read [post]
+func (m *messageHandler) MarkChatRead(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	data := &message_service.ChatReadStruct{}
+	if err := ctx.ShouldBindBodyWithJSON(data); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if data.Chat == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "chat is required"})
+		return
+	}
+
+	if err := m.messageService.MarkChatRead(data, instance); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"message": "success"})
 }
 
 // ListChats lists conversations with their newest message

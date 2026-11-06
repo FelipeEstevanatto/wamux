@@ -17,6 +17,8 @@ import (
 // stubMessageService records the calls the history handlers make. The embedded
 // interface satisfies the rest of MessageService.
 type stubMessageService struct {
+	read    *message_service.ChatReadStruct
+	readErr error
 	message_service.MessageService
 	history  *message_service.HistoryQuery
 	messages []message_model.Message
@@ -27,6 +29,11 @@ type stubMessageService struct {
 func (s *stubMessageService) GetHistory(q *message_service.HistoryQuery, _ *instance_model.Instance) ([]message_model.Message, error) {
 	s.history = q
 	return s.messages, nil
+}
+
+func (s *stubMessageService) MarkChatRead(data *message_service.ChatReadStruct, _ *instance_model.Instance) error {
+	s.read = data
+	return s.readErr
 }
 
 func (s *stubMessageService) ListChats(_ *instance_model.Instance, limit int) ([]message_repository.ChatSummary, error) {

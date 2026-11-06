@@ -348,15 +348,13 @@ func Load() *Config {
 		applog.Logger.LogFatal("[CONFIG] required database configuration variables are missing. Please check your environment configuration.")
 	}
 
-	databaseSaveMessagesRaw := os.Getenv(config_env.DATABASE_SAVE_MESSAGES)
-	panicIfEmpty(config_env.DATABASE_SAVE_MESSAGES, databaseSaveMessagesRaw)
-	databaseSaveMessages := config_env.Bool(config_env.DATABASE_SAVE_MESSAGES, false)
+	databaseSaveMessages := config_env.Bool(config_env.DATABASE_SAVE_MESSAGES, true)
 	databaseSaveHistorySync := config_env.Bool(config_env.DATABASE_SAVE_HISTORY_SYNC, true)
 
-	globalApiKey := os.Getenv(config_env.GLOBAL_API_KEY)
-	panicIfEmpty(config_env.GLOBAL_API_KEY, globalApiKey)
+	logDirectory := logDirectoryFromEnv(os.Getenv(config_env.LOG_DIRECTORY))
+	globalApiKey := requireAPIKey(resolveGlobalAPIKey(os.Getenv(config_env.GLOBAL_API_KEY), logDirectory))
 
-	clientName := os.Getenv(config_env.CLIENT_NAME)
+	clientName := envOr(config_env.CLIENT_NAME, "wamux")
 
 	waDebug := whatsmeowLogLevel(os.Getenv(config_env.WA_DEBUG))
 
@@ -374,7 +372,7 @@ func Load() *Config {
 	// auto_reconnect=false and are left down (see ConnectOnStartup).
 	connectOnStartup := config_env.Bool(config_env.CONNECT_ON_STARTUP, true)
 
-	osName := os.Getenv(config_env.OS_NAME)
+	osName := envOr(config_env.OS_NAME, "WaMux")
 
 	amqpUrl := os.Getenv(config_env.AMQP_URL)
 
@@ -508,11 +506,6 @@ func Load() *Config {
 		logMaxAge = 30 // Default 30 days
 	}
 
-	logDirectory := os.Getenv(config_env.LOG_DIRECTORY)
-	if logDirectory == "" {
-		logDirectory = "./logs" // Default logs directory
-	}
-
 	logCompress := config_env.Bool(config_env.LOG_COMPRESS, true)
 
 	// The dashboard aggregations are whole-table scans, so they are cached for a
@@ -592,7 +585,7 @@ func Load() *Config {
 		rateLimitPerMinute = 600
 	}
 	corsAllowedOrigins := parseCSV(os.Getenv(config_env.CORS_ALLOWED_ORIGINS))
-	trustedProxies := parseCSV(os.Getenv(config_env.TRUSTED_PROXIES))
+	trustedProxies := resolveTrustedProxies(os.Getenv(config_env.TRUSTED_PROXIES))
 
 	// Response compression. On unless explicitly disabled, because a proxy in
 	// front that already compresses would otherwise double-encode every body.
@@ -622,8 +615,8 @@ func Load() *Config {
 	// NODE_ID explicitly (a distinct value per node).
 	nodeID := strings.TrimSpace(os.Getenv(config_env.NODE_ID))
 	if nodeID == "" {
-		if clientName := strings.TrimSpace(os.Getenv(config_env.CLIENT_NAME)); clientName != "" {
-			nodeID = clientName
+		if name := strings.TrimSpace(clientName); name != "" {
+			nodeID = name
 		} else if hostname, err := os.Hostname(); err == nil {
 			nodeID = hostname
 		} else {

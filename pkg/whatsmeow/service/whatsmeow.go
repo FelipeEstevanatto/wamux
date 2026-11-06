@@ -3291,6 +3291,8 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 			postMap["state"] = "online"
 			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] User is now online", mycli.userID)
 		}
+	case *events.MarkChatAsRead:
+		mycli.chatReadElsewhere(evt)
 	case *events.Archive:
 		doWebhook = true
 		postMap["event"] = "Archive"

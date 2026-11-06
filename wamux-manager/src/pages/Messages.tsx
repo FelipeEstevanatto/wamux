@@ -58,6 +58,7 @@ import { fetchServerStats } from '@/services/api/server';
 import type { ChatSummary, HistoryMessage } from '@/types/messages';
 import { cn } from '@/utils/cn';
 import { applyEdits } from '@/utils/messageEdits';
+import { unreadLabel, unreadMessages } from '@/utils/unread';
 import { captionOf, humanSize, showsInline } from '@/utils/fileInfo';
 
 const PAGE_SIZE = 50;
@@ -644,6 +645,12 @@ export default function Messages() {
 
   const [atBottom, setAtBottom] = useState(true);
   const atBottomRef = useRef(true);
+  // Where the divider goes in the open chat. It stays until the chat is left, so the
+  // reader keeps their place after the badge has cleared.
+  const [unreadMark, setUnreadMark] = useState<{ chat: string; readAt: string } | null>(null);
+  const justOpenedRef = useRef(false);
+  const scrollToUnreadRef = useRef(false);
+  const [pageVisible, setPageVisible] = useState(!document.hidden);
   const threadRef = useRef<HTMLDivElement>(null);
   const panesRef = useRef<HTMLDivElement>(null);
   const listPane = useResizablePane('wamux.messages.listWidth', panesRef);
@@ -855,8 +862,74 @@ export default function Messages() {
     setAtBottom(true);
   };
 
+  // A chat with unread messages opens at the first of them, and otherwise follows the
+  // conversation. Messages arriving while scrolled up get the divider too.
+  const unreadCount = activeChat?.unread_count ?? 0;
+  useEffect(() => {
+    if (!selectedChat || !activeChat) return;
+    const opening = justOpenedRef.current;
+    justOpenedRef.current = false;
+    if (unreadCount === 0 || unreadMark?.chat === selectedChat) return;
+    if (opening || !atBottomRef.current) {
+      scrollToUnreadRef.current = opening;
+      setUnreadMark({ chat: selectedChat, readAt: activeChat.last_read_at ?? '' });
+    }
+  }, [selectedChat, activeChat, unreadCount, unreadMark]);
+
+  const unreadInThread = useMemo(
+    () =>
+      unreadMark?.chat === selectedChat ? unreadMessages(ordered, unreadMark.readAt) : [],
+    [ordered, unreadMark, selectedChat]
+  );
+  const firstUnreadId = unreadInThread[0]?.message_id ?? '';
+
+  useEffect(() => {
+    if (!firstUnreadId || !scrollToUnreadRef.current) return;
+    scrollToUnreadRef.current = false;
+    threadRef.current
+      ?.querySelector('[data-unread-divider]')
+      ?.scrollIntoView({ block: 'center' });
+    handleScroll();
+  }, [firstUnreadId]);
+
+  useEffect(() => {
+    const onChange = () => setPageVisible(!document.hidden);
+    document.addEventListener('visibilitychange', onChange);
+    return () => document.removeEventListener('visibilitychange', onChange);
+  }, []);
+
+  // Read means seen: the chat is open on the newest message, in a tab being looked at.
+  const newestTimestamp = ordered[ordered.length - 1]?.timestamp ?? '';
+  useEffect(() => {
+    if (!token || !selectedChat || !newestTimestamp || unreadCount === 0) return;
+    if (!pageVisible || !atBottom || !atBottomRef.current) return;
+    if (!mobileThread && window.matchMedia('(max-width: 1023px)').matches) return;
+    queryClient.setQueryData<ChatSummary[]>(messageKeys.chats(instanceId), (list) =>
+      list?.map((c) =>
+        c.chat_jid === selectedChat
+          ? { ...c, unread_count: 0, last_read_at: newestTimestamp }
+          : c
+      )
+    );
+    messagesApi.markChatRead(token, selectedChat, newestTimestamp).catch(() => {
+      // The badge comes back on the next refresh, which is the right state.
+    });
+  }, [
+    token,
+    selectedChat,
+    newestTimestamp,
+    unreadCount,
+    pageVisible,
+    atBottom,
+    mobileThread,
+    instanceId,
+    queryClient,
+  ]);
+
   const openChat = useCallback((chat: string) => {
     if (!chat) return;
+    justOpenedRef.current = true;
+    setUnreadMark(null);
     setSelectedChat(chat);
     setSearchOpen(false);
     setJumpTarget('');
@@ -1030,6 +1103,7 @@ export default function Messages() {
     setUploadProgress(file ? 0 : null);
     atBottomRef.current = true;
     setAtBottom(true);
+    setUnreadMark(null);
     try {
       await sendMutation.mutateAsync({
         instanceId,
@@ -1461,7 +1535,11 @@ export default function Messages() {
                         <span className="truncate text-sm font-medium">
                           {title}
                         </span>
-                        <span className="shrink-0 text-[11px] text-muted-foreground">
+                        <span
+                          className={`shrink-0 text-[11px] ${
+                            c.unread_count ? 'font-medium text-primary' : 'text-muted-foreground'
+                          }`}
+                        >
                           {formatShort(c.last_timestamp, locale)}
                         </span>
                       </span>
@@ -1480,11 +1558,20 @@ export default function Messages() {
                                 ? `[${c.last_message_type}]`
                                 : '')}
                         </span>
-                        <span className="shrink-0 text-[10px] text-muted-foreground">
-                          {t('messages.messageCount', {
-                            count: c.message_count,
-                          })}
-                        </span>
+                        {c.unread_count ? (
+                          <span
+                            className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground"
+                            aria-label={t('messages.unreadCount', { count: c.unread_count })}
+                          >
+                            {unreadLabel(c.unread_count)}
+                          </span>
+                        ) : (
+                          <span className="shrink-0 text-[10px] text-muted-foreground">
+                            {t('messages.messageCount', {
+                              count: c.message_count,
+                            })}
+                          </span>
+                        )}
                       </span>
                     </div>
                   </button>
@@ -1631,6 +1718,13 @@ export default function Messages() {
                             </span>
                           </div>
                         )}
+                        {m.message_id === firstUnreadId && (
+                          <div data-unread-divider className="my-3 flex justify-center">
+                            <span className="rounded-full bg-primary/15 px-3 py-1 text-[11px] font-medium text-primary">
+                              {t('messages.unreadCount', { count: unreadInThread.length })}
+                            </span>
+                          </div>
+                        )}
                         <Bubble
                           message={m}
                           token={token}
@@ -1658,6 +1752,11 @@ export default function Messages() {
                   aria-label={t('messages.jumpToLatest')}
                 >
                   <ArrowDown className="h-4 w-4" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[11px] font-semibold text-primary-foreground">
+                      {unreadLabel(unreadCount)}
+                    </span>
+                  )}
                 </Button>
               )}
               </div>

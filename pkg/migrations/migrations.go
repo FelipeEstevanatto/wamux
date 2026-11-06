@@ -231,6 +231,35 @@ var steps = []migration{
 			`CREATE INDEX IF NOT EXISTS idx_messages_orphan_receipts ON messages ("timestamp") WHERE chat_jid = ''`,
 		},
 	},
+	{
+		// Everything stored so far counts as read, or an upgrade would show every old
+		// message as unread.
+		Name: "0011_chat_reads",
+		Postgres: []string{
+			`CREATE TABLE IF NOT EXISTS chat_reads (
+				instance_id text NOT NULL,
+				chat_jid text NOT NULL,
+				read_at text,
+				PRIMARY KEY (instance_id, chat_jid)
+			)`,
+			`INSERT INTO chat_reads (instance_id, chat_jid, read_at)
+				SELECT instance_id, chat_jid, max("timestamp") FROM messages
+				WHERE COALESCE(chat_jid, '') <> '' GROUP BY instance_id, chat_jid
+				ON CONFLICT DO NOTHING`,
+		},
+		SQLite: []string{
+			`CREATE TABLE IF NOT EXISTS chat_reads (
+				instance_id text NOT NULL,
+				chat_jid text NOT NULL,
+				read_at text,
+				PRIMARY KEY (instance_id, chat_jid)
+			)`,
+			`INSERT INTO chat_reads (instance_id, chat_jid, read_at)
+				SELECT instance_id, chat_jid, max("timestamp") FROM messages
+				WHERE COALESCE(chat_jid, '') <> '' GROUP BY instance_id, chat_jid
+				ON CONFLICT DO NOTHING`,
+		},
+	},
 }
 
 const createMigrationsTable = `

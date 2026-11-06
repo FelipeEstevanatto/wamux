@@ -30,7 +30,7 @@ func realStorageHarness(t *testing.T) (*eventHarness, message_repository.Message
 	if err != nil {
 		t.Fatalf("open postgres: %v", err)
 	}
-	if err := db.AutoMigrate(&message_model.Message{}); err != nil {
+	if err := db.AutoMigrate(&message_model.Message{}, &message_model.ChatRead{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	clean := func() { db.Exec("DELETE FROM messages WHERE instance_id = ?", testInstanceID) }

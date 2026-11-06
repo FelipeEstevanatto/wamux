@@ -1,5 +1,38 @@
 # WaMux - Changelog
 
+## Unreleased
+
+### ✨ Manager
+- `/messages` shows unread messages like WhatsApp: a count on each conversation, a
+  divider at the first unread message, opening there, and a count on the jump-to-latest
+  button while scrolled up. A chat counts as read when you reach its newest message, or
+  when it is read on the phone. Older messages and recovered history start as read.
+
+### 🔌 API
+- `GET /chat/chats` adds `unread_count` and `last_read_at`, and `POST /chat/read` moves
+  that position. It only tracks reading in the history: nothing is sent to WhatsApp, so
+  no blue ticks (migration `0011`).
+
+### ✨ Deployment
+- **A new install needs no configuration.** `docker compose up -d` works with no `.env`.
+  `GLOBAL_API_KEY` is generated on first boot into `global-api-key` on the data volume,
+  and is never logged. `DATABASE_SAVE_MESSAGES` now defaults to `true`, `CLIENT_NAME` to
+  `wamux` and `OS_NAME` to `WaMux`.
+- **`TRUSTED_PROXIES` defaults to private addresses**, so a reverse proxy on the same
+  host, Docker network or LAN needs no setup. Public clients still cannot set their own
+  address. `TRUSTED_PROXIES=none` restores the strict behaviour.
+- **History sync stays within retention.** Messages `MESSAGE_RETENTION_DAYS` old or more
+  and status posts are skipped, so a sync no longer writes rows the cleanup would delete.
+- A missing MinIO/S3 bucket is created on start. It used to be left to the operator, and
+  every upload failed until then.
+- The image has a `HEALTHCHECK`.
+- The compose examples default to `latest`, not `dev`. `docker-compose.yml` replaces
+  `docker-compose.ghcr.yml`, reads an optional `.env` and uses port 8081, as do the
+  others. `init-db.sql` is gone: databases are created on boot.
+- `docker-compose.full.yml` no longer sends events to a sample `WEBHOOK_URL`, its admin
+  consoles only listen on localhost, its passwords can be set in `.env`, and it boots:
+  `minio/minio` is replaced.
+
 ## 1.0.0 — complete message history, large files, a React dashboard
 
 Upgrade notes are in `.github/release-notes/1.0.0.md`.

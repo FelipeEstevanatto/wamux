@@ -63,7 +63,18 @@ type Message struct {
 	FileThumbnail []byte `json:"file_thumbnail,omitempty"`
 }
 
+// ChatRead is how far a conversation has been read in the manager: inbound messages
+// newer than ReadAt count as unread. It is separate from WhatsApp's own read state,
+// which auto-read would settle before anyone looked. ReadAt has Timestamp's format.
+type ChatRead struct {
+	InstanceId string `gorm:"column:instance_id;primaryKey"`
+	ChatJid    string `gorm:"column:chat_jid;primaryKey"`
+	ReadAt     string `gorm:"column:read_at"`
+}
+
 func (m *Message) BeforeCreate(tx *gorm.DB) (err error) {
 	m.Id = uuid.New().String()
 	return
 }
+
+func (ChatRead) TableName() string { return "chat_reads" }

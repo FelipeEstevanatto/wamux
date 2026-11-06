@@ -1,67 +1,55 @@
 # =============================================================================
-# WaMux (community fork) — full stack
-#
-# App + Postgres + RabbitMQ + MinIO + NATS, all wired together. Use this as a
-# starting point for production; trim the services you do not need.
+# WaMux — the default stack plus RabbitMQ, NATS and MinIO, already wired together.
+# Remove what you do not need.
 #
 #   docker compose -f docker-compose.full.yml up -d
+#   docker compose -f docker-compose.full.yml exec wamux cat /app/data/global-api-key
 #
-# Then open http://localhost:4000/manager (set GLOBAL_API_KEY below first).
+# Then log in at http://localhost:8081/manager. Stored media goes to MinIO, and
+# MESSAGE and CONNECTION events go to RabbitMQ.
+#
+# The admin consoles only listen on this machine. Set RABBITMQ_PASSWORD and
+# MINIO_PASSWORD in .env before exposing them or going to production.
+#
+#   RabbitMQ  http://localhost:15672
+#   MinIO     http://localhost:9001
+#   NATS      http://localhost:8222
 # =============================================================================
 
 services:
   wamux:
-    image: ghcr.io/felipeestevanatto/wamux:${WAMUX_VERSION:-dev}
+    image: ghcr.io/felipeestevanatto/wamux:${WAMUX_VERSION:-latest}
     restart: unless-stopped
     init: true
+    env_file:
+      - path: .env
+        required: false
     ports:
-      - "4000:4000"
+      - "${WAMUX_PORT:-8081}:8080"
     environment:
-      SERVER_PORT: 4000
-      CLIENT_NAME: wamux
-      OS_NAME: WaMux
+      SERVER_PORT: 8080
+      # Names this server. Instances belong to the name they were created under, so
+      # changing it hides them until it is changed back. Nothing is deleted. Servers
+      # sharing a database need different names.
+      CLIENT_NAME: ${CLIENT_NAME:-wamux}
+      POSTGRES_AUTH_DB: postgresql://${POSTGRES_USER:-wamux_user}:${POSTGRES_PASSWORD:-wamux_pass}@wamux-database:5432/wamux_auth?sslmode=disable
+      POSTGRES_USERS_DB: postgresql://${POSTGRES_USER:-wamux_user}:${POSTGRES_PASSWORD:-wamux_pass}@wamux-database:5432/wamux_users?sslmode=disable
 
-      # REQUIRED: change this.
-      GLOBAL_API_KEY: change-me-to-a-long-random-key
+      AMQP_URL: amqp://wamux:${RABBITMQ_PASSWORD:-wamux_pass}@wamux-rabbitmq:5672/
+      AMQP_GLOBAL_ENABLED: ${AMQP_GLOBAL_ENABLED:-true}
+      # MESSAGE, SEND_MESSAGE, READ_RECEIPT, PRESENCE, HISTORY_SYNC, CHAT_PRESENCE, CALL,
+      # CONNECTION, LABEL, CONTACT, GROUP, NEWSLETTER or QRCODE.
+      AMQP_GLOBAL_EVENTS: ${AMQP_GLOBAL_EVENTS:-MESSAGE,CONNECTION}
 
-      POSTGRES_AUTH_DB: postgresql://wamux_user:wamux_pass@wamux-database:5432/wamux_auth?sslmode=disable
-      POSTGRES_USERS_DB: postgresql://wamux_user:wamux_pass@wamux-database:5432/wamux_users?sslmode=disable
-      DATABASE_SAVE_MESSAGES: "true"
-      MESSAGE_RETENTION_DAYS: "365"
+      NATS_URL: nats://wamux-nats:4222
 
-      CONNECT_ON_STARTUP: "true"
-      WEBHOOK_FILES: "true"
-      LOG_DIRECTORY: /app/data/logs
-      DEBUG_ENABLED: "0"
-      LOG_TYPE: console
-      SWAGGER_ENABLED: "true"
-
-      # Webhook
-      WEBHOOK_URL: "https://your-webhook.example.com/endpoint"
-
-      # RabbitMQ (server accepts AMQP_URL; the credentials live in the broker)
-      AMQP_URL: "amqp://admin:admin@wamux-rabbitmq:5672/default"
-      AMQP_GLOBAL_ENABLED: "true"
-      # Event groups published globally: MESSAGE, SEND_MESSAGE, READ_RECEIPT,
-      # PRESENCE, HISTORY_SYNC, CHAT_PRESENCE, CALL, CONNECTION, LABEL, CONTACT,
-      # GROUP, NEWSLETTER, QRCODE. Empty means no global queues are created.
-      AMQP_GLOBAL_EVENTS: "MESSAGE,CONNECTION"
-      AMQP_SPECIFIC_EVENTS: ""
-
-      # NATS
-      NATS_URL: "nats://wamux-nats:4222"
-      NATS_GLOBAL_ENABLED: "false"
-      NATS_GLOBAL_EVENTS: ""
-
-      # MinIO media storage
       MINIO_ENABLED: "true"
-      MINIO_ENDPOINT: "wamux-minio:9000"
-      MINIO_ACCESS_KEY: "minioadmin"
-      MINIO_SECRET_KEY: "minioadmin"
-      MINIO_BUCKET: "wamux-media"
+      MINIO_ENDPOINT: wamux-minio:9000
+      MINIO_ACCESS_KEY: wamux
+      MINIO_SECRET_KEY: ${MINIO_PASSWORD:-wamux_pass}
+      MINIO_BUCKET: wamux-media
       MINIO_USE_SSL: "false"
-      MINIO_REGION: "us-east-1"
-
+      MINIO_REGION: us-east-1
     volumes:
       - wamux_data:/app/data
     depends_on:
@@ -69,72 +57,63 @@ services:
         condition: service_healthy
       wamux-rabbitmq:
         condition: service_healthy
-    networks:
-      - wamux_network
+      wamux-nats:
+        condition: service_started
+      wamux-minio:
+        condition: service_started
 
   wamux-database:
     image: postgres:18-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: wamux_user
-      POSTGRES_PASSWORD: wamux_pass
+      POSTGRES_USER: ${POSTGRES_USER:-wamux_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wamux_pass}
       POSTGRES_DB: wamux_auth
     volumes:
-      # PostgreSQL 18 volume path (not /var/lib/postgresql/data).
+      # The path for PostgreSQL 18. /var/lib/postgresql/data would lose data.
       - wamux_database:/var/lib/postgresql
-    networks:
-      - wamux_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U wamux_user -d wamux_auth"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-wamux_user} -d wamux_auth"]
+      interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 20
 
   wamux-rabbitmq:
-    # 3.13 is end-of-life; 4.x is the current supported line.
     image: rabbitmq:4.3-management-alpine
     restart: unless-stopped
     environment:
-      RABBITMQ_DEFAULT_USER: admin
-      RABBITMQ_DEFAULT_PASS: admin
-      RABBITMQ_DEFAULT_VHOST: default
+      RABBITMQ_DEFAULT_USER: wamux
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-wamux_pass}
     ports:
-      - "15672:15672"   # management UI (http://localhost:15672)
+      - "127.0.0.1:15672:15672"
     volumes:
       - wamux_rabbitmq_data:/var/lib/rabbitmq
-    networks:
-      - wamux_network
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 15s
+      interval: 10s
       timeout: 10s
-      retries: 10
+      retries: 12
 
   wamux-nats:
     image: nats:2.15-alpine
     restart: unless-stopped
-    command: ["-js", "-m", "8222"]
+    command: ["-js", "-m", "8222", "-sd", "/data"]
     ports:
-      - "8222:8222"     # monitoring (http://localhost:8222)
+      - "127.0.0.1:8222:8222"
     volumes:
       - wamux_nats_data:/data
-    networks:
-      - wamux_network
 
   wamux-minio:
-    image: minio/minio:latest
+    image: cgr.dev/chainguard/minio:latest
     restart: unless-stopped
-    command: server /data --console-address ":9001"
+    command: ["server", "/data", "--console-address", ":9001"]
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_ROOT_USER: wamux
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD:-wamux_pass}
     ports:
-      - "9000:9000"
-      - "9001:9001"     # console (http://localhost:9001)
+      - "127.0.0.1:9001:9001"
     volumes:
       - wamux_minio_data:/data
-    networks:
-      - wamux_network
 
 volumes:
   wamux_data:
@@ -142,7 +121,3 @@ volumes:
   wamux_rabbitmq_data:
   wamux_nats_data:
   wamux_minio_data:
-
-networks:
-  wamux_network:
-    driver: bridge

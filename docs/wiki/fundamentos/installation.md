@@ -44,70 +44,37 @@ Métodos de instalação do WaMux para diferentes ambientes.
 
 Método mais simples e adequado para produção.
 
-### 1. Obter Arquivos
+Não há nada para configurar: a chave da API é gerada no primeiro boot e os bancos são criados automaticamente. Requer Docker Compose 2.24 ou mais novo.
 
-**Opção A: Clonar repositório**
-
-```bash
-git clone https://github.com/FelipeEstevanatto/wamux.git
-cd wamux
-```
-
-**Opção B: Download direto**
+### 1. Baixar o Compose
 
 ```bash
-mkdir wamux-deploy && cd wamux-deploy
-
-curl -o docker-compose.yml https://raw.githubusercontent.com/FelipeEstevanatto/wamux/main/docker/examples/docker-compose.yml
-curl -o init-db.sql https://raw.githubusercontent.com/FelipeEstevanatto/wamux/main/docker/examples/init-db.sql
+mkdir wamux && cd wamux
+curl -fsSL -O https://raw.githubusercontent.com/FelipeEstevanatto/wamux/main/docker/examples/docker-compose.yml
 ```
 
-### 2. Configurar API Key
-
-Gere uma chave segura:
+### 2. Iniciar Serviços
 
 ```bash
-# Linux/Mac
-uuidgen
-
-# Python
-python3 -c "import uuid; print(uuid.uuid4())"
-
-# Resultado exemplo: df16caad-d0d2-41b2-bec5-75b90048a0db
+docker compose up -d
 ```
 
-Edite `docker-compose.yml`:
+### 3. Ler a API Key
 
 ```bash
-nano docker-compose.yml
+docker compose exec wamux cat /app/data/global-api-key
 ```
 
-Localize e substitua:
-```yaml
-GLOBAL_API_KEY: "SUA-CHAVE-API-SEGURA-AQUI"
-```
-
-Por:
-```yaml
-GLOBAL_API_KEY: "df16caad-d0d2-41b2-bec5-75b90048a0db"
-```
-
-### 3. Iniciar Serviços
-
-```bash
-docker-compose up -d
-```
-
-Aguarde ~30 segundos para inicialização completa.
+Use essa chave para entrar em <http://localhost:8081/manager>. Ela fica no volume `wamux_data`, então inclua esse volume nos backups. Para escolher a sua, defina `GLOBAL_API_KEY` em um arquivo `.env` ao lado do compose, antes do primeiro boot. Todas as opções estão em [.env.example](../../../docker/examples/.env.example).
 
 ### 4. Verificar Logs
 
 ```bash
 # WaMux
-docker-compose logs -f wamux
+docker compose logs -f wamux
 
 # PostgreSQL
-docker-compose logs -f postgres
+docker compose logs -f wamux-database
 ```
 
 ### 5. Acessar Aplicação
@@ -242,16 +209,14 @@ docker network create --driver overlay network_public
 
 ### 3. Configurar Stack
 
+Copie `docker/examples/docker-compose.swarm.yml` e defina o domínio e o Postgres:
+
 ```bash
-cp docker/examples/docker-compose.swarm.yml ./docker-compose.swarm.yml
-nano docker-compose.swarm.yml
+export WAMUX_DOMAIN=wamux.example.com
+export POSTGRES_URL=postgresql://usuario:senha@host:5432
 ```
 
-Configure:
-- `GLOBAL_API_KEY`
-- `POSTGRES_AUTH_DB`
-- `POSTGRES_USERS_DB`
-- Labels Traefik (se aplicável)
+A API Key é gerada no primeiro boot, no volume `wamux_data`.
 
 ### 4. Deploy
 
@@ -273,11 +238,9 @@ docker service logs wamux_wamux -f
 Incluindo RabbitMQ, MinIO e NATS.
 
 ```bash
-curl -o docker-compose-full.yml https://raw.githubusercontent.com/FelipeEstevanatto/wamux/main/docker/examples/docker-compose.full.yml
+curl -fsSL -O https://raw.githubusercontent.com/FelipeEstevanatto/wamux/main/docker/examples/docker-compose.full.yml
 
-nano docker-compose-full.yml  # Configurar API Key
-
-docker-compose -f docker-compose-full.yml up -d
+docker compose -f docker-compose.full.yml up -d
 ```
 
 **Serviços incluídos:**
@@ -343,7 +306,7 @@ curl -X POST http://localhost:8081/instance/create \
 
 **Docker:**
 ```bash
-docker-compose logs -f wamux
+docker compose logs -f wamux
 ```
 
 **Local:**
@@ -483,7 +446,6 @@ Disponíveis em `docker/examples/`:
 - [docker-compose.yml](../../../docker/examples/docker-compose.yml)
 - [docker-compose.swarm.yml](../../../docker/examples/docker-compose.swarm.yml)
 - [docker-compose.full.yml](../../../docker/examples/docker-compose.full.yml)
-- [init-db.sql](../../../docker/examples/init-db.sql)
 - [.env.example](../../../docker/examples/.env.example)
 
 ---

@@ -90,6 +90,12 @@ func NewMinioMediaStorageWithOptions(o Options) (storage_interfaces.MediaStorage
 		return nil, fmt.Errorf("failed to create MinIO client: %w", err)
 	}
 
+	if err := ensureBucket(client, o.Bucket, o.Region); err != nil {
+		// Credentials scoped to one bucket often cannot list or create buckets, and
+		// uploads still work for them. A real problem surfaces on the first upload.
+		fmt.Printf("Warning: could not confirm the bucket exists: %v\n", err)
+	}
+
 	if !o.SkipBucketPolicy {
 		if err := setBucketPolicy(client, o.Bucket); err != nil {
 			// Some providers (like Backblaze B2) don't support SetBucketPolicy.
@@ -110,6 +116,18 @@ func NewMinioMediaStorageWithOptions(o Options) (storage_interfaces.MediaStorage
 		baseURL:    baseURL,
 		publicURL:  strings.TrimRight(o.PublicURL, "/"),
 	}, nil
+}
+
+// ensureBucket creates the bucket on a fresh server, so a new install has nothing to
+// prepare by hand.
+func ensureBucket(client *minio.Client, bucket, region string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	exists, err := client.BucketExists(ctx, bucket)
+	if err != nil || exists {
+		return err
+	}
+	return client.MakeBucket(ctx, bucket, minio.MakeBucketOptions{Region: region})
 }
 
 func bucketLookup(pathStyle bool) minio.BucketLookupType {

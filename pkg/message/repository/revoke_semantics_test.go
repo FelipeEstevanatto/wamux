@@ -178,3 +178,72 @@ func TestHistoryNeverChangesARowItFinds(t *testing.T) {
 		t.Fatalf("not stored: %+v", row)
 	}
 }
+
+func chatSummary(t *testing.T, repo MessageRepository, chat string) ChatSummary {
+	t.Helper()
+	chats, err := repo.ListChats("sem", 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range chats {
+		if c.ChatJid == chat {
+			return c
+		}
+	}
+	t.Fatalf("no chat %s in %+v", chat, chats)
+	return ChatSummary{}
+}
+
+func unreadRow(id, at string, fromMe bool, kind string) message_model.Message {
+	row := contentRow(id, "text")
+	row.ChatJid = "sem-unread@s.whatsapp.net"
+	row.Timestamp = at
+	row.IsFromMe = fromMe
+	row.MessageType = kind
+	return row
+}
+
+func TestUnreadCountsInboundMessagesAfterTheReadPosition(t *testing.T) {
+	db := realDB(t)
+	const chat = "sem-unread@s.whatsapp.net"
+	t.Cleanup(func() { db.Exec("DELETE FROM chat_reads WHERE instance_id = 'sem'") })
+	db.Exec("DELETE FROM chat_reads WHERE instance_id = 'sem'")
+	repo := NewMessageRepository(db)
+
+	rows := []message_model.Message{
+		unreadRow("sem-u1", "2026-10-01 10:00:00", false, "text"),
+		unreadRow("sem-u2", "2026-10-01 10:01:00", false, "image"),
+		unreadRow("sem-u3", "2026-10-01 10:02:00", true, "text"),
+		unreadRow("sem-u4", "2026-10-01 10:03:00", false, "reaction"),
+		unreadRow("sem-u5", "2026-10-01 10:04:00", false, "edit"),
+	}
+	if err := repo.InsertMessages(rows); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := chatSummary(t, repo, chat); got.UnreadCount != 2 || got.LastReadAt != "" {
+		t.Fatalf("a new chat: %+v", got)
+	}
+
+	if err := repo.MarkChatsRead("sem", []string{chat}, "2026-10-01 10:00:00"); err != nil {
+		t.Fatal(err)
+	}
+	if got := chatSummary(t, repo, chat); got.UnreadCount != 1 || got.LastReadAt != "2026-10-01 10:00:00" {
+		t.Fatalf("after reading the first: %+v", got)
+	}
+
+	if err := repo.MarkChatsRead("sem", []string{chat}, "2026-10-01 11:00:00"); err != nil {
+		t.Fatal(err)
+	}
+	if got := chatSummary(t, repo, chat); got.UnreadCount != 0 {
+		t.Fatalf("after reading all: %+v", got)
+	}
+
+	// A late or stale request never brings messages back as unread.
+	if err := repo.MarkChatsRead("sem", []string{chat}, "2026-10-01 09:00:00"); err != nil {
+		t.Fatal(err)
+	}
+	if got := chatSummary(t, repo, chat); got.UnreadCount != 0 || got.LastReadAt != "2026-10-01 11:00:00" {
+		t.Fatalf("moved back: %+v", got)
+	}
+}

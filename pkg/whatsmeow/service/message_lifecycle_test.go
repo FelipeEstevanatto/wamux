@@ -3,10 +3,12 @@ package whatsmeow_service
 import (
 	"context"
 	"testing"
+	"time"
 
 	"go.mau.fi/whatsmeow/proto/waCommon"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/proto/waHistorySync"
+	"go.mau.fi/whatsmeow/proto/waSyncAction"
 	"go.mau.fi/whatsmeow/proto/waWeb"
 	"go.mau.fi/whatsmeow/types/events"
 	"google.golang.org/protobuf/proto"
@@ -138,6 +140,96 @@ func TestHistorySyncIsStored(t *testing.T) {
 	}
 	if out.MessageID != "OUT" || !out.IsFromMe || out.Status != "Read" || out.SenderJid != mustJID(t, testOwnJID).ToNonAD().String() {
 		t.Errorf("outbound %+v", out)
+	}
+}
+
+func TestHistorySyncSkipsWhatRetentionWouldDelete(t *testing.T) {
+	h := newEventHarness(t)
+	h.cli.config.DatabaseSaveHistorySync = true
+	h.cli.config.MessageRetentionDays = 30
+
+	recent := webMessage("RECENT", false, "x")
+	recent.MessageTimestamp = proto.Uint64(uint64(time.Now().AddDate(0, 0, -29).Unix()))
+	old := webMessage("OLD", false, "x")
+	old.MessageTimestamp = proto.Uint64(uint64(time.Now().AddDate(0, 0, -31).Unix()))
+
+	h.cli.processEvent(&events.HistorySync{Data: historyBatch(recent, old)})
+
+	if rows := h.messages.history; len(rows) != 1 || rows[0].MessageID != "RECENT" {
+		t.Fatalf("stored %+v", rows)
+	}
+}
+
+func TestHistorySyncKeepsEverythingWithoutRetention(t *testing.T) {
+	h := newEventHarness(t)
+	h.cli.config.DatabaseSaveHistorySync = true
+	h.cli.config.MessageRetentionDays = 0
+
+	old := webMessage("OLD", false, "x")
+	old.MessageTimestamp = proto.Uint64(uint64(time.Now().AddDate(-5, 0, 0).Unix()))
+	h.cli.processEvent(&events.HistorySync{Data: historyBatch(old)})
+
+	if len(h.messages.history) != 1 {
+		t.Fatalf("stored %+v", h.messages.history)
+	}
+}
+
+func TestHistorySyncSkipsStatusPosts(t *testing.T) {
+	h := newEventHarness(t)
+	h.cli.config.DatabaseSaveHistorySync = true
+	batch := historyBatch(webMessage("POST", false, "x"))
+	batch.Conversations[0].ID = proto.String("status@broadcast")
+
+	h.cli.processEvent(&events.HistorySync{Data: batch})
+
+	if len(h.messages.history) != 0 {
+		t.Fatalf("stored %+v", h.messages.history)
+	}
+}
+
+func TestRecoveredHistoryDoesNotShowAsUnread(t *testing.T) {
+	h := newEventHarness(t)
+	h.cli.config.DatabaseSaveHistorySync = true
+	h.cli.config.MessageRetentionDays = 0
+
+	older := webMessage("OLD", false, "x")
+	older.MessageTimestamp = proto.Uint64(uint64(testTime.Add(-time.Hour).Unix()))
+	h.cli.processEvent(&events.HistorySync{Data: historyBatch(older, webMessage("NEW", false, "x"))})
+
+	want := testContact + "|" + testTime.Local().Format("2006-01-02 15:04:05")
+	if got := h.messages.reads; len(got) != 1 || got[0] != want {
+		t.Fatalf("reads %v, want %s", got, want)
+	}
+}
+
+func TestChatReadOnThePhoneClearsTheBadge(t *testing.T) {
+	read := func(value, fullSync bool) *events.MarkChatAsRead {
+		return &events.MarkChatAsRead{
+			JID:          mustJID(t, testContact),
+			Timestamp:    testTime,
+			Action:       &waSyncAction.MarkChatAsReadAction{Read: proto.Bool(value)},
+			FromFullSync: fullSync,
+		}
+	}
+
+	h := newEventHarness(t)
+	h.cli.processEvent(read(true, false))
+	want := testContact + "|" + testTime.Format("2006-01-02 15:04:05")
+	if got := h.messages.reads; len(got) != 1 || got[0] != want {
+		t.Fatalf("reads %v, want %s", got, want)
+	}
+
+	for name, evt := range map[string]*events.MarkChatAsRead{
+		"marked unread": read(false, false),
+		"old state":     read(true, true),
+	} {
+		t.Run(name, func(t *testing.T) {
+			h := newEventHarness(t)
+			h.cli.processEvent(evt)
+			if len(h.messages.reads) != 0 {
+				t.Fatalf("reads %v", h.messages.reads)
+			}
+		})
 	}
 }
 

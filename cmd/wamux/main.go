@@ -476,6 +476,7 @@ func migrate(db *gorm.DB) {
 	err := db.AutoMigrate(
 		&instance_model.Instance{},
 		&message_model.Message{},
+		&message_model.ChatRead{},
 		&label_model.Label{},
 		&typebot_model.Typebot{},
 		&typebot_model.TypebotSession{},

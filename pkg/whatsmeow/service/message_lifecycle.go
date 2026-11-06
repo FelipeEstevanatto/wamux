@@ -93,15 +93,50 @@ func (mycli *MyClient) storeHistorySync(data *waHistorySync.HistorySync) {
 		return
 	}
 	mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Stored %d messages from history sync", mycli.userID, len(rows))
+	mycli.markHistoryRead(rows)
+}
+
+// markHistoryRead keeps recovered messages from showing as unread: the phone already
+// had them, and a new install would otherwise start with every old message unread.
+func (mycli *MyClient) markHistoryRead(rows []message_model.Message) {
+	newest := make(map[string]string)
+	for _, row := range rows {
+		if row.Timestamp > newest[row.ChatJid] {
+			newest[row.ChatJid] = row.Timestamp
+		}
+	}
+	for chat, at := range newest {
+		if err := mycli.messageRepository.MarkChatsRead(mycli.userID, []string{chat}, at); err != nil {
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Failed to mark recovered history as read: %v", mycli.userID, err)
+		}
+	}
+}
+
+// chatReadElsewhere follows a chat read on the phone, so the manager's badge clears.
+func (mycli *MyClient) chatReadElsewhere(evt *events.MarkChatAsRead) {
+	if !evt.Action.GetRead() || evt.FromFullSync || !mycli.config.DatabaseSaveMessages {
+		return
+	}
+	ctx := context.Background()
+	chat := CanonicalChatJID(ctx, mycli.WAClient, evt.JID)
+	chats := []string{chat.String()}
+	if alt, ok := AlternateChatJID(ctx, mycli.WAClient, chat); ok {
+		chats = append(chats, alt.String())
+	}
+	at := evt.Timestamp.Format("2006-01-02 15:04:05")
+	if err := mycli.messageRepository.MarkChatsRead(mycli.userID, chats, at); err != nil {
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Failed to mark a chat as read: %v", mycli.userID, err)
+	}
 }
 
 func (mycli *MyClient) historyRows(data *waHistorySync.HistorySync) []message_model.Message {
 	ctx := context.Background()
+	oldest := mycli.historyCutoff()
 	var rows []message_model.Message
 	for _, conversation := range data.GetConversations() {
 		rawChat, err := types.ParseJID(conversation.GetID())
-		if err != nil {
-			continue
+		if err != nil || rawChat == types.StatusBroadcastJID {
+			continue // Status posts expire in a day, so they are not history.
 		}
 		chat := CanonicalChatJID(ctx, mycli.WAClient, rawChat)
 		for _, item := range conversation.GetMessages() {
@@ -114,13 +149,22 @@ func (mycli *MyClient) historyRows(data *waHistorySync.HistorySync) []message_mo
 				continue
 			}
 			kind := utils.GetMessageType(evt.Message)
-			if kind == "ignore" || kind == "revoke" || kind == "edit" {
+			if kind == "ignore" || kind == "revoke" || kind == "edit" || evt.Info.Timestamp.Before(oldest) {
 				continue
 			}
 			rows = append(rows, historyRow(ctx, mycli, chat, evt, web))
 		}
 	}
 	return rows
+}
+
+// historyCutoff is the oldest message worth storing: the retention job would delete
+// anything older on its next run. Zero means messages are kept forever.
+func (mycli *MyClient) historyCutoff() time.Time {
+	if mycli.config.MessageRetentionDays <= 0 {
+		return time.Time{}
+	}
+	return time.Now().AddDate(0, 0, -mycli.config.MessageRetentionDays)
 }
 
 func historyRow(ctx context.Context, mycli *MyClient, chat types.JID, evt *events.Message, web *waWeb.WebMessageInfo) message_model.Message {

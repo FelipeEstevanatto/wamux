@@ -436,6 +436,8 @@ server {
 }
 ```
 
+Um proxy em endereço privado (mesmo host, rede Docker ou LAN) já é aceito para informar o IP do cliente. Para um proxy em endereço público, liste-o em `TRUSTED_PROXIES`. Se a porta da API estiver exposta sem proxy e o Docker mostrar os clientes com o IP do gateway, como no Docker Desktop, use `TRUSTED_PROXIES=none`.
+
 ### Renovação Automática
 
 ```bash

@@ -34,7 +34,7 @@ func benchMessageRepo(b *testing.B) message_repository.MessageRepository {
 	if err != nil {
 		b.Fatalf("open postgres: %v", err)
 	}
-	if err := db.AutoMigrate(&message_model.Message{}); err != nil {
+	if err := db.AutoMigrate(&message_model.Message{}, &message_model.ChatRead{}); err != nil {
 		b.Fatalf("migrate: %v", err)
 	}
 	sqlDB, _ := db.DB()
@@ -104,7 +104,7 @@ func TestMessagePersistenceRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open postgres: %v", err)
 	}
-	if err := db.AutoMigrate(&message_model.Message{}); err != nil {
+	if err := db.AutoMigrate(&message_model.Message{}, &message_model.ChatRead{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	sqlDB, _ := db.DB()

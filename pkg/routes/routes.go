@@ -230,6 +230,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.GET("/history", r.messageHandler.GetHistory)
 			routes.GET("/history/search", r.messageHandler.SearchHistory)
 			routes.GET("/chats", r.messageHandler.ListChats)
+			routes.POST("/read", r.messageHandler.MarkChatRead)
 			routes.GET("/contacts", r.messageHandler.Contacts)
 			routes.GET("/senders", r.messageHandler.SenderNames)
 			routes.GET("/media/:messageId", r.messageHandler.ServeMedia)

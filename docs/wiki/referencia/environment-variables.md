@@ -8,8 +8,16 @@ Para documentação detalhada, consulte: [Configuração](../fundamentos/configu
 
 ## Obrigatórias
 
-| Variável | Descrição | Exemplo |
-|----------|-----------|---------|
+Só a conexão com o Postgres (`POSTGRES_AUTH_DB` e `POSTGRES_USERS_DB`), e o `docker-compose.yml` já define as duas.
+
+| Variável | Descrição | Padrão |
+|----------|-----------|--------|
+| `GLOBAL_API_KEY` | Chave de administrador | Gerada no primeiro boot em `global-api-key`, na pasta acima de `LOG_DIRECTORY` |
+| `DATABASE_SAVE_MESSAGES` | Salvar mensagens no banco | `true` |
+| `DATABASE_SAVE_HISTORY_SYNC` | Salvar o histórico enviado pelo celular, até `MESSAGE_RETENTION_DAYS` | `true` |
+| `TRUSTED_PROXIES` | Quem pode informar o IP do cliente: IPs/CIDRs ou `none` | Endereços privados, então um proxy no mesmo host, rede Docker ou LAN funciona sem configurar |
+
+----------|-----------|---------|
 | `GLOBAL_API_KEY` | Chave de autenticação da API | `df16caad-d0d2-41b2-bec5-75b90048a0db` |
 | `DATABASE_SAVE_MESSAGES` | Salvar mensagens no banco | `false` |
 
@@ -20,7 +28,7 @@ Para documentação detalhada, consulte: [Configuração](../fundamentos/configu
 | Variável | Padrão | Descrição |
 |----------|--------|-----------|
 | `SERVER_PORT` | `8081` | Porta HTTP |
-| `CLIENT_NAME` | `wamux` | Nome identificador |
+| `CLIENT_NAME` | `wamux` | Nome deste servidor. As instâncias pertencem ao nome com que foram criadas: ao trocá-lo, elas somem do manager e não reconectam até voltar ao nome antigo, sem perder dados. Servidores que compartilham um banco precisam de nomes diferentes. Também é o `NODE_ID` padrão |
 | `OS_NAME` | `Linux` | Sistema operacional |
 | `HTTP_COMPRESSION` | `true` | Compressão gzip das respostas (JSON e o painel). Defina `false` quando um proxy à frente (nginx/Traefik) já comprime, para não pagar o custo de CPU duas vezes. |
 
@@ -182,7 +190,7 @@ PROXY_PASSWORD=senha
 ```env
 # Obrigatórias
 GLOBAL_API_KEY=df16caad-d0d2-41b2-bec5-75b90048a0db
-DATABASE_SAVE_MESSAGES=false
+DATABASE_SAVE_MESSAGES=true
 
 # Servidor
 SERVER_PORT=8081

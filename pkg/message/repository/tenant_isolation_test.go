@@ -188,6 +188,9 @@ func TestListChatsMatchesTheFullScan(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ListChats: %v", err)
 		}
+		for i := range got { // Read state is not part of the old query.
+			got[i].UnreadCount, got[i].LastReadAt = 0, ""
+		}
 		if !reflect.DeepEqual(got, want) {
 			t.Fatalf("limit %d: results differ\ngot  %+v\nwant %+v", limit, got, want)
 		}

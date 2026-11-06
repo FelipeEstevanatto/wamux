@@ -14,6 +14,10 @@ export interface ChatSummary {
   last_sender_jid: string;
   last_from_me: boolean;
   message_count: number;
+  /** Inbound messages newer than `last_read_at`. */
+  unread_count?: number;
+  /** How far the chat was read here, in the history's timestamp format. */
+  last_read_at?: string;
   /**
    * Resolved display name (group subject or saved contact name). Empty when the
    * instance is offline or the name is unknown; the UI then falls back to the

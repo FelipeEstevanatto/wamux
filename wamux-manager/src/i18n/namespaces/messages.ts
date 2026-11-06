@@ -58,6 +58,7 @@ export const messagesNs: {
 
     'messages.selectChat': 'Selecione uma conversa ou inicie uma nova.',
     'messages.messageCount': '{count} mensagens',
+    'messages.unreadCount': '{count} não lidas',
     'messages.noMessagesFiltered': 'Nenhuma conversa corresponde ao filtro.',
     'messages.noMessages': 'Nenhuma mensagem ainda. Envie a primeira abaixo.',
     'messages.searchInChat': 'Buscar nesta conversa',
@@ -209,6 +210,7 @@ export const messagesNs: {
 
     'messages.selectChat': 'Select a conversation or start a new one.',
     'messages.messageCount': '{count} messages',
+    'messages.unreadCount': '{count} unread',
     'messages.noMessagesFiltered': 'No conversation matches the filter.',
     'messages.noMessages': 'No messages yet. Send the first one below.',
     'messages.searchInChat': 'Search this conversation',

@@ -1,70 +1,63 @@
 # =============================================================================
-# WaMux (community fork) — minimal pull-only stack
+# WaMux — the default stack: the app and Postgres, with nothing to configure.
 #
-# Same as docker-compose.ghcr.yml but with everything on one hard-coded
-# container port (4000) and no .env indirection, for a quick local run:
+#   docker compose up -d
+#   docker compose exec wamux cat /app/data/global-api-key
 #
-#   docker compose -f docker-compose.yml up -d
+# That key logs in to http://localhost:8081/manager. It is generated on first boot
+# and kept in the wamux_data volume. To choose your own, set GLOBAL_API_KEY.
 #
-# Then set GLOBAL_API_KEY below and open http://localhost:4000/manager
+# Every setting is optional and goes in a .env file next to this one; see
+# .env.example. Common ones: CLIENT_NAME, WAMUX_PORT, WAMUX_VERSION (`latest`, `1.0.0`
+# or `dev`) and POSTGRES_PASSWORD, which must be set before the first boot.
+#
+# Behind a reverse proxy on this host, this network or your LAN, client IPs already
+# work. For a proxy on a public address, set TRUSTED_PROXIES.
+#
+# Needs Docker Compose 2.24 or newer. An unofficial community build: see NOTICE.
 # =============================================================================
 
 services:
   wamux:
-    image: ghcr.io/felipeestevanatto/wamux:${WAMUX_VERSION:-dev}
+    image: ghcr.io/felipeestevanatto/wamux:${WAMUX_VERSION:-latest}
     restart: unless-stopped
     init: true
+    env_file:
+      - path: .env
+        required: false
     ports:
-      - "4000:4000"
+      - "${WAMUX_PORT:-8081}:8080"
     environment:
-      SERVER_PORT: 4000
-      CLIENT_NAME: wamux
-      OS_NAME: WaMux
-
-      # REQUIRED: change this.
-      GLOBAL_API_KEY: change-me-to-a-long-random-key
-
-      POSTGRES_AUTH_DB: postgresql://wamux_user:wamux_pass@wamux-database:5432/wamux_auth?sslmode=disable
-      POSTGRES_USERS_DB: postgresql://wamux_user:wamux_pass@wamux-database:5432/wamux_users?sslmode=disable
-      DATABASE_SAVE_MESSAGES: "true"
-
-      CONNECT_ON_STARTUP: "true"
-      WEBHOOK_FILES: "true"
-      LOG_DIRECTORY: /app/data/logs
-      DEBUG_ENABLED: "0"
-      LOG_TYPE: console
-      SWAGGER_ENABLED: "true"
-
+      SERVER_PORT: 8080
+      # Names this server. Instances belong to the name they were created under, so
+      # changing it hides them until it is changed back. Nothing is deleted. Servers
+      # sharing a database need different names.
+      CLIENT_NAME: ${CLIENT_NAME:-wamux}
+      POSTGRES_AUTH_DB: postgresql://${POSTGRES_USER:-wamux_user}:${POSTGRES_PASSWORD:-wamux_pass}@wamux-database:5432/wamux_auth?sslmode=disable
+      POSTGRES_USERS_DB: postgresql://${POSTGRES_USER:-wamux_user}:${POSTGRES_PASSWORD:-wamux_pass}@wamux-database:5432/wamux_users?sslmode=disable
     volumes:
       - wamux_data:/app/data
     depends_on:
       wamux-database:
         condition: service_healthy
-    networks:
-      - wamux_network
 
+  # Only the app can reach it: no port is published.
   wamux-database:
     image: postgres:18-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: wamux_user
-      POSTGRES_PASSWORD: wamux_pass
+      POSTGRES_USER: ${POSTGRES_USER:-wamux_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wamux_pass}
       POSTGRES_DB: wamux_auth
     volumes:
-      # PostgreSQL 18 volume path (not /var/lib/postgresql/data).
+      # The path for PostgreSQL 18. /var/lib/postgresql/data would lose data.
       - wamux_database:/var/lib/postgresql
-    networks:
-      - wamux_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U wamux_user -d wamux_auth"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-wamux_user} -d wamux_auth"]
+      interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 20
 
 volumes:
   wamux_data:
   wamux_database:
-
-networks:
-  wamux_network:
-    driver: bridge

@@ -57,6 +57,7 @@ type fakeMessageRepo struct {
 func (fakeMessageRepo) InsertMessage(message_model.Message) error           { return nil }
 func (fakeMessageRepo) InsertMessages([]message_model.Message) error        { return nil }
 func (fakeMessageRepo) InsertHistoryMessages([]message_model.Message) error { return nil }
+func (fakeMessageRepo) MarkChatsRead(string, []string, string) error        { return nil }
 func (fakeMessageRepo) MarkMessageDeleted(message_model.Message, []string, bool) (bool, error) {
 	return true, nil
 }

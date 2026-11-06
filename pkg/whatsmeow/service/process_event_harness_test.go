@@ -170,6 +170,7 @@ type fakeMessageRepo struct {
 	messages     []message_model.Message
 	history      []message_model.Message
 	revoked      []revokedCall
+	reads        []string
 	refuseRevoke bool
 }
 
@@ -198,6 +199,15 @@ func (r *fakeMessageRepo) MarkMessageDeleted(row message_model.Message, chats []
 	defer r.mu.Unlock()
 	r.revoked = append(r.revoked, revokedCall{row, chats, direct})
 	return !r.refuseRevoke, nil
+}
+
+func (r *fakeMessageRepo) MarkChatsRead(_ string, chats []string, at string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, chat := range chats {
+		r.reads = append(r.reads, chat+"|"+at)
+	}
+	return nil
 }
 
 func (r *fakeMessageRepo) stored() []message_model.Message {

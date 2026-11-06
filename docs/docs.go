@@ -695,6 +695,52 @@ const docTemplate = `{
                 }
             }
         },
+        "/chat/read": {
+            "post": {
+                "description": "Moves the read position behind ` + "`" + `unread_count` + "`" + ` in GET /chat/chats. Nothing is sent to WhatsApp.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Message"
+                ],
+                "summary": "Mark a chat as read in the history",
+                "parameters": [
+                    {
+                        "description": "Chat and newest message seen",
+                        "name": "message",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_message_service.ChatReadStruct"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "success",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
+                        }
+                    },
+                    "400": {
+                        "description": "Error on validation",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/chat/senders": {
             "get": {
                 "description": "Maps each message sender (by JID user part) to a display name so a group thread can label who wrote each message.",
@@ -8506,6 +8552,19 @@ const docTemplate = `{
                 "state": {
                     "type": "string",
                     "example": "composing"
+                }
+            }
+        },
+        "github_com_felipeestevanatto_wamux_pkg_message_service.ChatReadStruct": {
+            "type": "object",
+            "properties": {
+                "chat": {
+                    "type": "string",
+                    "example": "5511999999999@s.whatsapp.net"
+                },
+                "timestamp": {
+                    "type": "string",
+                    "example": "2026-01-02 15:04:05"
                 }
             }
         },

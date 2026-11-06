@@ -27,6 +27,8 @@ type MessageRepository interface {
 	InsertHistoryMessages(messages []message_model.Message) error
 	// MarkMessageDeleted turns a revoked message into a tombstone. See the method.
 	MarkMessageDeleted(row message_model.Message, chats []string, direct bool) (bool, error)
+	// MarkChatsRead moves the read position of chats forward to at, never back.
+	MarkChatsRead(instanceId string, chats []string, at string) error
 	GetMessageByID(messageID string) (*message_model.Message, error)
 	// GetMessageByIDForInstance is the tenant-safe lookup: it returns the message
 	// only when it belongs to instanceId. Handlers that serve one instance must
@@ -65,6 +67,9 @@ type ChatSummary struct {
 	SenderJid    string `json:"last_sender_jid" gorm:"column:sender_jid"`
 	IsFromMe     bool   `json:"last_from_me" gorm:"column:is_from_me"`
 	MessageCount int64  `json:"message_count" gorm:"column:message_count"`
+	// UnreadCount is the inbound messages newer than LastReadAt, the read position.
+	UnreadCount int64  `json:"unread_count" gorm:"column:unread_count"`
+	LastReadAt  string `json:"last_read_at" gorm:"column:last_read_at"`
 
 	// Name is the resolved display name (group subject or contact name). It is
 	// not a column: the service fills it after the query, so the repository stays
@@ -432,6 +437,23 @@ func (m *messageRepository) InsertMessages(messages []message_model.Message) err
 	return nil
 }
 
+func (m *messageRepository) MarkChatsRead(instanceId string, chats []string, at string) error {
+	rows := make([]message_model.ChatRead, 0, len(chats))
+	for _, chat := range chats {
+		rows = append(rows, message_model.ChatRead{InstanceId: instanceId, ChatJid: chat, ReadAt: at})
+	}
+	if len(rows) == 0 {
+		return nil
+	}
+	return m.writer().Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "instance_id"}, {Name: "chat_jid"}},
+		DoUpdates: clause.Set{{
+			Column: clause.Column{Name: "read_at"},
+			Value:  gorm.Expr("CASE WHEN excluded.read_at > chat_reads.read_at THEN excluded.read_at ELSE chat_reads.read_at END"),
+		}},
+	}).Create(&rows).Error
+}
+
 // InsertHistoryMessages never updates: what a history sync says about a message is
 // older than what was recorded live, whether that is its status, its stored media
 // or the fact that it was revoked.
@@ -599,12 +621,21 @@ WITH RECURSIVE chats AS (
      LIMIT ?
 )
 SELECT t.*,
+       COALESCE(r.read_at, '') AS last_read_at,
        (SELECT count(*) FROM messages n
-         WHERE n.instance_id = ? AND n.chat_jid = t.chat_jid) AS message_count
+         WHERE n.instance_id = ? AND n.chat_jid = t.chat_jid) AS message_count,
+       (SELECT count(*) FROM messages n
+         WHERE n.instance_id = ? AND n.chat_jid = t.chat_jid
+           AND t.chat_jid <> 'status@broadcast'
+           AND NOT n.is_from_me
+           AND n."timestamp" > COALESCE(r.read_at, '')
+           AND n.message_type NOT IN ('edit', 'delete', 'deleted', 'reaction', 'poll_update', 'unknown')
+       ) AS unread_count
   FROM latest t
+  LEFT JOIN chat_reads r ON r.instance_id = ? AND r.chat_jid = t.chat_jid
  ORDER BY t."timestamp" DESC`
 
-	err := m.db.Raw(query, instanceId, instanceId, instanceId, clampHistoryLimit(limit), instanceId).Scan(&summaries).Error
+	err := m.db.Raw(query, instanceId, instanceId, instanceId, clampHistoryLimit(limit), instanceId, instanceId, instanceId).Scan(&summaries).Error
 	return summaries, err
 }
 

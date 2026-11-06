@@ -157,3 +157,22 @@ func TestRealTestConnection(t *testing.T) {
 		t.Fatal("wrong credentials: want an error")
 	}
 }
+
+// A fresh server has no bucket, and nothing else creates it.
+func TestConstructorCreatesAMissingBucket(t *testing.T) {
+	o := realOptions(t)
+	o.Bucket = fmt.Sprintf("wamux-new-%d", time.Now().UnixNano())
+
+	store, err := NewMinioMediaStorageWithOptions(o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Store(context.Background(), []byte("x"), "created.txt", "text/plain"); err != nil {
+		t.Fatalf("store in the new bucket: %v", err)
+	}
+
+	again, err := NewMinioMediaStorageWithOptions(o)
+	if err != nil || again == nil {
+		t.Fatalf("second start: %v", err)
+	}
+}
