@@ -1,4 +1,4 @@
-.PHONY: help dev run build test clean swagger deps docker-build docker-run install setup migrate-up migrate-down logs manager-install manager-build test-manager fuzz
+.PHONY: help dev run build test clean swagger deps docker-build docker-run install setup migrate-up migrate-down logs manager-install manager-build test-manager fuzz lint docs-check smoke hooks
 
 # Configurações
 APP_NAME=wamux
@@ -265,15 +265,26 @@ fmt: ## Formata o código
 	$(GO) fmt ./...
 	@echo "$(GREEN)✅ Código formatado$(NC)"
 
-lint: ## Executa linter (requer golangci-lint)
+lint: ## Executa gofmt e golangci-lint
 	@echo "$(GREEN)🔍 Executando linter...$(NC)"
+	@test -z "$$(gofmt -l cmd pkg benchmarks | tee /dev/stderr)"
 	@if command -v golangci-lint > /dev/null; then \
 		golangci-lint run ./...; \
 		echo "$(GREEN)✅ Lint completo$(NC)"; \
 	else \
-		echo "$(RED)❌ golangci-lint não instalado. Instale com: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest$(NC)"; \
+		echo "$(RED)❌ golangci-lint não instalado. Instale com: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0$(NC)"; \
 		exit 1; \
 	fi
+
+docs-check: ## Confere AGENTS.md e as variáveis de ambiente documentadas
+	bash scripts/check-docs.sh
+
+smoke: ## Builda a imagem e sobe contra um Postgres real
+	docker build -t wamux:smoke .
+	bash scripts/image-smoke.sh wamux:smoke
+
+hooks: ## Instala os git hooks de .githooks/
+	git config core.hooksPath .githooks
 
 vet: ## Executa go vet
 	@echo "$(GREEN)🔍 Executando go vet...$(NC)"

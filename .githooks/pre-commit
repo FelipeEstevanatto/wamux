@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Fast checks on what is being committed. Install with `make hooks`.
+set -euo pipefail
+
+staged() { git diff --cached --name-only --diff-filter=ACMR -- "$@"; }
+
+if staged '.env' '*/.env' | grep -q .; then
+	echo "pre-commit: refusing to commit a .env file" >&2
+	exit 1
+fi
+
+go_files="$(staged '*.go')"
+if [ -n "$go_files" ]; then
+	# shellcheck disable=SC2086
+	unformatted="$(gofmt -l $go_files)"
+	if [ -n "$unformatted" ]; then
+		echo "pre-commit: run gofmt on:" >&2
+		echo "$unformatted" >&2
+		exit 1
+	fi
+fi
+
+if staged AGENTS.md Makefile pkg/config/env/env.go .env.example | grep -q .; then
+	bash scripts/check-docs.sh
+fi
+
+if command -v gitleaks >/dev/null; then
+	gitleaks protect --staged --no-banner --redact
+fi

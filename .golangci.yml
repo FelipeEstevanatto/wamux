@@ -1,0 +1,27 @@
+version: "2"
+
+# `make lint` and CI run this. The standard linters (errcheck, govet, ineffassign,
+# staticcheck, unused) all pass, so a finding here is new and worth reading.
+linters:
+  settings:
+    staticcheck:
+      checks:
+        - all
+        - -QF* # Style suggestions, not defects.
+        - -ST1000 # Package comments are not required here.
+        - -ST1003 # Package names follow the existing foo_service convention.
+        - -ST1016 # Receiver names.
+        - -ST1020 # Comment forms.
+        - -ST1021
+        - -ST1022
+  exclusions:
+    rules:
+      # A failed cleanup has no useful handling, and tests fail on the result anyway.
+      - linters: [errcheck]
+        text: "Error return value of .*\\.(Close|Remove|RemoveAll)` is not checked"
+      - linters: [errcheck]
+        path: _test\.go
+      # whatsmeow marks these as internal; WaMux uses them on purpose, and each call
+      # site says why.
+      - linters: [staticcheck]
+        text: "DangerousInternals is deprecated"

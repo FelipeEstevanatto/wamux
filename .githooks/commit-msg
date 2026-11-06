@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Commits follow `type(scope): summary`; the scope is optional.
+set -euo pipefail
+
+subject="$(head -n1 "$1")"
+pattern='^(feat|fix|docs|test|refactor|perf|chore|ci|build|revert)(\([a-z0-9_-]+\))?!?: .+'
+case "$subject" in
+Merge\ * | Revert\ *) exit 0 ;;
+esac
+if ! [[ "$subject" =~ $pattern ]]; then
+	echo "commit-msg: expected 'type(scope): summary', got: $subject" >&2
+	exit 1
+fi

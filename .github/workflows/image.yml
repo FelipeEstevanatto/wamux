@@ -1,0 +1,37 @@
+name: Image
+
+# The Security workflow tests the code. This one tests what actually ships: that the
+# image builds, starts against a real Postgres, and carries no fixable CVE in Alpine,
+# ffmpeg or poppler, which no Go or npm scanner can see.
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+  schedule:
+    # Daily, so a CVE disclosed in an unchanged base image still surfaces.
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: build, boot and scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build
+        run: docker build -t wamux:ci .
+
+      - name: Smoke test
+        run: scripts/image-smoke.sh wamux:ci
+
+      - name: Scan
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:0.76.2 image --scanners vuln --severity CRITICAL,HIGH \
+            --ignore-unfixed --exit-code 1 wamux:ci

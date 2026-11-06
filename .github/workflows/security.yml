@@ -101,6 +101,29 @@ jobs:
       - name: go test -race
         run: go test -race ./...
 
+  lint:
+    name: lint (gofmt + golangci-lint)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: gofmt
+        run: test -z "$(gofmt -l cmd pkg benchmarks | tee /dev/stderr)"
+
+      # Built from source, so it always matches the Go version in go.mod.
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
+
+      - name: golangci-lint
+        run: golangci-lint run --timeout 8m ./...
+
+      - name: Docs
+        run: bash scripts/check-docs.sh
+
   fuzz-parsers:
     name: fuzz parsers
     runs-on: ubuntu-24.04
@@ -119,7 +142,7 @@ jobs:
         run: make fuzz FUZZTIME=30s
 
   manager-tests:
-    name: manager tests (vitest)
+    name: manager lint, build and tests
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -131,6 +154,14 @@ jobs:
       - name: Install
         working-directory: wamux-manager
         run: bun install --frozen-lockfile
+
+      - name: Lint
+        working-directory: wamux-manager
+        run: bun run lint
+
+      - name: Typecheck and build
+        working-directory: wamux-manager
+        run: bun run build
 
       - name: Test
         working-directory: wamux-manager

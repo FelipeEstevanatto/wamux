@@ -3,7 +3,7 @@
 # package-lock.json. Bun is used because it installs straight from
 # package-lock.json and is far
 # faster than npm; the toolchain only exists in this stage.
-FROM oven/bun:1-alpine AS manager
+FROM oven/bun:1.4.2-alpine@sha256:d888c0ae6c86d7866ff10c5aafdd9077b36aee6455b33dd270fb93c0dd5cef6f AS manager
 
 WORKDIR /manager
 COPY wamux-manager/package.json wamux-manager/bun.lock ./
@@ -11,7 +11,7 @@ RUN bun install --frozen-lockfile
 COPY wamux-manager/ ./
 RUN bun run build
 
-FROM golang:1.26.10-alpine AS build
+FROM golang:1.26.10-alpine@sha256:87c65a688975c0b1d4585d204874c45ca78354670e3a5f11368c5a492303d696 AS build
 
 RUN apk update && apk add --no-cache git build-base libjpeg-turbo-dev libwebp-dev
 
@@ -57,7 +57,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 # musl, so building on 3.24 and running on 3.24 avoids a cross-version libc
 # mismatch, and 3.24 carries current ffmpeg/poppler/libjpeg/libwebp security
 # fixes that 3.19.1 no longer receives.
-FROM alpine:3.24 AS final
+FROM alpine:3.24@sha256:3f4d6b32e26703c6082839234f43769d5046b3ac7c910033911d1e71d8cd630a AS final
 
 # Image metadata. This is an independent build; the labels mark it as such.
 # The CI workflow adds source/revision/version on top of these.
