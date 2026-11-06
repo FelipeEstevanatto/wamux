@@ -50,6 +50,9 @@ export interface HistoryMessage {
   file_name?: string;
   file_size?: number;
   is_forwarded?: boolean;
+  page_count?: number;
+  /** A small JPEG preview, in base64. */
+  file_thumbnail?: string;
 }
 
 /** One frame from /ws: `{ queue, payload }`, payload being the event JSON. */

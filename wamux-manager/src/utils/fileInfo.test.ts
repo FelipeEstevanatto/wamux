@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { HistoryMessage } from '@/types/messages';
-import { captionOf, fileExtension, humanSize, showsInline } from './fileInfo';
+import { captionOf, fileExtension, fileTypeColor, humanSize, showsInline } from './fileInfo';
 
 const message = (overrides: Partial<HistoryMessage>) => overrides as HistoryMessage;
 const MB = 1024 * 1024;
@@ -63,5 +63,18 @@ describe('captionOf', () => {
 
   it('keeps text on messages without a file', () => {
     expect(captionOf(message({ text_content: 'hello' }))).toBe('hello');
+  });
+});
+
+describe('fileTypeColor', () => {
+  it.each([
+    ['PDF', 'bg-red-600'],
+    ['DOCX', 'bg-blue-600'],
+    ['XLS', 'bg-green-700'],
+    ['ZIP', 'bg-amber-700'],
+    ['BIN', 'bg-slate-500'],
+    ['', 'bg-slate-500'],
+  ])('%s is %s', (extension, color) => {
+    expect(fileTypeColor(extension)).toBe(color);
   });
 });

@@ -1,6 +1,7 @@
 package content
 
 import (
+	"reflect"
 	"testing"
 
 	"go.mau.fi/whatsmeow/proto/waE2E"
@@ -47,7 +48,7 @@ func FuzzSummarize(f *testing.F) {
 			t.Fatalf("Summarize(empty conversation) = %+v, want type=unknown", s)
 		}
 		// 3. Idempotent: summarizing the same message twice is stable.
-		if again := Summarize(msg); again != s {
+		if again := Summarize(msg); !reflect.DeepEqual(again, s) {
 			t.Fatalf("Summarize is not deterministic: %+v vs %+v", s, again)
 		}
 	})

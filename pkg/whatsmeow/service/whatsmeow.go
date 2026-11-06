@@ -2621,7 +2621,9 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 		}
 
 		// Drop thumbnails before the map round trip: the payload discards them
-		// later anyway, so serializing them first is wasted work.
+		// later anyway, so serializing them first is wasted work. The history keeps
+		// the preview, so it has to be read before it goes.
+		preview := message_content.Thumbnail(evt.Message)
 		stripMessageThumbnails(evt.Message)
 
 		if postMap["data"] != nil {
@@ -3065,6 +3067,8 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 				FileName:        summary.FileName,
 				FileSize:        summary.FileSize,
 				IsForwarded:     summary.Forwarded,
+				PageCount:       summary.PageCount,
+				FileThumbnail:   preview,
 			}
 
 			mycli.persistMessageAsync(message)

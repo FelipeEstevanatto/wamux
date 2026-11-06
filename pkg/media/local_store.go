@@ -120,7 +120,9 @@ func Remove(instanceID, messageID string) error {
 	if !safeName(instanceID) || !safeName(messageID) {
 		return nil
 	}
-	err := os.Remove(filepath.Join(s.root, instanceID, messageID))
+	path := filepath.Join(s.root, instanceID, messageID)
+	_ = os.Remove(path + previewSuffix) // Most files never had one.
+	err := os.Remove(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil
 	}

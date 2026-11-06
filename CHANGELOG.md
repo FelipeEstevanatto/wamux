@@ -14,7 +14,9 @@
 - **Auto-read** — one call off the dispatch path, instead of two with one blocking.
 
 ### 🔌 API
-- History adds `file_name`, `file_size` and `is_forwarded`, for new messages.
+- `GET /chat/media/:messageId/preview` gives a JPEG of a stored PDF's first page.
+- History adds `file_name`, `file_size`, `is_forwarded`, `page_count` and
+  `file_thumbnail`, for new messages.
 - `POST /chat/media/:messageId/link` gives a 5-minute link that downloads one stored
   file without an API key.
 - `/send/media` accepts files up to `MAX_UPLOAD_BYTES` (2 GiB by default), by upload or
@@ -32,6 +34,12 @@
 - The channel guide no longer claims documents and polls work there.
 
 ### ✨ Manager
+- Downloaded photos, videos and audio get a real name and extension, such as
+  `WaMux Image 2026-11-06 at 00.06.12.jpg`, instead of the bare message id.
+- The media viewer fills the screen, with zoom by wheel, pinch, double click or keyboard,
+  panning, rotation, and the file's name, size, dimensions and date.
+- Documents show as larger cards like WhatsApp's, with a colored type badge, the page
+  count and a preview. PDFs get their first page, rendered the first time it is viewed.
 - Files in `/messages` show their name, type and size with a download button, like
   WhatsApp, and messages are marked Forwarded. Downloads go straight to disk, and a
   document or a large video is no longer loaded into the page to draw the chat.

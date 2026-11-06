@@ -86,6 +86,34 @@ func (m *messageHandler) MediaDownloadLink(ctx *gin.Context) {
 	}})
 }
 
+// MediaPreview serves a preview of a stored PDF
+// @Summary Get the preview of a stored PDF
+// @Description Returns a JPEG of the first page, rendered the first time it is requested.
+// @Tags Message
+// @Produce jpeg
+// @Param messageId path string true "Message id"
+// @Success 200 {file} binary "The preview"
+// @Failure 404 {object} docmodels.ErrorResponse "No preview for this message"
+// @Router /chat/media/{messageId}/preview [get]
+func (m *messageHandler) MediaPreview(ctx *gin.Context) {
+	instance, ok := ctx.MustGet("instance").(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	file, info, err := m.messageService.GetMediaPreview(ctx.Param("messageId"), instance)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "no preview"})
+		return
+	}
+	defer file.Close()
+
+	ctx.Header("Content-Type", "image/jpeg")
+	ctx.Header("Cache-Control", "private, max-age=86400")
+	http.ServeContent(ctx.Writer, ctx.Request, "preview.jpg", info.ModTime(), file)
+}
+
 // DownloadStoredMedia serves a stored file through a signed link
 // @Summary Download stored media through a signed link
 // @Description Streams one stored file as an attachment, with Range support. The link comes from POST /chat/media/{messageId}/link.

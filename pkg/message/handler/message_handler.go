@@ -32,6 +32,7 @@ type MessageHandler interface {
 	SenderNames(ctx *gin.Context)
 	ServeMedia(ctx *gin.Context)
 	MediaDownloadLink(ctx *gin.Context)
+	MediaPreview(ctx *gin.Context)
 	DownloadStoredMedia(ctx *gin.Context)
 }
 

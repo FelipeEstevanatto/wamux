@@ -799,7 +799,10 @@ export default function Messages() {
     [messages]
   );
   const mediaMessages = useMemo(
-    () => ordered.filter((m) => Boolean(m.media_url)),
+    () =>
+      ordered.filter(
+        (m) => Boolean(m.media_url) && showsInline(m) && !m.media_mimetype.startsWith('audio/')
+      ),
     [ordered]
   );
 

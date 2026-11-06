@@ -9473,6 +9473,30 @@ paths:
       summary: Create a download link for stored media
       tags:
       - Message
+  /chat/media/{messageId}/preview:
+    get:
+      description: Returns a JPEG of the first page, rendered the first time it is
+        requested.
+      parameters:
+      - description: Message id
+        in: path
+        name: messageId
+        required: true
+        type: string
+      produces:
+      - image/jpeg
+      responses:
+        "200":
+          description: The preview
+          schema:
+            type: file
+        "404":
+          description: No preview for this message
+          schema:
+            $ref: '#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse'
+      summary: Get the preview of a stored PDF
+      tags:
+      - Message
   /chat/mute:
     post:
       consumes:

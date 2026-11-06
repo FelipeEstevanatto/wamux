@@ -478,6 +478,41 @@
                 }
             }
         },
+        "/chat/media/{messageId}/preview": {
+            "get": {
+                "description": "Returns a JPEG of the first page, rendered the first time it is requested.",
+                "produces": [
+                    "image/jpeg"
+                ],
+                "tags": [
+                    "Message"
+                ],
+                "summary": "Get the preview of a stored PDF",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Message id",
+                        "name": "messageId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The preview",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "404": {
+                        "description": "No preview for this message",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/chat/mute": {
             "post": {
                 "description": "Mute a chat",

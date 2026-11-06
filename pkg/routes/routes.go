@@ -233,6 +233,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.GET("/senders", r.messageHandler.SenderNames)
 			routes.GET("/media/:messageId", r.messageHandler.ServeMedia)
 			routes.POST("/media/:messageId/link", r.messageHandler.MediaDownloadLink)
+			routes.GET("/media/:messageId/preview", r.messageHandler.MediaPreview)
 		}
 	}
 	routes = eng.Group("/group")

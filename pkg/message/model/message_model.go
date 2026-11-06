@@ -53,6 +53,10 @@ type Message struct {
 	FileName    string `json:"file_name"`
 	FileSize    int64  `json:"file_size"`
 	IsForwarded bool   `json:"is_forwarded"`
+	// PageCount and FileThumbnail come with the message, so a document can show its
+	// length and a preview without its file being downloaded.
+	PageCount     uint32 `json:"page_count,omitempty"`
+	FileThumbnail []byte `json:"file_thumbnail,omitempty"`
 }
 
 func (m *Message) BeforeCreate(tx *gorm.DB) (err error) {

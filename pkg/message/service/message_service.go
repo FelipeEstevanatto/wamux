@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"github.com/felipeestevanatto/wamux/pkg/safemap"
 	"io/fs"
+	"mime"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -53,6 +55,7 @@ type MessageService interface {
 	// the given instance. It also returns the stored content type.
 	GetStoredMedia(messageID string, instance *instance_model.Instance) (*os.File, fs.FileInfo, string, error)
 	StoredMediaName(messageID string, instance *instance_model.Instance) string
+	GetMediaPreview(messageID string, instance *instance_model.Instance) (*os.File, fs.FileInfo, error)
 }
 
 type messageService struct {
@@ -982,6 +985,22 @@ func (m *messageService) GetStoredMedia(messageID string, instance *instance_mod
 	return file, info, msg.MediaMimetype, nil
 }
 
+// GetMediaPreview returns a JPEG of a stored PDF's first page.
+func (m *messageService) GetMediaPreview(messageID string, instance *instance_model.Instance) (*os.File, fs.FileInfo, error) {
+	if instance == nil || messageID == "" || m.messageRepository == nil {
+		return nil, nil, localmedia.ErrPreviewUnavailable
+	}
+	// Tenant-scoped, like GetStoredMedia.
+	msg, err := m.messageRepository.GetMessageByIDForInstance(instance.Id, messageID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if msg == nil || msg.MediaMimetype != "application/pdf" {
+		return nil, nil, localmedia.ErrPreviewUnavailable
+	}
+	return localmedia.OpenPDFPreview(instance.Id, messageID)
+}
+
 // StoredMediaName is the name to save a stored file under, when it has one.
 func (m *messageService) StoredMediaName(messageID string, instance *instance_model.Instance) string {
 	if instance == nil || m.messageRepository == nil {
@@ -991,7 +1010,57 @@ func (m *messageService) StoredMediaName(messageID string, instance *instance_mo
 	if err != nil || msg == nil {
 		return ""
 	}
-	return msg.FileName
+	return downloadName(msg)
+}
+
+// mediaExtensions covers what WhatsApp carries, because the system's own table varies
+// by machine and can answer .jfif for a JPEG.
+var mediaExtensions = map[string]string{
+	"image/jpeg":      ".jpg",
+	"image/png":       ".png",
+	"image/webp":      ".webp",
+	"image/gif":       ".gif",
+	"video/mp4":       ".mp4",
+	"video/3gpp":      ".3gp",
+	"video/quicktime": ".mov",
+	"audio/ogg":       ".ogg",
+	"audio/mpeg":      ".mp3",
+	"audio/mp4":       ".m4a",
+	"audio/aac":       ".aac",
+	"application/pdf": ".pdf",
+}
+
+func extensionFor(mimetype string) string {
+	base, _, _ := strings.Cut(mimetype, ";")
+	base = strings.ToLower(strings.TrimSpace(base))
+	if extension, ok := mediaExtensions[base]; ok {
+		return extension
+	}
+	if extensions, err := mime.ExtensionsByType(base); err == nil && len(extensions) > 0 {
+		return extensions[0]
+	}
+	return ""
+}
+
+// downloadName names a saved file. Photos, videos and voice notes have no name in
+// WhatsApp, and a file with no extension cannot be opened, so they are named the way
+// WhatsApp names them. A document keeps its own name.
+func downloadName(msg *message_model.Message) string {
+	extension := extensionFor(msg.MediaMimetype)
+	if msg.FileName != "" {
+		if filepath.Ext(msg.FileName) == "" {
+			return msg.FileName + extension
+		}
+		return msg.FileName
+	}
+
+	kind := "File"
+	if msg.MessageType != "" {
+		kind = strings.ToUpper(msg.MessageType[:1]) + msg.MessageType[1:]
+	}
+	// A colon is not allowed in a Windows file name.
+	when := strings.ReplaceAll(strings.Replace(msg.Timestamp, " ", " at ", 1), ":", ".")
+	return strings.TrimSpace("WaMux "+kind+" "+when) + extension
 }
 
 // ContactSummary is one picker row: the chat identifier the UI sends back and a

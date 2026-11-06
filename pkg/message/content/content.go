@@ -23,6 +23,10 @@ type Summary struct {
 	// FileName is a document's name. FileSize is any attachment's size in bytes.
 	FileName string
 	FileSize int64
+	// PageCount is a document's length, when the sender's client reports it.
+	PageCount uint32
+	// Thumbnail is the small JPEG preview WhatsApp carries in the message itself.
+	Thumbnail []byte
 	// Forwarded marks a message forwarded from another conversation.
 	Forwarded bool
 }
@@ -37,6 +41,8 @@ func Summarize(msg *waE2E.Message) Summary {
 	msg = unwrap(msg)
 	summary := summarize(msg)
 	summary.FileName, summary.FileSize = fileOf(msg)
+	summary.PageCount = msg.GetDocumentMessage().GetPageCount()
+	summary.Thumbnail = thumbnailOf(msg)
 	summary.Forwarded = contextOf(msg).GetIsForwarded()
 	return summary
 }
@@ -67,6 +73,31 @@ func fileOf(msg *waE2E.Message) (string, int64) {
 		return "", int64(msg.GetStickerMessage().GetFileLength())
 	}
 	return "", 0
+}
+
+// maxThumbnailBytes keeps previews small enough to live in the message row and travel
+// with the history. WhatsApp's own are a few KB.
+const maxThumbnailBytes = 100 << 10
+
+// Thumbnail returns a message's preview on its own, for callers that strip it from the
+// message before summarizing it.
+func Thumbnail(msg *waE2E.Message) []byte {
+	if msg == nil {
+		return nil
+	}
+	return thumbnailOf(unwrap(msg))
+}
+
+// thumbnailOf returns a preview for the attachments the chat shows as a card.
+func thumbnailOf(msg *waE2E.Message) []byte {
+	thumbnail := msg.GetDocumentMessage().GetJPEGThumbnail()
+	if len(thumbnail) == 0 {
+		thumbnail = msg.GetVideoMessage().GetJPEGThumbnail()
+	}
+	if len(thumbnail) > maxThumbnailBytes {
+		return nil
+	}
+	return thumbnail
 }
 
 func contextOf(msg *waE2E.Message) *waE2E.ContextInfo {

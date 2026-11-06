@@ -1,6 +1,7 @@
 package whatsmeow_service
 
 import (
+	"bytes"
 	"testing"
 
 	"go.mau.fi/whatsmeow/proto/waCommon"
@@ -556,5 +557,34 @@ func TestGlobalQueuesReceiveMessages(t *testing.T) {
 		}
 	case <-testTimeout():
 		t.Fatal("nothing reached the global queues")
+	}
+}
+
+// Through the whole inbound path, because the preview is stripped from the message
+// before the event is built: reading it any later finds nothing.
+func TestInboundDocumentKeepsItsPreviewAndPageCount(t *testing.T) {
+	preview := []byte{0xff, 0xd8, 0xff, 0xe0}
+	h := newEventHarness(t)
+	evt := inbound(t, "MSG1", "")
+	evt.Message = &waE2E.Message{DocumentMessage: &waE2E.DocumentMessage{
+		FileName:      proto.String("report.pdf"),
+		FileLength:    proto.Uint64(2048),
+		PageCount:     proto.Uint32(11),
+		Mimetype:      proto.String("application/pdf"),
+		JPEGThumbnail: preview,
+	}}
+
+	got := h.one(t, evt)
+
+	m := h.messages.stored()[0]
+	if !bytes.Equal(m.FileThumbnail, preview) {
+		t.Errorf("stored preview = %v", m.FileThumbnail)
+	}
+	if m.FileName != "report.pdf" || m.FileSize != 2048 || m.PageCount != 11 {
+		t.Errorf("stored %+v", m)
+	}
+	// The webhook stays as small as it was.
+	if field(got, "data", "Message", "documentMessage", "JPEGThumbnail") != nil {
+		t.Error("the preview reached the webhook")
 	}
 }

@@ -1,6 +1,7 @@
 package content
 
 import (
+	"bytes"
 	"testing"
 
 	"go.mau.fi/whatsmeow/proto/waCommon"
@@ -170,5 +171,44 @@ func TestSummarizeFileDetails(t *testing.T) {
 				t.Fatalf("got %+v", got)
 			}
 		})
+	}
+}
+
+func TestSummarizeDocumentPreview(t *testing.T) {
+	preview := []byte{0xff, 0xd8, 0xff}
+	document := &waE2E.DocumentMessage{JPEGThumbnail: preview, PageCount: proto.Uint32(12)}
+
+	for name, msg := range map[string]*waE2E.Message{
+		"document": {DocumentMessage: document},
+		"captioned": {DocumentWithCaptionMessage: &waE2E.FutureProofMessage{
+			Message: &waE2E.Message{DocumentMessage: document},
+		}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got := Summarize(msg)
+			if got.PageCount != 12 || !bytes.Equal(got.Thumbnail, preview) {
+				t.Fatalf("got %+v", got)
+			}
+		})
+	}
+}
+
+func TestSummarizeVideoPreview(t *testing.T) {
+	preview := []byte{0xff, 0xd8}
+	got := Summarize(&waE2E.Message{VideoMessage: &waE2E.VideoMessage{JPEGThumbnail: preview}})
+
+	if !bytes.Equal(got.Thumbnail, preview) {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+// It lives in the row and in every history page, so a huge one is dropped, not stored.
+func TestSummarizeDropsAnOversizedPreview(t *testing.T) {
+	got := Summarize(&waE2E.Message{DocumentMessage: &waE2E.DocumentMessage{
+		JPEGThumbnail: make([]byte, maxThumbnailBytes+1),
+	}})
+
+	if got.Thumbnail != nil {
+		t.Fatalf("kept %d bytes", len(got.Thumbnail))
 	}
 }

@@ -490,6 +490,73 @@ describe('Messages page', () => {
     expect(bubble?.textContent?.match(/report\.final\.pdf/g)).toHaveLength(1);
   });
 
+  it('shows the length of a document', async () => {
+    vi.mocked(messagesApi.getHistory).mockResolvedValue([fileRow({ page_count: 12 })]);
+    await render();
+    await openChat();
+
+    expect(document.querySelector('[data-message-id="doc"]')?.textContent).toContain(
+      '12 páginas · PDF · 2.0 MB'
+    );
+  });
+
+  describe('document previews', () => {
+    const bubbleImage = () => document.querySelector('[data-message-id="doc"] img:not([hidden])');
+
+    // Without an observer the card counts as on screen, so the preview loads.
+    beforeEach(() => vi.stubGlobal('IntersectionObserver', undefined));
+
+    it('loads the rendered first page of a PDF', async () => {
+      vi.mocked(messagesApi.getHistory).mockResolvedValue([fileRow()]);
+      vi.mocked(messagesApi.fetchMediaObjectUrl).mockResolvedValue('blob:page');
+      await render();
+      await openChat();
+
+      expect(messagesApi.fetchMediaObjectUrl).toHaveBeenCalledWith('instance-token', '/chat/media/doc/preview');
+      expect(bubbleImage()?.getAttribute('src')).toBe('blob:page');
+    });
+
+    it('never fetches the file itself', async () => {
+      vi.mocked(messagesApi.getHistory).mockResolvedValue([fileRow()]);
+      await render();
+      await openChat();
+
+      expect(messagesApi.fetchMediaObjectUrl).not.toHaveBeenCalledWith('instance-token', '/chat/media/doc');
+    });
+
+    it('asks for no render of other documents', async () => {
+      vi.mocked(messagesApi.getHistory).mockResolvedValue([
+        fileRow({ media_mimetype: 'application/zip', file_name: 'a.zip' }),
+      ]);
+      await render();
+      await openChat();
+
+      expect(messagesApi.fetchMediaObjectUrl).not.toHaveBeenCalled();
+    });
+
+    // WhatsApp's own can be 21x30, which stretched over the card is a blur.
+    it.each([
+      ['hides a tiny inline preview', 21, null],
+      ['uses a real inline preview', 300, 'data:image/jpeg;base64,AAAA'],
+    ])('%s when the render fails', async (_, width, expected) => {
+      // Its own id, because a successful preview from another test stays cached.
+      const id = `doc-${width}`;
+      vi.mocked(messagesApi.getHistory).mockResolvedValue([
+        fileRow({ message_id: id, file_thumbnail: 'AAAA' }),
+      ]);
+      vi.mocked(messagesApi.fetchMediaObjectUrl).mockRejectedValue(new Error('no preview'));
+      await render();
+      await openChat();
+
+      const bubble = document.querySelector(`[data-message-id="${id}"]`);
+      const hidden = bubble?.querySelector<HTMLImageElement>('img[hidden]');
+      Object.defineProperty(hidden, 'naturalWidth', { value: width });
+      await act(async () => hidden?.dispatchEvent(new Event('load')));
+
+      expect(bubble?.querySelector('img:not([hidden])')?.getAttribute('src') ?? null).toBe(expected);
+    });
+  });
+
   it('marks forwarded messages, and only those', async () => {
     vi.mocked(messagesApi.getHistory).mockResolvedValue([
       row('m2', 'passed on', { is_forwarded: true }),

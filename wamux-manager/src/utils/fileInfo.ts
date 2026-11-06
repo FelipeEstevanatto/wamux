@@ -18,6 +18,21 @@ export function fileExtension(name: string): string {
   return name.slice(dot + 1).toUpperCase();
 }
 
+const TYPE_COLORS: [RegExp, string][] = [
+  [/^PDF$/, 'bg-red-600'],
+  [/^(DOCX?|ODT|RTF|TXT|MD)$/, 'bg-blue-600'],
+  [/^(XLSX?|ODS|CSV)$/, 'bg-green-700'],
+  [/^(PPTX?|ODP)$/, 'bg-orange-600'],
+  [/^(ZIP|RAR|7Z|TAR|GZ)$/, 'bg-amber-700'],
+  [/^(MP4|MOV|MKV|AVI|WEBM)$/, 'bg-purple-600'],
+  [/^(MP3|WAV|OGG|OPUS|M4A)$/, 'bg-pink-600'],
+  [/^(PNG|JPE?G|GIF|WEBP|SVG)$/, 'bg-teal-600'],
+];
+
+/** The color of the file's type badge, as WhatsApp's icons do. */
+export const fileTypeColor = (extension: string): string =>
+  TYPE_COLORS.find(([pattern]) => pattern.test(extension))?.[1] ?? 'bg-slate-500';
+
 /** Whether the chat shows the file itself. The rest show as a file card. */
 export function showsInline(message: HistoryMessage): boolean {
   if ((message.file_size ?? 0) > MAX_INLINE_BYTES) return false;
