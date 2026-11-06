@@ -10,7 +10,6 @@ const loaders: Record<string, () => Promise<unknown>> = {
   '/manager/instances': () => import('@/pages/Instances'),
   '/manager/messages': () => import('@/pages/Messages'),
   '/manager/events': () => import('@/pages/Events'),
-  '/manager/settings': () => import('@/pages/Settings'),
   '/manager/api-tester': () => import('@/pages/ApiTester'),
   '/manager/about': () => import('@/pages/About'),
   '/manager/terms': () => import('@/pages/Terms'),

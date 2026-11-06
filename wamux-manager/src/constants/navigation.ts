@@ -1,4 +1,5 @@
 import {
+  Activity,
   Info,
   LayoutDashboard,
   MessageSquare,
@@ -22,6 +23,7 @@ export const navItems: NavItem[] = [
   { to: '/manager', labelKey: 'sidebar.dashboard', icon: LayoutDashboard, end: true },
   { to: '/manager/instances', labelKey: 'sidebar.instances', icon: Smartphone },
   { to: '/manager/messages', labelKey: 'sidebar.messages', icon: MessageSquare },
+  { to: '/manager/events', labelKey: 'sidebar.events', icon: Activity },
   { to: '/manager/api-tester', labelKey: 'sidebar.apiTester', icon: TerminalSquare },
   { to: '/manager/about', labelKey: 'sidebar.about', icon: Info },
 ];

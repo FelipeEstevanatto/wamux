@@ -16,7 +16,6 @@ const Instances = lazy(() => import('@/pages/Instances'));
 const InstanceSettings = lazy(() => import('@/pages/InstanceSettings'));
 const Messages = lazy(() => import('@/pages/Messages'));
 const Events = lazy(() => import('@/pages/Events'));
-const Settings = lazy(() => import('@/pages/Settings'));
 const ApiTester = lazy(() => import('@/pages/ApiTester'));
 const About = lazy(() => import('@/pages/About'));
 const Terms = lazy(() => import('@/pages/Terms'));
@@ -74,7 +73,6 @@ function App() {
                   <Route path="messages" element={<Messages />} />
                   <Route path="events" element={<Events />} />
                   <Route path="api-tester" element={<ApiTester />} />
-                  <Route path="settings" element={<Settings />} />
                   <Route path="about" element={<About />} />
                 </Route>
               ) : (

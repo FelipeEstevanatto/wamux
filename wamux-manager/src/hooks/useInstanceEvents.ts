@@ -4,6 +4,9 @@ import type { InstanceEvent } from '@/types/messages';
 
 export type WsStatus = 'connecting' | 'open' | 'closed';
 
+/** Pass as the instance to receive the events of every instance. */
+export const ALL_INSTANCES = '*';
+
 /**
  * Parses one /ws frame. The server sends `{ queue, payload }` where `payload`
  * is the event JSON serialized as a string.
@@ -33,8 +36,8 @@ export function parseFrame(raw: string): InstanceEvent | null {
 }
 
 /**
- * Subscribes to one instance's events over /ws and reports the connection
- * status.
+ * Subscribes to one instance's events over /ws, or to all of them with
+ * ALL_INSTANCES, and reports the connection status.
  *
  * The socket is authenticated with the global API key (the manager's stored
  * credential) and scoped to `instanceId`, so it only receives that instance's
@@ -67,9 +70,9 @@ export default function useInstanceEvents(
   useEffect(() => {
     if (!instanceId || !apiKey || !apiUrl) return;
 
-    const wsUrl = `${apiUrl.replace(/^http/, 'ws')}/ws?token=${encodeURIComponent(
-      apiKey
-    )}&instanceId=${encodeURIComponent(instanceId)}`;
+    const scope =
+      instanceId === ALL_INSTANCES ? '' : `&instanceId=${encodeURIComponent(instanceId)}`;
+    const wsUrl = `${apiUrl.replace(/^http/, 'ws')}/ws?token=${encodeURIComponent(apiKey)}${scope}`;
 
     let stopped = false;
     let attempt = 0;

@@ -48,14 +48,6 @@ export const dashboardNs: {
       'Gráficos, conversas mais ativas, instâncias e logs.',
     'dashboard.openFullDashboard': 'Abrir dashboard completo',
 
-    'dashboard.settingsTitle': 'Configurações',
-    'dashboard.settingsPlaceholder':
-      'As configurações serão implementadas aqui...',
-
-    'dashboard.eventsTitle': 'Eventos',
-    'dashboard.eventsPlaceholder':
-      'O monitor de eventos será implementado aqui...',
-
     'dashboard.searchPlaceholder': 'Buscar...',
     'dashboard.refresh': 'Atualizar',
     'dashboard.filters': 'Filtros',
@@ -105,12 +97,6 @@ export const dashboardNs: {
     'dashboard.fullDashboardDesc':
       'Charts, most active conversations, instances and logs.',
     'dashboard.openFullDashboard': 'Open full dashboard',
-
-    'dashboard.settingsTitle': 'Settings',
-    'dashboard.settingsPlaceholder': 'Settings will be implemented here...',
-
-    'dashboard.eventsTitle': 'Events',
-    'dashboard.eventsPlaceholder': 'Events monitor will be implemented here...',
 
     'dashboard.searchPlaceholder': 'Search...',
     'dashboard.refresh': 'Refresh',

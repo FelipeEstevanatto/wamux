@@ -25,6 +25,11 @@
   choose how many lines to load, or follow them live.
 - `/manager` and `/dashboard` send `Cache-Control: no-cache`, so a deploy shows up on
   the next load. Browsers could keep the embedded dashboard for days.
+- New Events page: a live feed from every instance, with filters by instance, type
+  and text, pause, and the JSON of each event. Tokens and keys are hidden, long
+  content is cut, and instances with WebSocket off are listed with a link to fix it.
+- The unfinished Settings page is gone. Its options live in the header and in each
+  instance's settings.
 - Deleting an instance or removing its proxy asks in a themed, translated dialog
   instead of the browser's `confirm`.
 

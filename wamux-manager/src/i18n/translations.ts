@@ -21,6 +21,7 @@ import { instanceSettingsNs } from './namespaces/instanceSettings';
 import { apiTesterNs } from './namespaces/apiTester';
 import { modalsNs } from './namespaces/modals';
 import { legalNs } from './namespaces/legal';
+import { eventsNs } from './namespaces/events';
 
 const basePt: Record<string, string> = {
   'common.cancel': 'Cancelar',
@@ -37,6 +38,7 @@ const basePt: Record<string, string> = {
   'sidebar.dashboard': 'Dashboard',
   'sidebar.instances': 'Instâncias',
   'sidebar.messages': 'Mensagens',
+  'sidebar.events': 'Eventos',
   'sidebar.apiTester': 'API Tester',
   'sidebar.about': 'Sobre',
   'sidebar.swagger': 'Swagger',
@@ -150,6 +152,7 @@ const baseEn: Record<string, string> = {
   'sidebar.dashboard': 'Dashboard',
   'sidebar.instances': 'Instances',
   'sidebar.messages': 'Messages',
+  'sidebar.events': 'Events',
   'sidebar.apiTester': 'API Tester',
   'sidebar.about': 'About',
   'sidebar.swagger': 'Swagger',
@@ -258,6 +261,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     ...apiTesterNs.pt,
     ...modalsNs.pt,
     ...legalNs.pt,
+    ...eventsNs.pt,
   },
   en: {
     ...baseEn,
@@ -268,5 +272,6 @@ export const translations: Record<Lang, Record<string, string>> = {
     ...apiTesterNs.en,
     ...modalsNs.en,
     ...legalNs.en,
+    ...eventsNs.en,
   },
 };
