@@ -125,6 +125,8 @@ A few of the most-used settings:
 | `CONNECT_ON_STARTUP` | Reconnect paired instances on boot | `true` (explicit API disconnects stay down) |
 | `SWAGGER_ENABLED` | Serve `/swagger` publicly | `true` |
 | `METRICS_AUTH` | `/metrics` access: `admin`, `loopback` or `none` | `admin` |
+| `AVATAR_RATE_LIMIT_PER_MINUTE` | Profile-picture queries per instance (`0` disables) | `30` |
+| `AVATAR_RATE_LIMIT_BURST` | Burst for the avatar limiter (`0` disables) | `5` |
 | `SSRF_PROTECTION` | Opt-in: refuse outbound fetches to loopback/private/link-local hosts | `false` |
 | `WEBHOOK_HMAC_KEY` | Global key for webhook HMAC signing | — |
 | `RATE_LIMIT_PER_MINUTE` | Requests per credential / per IP (`0` disables) | `600` |

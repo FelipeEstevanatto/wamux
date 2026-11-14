@@ -25,6 +25,7 @@ import (
 
 	"net/http/pprof"
 
+	"github.com/felipeestevanatto/wamux/pkg/avatarcache"
 	call_handler "github.com/felipeestevanatto/wamux/pkg/call/handler"
 	call_service "github.com/felipeestevanatto/wamux/pkg/call/service"
 	chat_handler "github.com/felipeestevanatto/wamux/pkg/chat/handler"
@@ -601,6 +602,7 @@ func main() {
 	}
 
 	cfg := config.Load()
+	avatarcache.Configure(float64(cfg.AvatarRateLimitPerMinute), float64(cfg.AvatarRateBurst))
 
 	applog.Logger.LogInfo("Starting WaMux version %s", version)
 

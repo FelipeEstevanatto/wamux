@@ -73,8 +73,8 @@ func Invalidate(instanceID string, jid types.JID) {
 // queried in a burst; a small per-instance bucket keeps a bulk contact list
 // from turning into one.
 const (
-	ratePerMinute = 30.0
-	rateBurst     = 5.0
+	defaultRatePerMinute = 30.0
+	defaultRateBurst     = 5.0
 )
 
 type bucket struct {
@@ -85,24 +85,49 @@ type bucket struct {
 var (
 	limitMu  sync.Mutex
 	limiters = map[string]*bucket{}
+
+	rateMu        sync.RWMutex
+	ratePerMinute = defaultRatePerMinute
+	rateBurst     = defaultRateBurst
 )
+
+// Configure sets the per-instance profile-picture budget. Values <= 0 disable
+// the limiter (useful for trusted single-tenant deployments).
+func Configure(perMinute, burst float64) {
+	rateMu.Lock()
+	defer rateMu.Unlock()
+	if perMinute < 0 {
+		perMinute = 0
+	}
+	if burst < 0 {
+		burst = 0
+	}
+	ratePerMinute, rateBurst = perMinute, burst
+}
 
 // Allow consumes one token for instanceID. It is false when the instance has
 // exhausted its burst and refill budget.
 func Allow(instanceID string, now time.Time) bool {
+	rateMu.RLock()
+	perMinute, burst := ratePerMinute, rateBurst
+	rateMu.RUnlock()
+	if perMinute <= 0 || burst <= 0 {
+		return true
+	}
+
 	limitMu.Lock()
 	defer limitMu.Unlock()
 
 	b := limiters[instanceID]
 	if b == nil {
-		b = &bucket{tokens: rateBurst, last: now}
+		b = &bucket{tokens: burst, last: now}
 		limiters[instanceID] = b
 	}
 	elapsed := now.Sub(b.last).Seconds()
 	if elapsed > 0 {
-		b.tokens += elapsed * (ratePerMinute / 60.0)
-		if b.tokens > rateBurst {
-			b.tokens = rateBurst
+		b.tokens += elapsed * (perMinute / 60.0)
+		if b.tokens > burst {
+			b.tokens = burst
 		}
 		b.last = now
 	}

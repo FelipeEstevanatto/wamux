@@ -24,6 +24,8 @@ Prefer `admin` or `loopback` on an internet-facing deployment. The health probes
 - `Picture` and `Contact` events invalidate both forms for that contact.
 
 Concurrent misses for the same key are collapsed into one WhatsApp profile query.
-Each instance also has a 30/min, burst-5 bucket; exceeding it returns `429` with
-`AVATAR_RATE_LIMITED` and `Retry-After: 60`. The cache is in-process, so a restart
+Each instance also has a 30/min, burst-5 bucket by default
+(`AVATAR_RATE_LIMIT_PER_MINUTE`, `AVATAR_RATE_LIMIT_BURST`); exceeding it returns
+`429` with `AVATAR_RATE_LIMITED` and `Retry-After: 60`. Set either to `0` to
+disable the limiter. The cache is in-process, so a restart
 starts cold and a multi-node deployment queries once per node.

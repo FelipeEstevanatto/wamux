@@ -37,9 +37,11 @@ func TestMissIsCachedSeparately(t *testing.T) {
 }
 
 func TestRateLimitBurstThenRefill(t *testing.T) {
+	Configure(60, 2)
+	defer Configure(defaultRatePerMinute, defaultRateBurst)
 	instance := "test-rate"
 	now := time.Unix(1_700_000_000, 0)
-	for i := 0; i < int(rateBurst); i++ {
+	for i := 0; i < 2; i++ {
 		if !Allow(instance, now) {
 			t.Fatalf("request %d denied inside burst", i+1)
 		}
@@ -49,5 +51,17 @@ func TestRateLimitBurstThenRefill(t *testing.T) {
 	}
 	if !Allow(instance, now.Add(time.Minute)) {
 		t.Fatal("a minute did not refill the bucket")
+	}
+}
+
+func TestRateLimitCanBeDisabled(t *testing.T) {
+	Configure(0, 0)
+	defer Configure(defaultRatePerMinute, defaultRateBurst)
+	instance := "test-rate-disabled"
+	now := time.Unix(1_700_000_000, 0)
+	for i := 0; i < 20; i++ {
+		if !Allow(instance, now) {
+			t.Fatal("disabled limiter denied a request")
+		}
 	}
 }
