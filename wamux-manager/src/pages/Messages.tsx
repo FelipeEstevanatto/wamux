@@ -1528,11 +1528,12 @@ export default function Messages() {
                 const number =
                   chatKind(c.chat_jid) === 'contact' ? jidUser(c.chat_jid) : '';
                 const showNumber = !!number && number !== title;
+                // The server clears this on unmute; a stale timestamp only keeps
+                // the icon until the next chat-state refresh, so avoid reading
+                // the clock during render.
                 const muted =
                   c.muted_until === -1 ||
-                  (typeof c.muted_until === 'number' &&
-                    c.muted_until > 0 &&
-                    c.muted_until * 1000 > Date.now());
+                  (typeof c.muted_until === 'number' && c.muted_until > 0);
                 const state = [
                   c.pinned ? 'pinned' : '',
                   c.archived ? 'archived' : '',

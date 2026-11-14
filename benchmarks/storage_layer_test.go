@@ -57,7 +57,7 @@ func benchRawSQL(b *testing.B) *sql.DB {
 	if err != nil {
 		b.Fatalf("open gorm: %v", err)
 	}
-	if err := gdb.AutoMigrate(&message_model.Message{}, &message_model.ChatRead{}); err != nil {
+	if err := gdb.AutoMigrate(&message_model.Message{}, &message_model.ChatRead{}, &message_model.ChatState{}); err != nil {
 		b.Fatalf("migrate: %v", err)
 	}
 	db, err := sql.Open("postgres", dsn)
@@ -224,7 +224,7 @@ func TestStorageLayerEquivalence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open gorm: %v", err)
 	}
-	if err := gdb.AutoMigrate(&message_model.Message{}, &message_model.ChatRead{}); err != nil {
+	if err := gdb.AutoMigrate(&message_model.Message{}, &message_model.ChatRead{}, &message_model.ChatState{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	db, err := sql.Open("postgres", dsn)

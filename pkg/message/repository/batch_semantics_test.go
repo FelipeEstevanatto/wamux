@@ -23,7 +23,7 @@ func realDB(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatalf("open postgres: %v", err)
 	}
-	if err := db.AutoMigrate(&message_model.Message{}, &message_model.ChatRead{}); err != nil {
+	if err := db.AutoMigrate(&message_model.Message{}, &message_model.ChatRead{}, &message_model.ChatState{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	t.Cleanup(func() {

@@ -137,7 +137,7 @@ func main() {
 	}
 	defer ch.Close()
 
-	if _, err := ch.QueueInspect(*queue); err != nil {
+	if _, err := ch.QueueDeclarePassive(*queue, true, false, false, false, nil); err != nil {
 		fail(1, "queue %q is not available: %v", *queue, err)
 	}
 

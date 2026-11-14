@@ -58,7 +58,7 @@ func TestJetStreamPublishDedupesPayload(t *testing.T) {
 	defer admin.Close()
 	js, err := admin.JetStream()
 	if err != nil {
-		t.Fatal(err)
+		t.Skipf("JetStream unavailable: %v", err)
 	}
 	stream := fmt.Sprintf("WAMUX_TEST_%d", time.Now().UnixNano())
 	if _, err := js.AddStream(&nats.StreamConfig{
@@ -66,7 +66,7 @@ func TestJetStreamPublishDedupesPayload(t *testing.T) {
 		Subjects: []string{stream + ".>"},
 		Storage:  nats.MemoryStorage,
 	}); err != nil {
-		t.Fatal(err)
+		t.Skipf("JetStream is not enabled on this server: %v", err)
 	}
 	defer js.DeleteStream(stream)
 
@@ -91,7 +91,9 @@ func TestJetStreamPublishDedupesPayload(t *testing.T) {
 	if info.State.Msgs != 1 {
 		t.Fatalf("stream has %d messages, want 1 after a duplicate", info.State.Msgs)
 	}
-	if err := p.Drain(context.Background()); err != nil {
+	drainCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := p.Drain(drainCtx); err != nil {
 		t.Fatalf("Drain: %v", err)
 	}
 }
