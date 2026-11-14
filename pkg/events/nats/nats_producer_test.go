@@ -16,6 +16,23 @@ func TestJetStreamOptionStaysOffWithoutURL(t *testing.T) {
 	}
 }
 
+func TestStreamTooSmall(t *testing.T) {
+	cases := []struct {
+		stream, payload int64
+		want            bool
+	}{
+		{1024, 2048, true},
+		{8 << 20, 7 << 20, false},
+		{0, 2048, false},
+		{1024, 0, false},
+	}
+	for _, tc := range cases {
+		if got := streamTooSmall(tc.stream, tc.payload); got != tc.want {
+			t.Errorf("streamTooSmall(%d, %d) = %v, want %v", tc.stream, tc.payload, got, tc.want)
+		}
+	}
+}
+
 func TestDrainWithoutConnectionIsNoop(t *testing.T) {
 	p := &natsProducer{}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)

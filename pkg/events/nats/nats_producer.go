@@ -23,6 +23,11 @@ type natsProducer struct {
 	// no-op. A missing stream falls back to core NATS rather than dropping.
 	js     nats.JetStreamContext
 	stream string
+	// streamMaxBytes is the stream's max message size. Oversized events are
+	// published on core NATS (not durable) instead of being rejected by
+	// JetStream; a startup warning makes the configuration problem visible.
+	streamMaxBytes  int64
+	maxPayloadBytes int64
 }
 
 // Option configures the NATS producer.
@@ -31,6 +36,19 @@ type Option func(*natsProducer)
 // WithJetStream publishes through the named stream instead of core NATS.
 func WithJetStream(stream string) Option {
 	return func(p *natsProducer) { p.stream = strings.TrimSpace(stream) }
+}
+
+// WithMaxPayloadBytes sets the largest event payload this producer expects.
+// It is compared with the stream's max message size at startup so an oversized
+// event cannot silently lose durability.
+func WithMaxPayloadBytes(n int64) Option {
+	return func(p *natsProducer) { p.maxPayloadBytes = n }
+}
+
+// streamTooSmall reports whether events up to payload bytes can exceed the
+// stream's per-message limit. Zero on either side means "unknown/unlimited".
+func streamTooSmall(streamMax, payload int64) bool {
+	return streamMax > 0 && payload > 0 && streamMax < payload
 }
 
 func NewNatsProducer(
@@ -71,11 +89,18 @@ func NewNatsProducer(
 		js, err := conn.JetStream()
 		if err != nil {
 			applog.Logger.LogError("NATS JetStream is not available, falling back to core NATS: %v", err)
-		} else if _, err := js.StreamInfo(producer.stream); err != nil {
+		} else if info, err := js.StreamInfo(producer.stream); err != nil {
 			applog.Logger.LogError("NATS stream %q is not available, falling back to core NATS: %v", producer.stream, err)
 		} else {
 			producer.js = js
+			producer.streamMaxBytes = int64(info.Config.MaxMsgSize)
 			applog.Logger.LogInfo("NATS JetStream enabled on stream %s", producer.stream)
+			if streamTooSmall(producer.streamMaxBytes, producer.maxPayloadBytes) {
+				applog.Logger.LogWarn(
+					"NATS stream %s max message size is %d bytes, below the configured event payload limit %d; larger events will fall back to core NATS and not be durable. Recreate the stream with --max-msg-size %d.",
+					producer.stream, producer.streamMaxBytes, producer.maxPayloadBytes, producer.maxPayloadBytes,
+				)
+			}
 		}
 	}
 	return producer
@@ -120,6 +145,13 @@ func (p *natsProducer) Produce(
 // same event inside JetStream's duplicate window does not create a second copy.
 func (p *natsProducer) publish(subject string, payload []byte) error {
 	if p.js != nil {
+		if p.streamMaxBytes > 0 && int64(len(payload)) > p.streamMaxBytes {
+			p.loggerWrapper.GetLogger("").LogWarn(
+				"NATS event for %s is %d bytes, over stream %s max message size %d; published on core NATS without JetStream durability",
+				subject, len(payload), p.stream, p.streamMaxBytes,
+			)
+			return p.conn.Publish(subject, payload)
+		}
 		sum := sha256.Sum256(payload)
 		_, err := p.js.Publish(subject, payload, nats.MsgId(hex.EncodeToString(sum[:])))
 		if err == nil {

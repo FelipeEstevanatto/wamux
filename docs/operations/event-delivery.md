@@ -47,8 +47,16 @@ before starting WaMux, for example:
 ```bash
 nats stream add WAMUX_EVENTS \
   --subjects 'sendmessage,*.sendmessage' \
-  --storage file --retention limits
+  --storage file --retention limits \
+  --max-msg-size 8388608
 ```
+
+The default JetStream max message size is 1 MiB, while an event can embed up to
+`WEBHOOK_BASE64_MAX_BYTES` of media (≈6.7 MiB after base64 for the 5 MiB
+default). WaMux checks the stream limit at startup and warns when it is too
+small. An event larger than the stream limit is still published on core NATS,
+but it is **not durable**; that is why the stream limit should be raised (or
+media moved to an object store).
 
 Global subjects are the lower-case event name (`sendmessage`, `message`,
 `receipt`); instance subjects are `<instance-id>.<event>`. The producer waits for

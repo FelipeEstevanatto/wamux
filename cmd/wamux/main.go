@@ -132,7 +132,12 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		applog.Logger.LogInfo("NATS enabled")
 		var natsOpts []nats_producer.Option
 		if config.NatsJetStream {
-			natsOpts = append(natsOpts, nats_producer.WithJetStream(config.NatsStream))
+			// Base64 grows the raw file by 4/3; leave room for the event JSON.
+			payloadLimit := config.WebhookBase64MaxBytes*4/3 + 64*1024
+			natsOpts = append(natsOpts,
+				nats_producer.WithJetStream(config.NatsStream),
+				nats_producer.WithMaxPayloadBytes(payloadLimit),
+			)
 		}
 		natsProducer = nats_producer.NewNatsProducer(
 			config.NatsUrl,
