@@ -274,6 +274,30 @@ const docTemplate = `{
                         "description": "Return messages strictly older than this timestamp (YYYY-MM-DD HH:MM:SS)",
                         "name": "before",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Only messages at or after this timestamp",
+                        "name": "after",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Only messages at or before this timestamp",
+                        "name": "until",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Only this message type (text, image, video, ...)",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Only sent (true) or received (false) messages",
+                        "name": "from_me",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -424,6 +448,30 @@ const docTemplate = `{
                         "description": "Return messages strictly older than this timestamp (YYYY-MM-DD HH:MM:SS)",
                         "name": "before",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Only messages at or after this timestamp",
+                        "name": "after",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Only messages at or before this timestamp",
+                        "name": "until",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Only this message type (text, image, video, ...)",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Only sent (true) or received (false) messages",
+                        "name": "from_me",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -431,6 +479,64 @@ const docTemplate = `{
                         "description": "Matching messages, newest first",
                         "schema": {
                             "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
+                        }
+                    },
+                    "400": {
+                        "description": "Error on validation",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/chat/lidMapping": {
+            "post": {
+                "description": "Batch-resolves up to 200 LIDs and phone numbers using this instance's WhatsApp mapping. Unknown entries are null.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Chat"
+                ],
+                "summary": "Resolve LID/phone mappings",
+                "parameters": [
+                    {
+                        "description": "LIDs and/or phone numbers",
+                        "name": "message",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_chat_service.LidMappingStruct"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "mappings",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_chat_service.LidMappingResult"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -2361,6 +2467,44 @@ const docTemplate = `{
                         "description": "Error on validation",
                         "schema": {
                             "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/instance/inventory": {
+            "get": {
+                "description": "Safe per-instance inventory for monitoring. Tokens and raw JIDs are never returned; the owner is a SHA-256 fingerprint.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Instance"
+                ],
+                "summary": "Fleet inventory",
+                "responses": {
+                    "200": {
+                        "description": "inventory",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/pkg_instance_handler.inventory"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "500": {
@@ -6797,6 +6941,47 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_felipeestevanatto_wamux_pkg_chat_service.LidMappingResult": {
+            "type": "object",
+            "properties": {
+                "lids": {
+                    "description": "Keys are the exact values the caller sent; null means no mapping.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "pns": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "github_com_felipeestevanatto_wamux_pkg_chat_service.LidMappingStruct": {
+            "type": "object",
+            "properties": {
+                "lids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "1234567890@lid"
+                    ]
+                },
+                "pns": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "5511999999999"
+                    ]
+                }
+            }
+        },
         "github_com_felipeestevanatto_wamux_pkg_community_service.AddParticipantStruct": {
             "type": "object",
             "properties": {
@@ -10566,6 +10751,52 @@ const docTemplate = `{
                 },
                 "globalFallback": {
                     "type": "boolean"
+                }
+            }
+        },
+        "pkg_instance_handler.inventory": {
+            "type": "object",
+            "properties": {
+                "contractVersion": {
+                    "type": "string"
+                },
+                "instances": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/pkg_instance_handler.inventoryItem"
+                    }
+                },
+                "observedAt": {
+                    "type": "string"
+                },
+                "runtimeId": {
+                    "type": "string"
+                }
+            }
+        },
+        "pkg_instance_handler.inventoryItem": {
+            "type": "object",
+            "properties": {
+                "autoReconnect": {
+                    "type": "boolean"
+                },
+                "connected": {
+                    "type": "boolean"
+                },
+                "connectionStatus": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "instanceId": {
+                    "type": "string"
+                },
+                "instanceName": {
+                    "type": "string"
+                },
+                "ownerFingerprint": {
+                    "type": "string"
                 }
             }
         },

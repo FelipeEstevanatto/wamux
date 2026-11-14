@@ -187,6 +187,7 @@ The full endpoint list is in the
 | `GET` | `/metrics` | — | Prometheus metrics |
 | `GET` | `/chat/history` · `/chat/chats` · `/chat/media/:messageId` | instance | Stored messages / conversations / attachments |
 | `GET` | `/chat/history/capabilities` | instance | History pagination contract (`keyset`, max page size) |
+| `POST` | `/chat/lidMapping` | instance | Batch LID ↔ phone-number resolution (up to 200) |
 | `POST` | `/instance/hmac` | instance | Configure webhook HMAC signing |
 | `POST` | `/instance/s3` | instance | Per-instance S3 media storage |
 | `POST` | `/send/*` | instance | Send text, media, albums, buttons, lists, carousels, events, products |
@@ -215,7 +216,9 @@ the global MinIO config: `POST /instance/s3` (`GET`, `DELETE`, `POST /instance/s
 
 With `DATABASE_SAVE_MESSAGES=true`, conversations can be read back over the API
 (`GET /chat/history?chat=<phone-or-JID>&limit=&before=`) instead of only through
-webhooks. Limits default to 50 and cap at 500.
+webhooks. Limits default to 50 and cap at 500. Filters: `after`, `until`
+(inclusive timestamps), `type` and `from_me`; `keyset=true` adds the exact
+cursor. `/chat/history/search` accepts the same filters with `q`.
 
 ### Idempotent sends
 

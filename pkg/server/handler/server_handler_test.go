@@ -99,6 +99,12 @@ func (fakeMessageRepo) SearchMessages(string, string, string, string, int) ([]me
 func (fakeMessageRepo) SearchMessagesPage(string, string, string, string, string, int) ([]message_model.Message, error) {
 	return nil, nil
 }
+func (fakeMessageRepo) ListMessagesFiltered(string, string, message_repository.MessageFilter) ([]message_model.Message, error) {
+	return nil, nil
+}
+func (fakeMessageRepo) SearchMessagesFiltered(string, string, string, message_repository.MessageFilter) ([]message_model.Message, error) {
+	return nil, nil
+}
 func (fakeMessageRepo) BeginSendOperation(context.Context, string, string, string) (*message_model.SendOperation, bool, error) {
 	return nil, false, nil
 }
@@ -109,6 +115,10 @@ func (fakeMessageRepo) GetSendOperation(context.Context, string, string) (*messa
 	return nil, nil
 }
 func (fakeMessageRepo) ListSendOperations(context.Context, string, string, int) ([]message_model.SendOperation, error) {
+	return nil, nil
+}
+func (fakeMessageRepo) SetChatState(string, string, message_model.ChatStatePatch) error { return nil }
+func (fakeMessageRepo) ChatStates(string) (map[string]message_model.ChatState, error) {
 	return nil, nil
 }
 func (fakeMessageRepo) ListChats(string, int) ([]message_repository.ChatSummary, error) {

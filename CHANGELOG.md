@@ -46,6 +46,17 @@
   owner fingerprint without tokens or raw JIDs.
 - **`/metrics`** now exposes RSS, peak/virtual memory, heap, sys, goroutines, cgroup
   memory/CPU quota, GC count/pause, CPU seconds and uptime.
+- **Chat state** — archived, pinned, muted and marked-unread state from WhatsApp events
+  and history sync is stored (migration `0015`) and shown in the chat list.
+- **LID mapping** — `POST /chat/lidMapping` batch-resolves up to 200 LIDs and phone
+  numbers in both directions, returning `null` for unknown entries.
+- **History filters** — `/chat/history` and `/chat/history/search` accept `after`,
+  `until`, `type` and `from_me` in addition to the cursor.
+- **Replay signing** — `wamux-replay-webhook` reads and decrypts the per-instance HMAC
+  key from `instances.hmac_key`, so replayed events satisfy signature-checking
+  consumers; `-hmac-key` remains a global override.
+- **Avatar limits** — `AVATAR_RATE_LIMIT_PER_MINUTE` and `AVATAR_RATE_LIMIT_BURST`
+  replace the hardcoded 30/min burst-5 (`0` disables).
 
 ### 🐛 Fixes
 - **`QRCODE_MAX_COUNT`** stops the instance. It restarted instead, with the count back at
@@ -55,6 +66,13 @@
 - **Logout** finishes even if saving the state fails. WhatsApp has already ended the
   session by then, so it no longer answers `500` and leaves the client behind.
 - **Message writes** are retried, since WhatsApp will not deliver an acked message again.
+- **Inbound edits only apply from the original author.** The manager compares sender and
+  direction before folding an edit into its target, and ingest rejects an edit whose
+  stored target is missing/deleted, in another chat, or from another sender. Rejected
+  edits are not stored and the webhook carries a `rejected` reason.
+- **Caller-supplied media/link URLs always block private destinations.** DNS pinning and
+  redirect revalidation still apply; `SSRF_PROTECTION` only remains as the explicit
+  escape hatch for configured internal services.
 - **Idempotency fingerprints are canonical JSON**, so a retry with the same fields in a
   different order replays instead of returning `409`.
 - **Edit/delete immediately after a send** now writes the local tombstone/edit row even

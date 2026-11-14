@@ -29,6 +29,10 @@ curl -H "apikey: $TOKEN" \
 
 `before_id` is the row's UUID primary key (`id`), not the WhatsApp `message_id`.
 
+Optional filters are applied before pagination: `after` and `until` (inclusive,
+stored timestamp format), `type` (e.g. `image`, `text`) and `from_me` (`true` or
+`false`). The same filters work on `/chat/history/search`.
+
 ## Compatibility
 
 A request with only `before` and no `keyset` keeps the old behaviour: the page

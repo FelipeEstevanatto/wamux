@@ -45,6 +45,13 @@ docker exec wamux /app/wamux-replay-webhook \
 docker exec wamux /app/wamux-replay-webhook \
   -amqp 'amqp://admin:admin@wamux_rabbitmq:5672/' -queue webhook_errors \
   -apply -confirm <planHash>
+
+# Per-instance HMAC signing (same users DB and secrets as the server)
+docker exec wamux /app/wamux-replay-webhook \
+  -amqp 'amqp://admin:admin@wamux_rabbitmq:5672/' -queue webhook_errors \
+  -postgres 'postgresql://wamux_user:...@wamux-database:5432/wamux_users?sslmode=disable' \
+  -global-api-key "$GLOBAL_API_KEY" \
+  -apply -confirm <planHash>
 ```
 
 The CLI signs replay with the instance's own key when it can read it. Pass
