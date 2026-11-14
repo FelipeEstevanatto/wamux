@@ -67,6 +67,35 @@ func (mycli *MyClient) tombstoneRevoked(revoke message_model.Message, targetID s
 	}
 }
 
+// rejectInboundEdit returns a non-empty reason when an inbound MESSAGE_EDIT
+// must not change the stored target. The lookup is by the outer chat and the
+// edit's fromMe, matching how WhatsApp resolves the protocol key.
+func (mycli *MyClient) rejectInboundEdit(evt *events.Message, targetID string, chat, sender types.JID) string {
+	if mycli.messageRepository == nil {
+		return ""
+	}
+	original, err := mycli.messageRepository.GetMessageByIDForInstance(mycli.userID, targetID)
+	if err != nil {
+		return "lookup_failed"
+	}
+	if original == nil {
+		return "original_not_found"
+	}
+	if original.MessageType == message_model.TypeDeleted {
+		return "original_deleted"
+	}
+	if original.IsFromMe != evt.Info.IsFromMe {
+		return "author_mismatch"
+	}
+	if !evt.Info.IsFromMe && original.SenderJid != sender.ToNonAD().String() {
+		return "author_mismatch"
+	}
+	if original.ChatJid != chat.String() && original.ChatJid != evt.Info.Chat.ToNonAD().String() {
+		return "chat_mismatch"
+	}
+	return ""
+}
+
 // ForgetSentMessage drops a revoked message from whatsmeow's retry cache. Otherwise a
 // recipient's retry receipt would be answered by sending the deleted content again.
 // With nothing cached the receipt is not answered, which is what a revoke wants.

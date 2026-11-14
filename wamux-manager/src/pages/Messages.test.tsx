@@ -227,6 +227,22 @@ describe('Messages page', () => {
     expect(document.querySelectorAll('[data-message-id]')).toHaveLength(1);
   });
 
+  it('does not apply an edit from a different author', async () => {
+    vi.mocked(messagesApi.getHistory).mockResolvedValue([
+      row('edit-row', 'forged text', {
+        message_type: 'edit',
+        quoted_message_id: 'm1',
+        sender_jid: '999@s.whatsapp.net',
+      }),
+      row('m1', 'original text'),
+    ]);
+    await render();
+    await openChat();
+
+    expect(document.body.textContent).toContain('original text');
+    expect(document.body.textContent).not.toContain('forged text');
+  });
+
   it('renders album items as one group in album order', async () => {
     vi.mocked(messagesApi.getHistory).mockResolvedValue([
       row('a2', 'second album item', { album_id: 'alb-1', album_index: 1 }),

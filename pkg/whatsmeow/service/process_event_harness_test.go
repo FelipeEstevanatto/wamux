@@ -169,9 +169,19 @@ type fakeMessageRepo struct {
 	mu           sync.Mutex
 	messages     []message_model.Message
 	history      []message_model.Message
+	existing     map[string]message_model.Message
 	revoked      []revokedCall
 	reads        []string
 	refuseRevoke bool
+}
+
+func (r *fakeMessageRepo) GetMessageByIDForInstance(_, id string) (*message_model.Message, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if m, ok := r.existing[id]; ok {
+		return &m, nil
+	}
+	return nil, nil
 }
 
 type revokedCall struct {

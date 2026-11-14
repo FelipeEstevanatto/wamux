@@ -3104,10 +3104,24 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 				AlbumIndex:      summary.AlbumIndex,
 			}
 
+			// Only the original author may edit a message. A protocol edit is
+			// just a message someone sent; without this check a contact could
+			// replace the text of someone else's stored message.
+			rejectedEdit := ""
+			if summary.Type == "edit" && summary.QuotedID != "" {
+				rejectedEdit = mycli.rejectInboundEdit(evt, summary.QuotedID, chatJID, senderJID)
+				if rejectedEdit != "" {
+					postMap["rejected"] = rejectedEdit
+					mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn(
+						"[%s] Rejected edit of %s: %s", mycli.userID, summary.QuotedID, rejectedEdit,
+					)
+				}
+			}
+
 			// An album container is not a visible message: its items are stored
 			// as their own rows. Persisting it would add a blank bubble to
 			// history and to the manager's conversation.
-			if summary.Type != "album" {
+			if summary.Type != "album" && rejectedEdit == "" {
 				mycli.persistMessageAsync(message)
 			}
 

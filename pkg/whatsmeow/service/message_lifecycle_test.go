@@ -15,6 +15,7 @@ import (
 	"go.mau.fi/whatsmeow/types/events"
 	"google.golang.org/protobuf/proto"
 
+	message_model "github.com/felipeestevanatto/wamux/pkg/message/model"
 	message_repository "github.com/felipeestevanatto/wamux/pkg/message/repository"
 )
 
@@ -26,6 +27,55 @@ func revokeOf(t *testing.T, id, target string) *events.Message {
 		Key:  &waCommon.MessageKey{ID: proto.String(target)},
 	}}
 	return evt
+}
+
+func editOf(t *testing.T, id, target, text string) *events.Message {
+	t.Helper()
+	evt := inbound(t, id, "")
+	evt.Message = &waE2E.Message{ProtocolMessage: &waE2E.ProtocolMessage{
+		Type:          waE2E.ProtocolMessage_MESSAGE_EDIT.Enum(),
+		Key:           &waCommon.MessageKey{ID: proto.String(target)},
+		EditedMessage: &waE2E.Message{Conversation: proto.String(text)},
+	}}
+	return evt
+}
+
+func TestInboundEditFromTheOriginalAuthorIsStored(t *testing.T) {
+	h := newEventHarness(t)
+	h.messages.existing = map[string]message_model.Message{
+		"TARGET": {
+			MessageID: "TARGET", ChatJid: testContact, SenderJid: testContact,
+			IsFromMe: false, MessageType: "text", Timestamp: testTime.Format("2006-01-02 15:04:05"),
+		},
+	}
+	h.cli.processEvent(editOf(t, "EDIT1", "TARGET", "fixed"))
+
+	stored := h.messages.stored()
+	if len(stored) != 1 || stored[0].MessageType != "edit" || stored[0].TextContent != "fixed" {
+		t.Fatalf("stored %+v", stored)
+	}
+}
+
+func TestInboundEditFromAnotherAuthorIsRejected(t *testing.T) {
+	h := newEventHarness(t)
+	h.messages.existing = map[string]message_model.Message{
+		"TARGET": {
+			MessageID: "TARGET", ChatJid: testContact, SenderJid: testContact,
+			IsFromMe: false, MessageType: "text", Timestamp: testTime.Format("2006-01-02 15:04:05"),
+		},
+	}
+	evt := editOf(t, "EDIT1", "TARGET", "forged")
+	evt.Info.Sender = mustJID(t, "5511888888888@s.whatsapp.net")
+	h.cli.processEvent(evt)
+
+	if got := h.messages.stored(); len(got) != 0 {
+		t.Fatalf("rejected edit was stored: %+v", got)
+	}
+	d := h.deliveries(t, 1)[0]
+	got := d.event(t)
+	if got["rejected"] == nil {
+		t.Fatalf("webhook did not mark the edit rejected: %+v", got)
+	}
 }
 
 func TestInboundRevokeTombstonesTheOriginal(t *testing.T) {
