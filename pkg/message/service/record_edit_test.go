@@ -9,6 +9,7 @@ import (
 	logger_wrapper "github.com/felipeestevanatto/wamux/pkg/logger"
 	message_model "github.com/felipeestevanatto/wamux/pkg/message/model"
 	message_repository "github.com/felipeestevanatto/wamux/pkg/message/repository"
+	"go.mau.fi/whatsmeow/types"
 )
 
 type editRepo struct {
@@ -37,7 +38,8 @@ func editService(t *testing.T, repo *editRepo) *messageService {
 func TestRecordEditStoresARowLinkedToTheOriginal(t *testing.T) {
 	repo := &editRepo{original: &message_model.Message{Source: "1", ChatJid: "1@s.whatsapp.net", SenderJid: "me@s.whatsapp.net"}}
 	at := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
-	editService(t, repo).recordEdit("i", "ORIGINAL", "EDIT", "new text", at)
+	chat := types.NewJID("1", types.DefaultUserServer)
+	editService(t, repo).recordEdit("i", "ORIGINAL", "EDIT", "new text", at, chat, types.NewJID("me", types.DefaultUserServer))
 
 	if len(repo.stored) != 1 {
 		t.Fatalf("stored %d rows", len(repo.stored))
@@ -51,17 +53,22 @@ func TestRecordEditStoresARowLinkedToTheOriginal(t *testing.T) {
 	}
 }
 
-// No stored original means no history to update, or history is turned off.
-func TestRecordEditWithoutAnOriginalStoresNothing(t *testing.T) {
-	for name, repo := range map[string]*editRepo{
-		"not stored":  {},
-		"read failed": {findErr: errors.New("down")},
-	} {
-		t.Run(name, func(t *testing.T) {
-			editService(t, repo).recordEdit("i", "ORIGINAL", "EDIT", "new text", time.Now())
-			if len(repo.stored) != 0 {
-				t.Fatalf("stored %+v", repo.stored)
-			}
-		})
+// An unreadable repository is a transient failure and must not invent a row.
+// A missing row is the just-sent race: the edit is stored against the target id
+// so the later original row is matched by quoted_message_id.
+func TestRecordEditWithoutAnOriginal(t *testing.T) {
+	chat := types.NewJID("1", types.DefaultUserServer)
+	me := types.NewJID("me", types.DefaultUserServer)
+
+	missing := &editRepo{}
+	editService(t, missing).recordEdit("i", "ORIGINAL", "EDIT", "new text", time.Now(), chat, me)
+	if len(missing.stored) != 1 || missing.stored[0].QuotedMessageID != "ORIGINAL" {
+		t.Fatalf("missing original stored %+v", missing.stored)
+	}
+
+	failed := &editRepo{findErr: errors.New("down")}
+	editService(t, failed).recordEdit("i", "ORIGINAL", "EDIT", "new text", time.Now(), chat, me)
+	if len(failed.stored) != 0 {
+		t.Fatalf("read failure stored %+v", failed.stored)
 	}
 }

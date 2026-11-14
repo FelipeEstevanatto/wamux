@@ -461,6 +461,20 @@ func (m *messageHandler) EditMessage(ctx *gin.Context) {
 	}
 
 	msgId, ts, err := m.messageService.EditMessage(data, instance)
+	if errors.Is(err, message_service.ErrEditExpired) {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "whatsapp_edit_time_expired",
+			"code":  "WHATSAPP_EDIT_TIME_EXPIRED",
+		})
+		return
+	}
+	if errors.Is(err, message_service.ErrEditRestricted) {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "whatsapp_edit_restricted",
+			"code":  "WHATSAPP_EDIT_RESTRICTED",
+		})
+		return
+	}
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

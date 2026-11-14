@@ -751,10 +751,30 @@ func (m *messageService) tombstoneRevoked(instanceId, targetID string, chat type
 	}
 	logger := m.loggerWrapper.GetLogger(instanceId)
 	original, err := m.messageRepository.GetMessageByIDForInstance(instanceId, targetID)
-	if err != nil || original == nil {
+	if err != nil {
 		return
 	}
-	applied, err := m.messageRepository.MarkMessageDeleted(*original, m.chatJidVariants(instanceId, original.ChatJid), chat.Server != types.GroupServer)
+
+	// The outbound row is written asynchronously after a send. A delete that
+	// arrives first must still leave a tombstone; otherwise the later content
+	// row would make a message that WhatsApp already deleted visible again.
+	row := message_model.Message{
+		MessageID:   targetID,
+		InstanceId:  instanceId,
+		Timestamp:   time.Now().Format("2006-01-02 15:04:05"),
+		Status:      "Sent",
+		Source:      chat.User,
+		ChatJid:     chat.ToNonAD().String(),
+		SenderJid:   chat.ToNonAD().String(),
+		MessageType: "delete",
+		IsFromMe:    true,
+	}
+	chats := m.chatJidVariants(instanceId, chat.ToNonAD().String())
+	if original != nil {
+		row = *original
+		chats = m.chatJidVariants(instanceId, original.ChatJid)
+	}
+	applied, err := m.messageRepository.MarkMessageDeleted(row, chats, chat.Server != types.GroupServer)
 	if err != nil {
 		logger.LogError("[%s] Failed to mark %s as deleted: %v", instanceId, targetID, err)
 		return
@@ -782,6 +802,19 @@ func (m *messageService) EditMessage(data *EditMessageStruct, instance *instance
 	// protocolMessage Key, so the "+" prefix makes recipients ignore it.
 	recipient = utils.CanonicalJID(recipient)
 
+	// Reject an edit we already know cannot succeed before spending an IQ.
+	// A missing row is allowed: it is the just-sent race and recordEdit will
+	// create the edit row against the target id.
+	if m.messageRepository != nil {
+		original, lookupErr := m.messageRepository.GetMessageByIDForInstance(instance.Id, data.MessageID)
+		if lookupErr == nil && original != nil {
+			allowed := m.chatJidVariants(instance.Id, recipient.ToNonAD().String())
+			if err := validateEditTarget(original, allowed, time.Now()); err != nil {
+				return "", "", err
+			}
+		}
+	}
+
 	resp, err := client.SendMessage(
 		context.Background(),
 		recipient,
@@ -798,36 +831,83 @@ func (m *messageService) EditMessage(data *EditMessageStruct, instance *instance
 		return "", "", err
 	}
 
-	m.recordEdit(instance.Id, data.MessageID, resp.ID, data.Message, resp.Timestamp)
+	sender := types.EmptyJID
+	if client.Store.ID != nil {
+		sender = *client.Store.ID
+	}
+	m.recordEdit(instance.Id, data.MessageID, resp.ID, data.Message, resp.Timestamp, recipient, sender)
 
 	return resp.ID, resp.Timestamp.String(), nil
 }
 
+const whatsappEditWindow = 15 * time.Minute
+
+var (
+	// ErrEditExpired is returned when WhatsApp's edit window has closed.
+	ErrEditExpired = errors.New("whatsapp_edit_time_expired")
+	// ErrEditRestricted covers editing someone else's message, a deleted
+	// message, or a chat that does not match the stored target.
+	ErrEditRestricted = errors.New("whatsapp_edit_restricted")
+)
+
+// validateEditTarget applies the rules WhatsApp enforces. It only runs when the
+// original row is already stored; a just-sent message has no row yet and is
+// allowed through so the edit can be recorded against its target id.
+func validateEditTarget(original *message_model.Message, allowedChats []string, now time.Time) error {
+	if original == nil {
+		return nil
+	}
+	if !original.IsFromMe || original.MessageType == message_model.TypeDeleted {
+		return ErrEditRestricted
+	}
+	chatOK := false
+	for _, chat := range allowedChats {
+		if chat == original.ChatJid {
+			chatOK = true
+			break
+		}
+	}
+	if !chatOK {
+		return ErrEditRestricted
+	}
+	at, err := time.ParseInLocation("2006-01-02 15:04:05", original.Timestamp, time.Local)
+	if err == nil && now.Sub(at) >= whatsappEditWindow {
+		return ErrEditExpired
+	}
+	return nil
+}
+
 // recordEdit stores an edit made through the API, in the same shape as one received
-// from WhatsApp, so history shows the new text. An original that is not stored means
-// there is no history to update, which also covers history being turned off.
-func (m *messageService) recordEdit(instanceId, targetID, editID, text string, at time.Time) {
+// from WhatsApp, so history shows the new text. If the original row has not been
+// persisted yet (the just-sent race) the edit is still recorded against the target
+// id; the later original row is matched by quoted_message_id.
+func (m *messageService) recordEdit(instanceId, targetID, editID, text string, at time.Time, chat, sender types.JID) {
 	if m.messageRepository == nil {
 		return
 	}
 	original, err := m.messageRepository.GetMessageByIDForInstance(instanceId, targetID)
-	if err != nil || original == nil {
+	if err != nil {
 		return
 	}
-	err = m.messageRepository.InsertMessage(message_model.Message{
+	row := message_model.Message{
 		MessageID:       editID,
 		InstanceId:      instanceId,
 		Timestamp:       at.Format("2006-01-02 15:04:05"),
 		Status:          "Sent",
-		Source:          original.Source,
-		ChatJid:         original.ChatJid,
-		SenderJid:       original.SenderJid,
+		Source:          chat.User,
+		ChatJid:         chat.ToNonAD().String(),
+		SenderJid:       sender.ToNonAD().String(),
 		MessageType:     "edit",
 		TextContent:     text,
 		QuotedMessageID: targetID,
 		IsFromMe:        true,
-	})
-	if err != nil {
+	}
+	if original != nil {
+		row.Source = original.Source
+		row.ChatJid = original.ChatJid
+		row.SenderJid = original.SenderJid
+	}
+	if err := m.messageRepository.InsertMessage(row); err != nil {
 		m.loggerWrapper.GetLogger(instanceId).LogError("[%s] Failed to record edit of %s: %v", instanceId, targetID, err)
 	}
 }

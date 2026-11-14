@@ -49,23 +49,33 @@ func TestAPIRevokeTombstonesTheStoredMessage(t *testing.T) {
 	}
 }
 
-func TestAPIRevokeOfAnUnknownMessageStoresNothing(t *testing.T) {
-	for name, base := range map[string]editRepo{
-		"not stored":  {},
-		"read failed": {findErr: errors.New("down")},
-	} {
-		t.Run(name, func(t *testing.T) {
-			repo := &revokeRepo{editRepo: base}
-			svc := editService(t, &repo.editRepo)
-			svc.messageRepository = repo
+// A just-sent message may not have its row yet. The delete must still leave a
+// tombstone, or the async insert would make the deleted message visible again.
+// A read failure, on the other hand, must not invent one.
+func TestAPIRevokeOfAnUnknownMessage(t *testing.T) {
+	t.Run("not stored yet", func(t *testing.T) {
+		repo := &revokeRepo{}
+		svc := editService(t, &repo.editRepo)
+		svc.messageRepository = repo
 
-			svc.tombstoneRevoked("i", "M", types.NewJID("1", types.DefaultUserServer))
+		svc.tombstoneRevoked("i", "M", types.NewJID("1", types.DefaultUserServer))
 
-			if repo.row != nil {
-				t.Fatalf("stored %+v", repo.row)
-			}
-		})
-	}
+		if repo.row == nil || repo.row.MessageID != "M" || repo.row.ChatJid != "1@s.whatsapp.net" {
+			t.Fatalf("stored %+v", repo.row)
+		}
+	})
+
+	t.Run("read failed", func(t *testing.T) {
+		repo := &revokeRepo{editRepo: editRepo{findErr: errors.New("down")}}
+		svc := editService(t, &repo.editRepo)
+		svc.messageRepository = repo
+
+		svc.tombstoneRevoked("i", "M", types.NewJID("1", types.DefaultUserServer))
+
+		if repo.row != nil {
+			t.Fatalf("stored %+v", repo.row)
+		}
+	})
 }
 
 type lidResolver struct {
