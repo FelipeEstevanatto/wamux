@@ -24,6 +24,10 @@ type SendOperation struct {
 	PayloadHash string `json:"payload_hash" gorm:"column:payload_hash"`
 	State       string `json:"state" gorm:"column:state"`
 	StatusCode  int    `json:"status_code" gorm:"column:status_code"`
+	// PlannedMessageID is the 32-character WhatsApp id chosen before transport.
+	// It is what makes an interrupted send recoverable: a pending operation can
+	// be checked against the stored message with this id.
+	PlannedMessageID string `json:"planned_message_id" gorm:"column:planned_message_id"`
 	// Response is the exact JSON body returned to the first caller. It is
 	// capped by the middleware; a larger response replays without a body.
 	Response  []byte    `json:"-" gorm:"column:response"`

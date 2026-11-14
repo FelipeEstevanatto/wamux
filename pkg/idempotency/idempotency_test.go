@@ -33,7 +33,8 @@ func (s *memStore) BeginSendOperation(_ context.Context, instanceId, key, hash s
 	}
 	op := &message_model.SendOperation{
 		Id: id, InstanceId: instanceId, IdempotencyKey: key, PayloadHash: hash,
-		State: "pending", CreatedAt: time.Now(), UpdatedAt: time.Now(),
+		State: "pending", PlannedMessageID: "planned-" + key,
+		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
 	s.ops[id] = op
 	return op, true, nil
@@ -49,6 +50,10 @@ func (s *memStore) CompleteSendOperation(_ context.Context, id, state string, st
 		}
 	}
 	return nil
+}
+
+func (s *memStore) GetMessageByIDForInstance(_, _ string) (*message_model.Message, error) {
+	return nil, nil
 }
 
 func (s *memStore) ListSendOperations(_ context.Context, instanceId, state string, limit int) ([]message_model.SendOperation, error) {
@@ -184,6 +189,30 @@ func TestPendingOperationReturns202(t *testing.T) {
 	}
 }
 
+func TestMiddlewareInjectsPlannedMessageID(t *testing.T) {
+	store := newMemStore()
+	seen := ""
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set("instance", &instance_model.Instance{Id: "inst-1"})
+	})
+	h := New(store, nil)
+	r.POST("/send/text", h.Middleware(), func(c *gin.Context) {
+		var body map[string]any
+		_ = c.ShouldBindJSON(&body)
+		seen, _ = body["id"].(string)
+		c.JSON(http.StatusOK, gin.H{"message": "success", "data": gin.H{"Info": gin.H{"ID": seen}}})
+	})
+
+	if w := post(r, "abc", `{"text":"one"}`); w.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", w.Code, w.Body)
+	}
+	if seen != "planned-abc" {
+		t.Fatalf("handler saw id %q, want planned-abc", seen)
+	}
+}
+
 func TestNoKeyDoesNotTouchStore(t *testing.T) {
 	store := newMemStore()
 	calls := 0
@@ -197,6 +226,48 @@ func TestNoKeyDoesNotTouchStore(t *testing.T) {
 	}
 	if len(store.ops) != 0 {
 		t.Fatalf("store got %d rows without a key", len(store.ops))
+	}
+}
+
+// A pending operation whose message is already in history must become sent,
+// not stay pending forever after a crash.
+type reconcilingStore struct {
+	*memStore
+	message *message_model.Message
+}
+
+func (s *reconcilingStore) GetMessageByIDForInstance(_, _ string) (*message_model.Message, error) {
+	return s.message, nil
+}
+
+func TestPendingOperationReconcilesFromStoredMessage(t *testing.T) {
+	base := newMemStore()
+	base.ops["inst-1:op"] = &message_model.SendOperation{
+		Id: "op", InstanceId: "inst-1", IdempotencyKey: "op",
+		State: "pending", MessageID: "planned-1",
+	}
+	store := &reconcilingStore{
+		memStore: base,
+		message:  &message_model.Message{MessageID: "planned-1", InstanceId: "inst-1"},
+	}
+	r := newRouter(store, new(int))
+
+	req := httptest.NewRequest(http.MethodGet, "/send/operations/op", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", w.Code, w.Body)
+	}
+	var body struct {
+		Data struct {
+			State string `json:"state"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Data.State != "sent" {
+		t.Fatalf("state = %q, want sent after reconciliation", body.Data.State)
 	}
 }
 

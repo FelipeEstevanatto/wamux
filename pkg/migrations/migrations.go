@@ -300,6 +300,16 @@ var steps = []migration{
 			`CREATE INDEX IF NOT EXISTS idx_send_operations_created ON send_operations (created_at)`,
 		},
 	},
+	{
+		// The native id chosen before transport. A pending operation can be
+		// reconciled against the stored message with this id after a crash.
+		// SQLite gets the column from AutoMigrate (it cannot ADD COLUMN IF NOT
+		// EXISTS), so only Postgres needs an explicit statement.
+		Name: "0013_send_operations_planned_id",
+		Postgres: []string{
+			`ALTER TABLE send_operations ADD COLUMN IF NOT EXISTS planned_message_id TEXT`,
+		},
+	},
 }
 
 const createMigrationsTable = `

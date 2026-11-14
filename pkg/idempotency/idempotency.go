@@ -40,6 +40,9 @@ type Store interface {
 	CompleteSendOperation(ctx context.Context, id, state string, statusCode int, response []byte, messageID, errText string) error
 	GetSendOperation(ctx context.Context, instanceId, id string) (*message_model.SendOperation, error)
 	ListSendOperations(ctx context.Context, instanceId, state string, limit int) ([]message_model.SendOperation, error)
+	// GetMessageByIDForInstance is used to reconcile a pending send against the
+	// row the async persistence path eventually wrote.
+	GetMessageByIDForInstance(instanceId, messageID string) (*message_model.Message, error)
 }
 
 // Handler is the middleware and the operation-status endpoint.
@@ -125,6 +128,14 @@ func (h *Handler) Middleware() gin.HandlerFunc {
 			return
 		}
 
+		// Give the send a native id we already know. If the process dies after
+		// this point, the pending operation can be checked against the row that
+		// this id eventually produces.
+		if injected, ok := injectMessageID(body, op.PlannedMessageID); ok {
+			c.Request.Body = io.NopCloser(bytes.NewReader(injected))
+			c.Request.ContentLength = int64(len(injected))
+		}
+
 		c.Header(OperationHeader, op.Id)
 		writer := &captureWriter{ResponseWriter: c.Writer}
 		c.Writer = writer
@@ -188,19 +199,54 @@ func (h *Handler) Operation(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "IDEMPOTENCY_OPERATION_NOT_FOUND"})
 		return
 	}
+	op = h.reconcile(c, op)
 	c.JSON(http.StatusOK, gin.H{
 		"message": "success",
 		"data": gin.H{
-			"id":              op.Id,
-			"state":           op.State,
-			"status_code":     op.StatusCode,
-			"message_id":      op.MessageID,
-			"error":           op.Error,
-			"created_at":      op.CreatedAt,
-			"updated_at":      op.UpdatedAt,
-			"idempotency_key": op.IdempotencyKey,
+			"id":                 op.Id,
+			"state":              op.State,
+			"status_code":        op.StatusCode,
+			"planned_message_id": op.PlannedMessageID,
+			"message_id":         op.MessageID,
+			"error":              op.Error,
+			"created_at":         op.CreatedAt,
+			"updated_at":         op.UpdatedAt,
+			"idempotency_key":    op.IdempotencyKey,
 		},
 	})
+}
+
+// reconcile turns a pending operation into sent when the message with its
+// planned native id is already in history. A read error or a missing row leaves
+// it pending: "not found yet" is not proof that nothing was sent.
+func (h *Handler) reconcile(c *gin.Context, op *message_model.SendOperation) *message_model.SendOperation {
+	if op == nil || op.State != "pending" {
+		return op
+	}
+	planned := op.PlannedMessageID
+	if planned == "" {
+		planned = op.MessageID
+	}
+	if planned == "" {
+		return op
+	}
+	msg, err := h.store.GetMessageByIDForInstance(op.InstanceId, planned)
+	if err != nil || msg == nil {
+		return op
+	}
+	body, _ := json.Marshal(gin.H{
+		"message":    "success",
+		"reconciled": true,
+		"data":       gin.H{"Info": gin.H{"ID": planned}},
+	})
+	if err := h.store.CompleteSendOperation(c.Request.Context(), op.Id, "sent", http.StatusOK, body, planned, ""); err != nil {
+		return op
+	}
+	op.State = "sent"
+	op.StatusCode = http.StatusOK
+	op.Response = body
+	op.MessageID = planned
+	return op
 }
 
 // Operations lists this instance's idempotent sends, oldest first. Filter with
@@ -233,7 +279,30 @@ func (h *Handler) Operations(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not list operations"})
 		return
 	}
+	for i := range ops {
+		ops[i] = *h.reconcile(c, &ops[i])
+	}
 	c.JSON(http.StatusOK, gin.H{"message": "success", "data": ops})
+}
+
+// injectMessageID sets the body's "id" field to the planned native id. A JSON
+// body that is not an object is left alone; the handler will reject it.
+func injectMessageID(body []byte, id string) ([]byte, bool) {
+	if id == "" {
+		return body, false
+	}
+	dec := json.NewDecoder(bytes.NewReader(body))
+	dec.UseNumber()
+	var value map[string]any
+	if err := dec.Decode(&value); err != nil {
+		return body, false
+	}
+	value["id"] = id
+	out, err := json.Marshal(value)
+	if err != nil {
+		return body, false
+	}
+	return out, true
 }
 
 // canonicalJSON normalizes object key order and whitespace so a retry that is

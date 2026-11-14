@@ -12,6 +12,7 @@ import (
 
 	applog "github.com/felipeestevanatto/wamux/pkg/applog"
 	message_model "github.com/felipeestevanatto/wamux/pkg/message/model"
+	"github.com/google/uuid"
 	"github.com/patrickmn/go-cache"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -1013,13 +1014,17 @@ func (m *messageRepository) DeleteMessagesOlderThan(cutoff string) (int64, error
 // race safely: exactly one inserts, the rest read the winner's row.
 func (m *messageRepository) BeginSendOperation(ctx context.Context, instanceId, key, payloadHash string) (*message_model.SendOperation, bool, error) {
 	now := time.Now().UTC()
+	// WhatsApp ids are 32 hex characters. Choosing one before transport is what
+	// lets a crashed pending operation be matched against the stored message.
+	plannedID := strings.ToUpper(strings.ReplaceAll(uuid.NewString(), "-", ""))
 	op := &message_model.SendOperation{
-		InstanceId:     instanceId,
-		IdempotencyKey: key,
-		PayloadHash:    payloadHash,
-		State:          "pending",
-		CreatedAt:      now,
-		UpdatedAt:      now,
+		InstanceId:       instanceId,
+		IdempotencyKey:   key,
+		PayloadHash:      payloadHash,
+		State:            "pending",
+		PlannedMessageID: plannedID,
+		CreatedAt:        now,
+		UpdatedAt:        now,
 	}
 	result := m.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(op)
 	if result.Error != nil {
