@@ -1,7 +1,9 @@
 package routes
 
 import (
+	"net"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
@@ -14,6 +16,7 @@ import (
 	config "github.com/felipeestevanatto/wamux/pkg/config"
 	group_handler "github.com/felipeestevanatto/wamux/pkg/group/handler"
 	"github.com/felipeestevanatto/wamux/pkg/httpguard"
+	"github.com/felipeestevanatto/wamux/pkg/idempotency"
 	instance_handler "github.com/felipeestevanatto/wamux/pkg/instance/handler"
 	label_handler "github.com/felipeestevanatto/wamux/pkg/label/handler"
 	message_handler "github.com/felipeestevanatto/wamux/pkg/message/handler"
@@ -62,6 +65,31 @@ type Routes struct {
 	serverHandler           server_handler.ServerHandler
 	typebotHandler          typebot_handler.TypebotHandler
 	sendGuard               *httpguard.SendGuard
+	idempotency             *idempotency.Handler
+}
+
+// SetIdempotency installs the Idempotency-Key middleware and the operation
+// status route. It is called before AssignRoutes; nil keeps the old behaviour.
+func (r *Routes) SetIdempotency(h *idempotency.Handler) {
+	r.idempotency = h
+}
+
+// loopbackOnly admits a scrape only from a loopback TCP peer. It deliberately
+// uses RemoteAddr rather than ClientIP: a forwarded header must not turn a
+// public request into a local one.
+func loopbackOnly() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		host, _, err := net.SplitHostPort(c.Request.RemoteAddr)
+		if err != nil {
+			host = c.Request.RemoteAddr
+		}
+		ip := net.ParseIP(host)
+		if ip == nil || !ip.IsLoopback() {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "metrics are restricted to loopback"})
+			return
+		}
+		c.Next()
+	}
 }
 
 func (r *Routes) AssignRoutes(eng *gin.Engine) {
@@ -95,7 +123,18 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 	// is the Prometheus text format. Both are public (no apikey) like the other
 	// health endpoints, and expose no message contents — only counts.
 	eng.GET("/server/health", r.serverHandler.HealthHandler)
-	eng.GET("/metrics", r.serverHandler.MetricsHandler)
+	metricsAuth := "admin"
+	if r.config != nil {
+		metricsAuth = strings.ToLower(strings.TrimSpace(r.config.MetricsAuth))
+	}
+	switch metricsAuth {
+	case "none":
+		eng.GET("/metrics", r.serverHandler.MetricsHandler)
+	case "loopback":
+		eng.GET("/metrics", loopbackOnly(), r.serverHandler.MetricsHandler)
+	default:
+		eng.GET("/metrics", r.authMiddleware.AuthAdmin, r.serverHandler.MetricsHandler)
+	}
 
 	// The dashboard lives in the manager now; old links and bookmarks still land.
 	eng.GET("/dashboard", func(c *gin.Context) {
@@ -155,15 +194,31 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 	routes = eng.Group("/send")
 	{
 		routes.Use(r.authMiddleware.Auth)
+		// Observing an idempotent send is not a send: it must not consume the
+		// per-instance send budget below.
+		if r.idempotency != nil {
+			routes.GET("/operations", r.idempotency.Operations)
+			routes.GET("/operations/:operationId", r.idempotency.Operation)
+		}
 		// Per-instance send limits (MAX_INSTANCES-style tenant protection):
 		// rate limit + concurrency cap, keyed by the authenticated instance.
 		if r.sendGuard != nil {
 			routes.Use(r.sendGuard.Middleware())
 		}
 		{
-			routes.POST("/text", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendText)
+			textHandlers := []gin.HandlerFunc{}
+			mediaHandlers := []gin.HandlerFunc{}
+			if r.idempotency != nil {
+				textHandlers = append(textHandlers, r.idempotency.Middleware())
+				mediaHandlers = append(mediaHandlers, r.idempotency.Middleware())
+			}
+			textHandlers = append(textHandlers, r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendText)
+			mediaHandlers = append(mediaHandlers, r.uploadGuard(), r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendMedia)
+
+			routes.POST("/text", textHandlers...)
 			routes.POST("/link", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendLink)
-			routes.POST("/media", r.uploadGuard(), r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendMedia)
+			routes.POST("/media", mediaHandlers...)
+			routes.POST("/album", r.uploadGuard(), r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendAlbum)
 			routes.POST("/poll", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendPoll)
 			routes.POST("/sticker", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendSticker)
 			routes.POST("/location", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendLocation)
@@ -229,6 +284,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			// Read stored history back (requires DATABASE_SAVE_MESSAGES).
 			routes.GET("/history", r.messageHandler.GetHistory)
 			routes.GET("/history/search", r.messageHandler.SearchHistory)
+			routes.GET("/history/capabilities", r.messageHandler.HistoryCapabilities)
 			routes.GET("/chats", r.messageHandler.ListChats)
 			routes.POST("/read", r.messageHandler.MarkChatRead)
 			routes.GET("/contacts", r.messageHandler.Contacts)

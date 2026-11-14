@@ -23,6 +23,7 @@ type SendHandler interface {
 	SendText(ctx *gin.Context)
 	SendLink(ctx *gin.Context)
 	SendMedia(ctx *gin.Context)
+	SendAlbum(ctx *gin.Context)
 	SendPoll(ctx *gin.Context)
 	SendSticker(ctx *gin.Context)
 	SendLocation(ctx *gin.Context)
@@ -325,6 +326,66 @@ func (s *sendHandler) SendMedia(ctx *gin.Context) {
 
 		ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": message})
 	}
+}
+
+// Send an album
+// @Summary Send an album
+// @Description Sends 2-30 images/videos as one WhatsApp album. Each item may have its own caption.
+// @Description `media` accepts a URL, a data URI or raw base64. The reply/mentions are attached to the first item.
+// @Tags Send Message
+// @Accept json
+// @Produce json
+// @Param message body send_service.AlbumStruct true "Album data"
+// @Success 200 {object} docmodels.Envelope{data=send_service.AlbumSendResult} "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
+// @Router /send/album [post]
+func (s *sendHandler) SendAlbum(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	if ctx.GetHeader("Idempotency-Key") != "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "Idempotency-Key is not supported for albums; each item has its own WhatsApp message",
+		})
+		return
+	}
+
+	data := &send_service.AlbumStruct{}
+	if err := ctx.ShouldBindBodyWithJSON(data); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if data.Number == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
+		return
+	}
+	if len(data.Items) < 2 || len(data.Items) > 30 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "an album needs between 2 and 30 items"})
+		return
+	}
+	for i, item := range data.Items {
+		if item.Media == "" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "album item " + strconv.Itoa(i) + " has no media"})
+			return
+		}
+		if item.Mediatype != "image" && item.Mediatype != "video" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "album item " + strconv.Itoa(i) + " must be image or video"})
+			return
+		}
+	}
+
+	result, err := s.sendMessageService.SendAlbum(data, instance)
+	if err != nil {
+		writeMediaError(ctx, err)
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": result})
 }
 
 // Send a poll message

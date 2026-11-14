@@ -260,6 +260,46 @@ var steps = []migration{
 				ON CONFLICT DO NOTHING`,
 		},
 	},
+	{
+		// Durable idempotency for POST /send/text and /send/media. The unique
+		// (instance, key) index is the concurrency guard; the response body is
+		// replayed to a retry instead of sending a second WhatsApp message.
+		Name: "0012_send_operations",
+		Postgres: []string{
+			`CREATE TABLE IF NOT EXISTS send_operations (
+				id uuid PRIMARY KEY,
+				instance_id text NOT NULL,
+				idempotency_key text NOT NULL,
+				payload_hash text NOT NULL,
+				state text NOT NULL,
+				status_code integer NOT NULL DEFAULT 0,
+				response bytea,
+				message_id text,
+				error text,
+				created_at timestamptz NOT NULL DEFAULT NOW(),
+				updated_at timestamptz NOT NULL DEFAULT NOW()
+			)`,
+			`CREATE UNIQUE INDEX IF NOT EXISTS uni_send_operations_instance_key ON send_operations (instance_id, idempotency_key)`,
+			`CREATE INDEX IF NOT EXISTS idx_send_operations_created ON send_operations (created_at)`,
+		},
+		SQLite: []string{
+			`CREATE TABLE IF NOT EXISTS send_operations (
+				id text PRIMARY KEY,
+				instance_id text NOT NULL,
+				idempotency_key text NOT NULL,
+				payload_hash text NOT NULL,
+				state text NOT NULL,
+				status_code integer NOT NULL DEFAULT 0,
+				response blob,
+				message_id text,
+				error text,
+				created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+			)`,
+			`CREATE UNIQUE INDEX IF NOT EXISTS uni_send_operations_instance_key ON send_operations (instance_id, idempotency_key)`,
+			`CREATE INDEX IF NOT EXISTS idx_send_operations_created ON send_operations (created_at)`,
+		},
+	},
 }
 
 const createMigrationsTable = `

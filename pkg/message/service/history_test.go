@@ -12,20 +12,28 @@ import (
 
 type recordingRepo struct {
 	message_repository.MessageRepository
-	instance, chat, before string
-	text                   string
-	limit                  int
-	messages               []message_model.Message
-	chats                  []message_repository.ChatSummary
+	instance, chat, before, beforeID string
+	text                             string
+	limit                            int
+	messages                         []message_model.Message
+	chats                            []message_repository.ChatSummary
 }
 
 func (r *recordingRepo) ListMessages(instanceId, chatJid, before string, limit int) ([]message_model.Message, error) {
-	r.instance, r.chat, r.before, r.limit = instanceId, chatJid, before, limit
+	return r.ListMessagesPage(instanceId, chatJid, before, "", limit)
+}
+
+func (r *recordingRepo) ListMessagesPage(instanceId, chatJid, before, beforeID string, limit int) ([]message_model.Message, error) {
+	r.instance, r.chat, r.before, r.beforeID, r.limit = instanceId, chatJid, before, beforeID, limit
 	return r.messages, nil
 }
 
 func (r *recordingRepo) SearchMessages(instanceId, chatJid, text, before string, limit int) ([]message_model.Message, error) {
-	r.instance, r.chat, r.text, r.before, r.limit = instanceId, chatJid, text, before, limit
+	return r.SearchMessagesPage(instanceId, chatJid, text, before, "", limit)
+}
+
+func (r *recordingRepo) SearchMessagesPage(instanceId, chatJid, text, before, beforeID string, limit int) ([]message_model.Message, error) {
+	r.instance, r.chat, r.text, r.before, r.beforeID, r.limit = instanceId, chatJid, text, before, beforeID, limit
 	return r.messages, nil
 }
 
@@ -43,8 +51,11 @@ func TestGetHistoryNormalizesPhoneToCanonicalJID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetHistory: %v", err)
 	}
-	if len(got) != 1 || got[0].MessageID != "m1" {
-		t.Fatalf("messages = %+v", got)
+	if len(got.Messages) != 1 || got.Messages[0].MessageID != "m1" {
+		t.Fatalf("messages = %+v", got.Messages)
+	}
+	if got.NextCursor != nil {
+		t.Fatalf("a short page must not have a cursor: %+v", got.NextCursor)
 	}
 	if repo.chat != "5511999999999@s.whatsapp.net" {
 		t.Fatalf("chat = %q, want canonical JID", repo.chat)
@@ -66,6 +77,29 @@ func TestGetHistoryKeepsGroupJID(t *testing.T) {
 	}
 	if repo.chat != "123456789@g.us" {
 		t.Fatalf("chat = %q, want the group JID unchanged", repo.chat)
+	}
+}
+
+func TestGetHistoryReturnsKeysetCursor(t *testing.T) {
+	repo := &recordingRepo{messages: []message_model.Message{
+		{Id: "uuid-2", MessageID: "m2", Timestamp: "2026-05-09 10:00:02"},
+		{Id: "uuid-1", MessageID: "m1", Timestamp: "2026-05-09 10:00:01"},
+	}}
+	svc := &messageService{messageRepository: repo}
+	instance := &instance_model.Instance{Id: "inst-1"}
+
+	got, err := svc.GetHistory(&HistoryQuery{
+		Chat: "5511999999999", Limit: 2,
+		Before: "2026-05-09 10:00:03", BeforeID: "uuid-3",
+	}, instance)
+	if err != nil {
+		t.Fatalf("GetHistory: %v", err)
+	}
+	if repo.before != "2026-05-09 10:00:03" || repo.beforeID != "uuid-3" {
+		t.Fatalf("cursor = %q/%q, want passed through", repo.before, repo.beforeID)
+	}
+	if got.NextCursor == nil || got.NextCursor.Before != "2026-05-09 10:00:01" || got.NextCursor.BeforeID != "uuid-1" {
+		t.Fatalf("next cursor = %+v", got.NextCursor)
 	}
 }
 
@@ -149,8 +183,8 @@ func TestSearchHistoryTrimsAndNormalizes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SearchHistory: %v", err)
 	}
-	if len(got) != 1 || got[0].MessageID != "m1" {
-		t.Fatalf("got = %+v", got)
+	if len(got.Messages) != 1 || got.Messages[0].MessageID != "m1" {
+		t.Fatalf("got = %+v", got.Messages)
 	}
 	if repo.instance != "inst" || repo.chat != "5511999999999@s.whatsapp.net" {
 		t.Fatalf("searched instance %q chat %q", repo.instance, repo.chat)

@@ -56,6 +56,30 @@ func routeTable(t *testing.T, eng *gin.Engine) map[string]struct{} {
 	return out
 }
 
+func TestLoopbackOnlyAdmitsOnlyLocalPeers(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	eng := gin.New()
+	eng.GET("/metrics", loopbackOnly(), func(c *gin.Context) { c.String(http.StatusOK, "ok") })
+
+	cases := []struct {
+		addr string
+		want int
+	}{
+		{"127.0.0.1:1234", http.StatusOK},
+		{"[::1]:1234", http.StatusOK},
+		{"8.8.8.8:1234", http.StatusForbidden},
+	}
+	for _, tc := range cases {
+		req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+		req.RemoteAddr = tc.addr
+		w := httptest.NewRecorder()
+		eng.ServeHTTP(w, req)
+		if w.Code != tc.want {
+			t.Errorf("RemoteAddr %s: status = %d, want %d", tc.addr, w.Code, tc.want)
+		}
+	}
+}
+
 func TestAssignRoutesRegistersEveryEndpointGroup(t *testing.T) {
 	cfg := testConfig()
 	eng := NewTestRouter(cfg, auth_middleware.NewMiddleware(cfg, &stubInstanceService{valid: "instance-token"}))

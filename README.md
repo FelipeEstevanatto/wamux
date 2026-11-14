@@ -124,6 +124,7 @@ A few of the most-used settings:
 | `MESSAGE_RETENTION_DAYS` | Prune stored messages after N days (`0` = keep forever) | `365` |
 | `CONNECT_ON_STARTUP` | Reconnect paired instances on boot | `true` (explicit API disconnects stay down) |
 | `SWAGGER_ENABLED` | Serve `/swagger` publicly | `true` |
+| `METRICS_AUTH` | `/metrics` access: `admin`, `loopback` or `none` | `admin` |
 | `SSRF_PROTECTION` | Opt-in: refuse outbound fetches to loopback/private/link-local hosts | `false` |
 | `WEBHOOK_HMAC_KEY` | Global key for webhook HMAC signing | — |
 | `RATE_LIMIT_PER_MINUTE` | Requests per credential / per IP (`0` disables) | `600` |
@@ -132,11 +133,17 @@ A few of the most-used settings:
 | `MEDIA_RETENTION_DAYS` | Days to keep stored media (`0` keeps it forever) | `MESSAGE_RETENTION_DAYS` |
 | `HTTP_ACCESS_LOG` | Request log: `errors`, `all` or `off` | `errors` |
 | `TRUSTED_PROXIES` | Who may set `X-Forwarded-For`: IPs/CIDRs, or `none` | private addresses, so a local reverse proxy needs nothing |
+| `NATS_JETSTREAM` | Publish through an existing NATS stream (at-least-once + dedupe) | `false` |
+| `NATS_STREAM` | Stream name used when JetStream is enabled | `WAMUX_EVENTS` |
 
 RabbitMQ, NATS and MinIO settings are in the same `.env.example`.
 
 > **`/swagger` is public by default.** It is not gated by `GLOBAL_API_KEY` — set
 > `SWAGGER_ENABLED=false` on an internet-facing deployment.
+>
+> **`/metrics` requires the global API key by default** (`METRICS_AUTH=admin`).
+> Set `METRICS_AUTH=loopback` for a local scrape agent or `none` for the old
+> public behaviour.
 
 ## Authentication
 
@@ -176,9 +183,11 @@ The full endpoint list is in the
 | `GET` | `/server/health` · `/server/ok` | — | Readiness / liveness probes |
 | `GET` | `/metrics` | — | Prometheus metrics |
 | `GET` | `/chat/history` · `/chat/chats` · `/chat/media/:messageId` | instance | Stored messages / conversations / attachments |
+| `GET` | `/chat/history/capabilities` | instance | History pagination contract (`keyset`, max page size) |
 | `POST` | `/instance/hmac` | instance | Configure webhook HMAC signing |
 | `POST` | `/instance/s3` | instance | Per-instance S3 media storage |
-| `POST` | `/send/*` | instance | Send text, media, buttons, lists, carousels, events, products |
+| `POST` | `/send/*` | instance | Send text, media, albums, buttons, lists, carousels, events, products |
+| `GET` | `/send/operations` · `/send/operations/:id` | instance | Idempotent send state (pending / sent / failed) |
 
 Full list: `GET /swagger/doc.json`.
 

@@ -47,6 +47,16 @@ func TestSummarizeMediaCaptions(t *testing.T) {
 	}
 }
 
+func TestSummarizeAlbumContainer(t *testing.T) {
+	got := Summarize(&waE2E.Message{AlbumMessage: &waE2E.AlbumMessage{
+		ExpectedImageCount: proto.Uint32(2),
+		ExpectedVideoCount: proto.Uint32(1),
+	}})
+	if got.Type != "album" {
+		t.Fatalf("album = %+v, want type album", got)
+	}
+}
+
 func TestSummarizeLocationAndContact(t *testing.T) {
 	loc := Summarize(&waE2E.Message{LocationMessage: &waE2E.LocationMessage{Name: proto.String("Paris")}})
 	if loc.Type != "location" || loc.Text != "Paris" {

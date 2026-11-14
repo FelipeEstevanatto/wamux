@@ -1,6 +1,29 @@
 package nats_producer
 
-import "testing"
+import (
+	"context"
+	"testing"
+	"time"
+)
+
+func TestJetStreamOptionStaysOffWithoutURL(t *testing.T) {
+	p := NewNatsProducer("", true, nil, nil, WithJetStream("WAMUX_EVENTS")).(*natsProducer)
+	if p.stream != "WAMUX_EVENTS" {
+		t.Fatalf("stream = %q", p.stream)
+	}
+	if p.js != nil {
+		t.Fatal("JetStream must stay nil without a connection")
+	}
+}
+
+func TestDrainWithoutConnectionIsNoop(t *testing.T) {
+	p := &natsProducer{}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := p.Drain(ctx); err != nil {
+		t.Fatalf("Drain: %v", err)
+	}
+}
 
 func TestNewNatsProducerDoesNotConnectWithoutURL(t *testing.T) {
 	tests := []struct {

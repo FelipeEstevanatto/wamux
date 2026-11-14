@@ -41,8 +41,8 @@ type MessageService interface {
 	EditMessage(data *EditMessageStruct, instance *instance_model.Instance) (string, string, error)
 
 	// History readback.
-	GetHistory(data *HistoryQuery, instance *instance_model.Instance) ([]message_model.Message, error)
-	SearchHistory(data *HistorySearchQuery, instance *instance_model.Instance) ([]message_model.Message, error)
+	GetHistory(data *HistoryQuery, instance *instance_model.Instance) (*HistoryPage, error)
+	SearchHistory(data *HistorySearchQuery, instance *instance_model.Instance) (*HistoryPage, error)
 	ListChats(instance *instance_model.Instance, limit int) ([]message_repository.ChatSummary, error)
 	MarkChatRead(data *ChatReadStruct, instance *instance_model.Instance) error
 	// Contacts lists the known contacts/groups for the instance's picker, with
@@ -142,18 +142,48 @@ type MessageSendStruct struct {
 // or a full JID (including a group JID); Before pages backwards and is the
 // timestamp of the oldest message already seen.
 type HistoryQuery struct {
-	Chat   string `form:"chat" json:"chat" example:"5511999999999"`
-	Limit  int    `form:"limit" json:"limit" example:"50"`
-	Before string `form:"before" json:"before" example:"2026-05-09 10:00:00"`
+	Chat     string `form:"chat" json:"chat" example:"5511999999999"`
+	Limit    int    `form:"limit" json:"limit" example:"50"`
+	Before   string `form:"before" json:"before" example:"2026-05-09 10:00:00"`
+	BeforeID string `form:"before_id" json:"before_id" example:"3EB0A1B2C3D4E5F6A7B8C9"`
+	// Keyset opts into exact (timestamp, id) pages from the first request.
+	// Without it the legacy timestamp-only cursor pads pages to whole seconds.
+	Keyset bool `form:"keyset" json:"keyset" example:"true"`
 }
 
-// HistorySearchQuery finds text in one conversation. Before is the timestamp of
-// the last row of the previous page.
+// HistorySearchQuery finds text in one conversation. Before/BeforeID are the
+// cursor of the last row of the previous page.
 type HistorySearchQuery struct {
-	Chat   string `form:"chat" json:"chat" example:"5511999999999"`
-	Q      string `form:"q" json:"q" example:"invoice"`
-	Limit  int    `form:"limit" json:"limit" example:"50"`
-	Before string `form:"before" json:"before" example:"2026-05-09 10:00:00"`
+	Chat     string `form:"chat" json:"chat" example:"5511999999999"`
+	Q        string `form:"q" json:"q" example:"invoice"`
+	Limit    int    `form:"limit" json:"limit" example:"50"`
+	Before   string `form:"before" json:"before" example:"2026-05-09 10:00:00"`
+	BeforeID string `form:"before_id" json:"before_id" example:"3EB0A1B2C3D4E5F6A7B8C9"`
+	Keyset   bool   `form:"keyset" json:"keyset" example:"true"`
+}
+
+// HistoryCursorContractVersion is returned by the capabilities endpoint. Bump
+// it only when the cursor shape changes incompatibly.
+const HistoryCursorContractVersion = "2026-11-14"
+
+// HistoryCursor is the keyset cursor for the next (older) page.
+type HistoryCursor struct {
+	Before   string `json:"before" example:"2026-05-09 10:00:00"`
+	BeforeID string `json:"before_id" example:"3EB0A1B2C3D4E5F6A7B8C9"`
+}
+
+// HistoryPage is one page of stored messages plus the cursor for the next one.
+type HistoryPage struct {
+	Messages   []message_model.Message `json:"messages"`
+	NextCursor *HistoryCursor          `json:"next_cursor,omitempty"`
+}
+
+// HistoryCapabilities describes the history pagination contract.
+type HistoryCapabilities struct {
+	ContractVersion string   `json:"contractVersion" example:"2026-11-14"`
+	Pagination      string   `json:"pagination" example:"keyset"`
+	Ordering        []string `json:"ordering" example:"timestamp:desc,id:desc"`
+	MaxPageSize     int      `json:"maxPageSize" example:"500"`
 }
 
 const (
@@ -890,7 +920,7 @@ func mergeMessagesByID(messages []message_model.Message) []message_model.Message
 
 // GetHistory returns one conversation's stored messages, newest first,
 // including rows stored under the other JID form (LID vs phone number).
-func (m *messageService) GetHistory(data *HistoryQuery, instance *instance_model.Instance) ([]message_model.Message, error) {
+func (m *messageService) GetHistory(data *HistoryQuery, instance *instance_model.Instance) (*HistoryPage, error) {
 	if data == nil || instance == nil {
 		return nil, errors.New("invalid request")
 	}
@@ -901,10 +931,18 @@ func (m *messageService) GetHistory(data *HistoryQuery, instance *instance_model
 
 	limit := historyLimit(data.Limit)
 	before := strings.TrimSpace(data.Before)
+	beforeID := strings.TrimSpace(data.BeforeID)
 
+	keyset := data.Keyset || beforeID != ""
 	var all []message_model.Message
 	for _, variant := range m.chatJidVariants(instance.Id, chatJid) {
-		msgs, err := m.messageRepository.ListMessages(instance.Id, variant, before, limit)
+		var msgs []message_model.Message
+		var err error
+		if keyset {
+			msgs, err = m.messageRepository.ListMessagesPage(instance.Id, variant, before, beforeID, limit)
+		} else {
+			msgs, err = m.messageRepository.ListMessages(instance.Id, variant, before, limit)
+		}
 		if err != nil {
 			m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to read message history for %s: %v", instance.Id, variant, err)
 			return nil, err
@@ -912,12 +950,18 @@ func (m *messageService) GetHistory(data *HistoryQuery, instance *instance_model
 		all = append(all, msgs...)
 	}
 
-	return wholeSecondPage(mergeMessagesByID(all), limit), nil
+	merged := mergeMessagesByID(all)
+	if keyset {
+		merged = limitPage(merged, limit)
+	} else {
+		merged = wholeSecondPage(merged, limit)
+	}
+	return historyPage(merged, limit), nil
 }
 
 // SearchHistory finds text in one conversation, newest first, including rows
 // stored under the other JID form (LID vs phone number).
-func (m *messageService) SearchHistory(data *HistorySearchQuery, instance *instance_model.Instance) ([]message_model.Message, error) {
+func (m *messageService) SearchHistory(data *HistorySearchQuery, instance *instance_model.Instance) (*HistoryPage, error) {
 	if data == nil || instance == nil {
 		return nil, errors.New("invalid request")
 	}
@@ -932,10 +976,18 @@ func (m *messageService) SearchHistory(data *HistorySearchQuery, instance *insta
 
 	limit := historyLimit(data.Limit)
 	before := strings.TrimSpace(data.Before)
+	beforeID := strings.TrimSpace(data.BeforeID)
 
+	keyset := data.Keyset || beforeID != ""
 	var all []message_model.Message
 	for _, variant := range m.chatJidVariants(instance.Id, chatJid) {
-		msgs, err := m.messageRepository.SearchMessages(instance.Id, variant, text, before, limit)
+		var msgs []message_model.Message
+		var err error
+		if keyset {
+			msgs, err = m.messageRepository.SearchMessagesPage(instance.Id, variant, text, before, beforeID, limit)
+		} else {
+			msgs, err = m.messageRepository.SearchMessages(instance.Id, variant, text, before, limit)
+		}
 		if err != nil {
 			m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to search message history: %v", instance.Id, err)
 			return nil, err
@@ -943,7 +995,13 @@ func (m *messageService) SearchHistory(data *HistorySearchQuery, instance *insta
 		all = append(all, msgs...)
 	}
 
-	return wholeSecondPage(mergeMessagesByID(all), limit), nil
+	merged := mergeMessagesByID(all)
+	if keyset {
+		merged = limitPage(merged, limit)
+	} else {
+		merged = wholeSecondPage(merged, limit)
+	}
+	return historyPage(merged, limit), nil
 }
 
 // wholeSecondPage cuts merged rows to limit without splitting a second: the
@@ -958,6 +1016,25 @@ func wholeSecondPage(rows []message_model.Message, limit int) []message_model.Me
 		end++
 	}
 	return rows[:end]
+}
+
+// limitPage cuts a merged keyset page to exactly limit rows.
+func limitPage(rows []message_model.Message, limit int) []message_model.Message {
+	if len(rows) <= limit {
+		return rows
+	}
+	return rows[:limit]
+}
+
+// historyPage wraps rows with the cursor that reads the next older page.
+func historyPage(rows []message_model.Message, limit int) *HistoryPage {
+	page := &HistoryPage{Messages: rows}
+	if len(rows) > 0 && len(rows) >= limit {
+		last := rows[len(rows)-1]
+		// The repository compares the UUID primary key, not the WhatsApp id.
+		page.NextCursor = &HistoryCursor{Before: last.Timestamp, BeforeID: last.Id}
+	}
+	return page
 }
 
 // MarkChatRead moves the manager's read position for a chat. It sends nothing to

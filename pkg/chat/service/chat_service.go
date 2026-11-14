@@ -3,8 +3,10 @@ package chat_service
 import (
 	"context"
 	"errors"
-	"github.com/felipeestevanatto/wamux/pkg/safemap"
+	"strings"
 	"time"
+
+	"github.com/felipeestevanatto/wamux/pkg/safemap"
 
 	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
 	logger_wrapper "github.com/felipeestevanatto/wamux/pkg/logger"
@@ -81,9 +83,37 @@ func (c *chatService) SetEphemeralExpiration(data *EphemeralStruct, instance *in
 	return nil
 }
 
+// HistorySyncRequestStruct asks the phone to resend history around a message.
+// `messageInfo` is the original shape. `chat` + `timestamp` (Unix milliseconds)
+// is the simpler timestamp-only form for a group or direct chat.
 type HistorySyncRequestStruct struct {
-	MessageInfo *types.MessageInfo `json:"messageInfo"`
+	MessageInfo *types.MessageInfo `json:"messageInfo,omitempty"`
+	Chat        string             `json:"chat,omitempty" example:"123456789@g.us"`
+	Timestamp   int64              `json:"timestamp,omitempty" example:"1763000000000"`
 	Count       int                `json:"count" example:"50"`
+}
+
+const (
+	defaultHistorySyncCount = 50
+	maxHistorySyncCount     = 100
+)
+
+var (
+	// ErrInvalidHistorySync is a malformed request (missing chat or count).
+	ErrInvalidHistorySync = errors.New("invalid history sync request")
+	// ErrHistorySyncNotMember means the instance cannot ask for that group's
+	// history because its account is not a participant.
+	ErrHistorySyncNotMember = errors.New("the authenticated instance is not a participant of this group")
+)
+
+func historySyncCount(count int) int {
+	if count <= 0 {
+		return defaultHistorySyncCount
+	}
+	if count > maxHistorySyncCount {
+		return maxHistorySyncCount
+	}
+	return count
 }
 
 func (c *chatService) ensureClientConnected(instanceId string) (*whatsmeow.Client, error) {
@@ -315,22 +345,55 @@ func (c *chatService) ChatUnmute(data *BodyStruct, instance *instance_model.Inst
 }
 
 func (c *chatService) HistorySyncRequest(ctx context.Context, data *HistorySyncRequestStruct, instance *instance_model.Instance) (*whatsmeow.SendResponse, error) {
+	if data == nil {
+		return nil, ErrInvalidHistorySync
+	}
+
 	client, err := c.ensureClientConnected(instance.Id)
 	if err != nil {
 		return nil, err
 	}
 
-	messageInfo := types.MessageInfo{
-		MessageSource: types.MessageSource{
-			Chat:     data.MessageInfo.Chat,
-			IsFromMe: data.MessageInfo.IsFromMe,
-			IsGroup:  data.MessageInfo.IsGroup,
-		},
-		ID:        data.MessageInfo.ID,
-		Timestamp: data.MessageInfo.Timestamp,
+	var messageInfo types.MessageInfo
+	if data.MessageInfo != nil {
+		messageInfo = *data.MessageInfo
+		if messageInfo.Chat.IsEmpty() {
+			return nil, ErrInvalidHistorySync
+		}
+	} else {
+		if strings.TrimSpace(data.Chat) == "" {
+			return nil, ErrInvalidHistorySync
+		}
+		chat, ok := utils.ParseJID(data.Chat)
+		if !ok {
+			return nil, ErrInvalidHistorySync
+		}
+		messageInfo.Chat = chat
 	}
 
-	histRequest := client.BuildHistorySyncRequest(&messageInfo, data.Count)
+	messageInfo.IsGroup = messageInfo.Chat.Server == types.GroupServer
+	if messageInfo.Timestamp.IsZero() {
+		if data.Timestamp > 0 {
+			messageInfo.Timestamp = time.UnixMilli(data.Timestamp)
+		} else {
+			messageInfo.Timestamp = time.Now()
+		}
+	}
+
+	// Asking for history from a group the account is not in gets an empty
+	// response at best and abuses the phone's history endpoint at worst.
+	if messageInfo.IsGroup {
+		info, err := client.GetGroupInfo(ctx, messageInfo.Chat.ToNonAD())
+		if err != nil {
+			c.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] history sync group lookup failed: %v", instance.Id, err)
+			return nil, err
+		}
+		if !historySyncMember(client, info) {
+			return nil, ErrHistorySyncNotMember
+		}
+	}
+
+	histRequest := client.BuildHistorySyncRequest(&messageInfo, historySyncCount(data.Count))
 
 	// On-demand history-sync requests must be sent to our OWN JID as a peer message, not to the
 	// contact. SendPeerMessage does exactly that (getOwnID().ToNonAD() + Peer:true). Sending it to
@@ -345,6 +408,23 @@ func (c *chatService) HistorySyncRequest(ctx context.Context, data *HistorySyncR
 	}
 
 	return &res, nil
+}
+
+// historySyncMember reports whether our account appears in the group roster.
+// The roster may carry the phone JID, the LID, or both for the same person.
+func historySyncMember(client *whatsmeow.Client, info *types.GroupInfo) bool {
+	if client == nil || info == nil || client.Store.ID == nil {
+		return false
+	}
+	own := client.Store.ID
+	for _, participant := range info.Participants {
+		for _, jid := range []types.JID{participant.JID, participant.PhoneNumber, participant.LID} {
+			if !jid.IsEmpty() && jid.User == own.User {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func NewChatService(

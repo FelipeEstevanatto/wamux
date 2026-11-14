@@ -335,5 +335,7 @@ func (s *sendService) deliverMedia(
 		MediaHandle:     uploaded.Handle,
 		ForwardingScore: data.ForwardingScore,
 		MediaData:       fileData,
+		AlbumParentKey:  data.AlbumParentKey,
+		AlbumIndex:      data.AlbumIndex,
 	})
 }

@@ -1,6 +1,7 @@
 package chat_handler
 
 import (
+	"errors"
 	"net/http"
 
 	chat_service "github.com/felipeestevanatto/wamux/pkg/chat/service"
@@ -418,8 +419,20 @@ func (c *chatHandler) HistorySyncRequest(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	if data.MessageInfo == nil && data.Chat == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "messageInfo or chat is required"})
+		return
+	}
 
 	resp, err := c.chatService.HistorySyncRequest(ctx.Request.Context(), data, instance)
+	if errors.Is(err, chat_service.ErrInvalidHistorySync) {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "messageInfo.chat or chat is required"})
+		return
+	}
+	if errors.Is(err, chat_service.ErrHistorySyncNotMember) {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

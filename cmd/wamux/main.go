@@ -41,6 +41,7 @@ import (
 	group_handler "github.com/felipeestevanatto/wamux/pkg/group/handler"
 	group_service "github.com/felipeestevanatto/wamux/pkg/group/service"
 	"github.com/felipeestevanatto/wamux/pkg/httpguard"
+	"github.com/felipeestevanatto/wamux/pkg/idempotency"
 	instance_handler "github.com/felipeestevanatto/wamux/pkg/instance/handler"
 	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
 	instance_repository "github.com/felipeestevanatto/wamux/pkg/instance/repository"
@@ -97,7 +98,7 @@ func init() {
 	}
 }
 
-func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.Config, conn *amqp.Connection, exPath string, messageRepository message_repository.MessageRepository) (*gin.Engine, whatsmeow_service.WhatsmeowService) {
+func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.Config, conn *amqp.Connection, exPath string, messageRepository message_repository.MessageRepository) (*gin.Engine, whatsmeow_service.WhatsmeowService, []producer_interfaces.Drainer) {
 	killChannel := safemap.New[*killswitch.Switch]()
 	clientPointer := safemap.New[*whatsmeow.Client]()
 
@@ -129,11 +130,16 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	var natsProducer producer_interfaces.Producer
 	if config.NatsUrl != "" {
 		applog.Logger.LogInfo("NATS enabled")
+		var natsOpts []nats_producer.Option
+		if config.NatsJetStream {
+			natsOpts = append(natsOpts, nats_producer.WithJetStream(config.NatsStream))
+		}
 		natsProducer = nats_producer.NewNatsProducer(
 			config.NatsUrl,
 			config.NatsGlobalEnabled,
 			config.NatsGlobalEvents,
 			loggerWrapper,
+			natsOpts...,
 		)
 	} else {
 		natsProducer = nats_producer.NewNatsProducer(
@@ -388,7 +394,7 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	// covers non-fatal misconfiguration the service still starts with.
 	configError := ""
 
-	routes.NewRouter(
+	router := routes.NewRouter(
 		config,
 		auth_middleware.NewMiddleware(config, instanceService),
 		instance_handler.NewInstanceHandler(instanceService, config),
@@ -404,7 +410,9 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		pollHandler,
 		server_handler.NewServerHandler(messageRepository, version, whatsmeowService, dataDir, mediaBackend, config.DatabaseSaveMessages, config.MediaLocalStore, config.WebhookFiles, config.ClientName, configError, observability, config.MaxUploadBytes),
 		typebot_handler.NewTypebotHandler(typebotRepository, loggerWrapper),
-	).AssignRoutes(r)
+	)
+	router.SetIdempotency(idempotency.New(messageRepository, loggerWrapper))
+	router.AssignRoutes(r)
 
 	go whatsmeowService.BackfillLIDMessages()
 
@@ -441,7 +449,16 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 
 	// Return the service alongside the engine so main can drain its persistence
 	// pool during shutdown (the service is otherwise unreachable from main).
-	return r, whatsmeowService
+	// Producers that buffer accepted work need a flush before the process exits.
+	// RabbitMQ publishes synchronously with confirms, so it is not in this list.
+	var drainers []producer_interfaces.Drainer
+	for _, producer := range []producer_interfaces.Producer{webhookProducer, natsProducer} {
+		if drainer, ok := producer.(producer_interfaces.Drainer); ok {
+			drainers = append(drainers, drainer)
+		}
+	}
+
+	return r, whatsmeowService, drainers
 }
 
 // migrate brings the schema up to date in two phases:
@@ -479,6 +496,7 @@ func migrate(db *gorm.DB) {
 		&instance_model.Instance{},
 		&message_model.Message{},
 		&message_model.ChatRead{},
+		&message_model.SendOperation{},
 		&label_model.Label{},
 		&typebot_model.Typebot{},
 		&typebot_model.TypebotSession{},
@@ -685,7 +703,7 @@ func main() {
 		message_cleanup.WithMediaRetention(cfg.MediaRetentionDays, localmedia.RemoveOlderThan),
 	).Start(workersCtx)
 
-	r, whatsmeowService := setupRouter(db, authDB, sqliteDB, cfg, conn, exPath, messageRepository)
+	r, whatsmeowService, eventDrainers := setupRouter(db, authDB, sqliteDB, cfg, conn, exPath, messageRepository)
 
 	srv := &http.Server{
 		Addr:    ":" + os.Getenv("SERVER_PORT"),
@@ -726,6 +744,20 @@ func main() {
 	if whatsmeowService != nil {
 		whatsmeowService.StopPersistence()
 		applog.Logger.LogInfo("[SHUTDOWN] Persistence queue drained")
+	}
+
+	// Flush events already accepted by the webhook and NATS producers. Both are
+	// bounded by the same shutdown deadline; a dead endpoint must not hold the
+	// process open, so a timeout is logged and the remaining work dies with it.
+	if len(eventDrainers) > 0 {
+		drainCtx, drainCancel := context.WithTimeout(context.Background(), 8*time.Second)
+		for _, drainer := range eventDrainers {
+			if err := drainer.Drain(drainCtx); err != nil {
+				applog.Logger.LogWarn("[SHUTDOWN] Event drain incomplete: %v", err)
+			}
+		}
+		drainCancel()
+		applog.Logger.LogInfo("[SHUTDOWN] Event producers drained")
 	}
 
 	applog.Logger.LogInfo("[SHUTDOWN] Server exited")

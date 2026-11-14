@@ -54,6 +54,7 @@ import { useInView } from '@/hooks/useInView';
 import { useMediaSrc } from '@/hooks/useMediaSrc';
 import { PANE_MAX, PANE_MIN, useResizablePane } from '@/hooks/useResizablePane';
 import * as messagesApi from '@/services/api/messages';
+import type { HistoryCursor } from '@/services/api/messages';
 import { fetchServerStats } from '@/services/api/server';
 import type { ChatSummary, HistoryMessage } from '@/types/messages';
 import { cn } from '@/utils/cn';
@@ -742,13 +743,14 @@ export default function Messages() {
         token,
         selectedChat,
         PAGE_SIZE,
-        pageParam as string | undefined
+        pageParam as HistoryCursor | undefined
       ),
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage) =>
-      lastPage.length < PAGE_SIZE
-        ? undefined
-        : lastPage[lastPage.length - 1]?.timestamp,
+    initialPageParam: undefined as HistoryCursor | undefined,
+    getNextPageParam: (lastPage) => {
+      if (lastPage.length < PAGE_SIZE) return undefined;
+      const last = lastPage[lastPage.length - 1];
+      return last ? { before: last.timestamp, beforeId: last.id } : undefined;
+    },
     enabled: Boolean(token && selectedChat),
     staleTime: 10_000,
     refetchInterval: selectedChat && !liveUpdates ? 10_000 : false,

@@ -26,9 +26,9 @@ type stubMessageService struct {
 	limit    int
 }
 
-func (s *stubMessageService) GetHistory(q *message_service.HistoryQuery, _ *instance_model.Instance) ([]message_model.Message, error) {
+func (s *stubMessageService) GetHistory(q *message_service.HistoryQuery, _ *instance_model.Instance) (*message_service.HistoryPage, error) {
 	s.history = q
-	return s.messages, nil
+	return &message_service.HistoryPage{Messages: s.messages}, nil
 }
 
 func (s *stubMessageService) MarkChatRead(data *message_service.ChatReadStruct, _ *instance_model.Instance) error {

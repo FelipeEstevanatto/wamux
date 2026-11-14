@@ -2,6 +2,7 @@ package webhook_producer
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -614,4 +615,54 @@ func TestBacklogIsBoundedInBytes(t *testing.T) {
 	delete(p.endpoints, stuck.URL)
 	p.mu.Unlock()
 	p.pending.Store(0)
+}
+
+func TestDrainFlushesAcceptedDeliveries(t *testing.T) {
+	var hits int64
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(5 * time.Millisecond)
+		atomic.AddInt64(&hits, 1)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	p := newTestProducer(t, "")
+	for range 5 {
+		if err := p.Produce("inst.message", []byte(`{"event":"Message"}`), server.URL, "i1"); err != nil {
+			t.Fatalf("Produce: %v", err)
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := p.Drain(ctx); err != nil {
+		t.Fatalf("Drain: %v", err)
+	}
+	if got := atomic.LoadInt64(&hits); got != 5 {
+		t.Fatalf("delivered %d, want 5", got)
+	}
+}
+
+func TestDrainRefusesNewDeliveries(t *testing.T) {
+	var hits int64
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt64(&hits, 1)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	p := newTestProducer(t, "")
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := p.Drain(ctx); err != nil {
+		t.Fatalf("Drain: %v", err)
+	}
+
+	if err := p.Produce("inst.message", []byte(`{"event":"Message"}`), server.URL, "i1"); err != nil {
+		t.Fatalf("Produce after drain: %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+	if got := atomic.LoadInt64(&hits); got != 0 {
+		t.Fatalf("delivered %d after drain, want 0", got)
+	}
 }

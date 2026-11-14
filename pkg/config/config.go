@@ -68,9 +68,13 @@ type Config struct {
 	NatsUrl              string
 	NatsGlobalEnabled    bool
 	NatsGlobalEvents     []string
-	EventIgnoreGroup     bool
-	EventIgnoreStatus    bool
-	QrcodeMaxCount       int
+	// NatsJetStream publishes through NATS_STREAM instead of core NATS. The
+	// stream must already exist; a missing stream falls back to core NATS.
+	NatsJetStream     bool
+	NatsStream        string
+	EventIgnoreGroup  bool
+	EventIgnoreStatus bool
+	QrcodeMaxCount    int
 	// QrcodeTerminal draws pairing codes in the instance log and on the terminal.
 	QrcodeTerminal  bool
 	CheckUserExists bool
@@ -100,6 +104,11 @@ type Config struct {
 	// SwaggerEnabled controls whether the public /swagger documentation routes
 	// are registered. Defaults to true.
 	SwaggerEnabled bool
+
+	// MetricsAuth controls GET /metrics: "admin" requires the global API key,
+	// "loopback" accepts only a loopback TCP peer, and "none" is public.
+	// Defaults to "admin": the metrics carry instance ids and queue depths.
+	MetricsAuth string
 
 	// PprofEnabled exposes the Go net/http/pprof handlers under /debug/pprof
 	// (CPU, heap, goroutine profiles) for benchmarking. Off by default: it
@@ -441,6 +450,12 @@ func Load() *Config {
 	// docs are public (no apikey), so this is the switch for locking down /swagger
 	// on an internet-facing deployment.
 	swaggerEnabled := config_env.Bool(config_env.SWAGGER_ENABLED, true)
+	metricsAuth := strings.ToLower(strings.TrimSpace(os.Getenv(config_env.METRICS_AUTH)))
+	switch metricsAuth {
+	case "none", "loopback", "admin":
+	default:
+		metricsAuth = "admin"
+	}
 	pprofEnabled := config_env.Bool(config_env.PPROF_ENABLED, false)
 
 	rerequestFromPhone := config_env.Bool(config_env.REREQUEST_FROM_PHONE, false)
@@ -488,6 +503,11 @@ func Load() *Config {
 	natsGlobalEvents := strings.Split(os.Getenv(config_env.NATS_GLOBAL_EVENTS), ",")
 	if len(natsGlobalEvents) == 1 && natsGlobalEvents[0] == "" {
 		natsGlobalEvents = []string{}
+	}
+	natsJetStream := config_env.Bool(config_env.NATS_JETSTREAM, false)
+	natsStream := strings.TrimSpace(os.Getenv(config_env.NATS_STREAM))
+	if natsStream == "" {
+		natsStream = "WAMUX_EVENTS"
 	}
 
 	// Logger configurations
@@ -680,6 +700,7 @@ func Load() *Config {
 		QrcodeTerminal:           qrcodeTerminal,
 		CheckUserExists:          checkUserExists, // Default true, set to false to disable
 		SwaggerEnabled:           swaggerEnabled,
+		MetricsAuth:              metricsAuth,
 		PprofEnabled:             pprofEnabled,
 		TypebotContactRateLimit:  typebotContactRateLimit,
 		TypebotContactRateWindow: typebotContactRateWindow,
@@ -691,6 +712,8 @@ func Load() *Config {
 		NatsUrl:                  natsUrl,
 		NatsGlobalEnabled:        natsGlobalEnabled,
 		NatsGlobalEvents:         natsGlobalEvents,
+		NatsJetStream:            natsJetStream,
+		NatsStream:               natsStream,
 		WebhookHmacGlobalKey:     webhookHmacGlobalKey,
 		WebhookHmacEncryptionKey: webhookHmacEncryptionKey,
 		DataEncryptionKey:        webhookHmacEncryptionKey,

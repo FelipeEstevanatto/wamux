@@ -152,7 +152,8 @@ func (mycli *MyClient) historyRows(data *waHistorySync.HistorySync) []message_mo
 				continue
 			}
 			kind := utils.GetMessageType(evt.Message)
-			if kind == "ignore" || kind == "revoke" || kind == "edit" || evt.Info.Timestamp.Before(oldest) {
+			// Album containers are metadata; their items are separate rows.
+			if kind == "ignore" || kind == "revoke" || kind == "edit" || kind == "album" || evt.Info.Timestamp.Before(oldest) {
 				continue
 			}
 			rows = append(rows, historyRow(ctx, mycli, chat, evt, web))

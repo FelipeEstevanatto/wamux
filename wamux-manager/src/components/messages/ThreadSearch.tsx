@@ -5,6 +5,7 @@ import { Search, X } from 'lucide-react';
 import { Button, Input } from '@/components/ui';
 import { useI18n } from '@/i18n/I18nContext';
 import * as messagesApi from '@/services/api/messages';
+import type { HistoryCursor } from '@/services/api/messages';
 import { highlightParts, searchTarget, snippetAround } from '@/utils/messageSearch';
 
 const PAGE_SIZE = 30;
@@ -39,10 +40,19 @@ function ThreadSearch({
   const search = useInfiniteQuery({
     queryKey: ['messages', 'search', token, chat, query],
     queryFn: ({ pageParam }) =>
-      messagesApi.searchHistory(token, chat, query, PAGE_SIZE, pageParam as string | undefined),
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage) =>
-      lastPage.length < PAGE_SIZE ? undefined : lastPage[lastPage.length - 1]?.timestamp,
+      messagesApi.searchHistory(
+        token,
+        chat,
+        query,
+        PAGE_SIZE,
+        pageParam as HistoryCursor | undefined
+      ),
+    initialPageParam: undefined as HistoryCursor | undefined,
+    getNextPageParam: (lastPage) => {
+      if (lastPage.length < PAGE_SIZE) return undefined;
+      const last = lastPage[lastPage.length - 1];
+      return last ? { before: last.timestamp, beforeId: last.id } : undefined;
+    },
     enabled: query.length >= MIN_LENGTH,
     staleTime: 30_000,
   });

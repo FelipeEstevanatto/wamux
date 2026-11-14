@@ -13,7 +13,8 @@ import "go.mau.fi/whatsmeow/proto/waE2E"
 type Summary struct {
 	// Type is one of: text, image, video, audio, document, sticker, location,
 	// contact, reaction, edit, delete, poll, poll_update, buttons_response,
-	// list_response, interactive_response, buttons, list, interactive, unknown.
+	// list_response, interactive_response, buttons, list, interactive, album,
+	// unknown.
 	Type string
 	// Text is the visible body/caption/name, or the replacement text for edits.
 	Text string
@@ -145,6 +146,13 @@ func summarize(msg *waE2E.Message) Summary {
 			quoted = r.GetKey().GetID()
 		}
 		return Summary{Type: "reaction", Text: r.GetText(), QuotedID: quoted}
+	}
+
+	// An album container is metadata: the photos/videos arrive as their own
+	// messages, each carrying MessageAssociation. Classifying it lets the
+	// event stream and the history writer tell the container from the items.
+	if msg.GetAlbumMessage() != nil {
+		return Summary{Type: "album"}
 	}
 
 	if c := msg.GetConversation(); c != "" {

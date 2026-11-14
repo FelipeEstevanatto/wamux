@@ -12,6 +12,29 @@
 - `GET /chat/chats` adds `unread_count` and `last_read_at`, and `POST /chat/read` moves
   that position. It only tracks reading in the history: nothing is sent to WhatsApp, so
   no blue ticks (migration `0011`).
+- **Albums** — `POST /send/album` sends 2–30 images/videos as one WhatsApp album, with
+  per-item captions and the reply/mentions on the first item. Incoming album containers
+  are classified as `album` and no longer stored as blank history rows.
+- **Keyset history pagination** — `/chat/history` and `/chat/history/search` accept
+  `keyset=true` plus the `before`/`before_id` cursor returned in `next_cursor`, so pages
+  are exact even when many messages share one second. `GET /chat/history/capabilities`
+  publishes the contract. The old `before`-only cursor still works.
+- **Idempotent sends** — `POST /send/text` and JSON `POST /send/media` accept an
+  `Idempotency-Key`. A retry with the same body replays the first response without
+  sending again; the same key with a different body is `409`. `GET /send/operations` and
+  `GET /send/operations/:id` report the state (migration `0012`).
+- **`/metrics` auth** — `METRICS_AUTH=admin` (default), `loopback` or `none`. The default
+  now requires the global API key because the series include instance ids and queue depths.
+- **Avatar cache** — `/user/avatar` caches a picture for 10 minutes and a missing picture
+  for one minute per instance+JID+preview, so scrolling the manager no longer queries
+  WhatsApp per avatar.
+- **NATS JetStream** — `NATS_JETSTREAM=true` with `NATS_STREAM` publishes events through
+  an existing stream, waits for the ack and uses a payload hash as the message id so a
+  retry inside the duplicate window is not stored twice. A missing stream falls back to
+  core NATS.
+- **History sync request** — `POST /chat/history-sync` accepts `chat` + `timestamp` as
+  well as `messageInfo`, clamps `count` to 100 and verifies group membership. An empty
+  body is now `400` instead of a panic.
 
 ### 🐛 Fixes
 - **`QRCODE_MAX_COUNT`** stops the instance. It restarted instead, with the count back at
@@ -21,6 +44,13 @@
 - **Logout** finishes even if saving the state fails. WhatsApp has already ended the
   session by then, so it no longer answers `500` and leaves the client behind.
 - **Message writes** are retried, since WhatsApp will not deliver an acked message again.
+- **Shutdown flushes accepted events.** Webhooks wait for their backlog (bounded by the
+  shutdown deadline) and NATS drains its publish buffer before the process exits, so a
+  deploy no longer drops work that `Produce` had already accepted.
+- **Album containers** no longer appear as blank `unknown` messages in history or the
+  manager; the items are stored normally.
+- **`POST /chat/history-sync`** no longer panics on `{}` and no longer asks for history
+  from a group the account is not in.
 - **Offline instances** read LID and phone chats as one, and rows stored under a LID move
   to the phone number at boot once it is known.
 - Merged LID and phone chats add up their unread counts.

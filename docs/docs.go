@@ -356,6 +356,38 @@ const docTemplate = `{
                 }
             }
         },
+        "/chat/history/capabilities": {
+            "get": {
+                "description": "Returns the keyset cursor contract used by /chat/history and /chat/history/search.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Message"
+                ],
+                "summary": "Message history pagination capabilities",
+                "responses": {
+                    "200": {
+                        "description": "capabilities",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_message_service.HistoryCapabilities"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/chat/history/search": {
             "get": {
                 "description": "Returns stored messages of one conversation whose text contains ` + "`" + `q` + "`" + `, ignoring case, newest first. Requires DATABASE_SAVE_MESSAGES.",
@@ -4512,6 +4544,64 @@ const docTemplate = `{
                 }
             }
         },
+        "/send/album": {
+            "post": {
+                "description": "Sends 2-30 images/videos as one WhatsApp album. Each item may have its own caption.\n` + "`" + `media` + "`" + ` accepts a URL, a data URI or raw base64. The reply/mentions are attached to the first item.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Send Message"
+                ],
+                "summary": "Send an album",
+                "parameters": [
+                    {
+                        "description": "Album data",
+                        "name": "message",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.AlbumStruct"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "success",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.AlbumSendResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error on validation",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/send/button": {
             "post": {
                 "description": "Send an interactive message with buttons. Each button has a ` + "`" + `type` + "`" + `: ` + "`" + `reply` + "`" + `, ` + "`" + `copy` + "`" + `, ` + "`" + `url` + "`" + `, ` + "`" + `call` + "`" + ` or ` + "`" + `pix` + "`" + `.\n\nCombination rules enforced by the server:\n- Up to 3 ` + "`" + `reply` + "`" + ` buttons per message.\n- ` + "`" + `reply` + "`" + ` buttons cannot be mixed with any other type.\n- ` + "`" + `pix` + "`" + ` button must be sent ALONE (no other button in the same message).\n\nWhatsApp client rendering quirks (NOT enforced by the server, but verified in the field):\n- WhatsApp Web: only ` + "`" + `reply` + "`" + `-only messages (up to 3) OR CTAs grouped together (` + "`" + `copy` + "`" + ` + ` + "`" + `url` + "`" + ` + ` + "`" + `call` + "`" + `) render correctly.\n- Do NOT mix ` + "`" + `reply` + "`" + ` with CTA buttons (` + "`" + `copy` + "`" + `/` + "`" + `url` + "`" + `/` + "`" + `call` + "`" + `) — the message will not appear on WhatsApp Web.\n\nRequired body fields: ` + "`" + `number` + "`" + `, ` + "`" + `title` + "`" + `, ` + "`" + `description` + "`" + `, ` + "`" + `footer` + "`" + `, ` + "`" + `buttons` + "`" + `.",
@@ -4969,6 +5059,75 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/send/operations": {
+            "get": {
+                "description": "Lists this instance's Idempotency-Key records, oldest first.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Send Message"
+                ],
+                "summary": "List idempotent send operations",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "pending, sent or failed",
+                        "name": "state",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Max records (default 50, max 500)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "operations",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/send/operations/{operationId}": {
+            "get": {
+                "description": "Returns the state and result of a send made with an Idempotency-Key.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Send Message"
+                ],
+                "summary": "Get an idempotent send operation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Operation id",
+                        "name": "operationId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "operation",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Unknown operation",
                         "schema": {
                             "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
                         }
@@ -6621,12 +6780,20 @@ const docTemplate = `{
         "github_com_felipeestevanatto_wamux_pkg_chat_service.HistorySyncRequestStruct": {
             "type": "object",
             "properties": {
+                "chat": {
+                    "type": "string",
+                    "example": "123456789@g.us"
+                },
                 "count": {
                     "type": "integer",
                     "example": 50
                 },
                 "messageInfo": {
                     "$ref": "#/definitions/types.MessageInfo"
+                },
+                "timestamp": {
+                    "type": "integer",
+                    "example": 1763000000000
                 }
             }
         },
@@ -8614,6 +8781,33 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_felipeestevanatto_wamux_pkg_message_service.HistoryCapabilities": {
+            "type": "object",
+            "properties": {
+                "contractVersion": {
+                    "type": "string",
+                    "example": "2026-11-14"
+                },
+                "maxPageSize": {
+                    "type": "integer",
+                    "example": 500
+                },
+                "ordering": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "timestamp:desc",
+                        "id:desc"
+                    ]
+                },
+                "pagination": {
+                    "type": "string",
+                    "example": "keyset"
+                }
+            }
+        },
         "github_com_felipeestevanatto_wamux_pkg_message_service.MarkPlayedStruct": {
             "type": "object",
             "properties": {
@@ -8877,6 +9071,119 @@ const docTemplate = `{
                 "votedAt": {
                     "type": "string",
                     "example": "2026-01-15T10:30:00Z"
+                }
+            }
+        },
+        "github_com_felipeestevanatto_wamux_pkg_sendMessage_service.AlbumContainer": {
+            "type": "object",
+            "properties": {
+                "expectedImageCount": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "expectedVideoCount": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "id": {
+                    "type": "string",
+                    "example": "3EB0A1B2C3D4E5F6A7B8C9"
+                },
+                "timestamp": {
+                    "type": "string",
+                    "example": "2026-11-14T12:00:00Z"
+                }
+            }
+        },
+        "github_com_felipeestevanatto_wamux_pkg_sendMessage_service.AlbumItem": {
+            "type": "object",
+            "properties": {
+                "caption": {
+                    "description": "Caption is shown under this item only.",
+                    "type": "string",
+                    "example": "Primeira foto"
+                },
+                "fileName": {
+                    "description": "FileName is optional metadata for the item.",
+                    "type": "string",
+                    "example": "foto.jpg"
+                },
+                "media": {
+                    "description": "Media is a URL, a data URI, or raw base64.",
+                    "type": "string",
+                    "example": "https://example.com/foto.jpg"
+                },
+                "mediatype": {
+                    "description": "Mediatype is image or video.",
+                    "type": "string",
+                    "enum": [
+                        "image",
+                        "video"
+                    ],
+                    "example": "image"
+                },
+                "mimetype": {
+                    "description": "Mimetype is optional. The server detects the real type from the bytes.",
+                    "type": "string",
+                    "example": "image/jpeg"
+                }
+            }
+        },
+        "github_com_felipeestevanatto_wamux_pkg_sendMessage_service.AlbumSendResult": {
+            "type": "object",
+            "properties": {
+                "album": {
+                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.AlbumContainer"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.MessageSendStruct"
+                    }
+                }
+            }
+        },
+        "github_com_felipeestevanatto_wamux_pkg_sendMessage_service.AlbumStruct": {
+            "type": "object",
+            "properties": {
+                "delay": {
+                    "type": "integer",
+                    "example": 1200
+                },
+                "formatJid": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "id": {
+                    "description": "Id optionally sets the album container's WhatsApp message id.",
+                    "type": "string",
+                    "example": "3EB0A1B2C3D4E5F6A7B8C9"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.AlbumItem"
+                    }
+                },
+                "mentionAll": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "mentionedJid": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "5511999999999@s.whatsapp.net"
+                    ]
+                },
+                "number": {
+                    "type": "string",
+                    "example": "5511999999999"
+                },
+                "quoted": {
+                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_sendMessage_service.QuotedStruct"
                 }
             }
         },
@@ -9562,6 +9869,20 @@ const docTemplate = `{
                 "viewOnce": {
                     "type": "boolean",
                     "example": false
+                }
+            }
+        },
+        "github_com_felipeestevanatto_wamux_pkg_sendMessage_service.MessageSendStruct": {
+            "type": "object",
+            "properties": {
+                "info": {
+                    "$ref": "#/definitions/types.MessageInfo"
+                },
+                "message": {
+                    "$ref": "#/definitions/waE2E.Message"
+                },
+                "messageContextInfo": {
+                    "$ref": "#/definitions/waE2E.ContextInfo"
                 }
             }
         },

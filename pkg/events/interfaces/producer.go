@@ -1,5 +1,7 @@
 package producer_interfaces
 
+import "context"
+
 type Producer interface {
 	Produce(queueName string, payload []byte, webhookUrl string, userID string) error
 	CreateGlobalQueues() error
@@ -22,4 +24,12 @@ type SignedProducer interface {
 // depth, for the /metrics endpoint.
 type DepthReporter interface {
 	QueueDepth() int
+}
+
+// Drainer flushes work a producer has already accepted. It is optional: the
+// shutdown path type-asserts, so a producer without buffered work needs no
+// method. Drain must stop accepting new work and return when the backlog is
+// flushed or ctx expires.
+type Drainer interface {
+	Drain(ctx context.Context) error
 }

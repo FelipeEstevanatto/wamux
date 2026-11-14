@@ -1,6 +1,7 @@
 package server_handler
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -89,7 +90,25 @@ func (fakeMessageRepo) DeleteOrphanReceipts(string) (int64, error)    { return 0
 func (fakeMessageRepo) ListMessages(string, string, string, int) ([]message_model.Message, error) {
 	return nil, nil
 }
+func (fakeMessageRepo) ListMessagesPage(string, string, string, string, int) ([]message_model.Message, error) {
+	return nil, nil
+}
 func (fakeMessageRepo) SearchMessages(string, string, string, string, int) ([]message_model.Message, error) {
+	return nil, nil
+}
+func (fakeMessageRepo) SearchMessagesPage(string, string, string, string, string, int) ([]message_model.Message, error) {
+	return nil, nil
+}
+func (fakeMessageRepo) BeginSendOperation(context.Context, string, string, string) (*message_model.SendOperation, bool, error) {
+	return nil, false, nil
+}
+func (fakeMessageRepo) CompleteSendOperation(context.Context, string, string, int, []byte, string, string) error {
+	return nil
+}
+func (fakeMessageRepo) GetSendOperation(context.Context, string, string) (*message_model.SendOperation, error) {
+	return nil, nil
+}
+func (fakeMessageRepo) ListSendOperations(context.Context, string, string, int) ([]message_model.SendOperation, error) {
 	return nil, nil
 }
 func (fakeMessageRepo) ListChats(string, int) ([]message_repository.ChatSummary, error) {

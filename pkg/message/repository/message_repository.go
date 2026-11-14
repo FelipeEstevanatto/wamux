@@ -1,6 +1,8 @@
 package message_repository
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -50,7 +52,19 @@ type MessageRepository interface {
 
 	// History readback (GET /chat/history and GET /chat/chats).
 	ListMessages(instanceId, chatJid, before string, limit int) ([]message_model.Message, error)
+	// ListMessagesPage is ListMessages with a keyset cursor. beforeID is the id
+	// of the last row of the previous page; with it the page is exactly limit
+	// rows, even when many messages share one timestamp.
+	ListMessagesPage(instanceId, chatJid, before, beforeID string, limit int) ([]message_model.Message, error)
 	SearchMessages(instanceId, chatJid, text, before string, limit int) ([]message_model.Message, error)
+	// SearchMessagesPage is SearchMessages with the same keyset cursor.
+	SearchMessagesPage(instanceId, chatJid, text, before, beforeID string, limit int) ([]message_model.Message, error)
+
+	// Send-operation records for the Idempotency-Key contract.
+	BeginSendOperation(ctx context.Context, instanceId, key, payloadHash string) (*message_model.SendOperation, bool, error)
+	CompleteSendOperation(ctx context.Context, id, state string, statusCode int, response []byte, messageID, errText string) error
+	GetSendOperation(ctx context.Context, instanceId, id string) (*message_model.SendOperation, error)
+	ListSendOperations(ctx context.Context, instanceId, state string, limit int) ([]message_model.SendOperation, error)
 	ListChats(instanceId string, limit int) ([]ChatSummary, error)
 
 	// DistinctSenders lists the bare `sender_jid` values that authored messages
@@ -559,7 +573,19 @@ func (m *messageRepository) ListMessages(instanceId, chatJid, before string, lim
 	}
 	return m.pageMessages(func() *gorm.DB {
 		return m.db.Where("instance_id = ? AND chat_jid = ?", instanceId, chatJid)
-	}, before, limit)
+	}, before, "", limit, false)
+}
+
+// ListMessagesPage is ListMessages with a keyset cursor. When beforeID is set,
+// the page is exactly limit rows even inside a timestamp shared by many
+// messages; the cursor advances by (timestamp, id).
+func (m *messageRepository) ListMessagesPage(instanceId, chatJid, before, beforeID string, limit int) ([]message_model.Message, error) {
+	if instanceId == "" || chatJid == "" {
+		return make([]message_model.Message, 0), nil
+	}
+	return m.pageMessages(func() *gorm.DB {
+		return m.db.Where("instance_id = ? AND chat_jid = ?", instanceId, chatJid)
+	}, before, beforeID, limit, true)
 }
 
 // likeEscaper keeps user input literal inside a LIKE pattern.
@@ -578,16 +604,37 @@ func (m *messageRepository) SearchMessages(instanceId, chatJid, text, before str
 			`instance_id = ? AND chat_jid = ? AND LOWER(text_content) LIKE LOWER(?) ESCAPE '\'`,
 			instanceId, chatJid, pattern,
 		)
-	}, before, limit)
+	}, before, "", limit, false)
+}
+
+// SearchMessagesPage is SearchMessages with the keyset cursor.
+func (m *messageRepository) SearchMessagesPage(instanceId, chatJid, text, before, beforeID string, limit int) ([]message_model.Message, error) {
+	if instanceId == "" || chatJid == "" || text == "" {
+		return make([]message_model.Message, 0), nil
+	}
+	pattern := "%" + likeEscaper.Replace(text) + "%"
+	return m.pageMessages(func() *gorm.DB {
+		return m.db.Where(
+			`instance_id = ? AND chat_jid = ? AND LOWER(text_content) LIKE LOWER(?) ESCAPE '\'`,
+			instanceId, chatJid, pattern,
+		)
+	}, before, beforeID, limit, true)
 }
 
 // pageMessages reads one page newest first. scoped builds the filter, and is a
 // function because a GORM statement cannot be reused for the second query.
-func (m *messageRepository) pageMessages(scoped func() *gorm.DB, before string, limit int) ([]message_model.Message, error) {
+func (m *messageRepository) pageMessages(scoped func() *gorm.DB, before, beforeID string, limit int, exact bool) ([]message_model.Message, error) {
 	messages := make([]message_model.Message, 0)
 	query := scoped()
 	if before != "" {
-		query = query.Where(`"timestamp" < ?`, before)
+		if beforeID != "" {
+			// Composite keyset: rows strictly before (timestamp, id). id is the
+			// per-row UUID, which is stable and unique even when a whole second
+			// of messages shares one timestamp.
+			query = query.Where(`("timestamp" < ? OR ("timestamp" = ? AND id < ?))`, before, before, beforeID)
+		} else {
+			query = query.Where(`"timestamp" < ?`, before)
+		}
 	}
 
 	limit = clampHistoryLimit(limit)
@@ -596,14 +643,15 @@ func (m *messageRepository) pageMessages(scoped func() *gorm.DB, before string, 
 		Order("id DESC").
 		Limit(limit).
 		Find(&messages).Error
-	if err != nil || len(messages) < limit {
+	if err != nil || len(messages) < limit || exact {
+		// A keyset page is exact by construction; no whole-second padding.
 		return messages, err
 	}
 
-	// The cursor has one-second precision and is exclusive, so a page ending partway
-	// through a second would lose the rest of that second: the next page starts
-	// strictly before it. A page therefore always ends on a whole second, and may
-	// run slightly over the limit to do so.
+	// Legacy `before`-only cursor: it has one-second precision and is exclusive,
+	// so a page ending partway through a second would lose the rest of that
+	// second. A page therefore always ends on a whole second and may run
+	// slightly over the limit. New callers send beforeID and get exact pages.
 	last := messages[len(messages)-1].Timestamp
 	var sameSecond []message_model.Message
 	err = scoped().Where(`"timestamp" = ?`, last).
@@ -958,4 +1006,86 @@ func (m *messageRepository) DeleteMessagesOlderThan(cutoff string) (int64, error
 		m.invalidateAggregates()
 	}
 	return total, nil
+}
+
+// BeginSendOperation inserts a pending operation or returns the existing one
+// for the same (instance, key). The unique index makes concurrent requests
+// race safely: exactly one inserts, the rest read the winner's row.
+func (m *messageRepository) BeginSendOperation(ctx context.Context, instanceId, key, payloadHash string) (*message_model.SendOperation, bool, error) {
+	now := time.Now().UTC()
+	op := &message_model.SendOperation{
+		InstanceId:     instanceId,
+		IdempotencyKey: key,
+		PayloadHash:    payloadHash,
+		State:          "pending",
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+	result := m.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(op)
+	if result.Error != nil {
+		return nil, false, result.Error
+	}
+	if result.RowsAffected == 1 {
+		return op, true, nil
+	}
+
+	var existing message_model.SendOperation
+	if err := m.db.WithContext(ctx).
+		Where("instance_id = ? AND idempotency_key = ?", instanceId, key).
+		First(&existing).Error; err != nil {
+		return nil, false, err
+	}
+	return &existing, false, nil
+}
+
+// CompleteSendOperation records the first caller's outcome so a replay returns
+// exactly the same status and body.
+func (m *messageRepository) CompleteSendOperation(ctx context.Context, id, state string, statusCode int, response []byte, messageID, errText string) error {
+	return m.db.WithContext(ctx).
+		Model(&message_model.SendOperation{}).
+		Where("id = ?", id).
+		Updates(map[string]any{
+			"state":       state,
+			"status_code": statusCode,
+			"response":    response,
+			"message_id":  messageID,
+			"error":       errText,
+			"updated_at":  time.Now().UTC(),
+		}).Error
+}
+
+// ListSendOperations reports operations for one instance, oldest first. An
+// operator uses state=pending after a restart to find in-doubt sends.
+func (m *messageRepository) ListSendOperations(ctx context.Context, instanceId, state string, limit int) ([]message_model.SendOperation, error) {
+	if instanceId == "" {
+		return []message_model.SendOperation{}, nil
+	}
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 500 {
+		limit = 500
+	}
+	query := m.db.WithContext(ctx).Where("instance_id = ?", instanceId)
+	if state != "" {
+		query = query.Where("state = ?", state)
+	}
+	ops := make([]message_model.SendOperation, 0, limit)
+	err := query.Order("created_at ASC").Limit(limit).Find(&ops).Error
+	return ops, err
+}
+
+// GetSendOperation scopes the lookup to the authenticated instance.
+func (m *messageRepository) GetSendOperation(ctx context.Context, instanceId, id string) (*message_model.SendOperation, error) {
+	var op message_model.SendOperation
+	err := m.db.WithContext(ctx).
+		Where("instance_id = ? AND id = ?", instanceId, id).
+		First(&op).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &op, nil
 }

@@ -27,6 +27,7 @@ type MessageHandler interface {
 	EditMessage(ctx *gin.Context)
 	GetHistory(ctx *gin.Context)
 	SearchHistory(ctx *gin.Context)
+	HistoryCapabilities(ctx *gin.Context)
 	ListChats(ctx *gin.Context)
 	MarkChatRead(ctx *gin.Context)
 	Contacts(ctx *gin.Context)
@@ -505,13 +506,17 @@ func (m *messageHandler) GetHistory(ctx *gin.Context) {
 		return
 	}
 
-	messages, err := m.messageService.GetHistory(&query, instance)
+	page, err := m.messageService.GetHistory(&query, instance)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": messages})
+	ctx.JSON(http.StatusOK, gin.H{
+		"message":     "success",
+		"data":        page.Messages,
+		"next_cursor": page.NextCursor,
+	})
 }
 
 // SearchHistory finds text in a conversation
@@ -547,7 +552,7 @@ func (m *messageHandler) SearchHistory(ctx *gin.Context) {
 		return
 	}
 
-	messages, err := m.messageService.SearchHistory(&query, instance)
+	page, err := m.messageService.SearchHistory(&query, instance)
 	if errors.Is(err, message_service.ErrInvalidHistorySearch) {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -557,7 +562,30 @@ func (m *messageHandler) SearchHistory(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": messages})
+	ctx.JSON(http.StatusOK, gin.H{
+		"message":     "success",
+		"data":        page.Messages,
+		"next_cursor": page.NextCursor,
+	})
+}
+
+// HistoryCapabilities describes the pagination contract.
+// @Summary Message history pagination capabilities
+// @Description Returns the keyset cursor contract used by /chat/history and /chat/history/search.
+// @Tags Message
+// @Produce json
+// @Success 200 {object} docmodels.Envelope{data=message_service.HistoryCapabilities} "capabilities"
+// @Router /chat/history/capabilities [get]
+func (m *messageHandler) HistoryCapabilities(ctx *gin.Context) {
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "success",
+		"data": message_service.HistoryCapabilities{
+			ContractVersion: message_service.HistoryCursorContractVersion,
+			Pagination:      "keyset",
+			Ordering:        []string{"timestamp:desc", "id:desc"},
+			MaxPageSize:     500,
+		},
+	})
 }
 
 // MarkChatRead records how far a chat was read in the manager

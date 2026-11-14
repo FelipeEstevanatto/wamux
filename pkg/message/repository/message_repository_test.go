@@ -266,6 +266,26 @@ func TestListMessagesScopesAndPaginates(t *testing.T) {
 	}
 }
 
+func TestListMessagesPageUsesKeysetCursor(t *testing.T) {
+	repo, mock := newMockRepo(t)
+
+	mock.ExpectQuery(`SELECT \* FROM "messages" WHERE \(?instance_id = \$1 AND chat_jid = \$2\)? AND \(\("timestamp" < \$3 OR \("timestamp" = \$4 AND id < \$5\)\)\) ORDER BY "timestamp" DESC,id DESC LIMIT \$6`).
+		WithArgs("inst-1", "chat@s.whatsapp.net", "2026-05-09 10:00:00", "2026-05-09 10:00:00", "uuid-1", 25).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "message_id"}).
+			AddRow("uuid-2", "msg-2"))
+
+	messages, err := repo.ListMessagesPage("inst-1", "chat@s.whatsapp.net", "2026-05-09 10:00:00", "uuid-1", 25)
+	if err != nil {
+		t.Fatalf("ListMessagesPage: %v", err)
+	}
+	if len(messages) != 1 || messages[0].MessageID != "msg-2" {
+		t.Fatalf("messages = %+v", messages)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
 func TestListMessagesClampsLimitAndSkipsEmptyScopes(t *testing.T) {
 	repo, mock := newMockRepo(t)
 

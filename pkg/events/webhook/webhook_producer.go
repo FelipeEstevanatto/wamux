@@ -2,6 +2,7 @@ package webhook_producer
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -52,6 +53,10 @@ const (
 // attempt because its endpoint's backlog was full.
 var errQueueFull = errors.New("webhook endpoint backlog is full")
 
+// errShuttingDown is the dead-letter reason for an event produced after Drain
+// started: the process is stopping, so it is not going to be delivered now.
+var errShuttingDown = errors.New("webhook producer is shutting down")
+
 // delivery is one event bound for one URL.
 type delivery struct {
 	url     string
@@ -77,6 +82,9 @@ type webhookProducer struct {
 	endpoints map[string]*endpoint
 	// pending counts deliveries queued or being attempted, for QueueDepth.
 	pending atomic.Int64
+	// closing makes Drain stop new work. Deliveries accepted after it are sent
+	// to the dead-letter queue instead of growing the backlog during shutdown.
+	closing atomic.Bool
 
 	// Retry knobs, defaulted from the constants above. They are fields rather
 	// than plain constants so tests can shrink the waits instead of sleeping
@@ -224,7 +232,20 @@ func splitWebhookURLs(raw string) []string {
 // does not fit means that endpoint is far behind, so it goes to the dead-letter
 // queue rather than growing memory or affecting any other endpoint.
 func (p *webhookProducer) deliver(url string, payload []byte, userID string, hmacKey []byte) {
+	if p.closing.Load() {
+		p.loggerWrapper.GetLogger(userID).LogWarn(
+			"[%s] webhook produced during shutdown - url: %s", userID, url,
+		)
+		p.publishDeadLetter(url, payload, userID, 0, nil, errShuttingDown)
+		return
+	}
 	if p.enqueue(delivery{url: url, payload: payload, userID: userID, hmacKey: hmacKey}) {
+		return
+	}
+	// Closing can begin between the check above and enqueue; report it as a
+	// shutdown drop rather than a full backlog.
+	if p.closing.Load() {
+		p.publishDeadLetter(url, payload, userID, 0, nil, errShuttingDown)
 		return
 	}
 
@@ -234,11 +255,41 @@ func (p *webhookProducer) deliver(url string, payload []byte, userID string, hma
 	p.publishDeadLetter(url, payload, userID, 0, nil, errQueueFull)
 }
 
+// Drain stops accepting new deliveries and waits for the accepted backlog to
+// finish. It returns ctx.Err() when the deadline wins; the remaining deliveries
+// stay in memory and die with the process, which is still better than delaying
+// shutdown indefinitely on a dead endpoint.
+func (p *webhookProducer) Drain(ctx context.Context) error {
+	// Set closing under the enqueue lock so an in-flight enqueue either lands
+	// before this (and is counted in pending) or sees closing and refuses.
+	p.mu.Lock()
+	p.closing.Store(true)
+	p.mu.Unlock()
+	ticker := time.NewTicker(25 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		if p.pending.Load() == 0 {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
+	}
+}
+
 // enqueue adds d to its endpoint's backlog, starting a worker if the endpoint has
 // capacity. It reports false when the backlog is full.
 func (p *webhookProducer) enqueue(d delivery) bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
+	// Checked under the same lock Drain uses to establish the final backlog:
+	// an event cannot slip in after Drain has observed pending == 0.
+	if p.closing.Load() {
+		return false
+	}
 
 	ep, ok := p.endpoints[d.url]
 	if !ok {

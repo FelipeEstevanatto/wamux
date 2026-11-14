@@ -13,6 +13,17 @@ const asInstance = (instanceToken: string) => ({
   headers: { apikey: instanceToken },
 });
 
+/** Keyset cursor for the next (older) history page. */
+export type HistoryCursor = {
+  before: string;
+  beforeId: string;
+};
+
+const cursorParams = (cursor?: HistoryCursor) => ({
+  keyset: true,
+  ...(cursor ? { before: cursor.before, before_id: cursor.beforeId } : {}),
+});
+
 /**
  * List conversations with their newest message. GET /chat/chats
  */
@@ -29,7 +40,8 @@ export const listChats = async (
 
 /**
  * Read one conversation's stored messages, newest first.
- * `before` (a "YYYY-MM-DD HH:MM:SS" timestamp) pages backwards.
+ * The cursor is `(before, beforeId)`; the server also accepts the legacy
+ * timestamp-only `before`.
  * GET /chat/history
  */
 export const searchHistory = async (
@@ -37,13 +49,13 @@ export const searchHistory = async (
   chat: string,
   q: string,
   limit = 50,
-  before?: string
+  cursor?: HistoryCursor
 ): Promise<HistoryMessage[]> => {
   const response = await apiClient.get<{ message: string; data: HistoryMessage[] }>(
     '/chat/history/search',
     {
       ...asInstance(instanceToken),
-      params: before ? { chat, q, limit, before } : { chat, q, limit },
+      params: { chat, q, limit, ...cursorParams(cursor) },
     }
   );
   return response.data.data ?? [];
@@ -53,13 +65,13 @@ export const getHistory = async (
   instanceToken: string,
   chat: string,
   limit = 50,
-  before?: string
+  cursor?: HistoryCursor
 ): Promise<HistoryMessage[]> => {
   const response = await apiClient.get<{ message: string; data: HistoryMessage[] }>(
     '/chat/history',
     {
       ...asInstance(instanceToken),
-      params: before ? { chat, limit, before } : { chat, limit },
+      params: { chat, limit, ...cursorParams(cursor) },
     }
   );
   return response.data.data ?? [];

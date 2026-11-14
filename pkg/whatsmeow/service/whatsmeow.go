@@ -3022,7 +3022,12 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 				FileThumbnail:   preview,
 			}
 
-			mycli.persistMessageAsync(message)
+			// An album container is not a visible message: its items are stored
+			// as their own rows. Persisting it would add a blank bubble to
+			// history and to the manager's conversation.
+			if summary.Type != "album" {
+				mycli.persistMessageAsync(message)
+			}
 
 			if summary.Type == "delete" && summary.QuotedID != "" {
 				mycli.tombstoneRevoked(message, summary.QuotedID, evt)

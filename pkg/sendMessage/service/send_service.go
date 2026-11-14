@@ -37,6 +37,7 @@ import (
 	"github.com/patrickmn/go-cache"
 	"go.mau.fi/whatsmeow"
 	waBinary "go.mau.fi/whatsmeow/binary"
+	"go.mau.fi/whatsmeow/proto/waCommon"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/types"
 	"golang.org/x/image/draw"
@@ -50,6 +51,7 @@ type SendService interface {
 	SendMediaUrl(data *MediaStruct, instance *instance_model.Instance) (*MessageSendStruct, error)
 	SendMediaStream(data *MediaStruct, file *os.File, instance *instance_model.Instance) (*MessageSendStruct, error)
 	SendMediaFile(data *MediaStruct, fileData []byte, instance *instance_model.Instance) (*MessageSendStruct, error)
+	SendAlbum(data *AlbumStruct, instance *instance_model.Instance) (*AlbumSendResult, error)
 	SendPoll(data *PollStruct, instance *instance_model.Instance) (*MessageSendStruct, error)
 	SendSticker(data *StickerStruct, instance *instance_model.Instance) (*MessageSendStruct, error)
 	SendLocation(data *LocationStruct, instance *instance_model.Instance) (*MessageSendStruct, error)
@@ -142,6 +144,10 @@ type SendDataStruct struct {
 	MediaData []byte
 	// MediaFile is the path of a file sent from disk, in place of MediaData.
 	MediaFile string
+	// AlbumParentKey and AlbumIndex tie a media message to the album container
+	// that was sent before it. They are internal: only SendAlbum sets them.
+	AlbumParentKey *waCommon.MessageKey
+	AlbumIndex     *int32
 }
 
 type QuotedStruct struct {
@@ -271,6 +277,11 @@ type MediaStruct struct {
 	// controls). Set it for GIFs. `type: "gif"` implies it. An animated GIF is
 	// transcoded to a silent MP4 first, since WhatsApp does not accept a raw GIF.
 	GifPlayback bool `json:"gifPlayback,omitempty" example:"false"`
+
+	// AlbumParentKey/AlbumIndex are set by SendAlbum and are not part of the
+	// public wire format.
+	AlbumParentKey *waCommon.MessageKey `json:"-"`
+	AlbumIndex     *int32               `json:"-"`
 }
 
 type PollStruct struct {
@@ -2816,6 +2827,23 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 				msg.ListMessage.ContextInfo.IsForwarded = proto.Bool(true)
 			}
 		}
+	}
+
+	// A media message that belongs to an album carries the album container's
+	// key and its position. WhatsApp clients use this association to render the
+	// items as one album instead of separate bubbles.
+	if data.AlbumParentKey != nil {
+		if msg.MessageContextInfo == nil {
+			msg.MessageContextInfo = &waE2E.MessageContextInfo{}
+		}
+		association := &waE2E.MessageAssociation{
+			AssociationType:  waE2E.MessageAssociation_MEDIA_ALBUM.Enum(),
+			ParentMessageKey: data.AlbumParentKey,
+		}
+		if data.AlbumIndex != nil {
+			association.MessageIndex = data.AlbumIndex
+		}
+		msg.MessageContextInfo.MessageAssociation = association
 	}
 
 	isGroup := strings.Contains(data.Number, "@g.us")
