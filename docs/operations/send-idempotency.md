@@ -20,10 +20,14 @@ records, oldest first. `GET /send/operations/:id` returns one.
 
 ## Recovery
 
-A process that dies after the operation is marked `pending` leaves it pending on
-purpose: the send may or may not have reached WhatsApp, and retrying could
-duplicate it. Inspect the pending list after a restart, then check WhatsApp's
-history or the recipient before deciding to resend with a new key.
+Every new operation reserves a 32-character WhatsApp id before transport and
+puts it in `planned_message_id`. If the process dies while the row is
+`pending`, `GET /send/operations/:id` checks whether a message with that id is
+already in history and marks the operation `sent` if so. A missing message is
+not proof that nothing was sent, so the operation stays pending in that case.
+
+Inspect the pending list after a restart, then check WhatsApp's history or the
+recipient before deciding to resend with a new key.
 
 The records live in `send_operations` (migration `0012`). Keep the table when
 rolling back: it is the evidence of what was attempted.

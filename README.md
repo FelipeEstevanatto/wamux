@@ -179,6 +179,7 @@ The full endpoint list is in the
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
 | `GET` | `/instance/overview/:instanceId` | global | Profile picture, push name, device platform, contact/chat/message counts |
+| `GET` | `/instance/inventory` | global | Monitoring-safe fleet view: no tokens, hashed owner |
 | `GET` | `/server/stats` | global | Runtime/host metrics, message aggregates, running version |
 | `GET` | `/server/health` · `/server/ok` | — | Readiness / liveness probes |
 | `GET` | `/metrics` | — | Prometheus metrics |
@@ -213,6 +214,21 @@ the global MinIO config: `POST /instance/s3` (`GET`, `DELETE`, `POST /instance/s
 With `DATABASE_SAVE_MESSAGES=true`, conversations can be read back over the API
 (`GET /chat/history?chat=<phone-or-JID>&limit=&before=`) instead of only through
 webhooks. Limits default to 50 and cap at 500.
+
+### Idempotent sends
+
+`POST /send/text` and JSON `POST /send/media` accept an `Idempotency-Key`. The
+first call reserves a native WhatsApp id and runs normally; a retry with the same
+semantic JSON replays the stored response without sending again. A different
+body with the same key is `409`; an in-flight duplicate is `202`. Pending rows
+are reconciled against the stored message when `GET /send/operations/:id` is
+read. See [`docs/operations/send-idempotency.md`](./docs/operations/send-idempotency.md).
+
+### Fleet inventory
+
+`GET /instance/inventory` (global key) returns connection state, auto-reconnect
+and a SHA-256 owner fingerprint for each instance. It never returns the instance
+token or the raw owner JID, so it is safe to feed a monitoring system.
 
 ### SSRF protection
 

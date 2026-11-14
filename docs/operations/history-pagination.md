@@ -15,7 +15,9 @@ cursor. `GET /chat/history/capabilities` publishes the contract:
 ## Using it
 
 Add `keyset=true` to every request. The first page is exact (`limit` rows, even
-when many messages share a timestamp). Read `next_cursor` and pass it back:
+when many messages share a timestamp). Each page returns `has_more` and
+`contract_version`; `next_cursor` is present only when another page exists.
+Read it and pass it back:
 
 ```bash
 curl -H "apikey: $TOKEN" \

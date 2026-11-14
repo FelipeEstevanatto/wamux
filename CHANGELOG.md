@@ -35,6 +35,17 @@
 - **History sync request** — `POST /chat/history-sync` accepts `chat` + `timestamp` as
   well as `messageInfo`, clamps `count` to 100 and verifies group membership. An empty
   body is now `400` instead of a panic.
+- **History pages** add `has_more` and `contract_version`; `next_cursor` is returned only
+  when another page exists.
+- **Idempotent sends** reserve a 32-character native WhatsApp id before transport
+  (`planned_message_id`, migration `0013`) and reconcile a pending operation against the
+  stored message when status is read.
+- **Albums** store `album_id`/`album_index` (migration `0014`) and the manager renders one
+  album container in item order.
+- **Fleet inventory** — `GET /instance/inventory` returns connection state and a SHA-256
+  owner fingerprint without tokens or raw JIDs.
+- **`/metrics`** now exposes RSS, peak/virtual memory, heap, sys, goroutines, cgroup
+  memory/CPU quota, GC count/pause, CPU seconds and uptime.
 
 ### 🐛 Fixes
 - **`QRCODE_MAX_COUNT`** stops the instance. It restarted instead, with the count back at
@@ -44,6 +55,18 @@
 - **Logout** finishes even if saving the state fails. WhatsApp has already ended the
   session by then, so it no longer answers `500` and leaves the client behind.
 - **Message writes** are retried, since WhatsApp will not deliver an acked message again.
+- **Idempotency fingerprints are canonical JSON**, so a retry with the same fields in a
+  different order replays instead of returning `409`.
+- **Edit/delete immediately after a send** now writes the local tombstone/edit row even
+  when the async outbound insert has not run yet. Edits reject inbound, deleted or
+  older-than-15-minute targets with `WHATSAPP_EDIT_RESTRICTED`/`WHATSAPP_EDIT_TIME_EXPIRED`.
+- **Inbound media is verified** against `FileLength` and `FileSHA256` before it reaches
+  local/S3 storage; mismatches set `mediaError` and are not served.
+- **Avatar queries** are cached for 10 minutes, misses for 15, invalidated by
+  `Picture`/`Contact` events and limited to a 30/min burst-5 bucket per instance.
+- **NATS JetStream** compares the stream's max message size with the expected event size
+  at startup and logs the exact `--max-msg-size` to use; oversized events fall back to
+  core NATS with an explicit warning instead of silently losing durability.
 - **Shutdown flushes accepted events.** Webhooks wait for their backlog (bounded by the
   shutdown deadline) and NATS drains its publish buffer before the process exits, so a
   deploy no longer drops work that `Produce` had already accepted.
@@ -77,6 +100,8 @@
 - A missing MinIO/S3 bucket is created on start. It used to be left to the operator, and
   every upload failed until then.
 - The image has a `HEALTHCHECK`.
+- The image ships `wamux-replay-webhook`, a dry-run-first CLI for replaying the RabbitMQ
+  webhook dead-letter queue with a plan hash and `-apply -confirm`.
 - The compose examples default to `latest`, not `dev`. `docker-compose.yml` replaces
   `docker-compose.ghcr.yml`, reads an optional `.env` and uses port 8081, as do the
   others. `init-db.sql` is gone: databases are created on boot.

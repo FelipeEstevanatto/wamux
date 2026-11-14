@@ -19,9 +19,11 @@ Prefer `admin` or `loopback` on an internet-facing deployment. The health probes
 `POST /user/avatar` caches per instance + resolved JID + `preview` flag:
 
 - a found picture for 10 minutes;
-- "no picture" for 1 minute;
-- temporary failures are not cached.
+- "no picture" for 15 minutes;
+- temporary failures are not cached;
+- `Picture` and `Contact` events invalidate both forms for that contact.
 
 Concurrent misses for the same key are collapsed into one WhatsApp profile query.
-The cache is in-process, so a restart starts cold and a multi-node deployment
-queries once per node.
+Each instance also has a 30/min, burst-5 bucket; exceeding it returns `429` with
+`AVATAR_RATE_LIMITED` and `Retry-After: 60`. The cache is in-process, so a restart
+starts cold and a multi-node deployment queries once per node.
