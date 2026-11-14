@@ -90,7 +90,7 @@ func (h *Handler) Middleware() gin.HandlerFunc {
 		}
 		c.Request.Body = io.NopCloser(bytes.NewReader(body))
 
-		hash := payloadHash(c.Request.Method, c.FullPath(), body)
+		hash := payloadHash(c.Request.Method, c.FullPath(), canonicalJSON(body))
 		instance, _ := c.MustGet("instance").(*instance_model.Instance)
 		if instance == nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "not authorized"})
@@ -234,6 +234,27 @@ func (h *Handler) Operations(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "success", "data": ops})
+}
+
+// canonicalJSON normalizes object key order and whitespace so a retry that is
+// semantically identical hashes the same. Numbers keep their literal form via
+// UseNumber; invalid or non-single-value JSON falls back to the raw bytes.
+func canonicalJSON(body []byte) []byte {
+	dec := json.NewDecoder(bytes.NewReader(body))
+	dec.UseNumber()
+	var value any
+	if err := dec.Decode(&value); err != nil {
+		return body
+	}
+	var extra any
+	if err := dec.Decode(&extra); err != io.EOF {
+		return body
+	}
+	canonical, err := json.Marshal(value)
+	if err != nil {
+		return body
+	}
+	return canonical
 }
 
 func payloadHash(method, path string, body []byte) string {

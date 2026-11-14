@@ -127,6 +127,27 @@ func TestReplaysSameKeyWithoutSendingAgain(t *testing.T) {
 	}
 }
 
+func TestReplaysSemanticallyEqualJSON(t *testing.T) {
+	store := newMemStore()
+	calls := 0
+	r := newRouter(store, &calls)
+
+	first := post(r, "abc", `{"number":"5511","text":"hi"}`)
+	// Same JSON meaning, different key order and whitespace. A retry through
+	// an SDK or proxy must replay, not conflict.
+	second := post(r, "abc", `{ "text": "hi", "number": "5511" }`)
+
+	if first.Code != http.StatusOK || second.Code != http.StatusOK {
+		t.Fatalf("statuses = %d/%d, want 200/200", first.Code, second.Code)
+	}
+	if calls != 1 {
+		t.Fatalf("handler ran %d times, want 1", calls)
+	}
+	if first.Body.String() != second.Body.String() {
+		t.Fatalf("replay body differs:\n%s\n%s", first.Body, second.Body)
+	}
+}
+
 func TestSameKeyDifferentPayloadConflicts(t *testing.T) {
 	store := newMemStore()
 	calls := 0
