@@ -5,7 +5,7 @@ import { Search, X } from 'lucide-react';
 import { Button, Input } from '@/components/ui';
 import { useI18n } from '@/i18n/I18nContext';
 import * as messagesApi from '@/services/api/messages';
-import type { HistoryCursor } from '@/services/api/messages';
+import type { HistoryCursor, HistoryPageArray } from '@/services/api/messages';
 import { highlightParts, searchTarget, snippetAround } from '@/utils/messageSearch';
 
 const PAGE_SIZE = 30;
@@ -49,8 +49,10 @@ function ThreadSearch({
       ),
     initialPageParam: undefined as HistoryCursor | undefined,
     getNextPageParam: (lastPage) => {
-      if (lastPage.length < PAGE_SIZE) return undefined;
-      const last = lastPage[lastPage.length - 1];
+      const page = lastPage as HistoryPageArray;
+      if (page.hasMore === false) return undefined;
+      if (page.length < PAGE_SIZE) return undefined;
+      const last = page[page.length - 1];
       return last ? { before: last.timestamp, beforeId: last.id } : undefined;
     },
     enabled: query.length >= MIN_LENGTH,

@@ -19,6 +19,10 @@ export type HistoryCursor = {
   beforeId: string;
 };
 
+/** The server's page plus the exact has_more flag. The array shape keeps the
+ * existing consumers and tests working; hasMore is absent on mocked arrays. */
+export type HistoryPageArray = HistoryMessage[] & { hasMore?: boolean };
+
 const cursorParams = (cursor?: HistoryCursor) => ({
   keyset: true,
   ...(cursor ? { before: cursor.before, before_id: cursor.beforeId } : {}),
@@ -50,15 +54,19 @@ export const searchHistory = async (
   q: string,
   limit = 50,
   cursor?: HistoryCursor
-): Promise<HistoryMessage[]> => {
-  const response = await apiClient.get<{ message: string; data: HistoryMessage[] }>(
-    '/chat/history/search',
-    {
-      ...asInstance(instanceToken),
-      params: { chat, q, limit, ...cursorParams(cursor) },
-    }
-  );
-  return response.data.data ?? [];
+): Promise<HistoryPageArray> => {
+  const response = await apiClient.get<{
+    message: string;
+    data: HistoryMessage[];
+    has_more?: boolean;
+  }>('/chat/history/search', {
+    ...asInstance(instanceToken),
+    params: { chat, q, limit, ...cursorParams(cursor) },
+  });
+  const data = response.data.data ?? [];
+  return Object.assign(data, {
+    hasMore: response.data.has_more ?? data.length >= limit,
+  });
 };
 
 export const getHistory = async (
@@ -66,15 +74,19 @@ export const getHistory = async (
   chat: string,
   limit = 50,
   cursor?: HistoryCursor
-): Promise<HistoryMessage[]> => {
-  const response = await apiClient.get<{ message: string; data: HistoryMessage[] }>(
-    '/chat/history',
-    {
-      ...asInstance(instanceToken),
-      params: { chat, limit, ...cursorParams(cursor) },
-    }
-  );
-  return response.data.data ?? [];
+): Promise<HistoryPageArray> => {
+  const response = await apiClient.get<{
+    message: string;
+    data: HistoryMessage[];
+    has_more?: boolean;
+  }>('/chat/history', {
+    ...asInstance(instanceToken),
+    params: { chat, limit, ...cursorParams(cursor) },
+  });
+  const data = response.data.data ?? [];
+  return Object.assign(data, {
+    hasMore: response.data.has_more ?? data.length >= limit,
+  });
 };
 
 /**

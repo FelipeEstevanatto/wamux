@@ -54,7 +54,7 @@ import { useInView } from '@/hooks/useInView';
 import { useMediaSrc } from '@/hooks/useMediaSrc';
 import { PANE_MAX, PANE_MIN, useResizablePane } from '@/hooks/useResizablePane';
 import * as messagesApi from '@/services/api/messages';
-import type { HistoryCursor } from '@/services/api/messages';
+import type { HistoryCursor, HistoryPageArray } from '@/services/api/messages';
 import { fetchServerStats } from '@/services/api/server';
 import type { ChatSummary, HistoryMessage } from '@/types/messages';
 import { cn } from '@/utils/cn';
@@ -747,8 +747,10 @@ export default function Messages() {
       ),
     initialPageParam: undefined as HistoryCursor | undefined,
     getNextPageParam: (lastPage) => {
-      if (lastPage.length < PAGE_SIZE) return undefined;
-      const last = lastPage[lastPage.length - 1];
+      const page = lastPage as HistoryPageArray;
+      if (page.hasMore === false) return undefined;
+      if (page.length < PAGE_SIZE) return undefined;
+      const last = page[page.length - 1];
       return last ? { before: last.timestamp, beforeId: last.id } : undefined;
     },
     enabled: Boolean(token && selectedChat),
