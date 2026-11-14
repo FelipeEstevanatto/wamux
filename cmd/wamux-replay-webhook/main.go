@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -20,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	_ "github.com/lib/pq"
 	amqp "github.com/rabbitmq/amqp091-go"
 
 	"github.com/felipeestevanatto/wamux/pkg/webhooksign"
@@ -35,7 +37,69 @@ type planItem struct {
 	URL    string `json:"url"`
 	UserID string `json:"userID"`
 	Bytes  int    `json:"bytes"`
+	HMAC   string `json:"hmac"`
 	Error  string `json:"error,omitempty"`
+}
+
+// hmacSource resolves the key that signed (or should sign) an instance's
+// webhooks. The dead-letter envelope does not carry the key.
+type hmacSource struct {
+	global string
+	db     *sql.DB
+	encKey []byte
+	cache  map[string]string
+}
+
+func (s *hmacSource) key(instanceID string) (string, error) {
+	if s == nil {
+		return "", nil
+	}
+	if s.global != "" {
+		return s.global, nil
+	}
+	if s.db == nil {
+		return "", nil
+	}
+	if v, ok := s.cache[instanceID]; ok {
+		return v, nil
+	}
+	var encrypted string
+	if err := s.db.QueryRow(`SELECT COALESCE(hmac_key, '') FROM instances WHERE id = $1`, instanceID).Scan(&encrypted); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			s.cache[instanceID] = ""
+			return "", nil
+		}
+		return "", err
+	}
+	if encrypted == "" {
+		s.cache[instanceID] = ""
+		return "", nil
+	}
+	if len(s.encKey) == 0 {
+		return "", errors.New("instance has an encrypted HMAC key but no encryption key was configured")
+	}
+	plain, err := webhooksign.Decrypt(s.encKey, encrypted)
+	if err != nil {
+		return "", fmt.Errorf("decrypt instance HMAC key: %w", err)
+	}
+	s.cache[instanceID] = plain
+	return plain, nil
+}
+
+func (s *hmacSource) describe(instanceID string) string {
+	if s == nil {
+		return "unsigned (no -hmac-key or -postgres)"
+	}
+	if s.global != "" {
+		return "global"
+	}
+	if _, err := s.key(instanceID); err != nil {
+		return "error"
+	}
+	if v, ok := s.cache[instanceID]; ok && v != "" {
+		return "instance"
+	}
+	return "unsigned (instance has no key)"
 }
 
 func main() {
@@ -44,7 +108,14 @@ func main() {
 	limit := flag.Int("limit", 100, "maximum messages to inspect")
 	apply := flag.Bool("apply", false, "replay the messages (default is a dry run)")
 	confirm := flag.String("confirm", "", "plan hash printed by the dry run; required with -apply")
-	hmacKey := flag.String("hmac-key", "", "optional global HMAC key for x-hmac-signature")
+	hmacKey := flag.String("hmac-key", "", "global HMAC key override for x-hmac-signature")
+	postgresDSN := flag.String("postgres", os.Getenv("POSTGRES_USERS_DB"), "users database DSN for per-instance HMAC keys")
+	encDefault := os.Getenv("WEBHOOK_HMAC_ENCRYPTION_KEY")
+	if encDefault == "" {
+		encDefault = os.Getenv("GLOBAL_ENCRYPTION_KEY")
+	}
+	hmacEncSecret := flag.String("hmac-encryption-key", encDefault, "secret that encrypts instance HMAC keys (or GLOBAL_ENCRYPTION_KEY)")
+	globalAPIKey := flag.String("global-api-key", os.Getenv("GLOBAL_API_KEY"), "GLOBAL_API_KEY used to derive the HMAC encryption key when no dedicated secret is set")
 	timeout := flag.Duration("timeout", 30*time.Second, "per-delivery HTTP timeout")
 	flag.Parse()
 
@@ -70,6 +141,27 @@ func main() {
 		fail(1, "queue %q is not available: %v", *queue, err)
 	}
 
+	var hmac *hmacSource
+	if *hmacKey != "" || *postgresDSN != "" {
+		hmac = &hmacSource{global: *hmacKey, cache: map[string]string{}}
+		if *hmacKey == "" {
+			encKey, err := webhooksign.DeriveWebhookHMACEncryptionKey(*hmacEncSecret, *globalAPIKey)
+			if err != nil {
+				fail(2, "cannot derive the HMAC encryption key: %v", err)
+			}
+			db, err := sql.Open("postgres", *postgresDSN)
+			if err != nil {
+				fail(1, "open users database: %v", err)
+			}
+			if err := db.Ping(); err != nil {
+				db.Close()
+				fail(1, "ping users database: %v", err)
+			}
+			defer db.Close()
+			hmac.db, hmac.encKey = db, encKey
+		}
+	}
+
 	deliveries := make([]amqp.Delivery, 0, *limit)
 	for len(deliveries) < *limit {
 		d, ok, err := ch.Get(*queue, false)
@@ -93,6 +185,10 @@ func main() {
 		} else {
 			item.URL, item.UserID = env.URL, env.UserID
 			item.Bytes = len(payload)
+			item.HMAC = hmac.describe(env.UserID)
+			if _, err := hmac.key(env.UserID); err != nil {
+				item.Error = err.Error()
+			}
 		}
 		items = append(items, item)
 	}
@@ -121,8 +217,12 @@ func main() {
 	acked, failed := 0, 0
 	for i, d := range deliveries {
 		env, payload, err := parseEnvelope(d.Body)
+		var signingKey string
 		if err == nil {
-			err = deliver(context.Background(), client, env.URL, payload, *hmacKey)
+			signingKey, err = hmac.key(env.UserID)
+		}
+		if err == nil {
+			err = deliver(context.Background(), client, env.URL, payload, signingKey)
 		}
 		if err != nil {
 			failed++

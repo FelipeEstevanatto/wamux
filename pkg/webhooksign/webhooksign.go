@@ -36,6 +36,24 @@ const SignatureHeader = "x-hmac-signature"
 // Keys longer than this are hashed down to the digest size internally.
 const MinKeyLength = 32
 
+// WebhookHMACDerivationLabel domain-separates the webhook-key encryption key
+// derived from GLOBAL_API_KEY from any other use of that secret.
+const WebhookHMACDerivationLabel = "wamux:webhook-hmac-encryption:v1:"
+
+// DeriveWebhookHMACEncryptionKey builds the AES key that protects per-instance
+// HMAC keys at rest. A dedicated secret wins; otherwise the global API key is
+// domain-separated. This is the single source of truth for the server and the
+// replay CLI.
+func DeriveWebhookHMACEncryptionKey(secret, globalAPIKey string) ([]byte, error) {
+	if strings.TrimSpace(secret) != "" {
+		return DeriveEncryptionKey(secret)
+	}
+	if strings.TrimSpace(globalAPIKey) == "" {
+		return nil, ErrEmptySecret
+	}
+	return DeriveEncryptionKey(WebhookHMACDerivationLabel + globalAPIKey)
+}
+
 // ErrEmptySecret is returned when DeriveEncryptionKey is handed nothing to
 // derive from.
 var ErrEmptySecret = errors.New("webhooksign: secret must not be empty")

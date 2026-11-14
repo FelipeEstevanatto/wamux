@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	amqp "github.com/rabbitmq/amqp091-go"
 
 	"github.com/felipeestevanatto/wamux/pkg/webhooksign"
@@ -63,6 +64,52 @@ func TestDeliverPostsPayloadAndSigns(t *testing.T) {
 	}
 	if body != `{"x":1}` || !webhooksign.Verify([]byte("01234567890123456789012345678901"), []byte(body), signature) {
 		t.Fatalf("body=%q signature=%q", body, signature)
+	}
+}
+
+func TestHMACSourceReadsAndDecryptsInstanceKey(t *testing.T) {
+	encKey, err := webhooksign.DeriveWebhookHMACEncryptionKey("dedicated-secret", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	plain := "01234567890123456789012345678901"
+	encrypted, err := webhooksign.Encrypt(encKey, plain)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	mock.ExpectQuery(`SELECT COALESCE\(hmac_key, ''\) FROM instances WHERE id = \$1`).
+		WithArgs("inst-1").
+		WillReturnRows(sqlmock.NewRows([]string{"hmac_key"}).AddRow(encrypted))
+
+	s := &hmacSource{db: db, encKey: encKey, cache: map[string]string{}}
+	got, err := s.key("inst-1")
+	if err != nil || got != plain {
+		t.Fatalf("key = %q, err %v", got, err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestHMACSourceFailsClosedForEncryptedKeyWithoutSecret(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	mock.ExpectQuery(`SELECT COALESCE\(hmac_key, ''\) FROM instances WHERE id = \$1`).
+		WithArgs("inst-1").
+		WillReturnRows(sqlmock.NewRows([]string{"hmac_key"}).AddRow("ciphertext"))
+
+	s := &hmacSource{db: db, cache: map[string]string{}}
+	if _, err := s.key("inst-1"); err == nil {
+		t.Fatal("encrypted key without an encryption secret was accepted")
 	}
 }
 

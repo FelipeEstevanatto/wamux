@@ -17,10 +17,6 @@ import (
 	"github.com/felipeestevanatto/wamux/pkg/webhooksign"
 )
 
-// webhookHmacDerivationLabel domain-separates the webhook-key encryption key
-// derived from GLOBAL_API_KEY from any other use of that secret.
-const webhookHmacDerivationLabel = "wamux:webhook-hmac-encryption:v1:"
-
 type Config struct {
 	PostgresAuthDB       string
 	postgresUsersDB      string
@@ -109,6 +105,11 @@ type Config struct {
 	// "loopback" accepts only a loopback TCP peer, and "none" is public.
 	// Defaults to "admin": the metrics carry instance ids and queue depths.
 	MetricsAuth string
+
+	// AvatarRateLimitPerMinute/AvatarRateBurst bound profile-picture queries per
+	// instance. 0 disables the limiter.
+	AvatarRateLimitPerMinute int
+	AvatarRateBurst          int
 
 	// PprofEnabled exposes the Go net/http/pprof handlers under /debug/pprof
 	// (CPU, heap, goroutine profiles) for benchmarking. Off by default: it
@@ -431,10 +432,9 @@ func Load() *Config {
 		// Derive a stable key from the always-present global API key so
 		// per-instance keys survive restarts without any extra configuration.
 		// Setting WEBHOOK_HMAC_ENCRYPTION_KEY decouples the two secrets.
-		hmacEncSecret = webhookHmacDerivationLabel + globalApiKey
 		hmacEncSource = config_env.GLOBAL_API_KEY + " (derived; set " + config_env.WEBHOOK_HMAC_ENCRYPTION_KEY + " to decouple)"
 	}
-	webhookHmacEncryptionKey, err := webhooksign.DeriveEncryptionKey(hmacEncSecret)
+	webhookHmacEncryptionKey, err := webhooksign.DeriveWebhookHMACEncryptionKey(hmacEncSecret, globalApiKey)
 	if err != nil {
 		applog.Logger.LogFatal("[CONFIG] failed to derive the webhook HMAC encryption key: %v", err)
 	}
@@ -456,6 +456,8 @@ func Load() *Config {
 	default:
 		metricsAuth = "admin"
 	}
+	avatarRate := envInt(config_env.AVATAR_RATE_LIMIT_PER_MINUTE, 30)
+	avatarBurst := envInt(config_env.AVATAR_RATE_LIMIT_BURST, 5)
 	pprofEnabled := config_env.Bool(config_env.PPROF_ENABLED, false)
 
 	rerequestFromPhone := config_env.Bool(config_env.REREQUEST_FROM_PHONE, false)
@@ -701,6 +703,8 @@ func Load() *Config {
 		CheckUserExists:          checkUserExists, // Default true, set to false to disable
 		SwaggerEnabled:           swaggerEnabled,
 		MetricsAuth:              metricsAuth,
+		AvatarRateLimitPerMinute: avatarRate,
+		AvatarRateBurst:          avatarBurst,
 		PprofEnabled:             pprofEnabled,
 		TypebotContactRateLimit:  typebotContactRateLimit,
 		TypebotContactRateWindow: typebotContactRateWindow,

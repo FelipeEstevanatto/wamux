@@ -47,10 +47,15 @@ docker exec wamux /app/wamux-replay-webhook \
   -apply -confirm <planHash>
 ```
 
-Use `-hmac-key` if the consumer expects the global `x-hmac-signature`; without
-it the replayed request is unsigned because the per-instance key is not stored
-in the dead-letter envelope. Failed deliveries are nacked back onto the queue,
-so a partial replay is safe to rerun.
+The CLI signs replay with the instance's own key when it can read it. Pass
+`-postgres` (or `POSTGRES_USERS_DB`) and the same encryption secret the server
+uses (`-hmac-encryption-key`, `WEBHOOK_HMAC_ENCRYPTION_KEY`,
+`GLOBAL_ENCRYPTION_KEY`, or `-global-api-key` to derive it). The key is read
+from `instances.hmac_key`, decrypted, and never printed. `-hmac-key` is a
+global override; without any key source the replay is unsigned and the plan
+says so. A malformed/undecryptable instance key fails that delivery instead of
+silently sending an unsigned request. Failed deliveries are nacked back onto
+the queue, so a partial replay is safe to rerun.
 
 ## NATS JetStream
 
