@@ -35,9 +35,22 @@ Permanently failed webhooks are published to RabbitMQ `WEBHOOK_ERROR_QUEUE_NAME`
 }
 ```
 
-Replay from the RabbitMQ management UI or a small consumer that POSTs `payload`
-to `url` again. The payload already carries the event and `instanceToken`; HMAC
-signing is not added by a replay unless the consumer asks for it.
+Replay with the bundled CLI. Dry-run is the default and leaves the queue
+intact; `-apply` requires the exact plan hash from the dry run:
+
+```bash
+docker exec wamux /app/wamux-replay-webhook \
+  -amqp 'amqp://admin:admin@wamux_rabbitmq:5672/' -queue webhook_errors
+
+docker exec wamux /app/wamux-replay-webhook \
+  -amqp 'amqp://admin:admin@wamux_rabbitmq:5672/' -queue webhook_errors \
+  -apply -confirm <planHash>
+```
+
+Use `-hmac-key` if the consumer expects the global `x-hmac-signature`; without
+it the replayed request is unsigned because the per-instance key is not stored
+in the dead-letter envelope. Failed deliveries are nacked back onto the queue,
+so a partial replay is safe to rerun.
 
 ## NATS JetStream
 

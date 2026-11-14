@@ -50,7 +50,8 @@ ARG GO_JSON_TAG=
 # see the note above the go mod download step.
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=1 go build -tags "${GO_JSON_TAG}" -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o server ./cmd/wamux
+    CGO_ENABLED=1 go build -tags "${GO_JSON_TAG}" -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o server ./cmd/wamux && \
+    CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o wamux-replay-webhook ./cmd/wamux-replay-webhook
 
 # Runtime base is kept on the same Alpine major.minor as the build stage
 # (golang:1.26.10-alpine is Alpine 3.24.x). The CGO binary links dynamically against
@@ -74,6 +75,7 @@ RUN apk update && apk add --no-cache tzdata ffmpeg libjpeg-turbo libwebp poppler
 WORKDIR /app
 
 COPY --from=build /build/server .
+COPY --from=build /build/wamux-replay-webhook .
 COPY --from=build /build/manager/dist ./manager/dist
 COPY --from=build /build/VERSION ./VERSION
 
