@@ -18,8 +18,10 @@ import {
 } from '@tanstack/react-query';
 import {
   AlertCircle,
+  Archive,
   ArrowDown,
   ArrowLeft,
+  BellOff,
   Check,
   CheckCheck,
   FlaskConical,
@@ -30,6 +32,7 @@ import {
   MessageSquare,
   MessageSquarePlus,
   Paperclip,
+  Pin,
   RefreshCw,
   Search,
   SendHorizontal,
@@ -1525,6 +1528,18 @@ export default function Messages() {
                 const number =
                   chatKind(c.chat_jid) === 'contact' ? jidUser(c.chat_jid) : '';
                 const showNumber = !!number && number !== title;
+                const muted =
+                  c.muted_until === -1 ||
+                  (typeof c.muted_until === 'number' &&
+                    c.muted_until > 0 &&
+                    c.muted_until * 1000 > Date.now());
+                const state = [
+                  c.pinned ? 'pinned' : '',
+                  c.archived ? 'archived' : '',
+                  muted ? 'muted' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ');
                 return (
                   <button
                     key={c.chat_jid}
@@ -1536,8 +1551,20 @@ export default function Messages() {
                     <ChatAvatar jid={c.chat_jid} token={token} label={title} />
                     <div className="min-w-0 flex-1">
                       <span className="flex items-center justify-between gap-2">
-                        <span className="truncate text-sm font-medium">
-                          {title}
+                        <span className="flex min-w-0 items-center gap-1">
+                          <span className="truncate text-sm font-medium">
+                            {title}
+                          </span>
+                          {state && (
+                            <span
+                              data-chat-state={state}
+                              className="flex shrink-0 items-center gap-0.5 text-muted-foreground"
+                            >
+                              {c.pinned && <Pin className="h-3 w-3" aria-label="pinned" />}
+                              {c.archived && <Archive className="h-3 w-3" aria-label="archived" />}
+                              {muted && <BellOff className="h-3 w-3" aria-label="muted" />}
+                            </span>
+                          )}
                         </span>
                         <span
                           className={`shrink-0 text-[11px] ${

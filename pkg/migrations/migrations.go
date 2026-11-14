@@ -320,6 +320,35 @@ var steps = []migration{
 			`CREATE INDEX IF NOT EXISTS idx_messages_instance_album ON messages (instance_id, album_id)`,
 		},
 	},
+	{
+		// Chat state synced from WhatsApp app-state and history. Separate from
+		// chat_reads: this is WhatsApp's state, not the manager's read position.
+		Name: "0015_chat_states",
+		Postgres: []string{
+			`CREATE TABLE IF NOT EXISTS chat_states (
+				instance_id text NOT NULL,
+				chat_jid text NOT NULL,
+				archived boolean NOT NULL DEFAULT false,
+				pinned boolean NOT NULL DEFAULT false,
+				muted_until bigint NOT NULL DEFAULT 0,
+				marked_unread boolean NOT NULL DEFAULT false,
+				updated_at timestamptz NOT NULL DEFAULT NOW(),
+				PRIMARY KEY (instance_id, chat_jid)
+			)`,
+		},
+		SQLite: []string{
+			`CREATE TABLE IF NOT EXISTS chat_states (
+				instance_id text NOT NULL,
+				chat_jid text NOT NULL,
+				archived integer NOT NULL DEFAULT 0,
+				pinned integer NOT NULL DEFAULT 0,
+				muted_until integer NOT NULL DEFAULT 0,
+				marked_unread integer NOT NULL DEFAULT 0,
+				updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				PRIMARY KEY (instance_id, chat_jid)
+			)`,
+		},
+	},
 }
 
 const createMigrationsTable = `

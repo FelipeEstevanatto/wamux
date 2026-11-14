@@ -24,6 +24,12 @@ export interface ChatSummary {
    * number/JID.
    */
   name?: string;
+  /** WhatsApp app-state for this chat. */
+  archived?: boolean;
+  pinned?: boolean;
+  /** Unix seconds; -1 means muted forever, 0 means not muted. */
+  muted_until?: number;
+  marked_unread?: boolean;
 }
 
 /** One row of GET /chat/contacts (the conversation picker). */

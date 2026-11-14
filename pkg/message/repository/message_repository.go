@@ -71,6 +71,10 @@ type MessageRepository interface {
 	// DistinctSenders lists the bare `sender_jid` values that authored messages
 	// in one conversation, for labelling group members.
 	DistinctSenders(instanceId, chatJid string) ([]string, error)
+
+	// Chat state synced from WhatsApp app-state and history.
+	SetChatState(instanceId, chatJid string, patch message_model.ChatStatePatch) error
+	ChatStates(instanceId string) (map[string]message_model.ChatState, error)
 }
 
 // ChatSummary is the per-conversation row returned by ListChats: the newest
@@ -87,8 +91,12 @@ type ChatSummary struct {
 	IsFromMe     bool   `json:"last_from_me" gorm:"column:is_from_me"`
 	MessageCount int64  `json:"message_count" gorm:"column:message_count"`
 	// UnreadCount is the inbound messages newer than LastReadAt, the read position.
-	UnreadCount int64  `json:"unread_count" gorm:"column:unread_count"`
-	LastReadAt  string `json:"last_read_at" gorm:"column:last_read_at"`
+	UnreadCount  int64  `json:"unread_count" gorm:"column:unread_count"`
+	LastReadAt   string `json:"last_read_at" gorm:"column:last_read_at"`
+	Archived     bool   `json:"archived" gorm:"column:archived"`
+	Pinned       bool   `json:"pinned" gorm:"column:pinned"`
+	MutedUntil   int64  `json:"muted_until" gorm:"column:muted_until"`
+	MarkedUnread bool   `json:"marked_unread" gorm:"column:marked_unread"`
 
 	// Name is the resolved display name (group subject or contact name). It is
 	// not a column: the service fills it after the query, so the repository stays
@@ -711,6 +719,10 @@ WITH RECURSIVE chats AS (
 )
 SELECT t.*,
        COALESCE(r.read_at, '') AS last_read_at,
+       COALESCE(cs.archived, false) AS archived,
+       COALESCE(cs.pinned, false) AS pinned,
+       COALESCE(cs.muted_until, 0) AS muted_until,
+       COALESCE(cs.marked_unread, false) AS marked_unread,
        (SELECT count(*) FROM messages n
          WHERE n.instance_id = ? AND n.chat_jid = t.chat_jid) AS message_count,
        (SELECT count(*) FROM messages n
@@ -721,10 +733,11 @@ SELECT t.*,
            AND n.message_type NOT IN ('edit', 'delete', 'deleted', 'reaction', 'poll_update', 'unknown')
        ) AS unread_count
   FROM latest t
+  LEFT JOIN chat_states cs ON cs.instance_id = ? AND cs.chat_jid = t.chat_jid
   LEFT JOIN chat_reads r ON r.instance_id = ? AND r.chat_jid = t.chat_jid
  ORDER BY t."timestamp" DESC`
 
-	err := m.db.Raw(query, instanceId, instanceId, instanceId, clampHistoryLimit(limit), instanceId, instanceId, instanceId).Scan(&summaries).Error
+	err := m.db.Raw(query, instanceId, instanceId, instanceId, clampHistoryLimit(limit), instanceId, instanceId, instanceId, instanceId).Scan(&summaries).Error
 	return summaries, err
 }
 
@@ -1079,6 +1092,53 @@ func (m *messageRepository) ListSendOperations(ctx context.Context, instanceId, 
 	ops := make([]message_model.SendOperation, 0, limit)
 	err := query.Order("created_at ASC").Limit(limit).Find(&ops).Error
 	return ops, err
+}
+
+// SetChatState writes only the fields present in patch. A missing row is
+// created with the other fields at their zero values, which matches WhatsApp
+// sending partial app-state updates.
+func (m *messageRepository) SetChatState(instanceId, chatJid string, patch message_model.ChatStatePatch) error {
+	if instanceId == "" || chatJid == "" || patch.Empty() {
+		return nil
+	}
+	now := time.Now().UTC()
+	state := message_model.ChatState{InstanceId: instanceId, ChatJid: chatJid, UpdatedAt: now}
+	updates := map[string]any{"updated_at": now}
+	if patch.Archived != nil {
+		state.Archived = *patch.Archived
+		updates["archived"] = *patch.Archived
+	}
+	if patch.Pinned != nil {
+		state.Pinned = *patch.Pinned
+		updates["pinned"] = *patch.Pinned
+	}
+	if patch.MutedUntil != nil {
+		state.MutedUntil = *patch.MutedUntil
+		updates["muted_until"] = *patch.MutedUntil
+	}
+	if patch.MarkedUnread != nil {
+		state.MarkedUnread = *patch.MarkedUnread
+		updates["marked_unread"] = *patch.MarkedUnread
+	}
+	return m.db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "instance_id"}, {Name: "chat_jid"}},
+		DoUpdates: clause.Assignments(updates),
+	}).Create(&state).Error
+}
+
+func (m *messageRepository) ChatStates(instanceId string) (map[string]message_model.ChatState, error) {
+	out := map[string]message_model.ChatState{}
+	if instanceId == "" {
+		return out, nil
+	}
+	var rows []message_model.ChatState
+	if err := m.db.Where("instance_id = ?", instanceId).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		out[row.ChatJid] = row
+	}
+	return out, nil
 }
 
 // GetSendOperation scopes the lookup to the authenticated instance.

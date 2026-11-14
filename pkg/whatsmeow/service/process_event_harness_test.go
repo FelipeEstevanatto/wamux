@@ -211,6 +211,12 @@ func (r *fakeMessageRepo) MarkMessageDeleted(row message_model.Message, chats []
 	return !r.refuseRevoke, nil
 }
 
+func (r *fakeMessageRepo) SetChatState(_, _ string, _ message_model.ChatStatePatch) error { return nil }
+
+func (r *fakeMessageRepo) ChatStates(_ string) (map[string]message_model.ChatState, error) {
+	return nil, nil
+}
+
 func (r *fakeMessageRepo) MarkChatsRead(_ string, chats []string, at string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

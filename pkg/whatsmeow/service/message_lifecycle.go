@@ -11,6 +11,7 @@ import (
 	"go.mau.fi/whatsmeow/proto/waWeb"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
+	"google.golang.org/protobuf/proto"
 
 	applog "github.com/felipeestevanatto/wamux/pkg/applog"
 	localmedia "github.com/felipeestevanatto/wamux/pkg/media"
@@ -67,6 +68,17 @@ func (mycli *MyClient) tombstoneRevoked(revoke message_model.Message, targetID s
 	}
 }
 
+// setChatState writes one partial WhatsApp app-state update for a chat.
+func (mycli *MyClient) setChatState(jid types.JID, patch message_model.ChatStatePatch) {
+	if mycli.messageRepository == nil || jid.IsEmpty() || patch.Empty() {
+		return
+	}
+	chat := CanonicalChatJID(context.Background(), mycli.WAClient, jid).ToNonAD().String()
+	if err := mycli.messageRepository.SetChatState(mycli.userID, chat, patch); err != nil {
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Failed to store chat state for %s: %v", mycli.userID, chat, err)
+	}
+}
+
 // rejectInboundEdit returns a non-empty reason when an inbound MESSAGE_EDIT
 // must not change the stored target. The lookup is by the outer chat and the
 // edit's fromMe, matching how WhatsApp resolves the protocol key.
@@ -116,6 +128,7 @@ func ForgetSentMessage(client *whatsmeow.Client, id types.MessageID, chats ...ty
 // storeHistorySync writes the messages of a history batch to the history. Media is
 // not fetched: the row keeps the name, size and preview, as WhatsApp sent them.
 func (mycli *MyClient) storeHistorySync(data *waHistorySync.HistorySync) {
+	mycli.storeHistoryChatStates(data)
 	rows := mycli.historyRows(data)
 	if len(rows) == 0 {
 		return
@@ -126,6 +139,48 @@ func (mycli *MyClient) storeHistorySync(data *waHistorySync.HistorySync) {
 	}
 	mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Stored %d messages from history sync", mycli.userID, len(rows))
 	mycli.markHistoryRead(rows)
+}
+
+// storeHistoryChatStates imports archived/pinned/muted/marked-unread state that
+// arrives with a history batch. Each conversation is a partial update: only the
+// fields WhatsApp included are written.
+func (mycli *MyClient) storeHistoryChatStates(data *waHistorySync.HistorySync) {
+	if mycli.messageRepository == nil {
+		return
+	}
+	ctx := context.Background()
+	for _, conv := range data.GetConversations() {
+		raw, err := types.ParseJID(conv.GetID())
+		if err != nil || raw == types.StatusBroadcastJID {
+			continue
+		}
+		patch := message_model.ChatStatePatch{}
+		if conv.Archived != nil {
+			patch.Archived = proto.Bool(conv.GetArchived())
+		}
+		if conv.Pinned != nil {
+			patch.Pinned = proto.Bool(conv.GetPinned() != 0)
+		}
+		if conv.MuteEndTime != nil {
+			until := int64(conv.GetMuteEndTime())
+			if conv.GetMuteEndTime() == 0 {
+				until = 0
+			} else if until < 0 {
+				until = -1
+			}
+			patch.MutedUntil = proto.Int64(until)
+		}
+		if conv.MarkedAsUnread != nil {
+			patch.MarkedUnread = proto.Bool(conv.GetMarkedAsUnread())
+		}
+		if patch.Empty() {
+			continue
+		}
+		chat := CanonicalChatJID(ctx, mycli.WAClient, raw).ToNonAD().String()
+		if err := mycli.messageRepository.SetChatState(mycli.userID, chat, patch); err != nil {
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Failed to store history chat state for %s: %v", mycli.userID, chat, err)
+		}
+	}
 }
 
 // markHistoryRead keeps recovered messages from showing as unread: the phone already

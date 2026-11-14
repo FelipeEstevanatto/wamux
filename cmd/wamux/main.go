@@ -502,6 +502,7 @@ func migrate(db *gorm.DB) {
 		&instance_model.Instance{},
 		&message_model.Message{},
 		&message_model.ChatRead{},
+		&message_model.ChatState{},
 		&message_model.SendOperation{},
 		&label_model.Label{},
 		&typebot_model.Typebot{},

@@ -10,6 +10,7 @@ import (
 
 	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
 	logger_wrapper "github.com/felipeestevanatto/wamux/pkg/logger"
+	message_model "github.com/felipeestevanatto/wamux/pkg/message/model"
 	message_repository "github.com/felipeestevanatto/wamux/pkg/message/repository"
 	"github.com/felipeestevanatto/wamux/pkg/utils"
 	whatsmeow_service "github.com/felipeestevanatto/wamux/pkg/whatsmeow/service"
@@ -174,6 +175,7 @@ func (c *chatService) ChatPin(data *BodyStruct, instance *instance_model.Instanc
 		c.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error pin chat: %v", instance.Id, err)
 		return "", err
 	}
+	c.setChatState(instance.Id, recipient, message_model.ChatStatePatch{Pinned: proto.Bool(true)})
 
 	return ts.String(), nil
 }
@@ -197,6 +199,7 @@ func (c *chatService) ChatUnpin(data *BodyStruct, instance *instance_model.Insta
 		c.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error unpin chat: %v", instance.Id, err)
 		return "", err
 	}
+	c.setChatState(instance.Id, recipient, message_model.ChatStatePatch{Pinned: proto.Bool(false)})
 
 	return ts.String(), nil
 }
@@ -220,6 +223,7 @@ func (c *chatService) ChatArchive(data *BodyStruct, instance *instance_model.Ins
 		c.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error archive chat: %v", instance.Id, err)
 		return "", err
 	}
+	c.setChatState(instance.Id, recipient, message_model.ChatStatePatch{Archived: proto.Bool(true)})
 
 	return ts.String(), nil
 }
@@ -243,6 +247,7 @@ func (c *chatService) ChatUnarchive(data *BodyStruct, instance *instance_model.I
 		c.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error unarchive chat: %v", instance.Id, err)
 		return "", err
 	}
+	c.setChatState(instance.Id, recipient, message_model.ChatStatePatch{Archived: proto.Bool(false)})
 
 	return ts.String(), nil
 }
@@ -269,6 +274,7 @@ func (c *chatService) ChatMarkUnread(data *BodyStruct, instance *instance_model.
 		c.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error marking chat unread: %v", instance.Id, err)
 		return "", err
 	}
+	c.setChatState(instance.Id, recipient, message_model.ChatStatePatch{MarkedUnread: proto.Bool(true)})
 
 	return time.Now().String(), nil
 }
@@ -317,6 +323,7 @@ func (c *chatService) ChatMute(data *BodyStruct, instance *instance_model.Instan
 		c.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error mute chat: %v", instance.Id, err)
 		return "", err
 	}
+	c.setChatState(instance.Id, recipient, message_model.ChatStatePatch{MutedUntil: proto.Int64(time.Now().Add(time.Hour).Unix())})
 
 	return ts.String(), nil
 }
@@ -340,6 +347,7 @@ func (c *chatService) ChatUnmute(data *BodyStruct, instance *instance_model.Inst
 		c.loggerWrapper.GetLogger(instance.Id).LogError("[%s] error unmute chat: %v", instance.Id, err)
 		return "", err
 	}
+	c.setChatState(instance.Id, recipient, message_model.ChatStatePatch{MutedUntil: proto.Int64(0)})
 
 	return ts.String(), nil
 }
@@ -425,6 +433,16 @@ func historySyncMember(client *whatsmeow.Client, info *types.GroupInfo) bool {
 		}
 	}
 	return false
+}
+
+func (c *chatService) setChatState(instanceId string, chat types.JID, patch message_model.ChatStatePatch) {
+	if c.messageRepository == nil || patch.Empty() {
+		return
+	}
+	canonical := utils.CanonicalJID(chat).ToNonAD().String()
+	if err := c.messageRepository.SetChatState(instanceId, canonical, patch); err != nil {
+		c.loggerWrapper.GetLogger(instanceId).LogWarn("[%s] Failed to store chat state for %s: %v", instanceId, canonical, err)
+	}
 }
 
 func NewChatService(

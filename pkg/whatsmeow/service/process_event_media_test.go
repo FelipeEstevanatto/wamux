@@ -22,6 +22,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	localmedia "github.com/felipeestevanatto/wamux/pkg/media"
+	message_model "github.com/felipeestevanatto/wamux/pkg/message/model"
 	poll_model "github.com/felipeestevanatto/wamux/pkg/poll/model"
 	poll_service "github.com/felipeestevanatto/wamux/pkg/poll/service"
 )
@@ -410,6 +411,12 @@ func TestEditFromALIDContactIsDecrypted(t *testing.T) {
 	secret := bytes.Repeat([]byte{7}, 32)
 	h.cli.WAClient.Store.MsgSecrets = memorySecrets{secret: secret, sender: lid}
 	h.cli.clientPointer.Set(testInstanceID, h.cli.WAClient)
+	h.messages.existing = map[string]message_model.Message{
+		"ORIGINAL": {
+			MessageID: "ORIGINAL", ChatJid: testContact, SenderJid: testContact,
+			IsFromMe: false, MessageType: "text", Timestamp: testTime.Format("2006-01-02 15:04:05"),
+		},
+	}
 
 	evt := inbound(t, "EDIT1", "")
 	evt.Info.Chat, evt.Info.Sender = lid, lid

@@ -3342,6 +3342,28 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 		}
 	case *events.MarkChatAsRead:
 		mycli.chatReadElsewhere(evt)
+		if evt.Action != nil {
+			mycli.setChatState(evt.JID, message_model.ChatStatePatch{MarkedUnread: proto.Bool(!evt.Action.GetRead())})
+		}
+	case *events.Pin:
+		doWebhook = true
+		postMap["event"] = "Pin"
+		if evt.Action != nil {
+			mycli.setChatState(evt.JID, message_model.ChatStatePatch{Pinned: proto.Bool(evt.Action.GetPinned())})
+		}
+	case *events.Mute:
+		doWebhook = true
+		postMap["event"] = "Mute"
+		if evt.Action != nil {
+			until := int64(0)
+			if evt.Action.GetMuted() {
+				until = evt.Action.GetMuteEndTimestamp()
+				if until == 0 {
+					until = -1
+				}
+			}
+			mycli.setChatState(evt.JID, message_model.ChatStatePatch{MutedUntil: proto.Int64(until)})
+		}
 	case *events.Archive:
 		doWebhook = true
 		postMap["event"] = "Archive"
@@ -3359,6 +3381,9 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 		dataMap["Action"] = evt.Action
 		dataMap["FromFullSync"] = evt.FromFullSync
 		postMap["data"] = dataMap
+		if evt.Action != nil {
+			mycli.setChatState(evt.JID, message_model.ChatStatePatch{Archived: proto.Bool(evt.Action.GetArchived())})
+		}
 
 		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Chat archived", mycli.userID)
 	case *events.HistorySync:

@@ -214,6 +214,16 @@ describe('Messages page', () => {
     expect(document.body.textContent).toContain('second');
   });
 
+  it('shows pinned, archived and muted chat state', async () => {
+    vi.mocked(messagesApi.listChats).mockResolvedValue([
+      { ...chat, pinned: true, archived: true, muted_until: -1 },
+    ]);
+    await render();
+
+    const state = document.querySelector('[data-chat-state]');
+    expect(state?.getAttribute('data-chat-state')).toBe('pinned archived muted');
+  });
+
   it('shows an edit as the new text of the original message', async () => {
     vi.mocked(messagesApi.getHistory).mockResolvedValue([
       row('edit-row', 'corrected', { message_type: 'edit', quoted_message_id: 'm1' }),
