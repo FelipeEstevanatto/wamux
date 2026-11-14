@@ -149,6 +149,11 @@ type HistoryQuery struct {
 	// Keyset opts into exact (timestamp, id) pages from the first request.
 	// Without it the legacy timestamp-only cursor pads pages to whole seconds.
 	Keyset bool `form:"keyset" json:"keyset" example:"true"`
+	// Filters. after/until are inclusive timestamps in the stored format.
+	After  string `form:"after" json:"after" example:"2026-05-01 00:00:00"`
+	Until  string `form:"until" json:"until" example:"2026-05-31 23:59:59"`
+	Type   string `form:"type" json:"type" example:"image"`
+	FromMe *bool  `form:"from_me" json:"from_me" example:"false"`
 }
 
 // HistorySearchQuery finds text in one conversation. Before/BeforeID are the
@@ -160,6 +165,10 @@ type HistorySearchQuery struct {
 	Before   string `form:"before" json:"before" example:"2026-05-09 10:00:00"`
 	BeforeID string `form:"before_id" json:"before_id" example:"3EB0A1B2C3D4E5F6A7B8C9"`
 	Keyset   bool   `form:"keyset" json:"keyset" example:"true"`
+	After    string `form:"after" json:"after" example:"2026-05-01 00:00:00"`
+	Until    string `form:"until" json:"until" example:"2026-05-31 23:59:59"`
+	Type     string `form:"type" json:"type" example:"image"`
+	FromMe   *bool  `form:"from_me" json:"from_me" example:"false"`
 }
 
 // HistoryCursorContractVersion is returned by the capabilities endpoint. Bump
@@ -1022,15 +1031,14 @@ func (m *messageService) GetHistory(data *HistoryQuery, instance *instance_model
 		// second request. It is trimmed before returning.
 		fetchLimit++
 	}
+	filter := message_repository.MessageFilter{
+		Before: before, BeforeID: beforeID, After: strings.TrimSpace(data.After),
+		Until: strings.TrimSpace(data.Until), MessageType: strings.TrimSpace(data.Type),
+		FromMe: data.FromMe, Limit: fetchLimit, Exact: keyset,
+	}
 	var all []message_model.Message
 	for _, variant := range m.chatJidVariants(instance.Id, chatJid) {
-		var msgs []message_model.Message
-		var err error
-		if keyset {
-			msgs, err = m.messageRepository.ListMessagesPage(instance.Id, variant, before, beforeID, fetchLimit)
-		} else {
-			msgs, err = m.messageRepository.ListMessages(instance.Id, variant, before, limit)
-		}
+		msgs, err := m.messageRepository.ListMessagesFiltered(instance.Id, variant, filter)
 		if err != nil {
 			m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to read message history for %s: %v", instance.Id, variant, err)
 			return nil, err
@@ -1074,15 +1082,14 @@ func (m *messageService) SearchHistory(data *HistorySearchQuery, instance *insta
 	if keyset {
 		fetchLimit++
 	}
+	filter := message_repository.MessageFilter{
+		Before: before, BeforeID: beforeID, After: strings.TrimSpace(data.After),
+		Until: strings.TrimSpace(data.Until), MessageType: strings.TrimSpace(data.Type),
+		FromMe: data.FromMe, Limit: fetchLimit, Exact: keyset,
+	}
 	var all []message_model.Message
 	for _, variant := range m.chatJidVariants(instance.Id, chatJid) {
-		var msgs []message_model.Message
-		var err error
-		if keyset {
-			msgs, err = m.messageRepository.SearchMessagesPage(instance.Id, variant, text, before, beforeID, fetchLimit)
-		} else {
-			msgs, err = m.messageRepository.SearchMessages(instance.Id, variant, text, before, limit)
-		}
+		msgs, err := m.messageRepository.SearchMessagesFiltered(instance.Id, variant, text, filter)
 		if err != nil {
 			m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to search message history: %v", instance.Id, err)
 			return nil, err

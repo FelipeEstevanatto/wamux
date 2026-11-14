@@ -60,6 +60,9 @@ type MessageRepository interface {
 	SearchMessages(instanceId, chatJid, text, before string, limit int) ([]message_model.Message, error)
 	// SearchMessagesPage is SearchMessages with the same keyset cursor.
 	SearchMessagesPage(instanceId, chatJid, text, before, beforeID string, limit int) ([]message_model.Message, error)
+	// Filtered variants add timestamp range, message type and direction.
+	ListMessagesFiltered(instanceId, chatJid string, filter MessageFilter) ([]message_model.Message, error)
+	SearchMessagesFiltered(instanceId, chatJid, text string, filter MessageFilter) ([]message_model.Message, error)
 
 	// Send-operation records for the Idempotency-Key contract.
 	BeginSendOperation(ctx context.Context, instanceId, key, payloadHash string) (*message_model.SendOperation, bool, error)
@@ -102,6 +105,21 @@ type ChatSummary struct {
 	// not a column: the service fills it after the query, so the repository stays
 	// free of WhatsApp lookups.
 	Name string `json:"name,omitempty" gorm:"-"`
+}
+
+// MessageFilter is the optional filter set for history/search pages. Zero
+// strings and a nil FromMe mean "no filter". Before/BeforeID are the keyset
+// cursor; Exact controls whether a full page is trimmed exactly (keyset) or
+// padded to a whole second (legacy timestamp-only cursor).
+type MessageFilter struct {
+	Before      string
+	BeforeID    string
+	After       string
+	Until       string
+	MessageType string
+	FromMe      *bool
+	Limit       int
+	Exact       bool
 }
 
 // History pagination bounds. A request without a limit returns the most recent
@@ -578,24 +596,16 @@ func (m *messageRepository) DeleteAllMessages() (int64, error) {
 // `before` (a "YYYY-MM-DD HH:MM:SS" timestamp) pages backwards: it returns the
 // messages strictly older than the newest one already seen.
 func (m *messageRepository) ListMessages(instanceId, chatJid, before string, limit int) ([]message_model.Message, error) {
-	if instanceId == "" || chatJid == "" {
-		return make([]message_model.Message, 0), nil
-	}
-	return m.pageMessages(func() *gorm.DB {
-		return m.db.Where("instance_id = ? AND chat_jid = ?", instanceId, chatJid)
-	}, before, "", limit, false)
+	return m.ListMessagesFiltered(instanceId, chatJid, MessageFilter{Before: before, Limit: limit})
 }
 
 // ListMessagesPage is ListMessages with a keyset cursor. When beforeID is set,
 // the page is exactly limit rows even inside a timestamp shared by many
 // messages; the cursor advances by (timestamp, id).
 func (m *messageRepository) ListMessagesPage(instanceId, chatJid, before, beforeID string, limit int) ([]message_model.Message, error) {
-	if instanceId == "" || chatJid == "" {
-		return make([]message_model.Message, 0), nil
-	}
-	return m.pageMessages(func() *gorm.DB {
-		return m.db.Where("instance_id = ? AND chat_jid = ?", instanceId, chatJid)
-	}, before, beforeID, limit, true)
+	return m.ListMessagesFiltered(instanceId, chatJid, MessageFilter{
+		Before: before, BeforeID: beforeID, Limit: limit, Exact: true,
+	})
 }
 
 // likeEscaper keeps user input literal inside a LIKE pattern.
@@ -605,20 +615,26 @@ var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 // ListMessages. It relies on the (instance, chat, timestamp) index to narrow the
 // rows, so it stays cheap for a conversation but would not for a whole instance.
 func (m *messageRepository) SearchMessages(instanceId, chatJid, text, before string, limit int) ([]message_model.Message, error) {
-	if instanceId == "" || chatJid == "" || text == "" {
-		return make([]message_model.Message, 0), nil
-	}
-	pattern := "%" + likeEscaper.Replace(text) + "%"
-	return m.pageMessages(func() *gorm.DB {
-		return m.db.Where(
-			`instance_id = ? AND chat_jid = ? AND LOWER(text_content) LIKE LOWER(?) ESCAPE '\'`,
-			instanceId, chatJid, pattern,
-		)
-	}, before, "", limit, false)
+	return m.SearchMessagesFiltered(instanceId, chatJid, text, MessageFilter{Before: before, Limit: limit})
 }
 
 // SearchMessagesPage is SearchMessages with the keyset cursor.
 func (m *messageRepository) SearchMessagesPage(instanceId, chatJid, text, before, beforeID string, limit int) ([]message_model.Message, error) {
+	return m.SearchMessagesFiltered(instanceId, chatJid, text, MessageFilter{
+		Before: before, BeforeID: beforeID, Limit: limit, Exact: true,
+	})
+}
+
+func (m *messageRepository) ListMessagesFiltered(instanceId, chatJid string, filter MessageFilter) ([]message_model.Message, error) {
+	if instanceId == "" || chatJid == "" {
+		return make([]message_model.Message, 0), nil
+	}
+	return m.pageMessages(func() *gorm.DB {
+		return m.db.Where("instance_id = ? AND chat_jid = ?", instanceId, chatJid)
+	}, filter)
+}
+
+func (m *messageRepository) SearchMessagesFiltered(instanceId, chatJid, text string, filter MessageFilter) ([]message_model.Message, error) {
 	if instanceId == "" || chatJid == "" || text == "" {
 		return make([]message_model.Message, 0), nil
 	}
@@ -628,32 +644,33 @@ func (m *messageRepository) SearchMessagesPage(instanceId, chatJid, text, before
 			`instance_id = ? AND chat_jid = ? AND LOWER(text_content) LIKE LOWER(?) ESCAPE '\'`,
 			instanceId, chatJid, pattern,
 		)
-	}, before, beforeID, limit, true)
+	}, filter)
 }
 
 // pageMessages reads one page newest first. scoped builds the filter, and is a
 // function because a GORM statement cannot be reused for the second query.
-func (m *messageRepository) pageMessages(scoped func() *gorm.DB, before, beforeID string, limit int, exact bool) ([]message_model.Message, error) {
+func (m *messageRepository) pageMessages(scoped func() *gorm.DB, filter MessageFilter) ([]message_model.Message, error) {
 	messages := make([]message_model.Message, 0)
 	query := scoped()
-	if before != "" {
-		if beforeID != "" {
+	if filter.Before != "" {
+		if filter.BeforeID != "" {
 			// Composite keyset: rows strictly before (timestamp, id). id is the
 			// per-row UUID, which is stable and unique even when a whole second
 			// of messages shares one timestamp.
-			query = query.Where(`("timestamp" < ? OR ("timestamp" = ? AND id < ?))`, before, before, beforeID)
+			query = query.Where(`("timestamp" < ? OR ("timestamp" = ? AND id < ?))`, filter.Before, filter.Before, filter.BeforeID)
 		} else {
-			query = query.Where(`"timestamp" < ?`, before)
+			query = query.Where(`"timestamp" < ?`, filter.Before)
 		}
 	}
+	query = applyNonCursorFilters(query, filter)
 
-	limit = clampHistoryLimit(limit)
+	limit := clampHistoryLimit(filter.Limit)
 	err := query.
 		Order(`"timestamp" DESC`).
 		Order("id DESC").
 		Limit(limit).
 		Find(&messages).Error
-	if err != nil || len(messages) < limit || exact {
+	if err != nil || len(messages) < limit || filter.Exact {
 		// A keyset page is exact by construction; no whole-second padding.
 		return messages, err
 	}
@@ -664,7 +681,7 @@ func (m *messageRepository) pageMessages(scoped func() *gorm.DB, before, beforeI
 	// slightly over the limit. New callers send beforeID and get exact pages.
 	last := messages[len(messages)-1].Timestamp
 	var sameSecond []message_model.Message
-	err = scoped().Where(`"timestamp" = ?`, last).
+	err = applyNonCursorFilters(scoped(), filter).Where(`"timestamp" = ?`, last).
 		Order("id DESC").
 		Find(&sameSecond).Error
 	if err != nil {
@@ -675,6 +692,22 @@ func (m *messageRepository) pageMessages(scoped func() *gorm.DB, before, beforeI
 		keep--
 	}
 	return append(messages[:keep], sameSecond...), nil
+}
+
+func applyNonCursorFilters(query *gorm.DB, filter MessageFilter) *gorm.DB {
+	if filter.After != "" {
+		query = query.Where(`"timestamp" >= ?`, filter.After)
+	}
+	if filter.Until != "" {
+		query = query.Where(`"timestamp" <= ?`, filter.Until)
+	}
+	if filter.MessageType != "" {
+		query = query.Where("message_type = ?", filter.MessageType)
+	}
+	if filter.FromMe != nil {
+		query = query.Where("is_from_me = ?", *filter.FromMe)
+	}
+	return query
 }
 
 // ListChats returns each conversation's newest message plus its total count,

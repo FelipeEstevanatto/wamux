@@ -37,6 +37,16 @@ func (r *recordingRepo) SearchMessagesPage(instanceId, chatJid, text, before, be
 	return r.messages, nil
 }
 
+func (r *recordingRepo) ListMessagesFiltered(instanceId, chatJid string, filter message_repository.MessageFilter) ([]message_model.Message, error) {
+	r.instance, r.chat, r.before, r.beforeID, r.limit = instanceId, chatJid, filter.Before, filter.BeforeID, filter.Limit
+	return r.messages, nil
+}
+
+func (r *recordingRepo) SearchMessagesFiltered(instanceId, chatJid, text string, filter message_repository.MessageFilter) ([]message_model.Message, error) {
+	r.instance, r.chat, r.text, r.before, r.beforeID, r.limit = instanceId, chatJid, text, filter.Before, filter.BeforeID, filter.Limit
+	return r.messages, nil
+}
+
 func (r *recordingRepo) ListChats(instanceId string, limit int) ([]message_repository.ChatSummary, error) {
 	r.instance, r.limit = instanceId, limit
 	return r.chats, nil
