@@ -6,11 +6,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"sync"
 	"time"
 
+	"github.com/felipeestevanatto/wamux/pkg/avatarcache"
 	"github.com/felipeestevanatto/wamux/pkg/safemap"
-	"github.com/patrickmn/go-cache"
 	"golang.org/x/sync/singleflight"
 
 	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
@@ -47,14 +46,8 @@ const userInfoRequestTimeout = 10 * time.Second
 // enrichment after usync (shared across all users in the response).
 const pictureURLEnrichBudget = 5 * time.Second
 
-const (
-	avatarCacheTTL     = 10 * time.Minute
-	avatarMissCacheTTL = time.Minute
-)
-
-// avatarMiss is the cached answer "this contact has no picture". It is separate
-// from an error so a timeout is never cached as a missing picture.
-type avatarMiss struct{}
+// ErrAvatarRateLimited tells the caller to back off profile-picture queries.
+var ErrAvatarRateLimited = errors.New("avatar rate limit exceeded")
 
 type UserService interface {
 	GetUser(ctx context.Context, data *CheckUserStruct, instance *instance_model.Instance) (*UserCollection, error)
@@ -78,11 +71,9 @@ type userService struct {
 	whatsmeowService whatsmeow_service.WhatsmeowService
 	loggerWrapper    *logger_wrapper.LoggerManager
 
-	// Profile pictures change slowly and the manager asks for them while
-	// scrolling. Cache hits (and misses) per instance+JID+preview, and collapse
-	// concurrent misses into one WhatsApp query.
-	avatarOnce  sync.Once
-	avatarCache *cache.Cache
+	// Concurrent misses for the same contact collapse into one WhatsApp query.
+	// The process-wide answer cache lives in pkg/avatarcache so the event loop
+	// can invalidate it when a picture changes.
 	avatarFetch singleflight.Group
 }
 
@@ -546,20 +537,20 @@ func (u *userService) GetAvatar(ctx context.Context, data *GetAvatarStruct, inst
 		}
 	}
 
-	u.avatarOnce.Do(func() {
-		u.avatarCache = cache.New(avatarCacheTTL, 2*time.Minute)
-	})
-	cacheKey := fmt.Sprintf("%s|%s|%t", instance.Id, jid.String(), data.Preview)
-	if cached, ok := u.avatarCache.Get(cacheKey); ok {
-		switch v := cached.(type) {
-		case *types.ProfilePictureInfo:
-			u.loggerWrapper.GetLogger(instance.Id).LogDebug("[%s] avatar cache hit for %s", instance.Id, jid.String())
-			return v, nil
-		case avatarMiss:
+	if pic, hit, missing := avatarcache.Get(instance.Id, jid, data.Preview); hit {
+		if missing {
 			return nil, errors.New("no profile picture found")
 		}
+		u.loggerWrapper.GetLogger(instance.Id).LogDebug("[%s] avatar cache hit for %s", instance.Id, jid.String())
+		return pic, nil
+	}
+	if !avatarcache.Allow(instance.Id, time.Now()) {
+		return nil, ErrAvatarRateLimited
 	}
 
+	// Singleflight has no eviction; this key is only held for the duration of
+	// one WhatsApp query.
+	cacheKey := fmt.Sprintf("%s|%s|%t", instance.Id, jid.String(), data.Preview)
 	value, err, _ := u.avatarFetch.Do(cacheKey, func() (any, error) {
 		u.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Requesting avatar for JID: %s, Preview: %v", instance.Id, jid, data.Preview)
 		pic, err := u.fetchProfilePicture(ctx, client, jid, data.Preview, avatarRequestTimeout)
@@ -568,18 +559,15 @@ func (u *userService) GetAvatar(ctx context.Context, data *GetAvatarStruct, inst
 			return nil, err
 		}
 		if pic == nil {
-			u.avatarCache.Set(cacheKey, avatarMiss{}, avatarMissCacheTTL)
-			return avatarMiss{}, nil
+			avatarcache.SetMiss(instance.Id, jid, data.Preview)
+			return nil, nil
 		}
-		u.avatarCache.Set(cacheKey, pic, avatarCacheTTL)
+		avatarcache.Set(instance.Id, jid, data.Preview, pic)
 		return pic, nil
 	})
 	if err != nil {
 		u.loggerWrapper.GetLogger(instance.Id).LogError("[%s] GetProfilePictureInfo failed: %v", instance.Id, err)
 		return nil, err
-	}
-	if _, missing := value.(avatarMiss); missing {
-		return nil, errors.New("no profile picture found")
 	}
 	pic, ok := value.(*types.ProfilePictureInfo)
 	if !ok || pic == nil {

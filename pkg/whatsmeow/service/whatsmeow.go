@@ -40,6 +40,7 @@ import (
 	"go.mau.fi/whatsmeow/types/events"
 	waLog "go.mau.fi/whatsmeow/util/log"
 
+	"github.com/felipeestevanatto/wamux/pkg/avatarcache"
 	"github.com/felipeestevanatto/wamux/pkg/bgpool"
 	"github.com/felipeestevanatto/wamux/pkg/config"
 	producer_interfaces "github.com/felipeestevanatto/wamux/pkg/events/interfaces"
@@ -3537,12 +3538,14 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 
 		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Label association message received: %s", mycli.userID, evt.LabelID)
 	case *events.Contact:
+		avatarcache.Invalidate(mycli.userID, evt.JID)
 		doWebhook = true
 		postMap["event"] = "Contact"
 	case *events.PushName:
 		doWebhook = true
 		postMap["event"] = "PushName"
 	case *events.Picture:
+		avatarcache.Invalidate(mycli.userID, evt.JID)
 		doWebhook = true
 		postMap["event"] = "Picture"
 	case *events.UserAbout:

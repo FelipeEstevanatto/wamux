@@ -20,6 +20,12 @@ var _ = docmodels.Envelope{}
 // rate-overlimit → 429; IQ/context timeout or cancel → 504; everything else → 500.
 func writeUserWAError(ctx *gin.Context, err error) {
 	switch {
+	case errors.Is(err, user_service.ErrAvatarRateLimited):
+		ctx.Header("Retry-After", "60")
+		ctx.JSON(http.StatusTooManyRequests, gin.H{
+			"error": "avatar rate limit exceeded; retry shortly",
+			"code":  "AVATAR_RATE_LIMITED",
+		})
 	case errors.Is(err, whatsmeow.ErrIQRateOverLimit):
 		ctx.JSON(http.StatusTooManyRequests, gin.H{"error": err.Error()})
 	case errors.Is(err, whatsmeow.ErrIQTimedOut),
