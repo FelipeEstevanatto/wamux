@@ -1,8 +1,11 @@
 package instance_handler
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -17,6 +20,30 @@ import (
 	"github.com/felipeestevanatto/wamux/pkg/webhooksign"
 )
 
+// InventoryContractVersion changes only when the inventory shape changes.
+const InventoryContractVersion = "2026-11-14"
+
+// inventoryRuntimeID identifies this process without exposing any instance
+// secret. It changes on restart.
+var inventoryRuntimeID = uuid.New().String()
+
+type inventoryItem struct {
+	InstanceID       string    `json:"instanceId"`
+	InstanceName     string    `json:"instanceName"`
+	Connected        bool      `json:"connected"`
+	ConnectionStatus string    `json:"connectionStatus"`
+	AutoReconnect    bool      `json:"autoReconnect"`
+	OwnerFingerprint string    `json:"ownerFingerprint"`
+	CreatedAt        time.Time `json:"createdAt"`
+}
+
+type inventory struct {
+	ContractVersion string          `json:"contractVersion"`
+	RuntimeID       string          `json:"runtimeId"`
+	ObservedAt      time.Time       `json:"observedAt"`
+	Instances       []inventoryItem `json:"instances"`
+}
+
 type InstanceHandler interface {
 	Create(ctx *gin.Context)
 	Connect(ctx *gin.Context)
@@ -27,6 +54,7 @@ type InstanceHandler interface {
 	Status(ctx *gin.Context)
 	Qr(ctx *gin.Context)
 	All(ctx *gin.Context)
+	Inventory(ctx *gin.Context)
 	Info(ctx *gin.Context)
 	Rename(ctx *gin.Context)
 	Pair(ctx *gin.Context)
@@ -390,6 +418,55 @@ func (i *instanceHandler) All(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": instances})
+}
+
+// Inventory is a monitoring-safe fleet view: no tokens, no raw owner JIDs.
+// @Summary Fleet inventory
+// @Description Safe per-instance inventory for monitoring. Tokens and raw JIDs are never returned; the owner is a SHA-256 fingerprint.
+// @Tags Instance
+// @Produce json
+// @Success 200 {object} docmodels.Envelope{data=inventory} "inventory"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
+// @Router /instance/inventory [get]
+func (i *instanceHandler) Inventory(ctx *gin.Context) {
+	instances, err := i.instanceService.GetAll()
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	items := make([]inventoryItem, 0, len(instances))
+	for _, instance := range instances {
+		fingerprint := ""
+		if instance.Jid != "" {
+			sum := sha256.Sum256([]byte(instance.Jid))
+			fingerprint = hex.EncodeToString(sum[:])
+		}
+		status := "disconnected"
+		if instance.Connected {
+			status = "connected"
+		}
+		items = append(items, inventoryItem{
+			InstanceID:       instance.Id,
+			InstanceName:     instance.Name,
+			Connected:        instance.Connected,
+			ConnectionStatus: status,
+			AutoReconnect:    instance.AutoReconnect,
+			OwnerFingerprint: fingerprint,
+			CreatedAt:        instance.CreatedAt,
+		})
+	}
+	sort.Slice(items, func(a, b int) bool { return items[a].InstanceName < items[b].InstanceName })
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "success",
+		"data": inventory{
+			ContractVersion: InventoryContractVersion,
+			RuntimeID:       inventoryRuntimeID,
+			ObservedAt:      time.Now().UTC(),
+			Instances:       items,
+		},
+	})
 }
 
 // Get instance
