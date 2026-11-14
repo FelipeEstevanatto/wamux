@@ -61,6 +61,10 @@ type Message struct {
 	// length and a preview without its file being downloaded.
 	PageCount     uint32 `json:"page_count,omitempty"`
 	FileThumbnail []byte `json:"file_thumbnail,omitempty"`
+	// AlbumID is the WhatsApp album container id; AlbumIndex is the item's
+	// position. Both are empty/zero for non-album messages.
+	AlbumID    string `json:"album_id,omitempty" gorm:"column:album_id"`
+	AlbumIndex int    `json:"album_index,omitempty" gorm:"column:album_index"`
 }
 
 // ChatRead is how far a conversation has been read in the manager: inbound messages

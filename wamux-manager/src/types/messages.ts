@@ -57,6 +57,9 @@ export interface HistoryMessage {
   page_count?: number;
   /** A small JPEG preview, in base64. */
   file_thumbnail?: string;
+  /** Album container id and item position, when this message is an album item. */
+  album_id?: string;
+  album_index?: number;
 }
 
 /** One frame from /ws: `{ queue, payload }`, payload being the event JSON. */

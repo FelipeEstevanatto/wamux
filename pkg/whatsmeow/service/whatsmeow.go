@@ -3020,6 +3020,8 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 				IsForwarded:     summary.Forwarded,
 				PageCount:       summary.PageCount,
 				FileThumbnail:   preview,
+				AlbumID:         summary.AlbumID,
+				AlbumIndex:      summary.AlbumIndex,
 			}
 
 			// An album container is not a visible message: its items are stored

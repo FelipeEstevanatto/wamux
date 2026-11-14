@@ -3670,6 +3670,8 @@ func (s *sendService) persistSentMessage(instanceId string, sent *MessageSendStr
 		IsForwarded:     summary.Forwarded,
 		PageCount:       summary.PageCount,
 		FileThumbnail:   summary.Thumbnail,
+		AlbumID:         summary.AlbumID,
+		AlbumIndex:      summary.AlbumIndex,
 	}
 	// Store a local copy of an outbound attachment so it can be previewed from
 	// history without an object store (MinIO/S3), when local storage is on.

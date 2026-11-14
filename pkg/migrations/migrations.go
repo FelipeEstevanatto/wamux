@@ -310,6 +310,16 @@ var steps = []migration{
 			`ALTER TABLE send_operations ADD COLUMN IF NOT EXISTS planned_message_id TEXT`,
 		},
 	},
+	{
+		// Album identity on each media item, so the manager can reconstruct one
+		// album after a reload. SQLite gets the columns from AutoMigrate.
+		Name: "0014_messages_album",
+		Postgres: []string{
+			`ALTER TABLE messages ADD COLUMN IF NOT EXISTS album_id TEXT`,
+			`ALTER TABLE messages ADD COLUMN IF NOT EXISTS album_index INTEGER`,
+			`CREATE INDEX IF NOT EXISTS idx_messages_instance_album ON messages (instance_id, album_id)`,
+		},
+	},
 }
 
 const createMigrationsTable = `

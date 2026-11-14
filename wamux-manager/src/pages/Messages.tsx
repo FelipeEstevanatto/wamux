@@ -1699,11 +1699,16 @@ export default function Messages() {
                 ) : (
                   ordered.map((m, index) => {
                     const prev = ordered[index - 1];
+                    const albumKey = m.album_id ?? '';
+                    // The group is rendered once, at its first item.
+                    if (albumKey && prev?.album_id === albumKey) return null;
+                    const albumItems = albumKey
+                      ? ordered
+                          .filter((item) => item.album_id === albumKey)
+                          .sort((a, b) => (a.album_index ?? 0) - (b.album_index ?? 0))
+                      : [m];
                     const newDay =
                       !prev || formatDay(prev.timestamp, locale) !== formatDay(m.timestamp, locale);
-                    const quoted = m.quoted_message_id
-                      ? messagesById.get(m.quoted_message_id)
-                      : undefined;
                     const showSender =
                       showSenderNames &&
                       !m.is_from_me &&
@@ -1711,8 +1716,11 @@ export default function Messages() {
                         !prev ||
                         prev.is_from_me ||
                         prev.sender_jid !== m.sender_jid);
+                    const unreadInGroup = albumItems.some(
+                      (item) => item.message_id === firstUnreadId
+                    );
                     return (
-                      <Fragment key={m.message_id}>
+                      <Fragment key={albumKey || m.message_id}>
                         {newDay && (
                           <div className="my-3 flex justify-center">
                             <span className="rounded-full bg-muted px-3 py-1 text-[11px] text-muted-foreground">
@@ -1720,23 +1728,42 @@ export default function Messages() {
                             </span>
                           </div>
                         )}
-                        {m.message_id === firstUnreadId && (
+                        {unreadInGroup && (
                           <div data-unread-divider className="my-3 flex justify-center">
                             <span className="rounded-full bg-primary/15 px-3 py-1 text-[11px] font-medium text-primary">
                               {t('messages.unreadCount', { count: unreadInThread.length })}
                             </span>
                           </div>
                         )}
-                        <Bubble
-                          message={m}
-                          token={token}
-                          mediaLocal={flags.mediaLocal}
-                          senderName={namesForChat[jidUser(m.sender_jid)]}
-                          showSender={showSender}
-                          quotedMessage={quoted}
-                          highlighted={m.message_id === jumpTarget}
-                          onOpenMedia={openMedia}
-                        />
+                        <div
+                          data-album-id={albumKey || undefined}
+                          className={
+                            albumKey && albumItems.length > 1
+                              ? 'mb-1.5 rounded-xl border border-border/60 bg-background/50 p-1'
+                              : undefined
+                          }
+                        >
+                          {albumItems.map((item) => {
+                            const quoted = item.quoted_message_id
+                              ? messagesById.get(item.quoted_message_id)
+                              : undefined;
+                            return (
+                              <Bubble
+                                key={item.message_id}
+                                message={item}
+                                token={token}
+                                mediaLocal={flags.mediaLocal}
+                                senderName={namesForChat[jidUser(item.sender_jid)]}
+                                showSender={
+                                  albumItems.length === 1 ? showSender : false
+                                }
+                                quotedMessage={quoted}
+                                highlighted={item.message_id === jumpTarget}
+                                onOpenMedia={openMedia}
+                              />
+                            );
+                          })}
+                        </div>
                       </Fragment>
                     );
                   })

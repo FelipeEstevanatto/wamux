@@ -192,6 +192,8 @@ func historyRow(ctx context.Context, mycli *MyClient, chat types.JID, evt *event
 		IsForwarded:     summary.Forwarded,
 		PageCount:       summary.PageCount,
 		FileThumbnail:   preview,
+		AlbumID:         summary.AlbumID,
+		AlbumIndex:      summary.AlbumIndex,
 	}
 }
 

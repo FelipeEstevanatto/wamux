@@ -30,6 +30,10 @@ type Summary struct {
 	Thumbnail []byte
 	// Forwarded marks a message forwarded from another conversation.
 	Forwarded bool
+	// AlbumID and AlbumIndex identify a media item's album container and its
+	// position. Empty/zero for ordinary messages.
+	AlbumID    string
+	AlbumIndex int
 }
 
 // Summarize extracts the summary from a waE2E message. It never panics on a nil
@@ -45,7 +49,22 @@ func Summarize(msg *waE2E.Message) Summary {
 	summary.PageCount = msg.GetDocumentMessage().GetPageCount()
 	summary.Thumbnail = thumbnailOf(msg)
 	summary.Forwarded = contextOf(msg).GetIsForwarded()
+	summary.AlbumID, summary.AlbumIndex = albumOf(msg)
 	return summary
+}
+
+// albumOf returns the container id and position carried by an album item's
+// message association. The container itself has no association.
+func albumOf(msg *waE2E.Message) (string, int) {
+	assoc := msg.GetMessageContextInfo().GetMessageAssociation()
+	if assoc == nil || assoc.GetAssociationType() != waE2E.MessageAssociation_MEDIA_ALBUM {
+		return "", 0
+	}
+	key := assoc.GetParentMessageKey()
+	if key == nil || key.GetID() == "" {
+		return "", 0
+	}
+	return key.GetID(), int(assoc.GetMessageIndex())
 }
 
 // unwrap returns the message inside the wrappers whatsmeow removes from received

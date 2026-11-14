@@ -187,6 +187,7 @@ func messageUpdateColumns(message message_model.Message) []string {
 		"chat_jid", "sender_jid", "message_type", "text_content",
 		"media_url", "media_mimetype", "quoted_message_id", "is_from_me",
 		"file_name", "file_size", "is_forwarded", "page_count", "file_thumbnail",
+		"album_id", "album_index",
 	}
 	if len(message.Referral) > 0 {
 		updates = append(updates, "referral")

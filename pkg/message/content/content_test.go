@@ -57,6 +57,23 @@ func TestSummarizeAlbumContainer(t *testing.T) {
 	}
 }
 
+func TestSummarizeAlbumItem(t *testing.T) {
+	msg := &waE2E.Message{
+		ImageMessage: &waE2E.ImageMessage{Caption: proto.String("one")},
+		MessageContextInfo: &waE2E.MessageContextInfo{
+			MessageAssociation: &waE2E.MessageAssociation{
+				AssociationType:  waE2E.MessageAssociation_MEDIA_ALBUM.Enum(),
+				ParentMessageKey: &waCommon.MessageKey{ID: proto.String("album-1")},
+				MessageIndex:     proto.Int32(2),
+			},
+		},
+	}
+	got := Summarize(msg)
+	if got.AlbumID != "album-1" || got.AlbumIndex != 2 {
+		t.Fatalf("album = %q/%d, want album-1/2", got.AlbumID, got.AlbumIndex)
+	}
+}
+
 func TestSummarizeLocationAndContact(t *testing.T) {
 	loc := Summarize(&waE2E.Message{LocationMessage: &waE2E.LocationMessage{Name: proto.String("Paris")}})
 	if loc.Type != "location" || loc.Text != "Paris" {

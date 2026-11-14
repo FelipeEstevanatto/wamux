@@ -227,6 +227,22 @@ describe('Messages page', () => {
     expect(document.querySelectorAll('[data-message-id]')).toHaveLength(1);
   });
 
+  it('renders album items as one group in album order', async () => {
+    vi.mocked(messagesApi.getHistory).mockResolvedValue([
+      row('a2', 'second album item', { album_id: 'alb-1', album_index: 1 }),
+      row('a1', 'first album item', { album_id: 'alb-1', album_index: 0 }),
+    ]);
+    await render();
+    await openChat();
+
+    const groups = document.querySelectorAll('[data-album-id="alb-1"]');
+    expect(groups).toHaveLength(1);
+    const items = groups[0].querySelectorAll('[data-message-id]');
+    expect(items).toHaveLength(2);
+    expect(items[0].getAttribute('data-message-id')).toBe('a1');
+    expect(items[1].getAttribute('data-message-id')).toBe('a2');
+  });
+
   it.each([
     ['pt', 'jan'],
     ['en', 'Jan'],
