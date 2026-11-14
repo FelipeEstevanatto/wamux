@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/felipeestevanatto/wamux/pkg/metrics"
+	"github.com/felipeestevanatto/wamux/pkg/procstats"
 	whatsmeow_service "github.com/felipeestevanatto/wamux/pkg/whatsmeow/service"
 	"github.com/gin-gonic/gin"
 )
@@ -115,6 +116,28 @@ func (o *Observability) Render() string {
 	if o.webhook != nil {
 		setGauge(o.registry, "evo_webhook_inflight", "Webhook deliveries currently in flight", int64(o.webhook.QueueDepth()))
 	}
+
+	// Process resources. These are per-process, not host values, so they stay
+	// meaningful inside a container and can alert on a leak or an impending OOM.
+	ps := procstats.Read()
+	setGauge(o.registry, "evo_process_rss_bytes", "Resident set size of this process", int64(ps.RSSBytes))
+	setGauge(o.registry, "evo_process_peak_rss_bytes", "Peak resident set size of this process", int64(ps.PeakRSSBytes))
+	setGauge(o.registry, "evo_process_virtual_bytes", "Virtual memory size of this process", int64(ps.VMSizeBytes))
+	setGauge(o.registry, "evo_process_heap_alloc_bytes", "Go heap bytes currently allocated", int64(ps.HeapAllocBytes))
+	setGauge(o.registry, "evo_process_heap_inuse_bytes", "Go heap bytes in use", int64(ps.HeapInuseBytes))
+	setGauge(o.registry, "evo_process_sys_bytes", "Go runtime bytes obtained from the OS", int64(ps.SysBytes))
+	setGauge(o.registry, "evo_process_goroutines", "Goroutines currently running", int64(ps.NumGoroutines))
+	setGauge(o.registry, "evo_process_cgroup_memory_bytes", "Container cgroup memory usage", int64(ps.CgroupMemoryBytes))
+	setGauge(o.registry, "evo_process_cgroup_memory_limit_bytes", "Container cgroup memory limit", int64(ps.CgroupMemoryLimit))
+	setGauge(o.registry, "evo_process_cgroup_cpu_quota_milli", "Container cgroup CPU quota in millicores", int64(ps.CgroupCPUQuota))
+	setGauge(o.registry, "evo_uptime_seconds", "Seconds since this process started", int64(time.Since(time.Unix(o.startedAt.Load(), 0)).Seconds()))
+
+	setCounter := func(name, help string, v int64) {
+		o.registry.Counter(name, help).Set(v)
+	}
+	setCounter("evo_process_gc_count_total", "Go garbage collections completed", int64(ps.NumGC))
+	setCounter("evo_process_gc_pause_milliseconds_total", "Cumulative Go GC pause time in milliseconds", int64(ps.GCPauseTotalNs/1e6))
+	setCounter("evo_process_cpu_seconds_total", "CPU seconds consumed by this process", int64(ps.CPUSeconds))
 
 	setGauge(o.registry, "evo_process_start_timestamp", "Unix time this process started", o.startedAt.Load())
 

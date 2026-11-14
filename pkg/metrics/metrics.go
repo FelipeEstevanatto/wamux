@@ -112,6 +112,10 @@ func (c *Counter) Add(n int64) { c.s.val.Add(n) }
 // Value reads the current total.
 func (c *Counter) Value() int64 { return c.s.val.Load() }
 
+// Set replaces the total with an absolute value. It exists for cumulative
+// counters that come from the runtime (GC count, CPU time) rather than Inc.
+func (c *Counter) Set(n int64) { c.s.val.Store(n) }
+
 // Gauge is a single integer gauge.
 type Gauge struct{ s *scalar }
 

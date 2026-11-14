@@ -62,6 +62,29 @@ func TestMetricsHandlerRendersLiveValues(t *testing.T) {
 	}
 }
 
+func TestMetricsExposeProcessResources(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	h := &serverHandler{observability: NewObservability(nil, nil)}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	h.MetricsHandler(c)
+
+	body := w.Body.String()
+	for _, want := range []string{
+		"evo_process_rss_bytes",
+		"evo_process_heap_alloc_bytes",
+		"evo_process_goroutines",
+		"evo_process_cpu_seconds_total",
+		"evo_process_cgroup_memory_bytes",
+		"evo_uptime_seconds",
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("missing %q in:\n%s", want, body)
+		}
+	}
+}
+
 func TestHealthHandlerReportsDegradedWhenNoConnections(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	h := &serverHandler{
