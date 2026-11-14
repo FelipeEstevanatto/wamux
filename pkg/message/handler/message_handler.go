@@ -527,9 +527,11 @@ func (m *messageHandler) GetHistory(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
-		"message":     "success",
-		"data":        page.Messages,
-		"next_cursor": page.NextCursor,
+		"message":          "success",
+		"contract_version": page.ContractVersion,
+		"data":             page.Messages,
+		"next_cursor":      page.NextCursor,
+		"has_more":         page.HasMore,
 	})
 }
 
@@ -577,9 +579,11 @@ func (m *messageHandler) SearchHistory(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
-		"message":     "success",
-		"data":        page.Messages,
-		"next_cursor": page.NextCursor,
+		"message":          "success",
+		"contract_version": page.ContractVersion,
+		"data":             page.Messages,
+		"next_cursor":      page.NextCursor,
+		"has_more":         page.HasMore,
 	})
 }
 

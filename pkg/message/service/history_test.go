@@ -82,6 +82,7 @@ func TestGetHistoryKeepsGroupJID(t *testing.T) {
 
 func TestGetHistoryReturnsKeysetCursor(t *testing.T) {
 	repo := &recordingRepo{messages: []message_model.Message{
+		{Id: "uuid-3", MessageID: "m3", Timestamp: "2026-05-09 10:00:03"},
 		{Id: "uuid-2", MessageID: "m2", Timestamp: "2026-05-09 10:00:02"},
 		{Id: "uuid-1", MessageID: "m1", Timestamp: "2026-05-09 10:00:01"},
 	}}
@@ -98,8 +99,27 @@ func TestGetHistoryReturnsKeysetCursor(t *testing.T) {
 	if repo.before != "2026-05-09 10:00:03" || repo.beforeID != "uuid-3" {
 		t.Fatalf("cursor = %q/%q, want passed through", repo.before, repo.beforeID)
 	}
-	if got.NextCursor == nil || got.NextCursor.Before != "2026-05-09 10:00:01" || got.NextCursor.BeforeID != "uuid-1" {
+	if got.NextCursor == nil || got.NextCursor.Before != "2026-05-09 10:00:02" || got.NextCursor.BeforeID != "uuid-2" {
 		t.Fatalf("next cursor = %+v", got.NextCursor)
+	}
+	if !got.HasMore || got.ContractVersion == "" {
+		t.Fatalf("hasMore/contract = %v/%q", got.HasMore, got.ContractVersion)
+	}
+}
+
+func TestGetHistoryExactPageHasNoCursor(t *testing.T) {
+	repo := &recordingRepo{messages: []message_model.Message{
+		{Id: "uuid-2", MessageID: "m2", Timestamp: "2026-05-09 10:00:02"},
+		{Id: "uuid-1", MessageID: "m1", Timestamp: "2026-05-09 10:00:01"},
+	}}
+	svc := &messageService{messageRepository: repo}
+
+	got, err := svc.GetHistory(&HistoryQuery{Chat: "5511999999999", Limit: 2, Keyset: true}, &instance_model.Instance{Id: "inst-1"})
+	if err != nil {
+		t.Fatalf("GetHistory: %v", err)
+	}
+	if got.NextCursor != nil {
+		t.Fatalf("an exact final page advertised a cursor: %+v", got.NextCursor)
 	}
 }
 

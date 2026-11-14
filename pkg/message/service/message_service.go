@@ -174,8 +174,10 @@ type HistoryCursor struct {
 
 // HistoryPage is one page of stored messages plus the cursor for the next one.
 type HistoryPage struct {
-	Messages   []message_model.Message `json:"messages"`
-	NextCursor *HistoryCursor          `json:"next_cursor,omitempty"`
+	ContractVersion string                  `json:"contract_version"`
+	Messages        []message_model.Message `json:"messages"`
+	NextCursor      *HistoryCursor          `json:"next_cursor,omitempty"`
+	HasMore         bool                    `json:"has_more"`
 }
 
 // HistoryCapabilities describes the history pagination contract.
@@ -1014,12 +1016,18 @@ func (m *messageService) GetHistory(data *HistoryQuery, instance *instance_model
 	beforeID := strings.TrimSpace(data.BeforeID)
 
 	keyset := data.Keyset || beforeID != ""
+	fetchLimit := limit
+	if keyset {
+		// One extra row is how we know whether another page exists without a
+		// second request. It is trimmed before returning.
+		fetchLimit++
+	}
 	var all []message_model.Message
 	for _, variant := range m.chatJidVariants(instance.Id, chatJid) {
 		var msgs []message_model.Message
 		var err error
 		if keyset {
-			msgs, err = m.messageRepository.ListMessagesPage(instance.Id, variant, before, beforeID, limit)
+			msgs, err = m.messageRepository.ListMessagesPage(instance.Id, variant, before, beforeID, fetchLimit)
 		} else {
 			msgs, err = m.messageRepository.ListMessages(instance.Id, variant, before, limit)
 		}
@@ -1031,12 +1039,15 @@ func (m *messageService) GetHistory(data *HistoryQuery, instance *instance_model
 	}
 
 	merged := mergeMessagesByID(all)
+	hasMore := false
 	if keyset {
+		hasMore = len(merged) > limit
 		merged = limitPage(merged, limit)
 	} else {
 		merged = wholeSecondPage(merged, limit)
+		hasMore = len(merged) >= limit
 	}
-	return historyPage(merged, limit), nil
+	return historyPage(merged, limit, hasMore, keyset), nil
 }
 
 // SearchHistory finds text in one conversation, newest first, including rows
@@ -1059,12 +1070,16 @@ func (m *messageService) SearchHistory(data *HistorySearchQuery, instance *insta
 	beforeID := strings.TrimSpace(data.BeforeID)
 
 	keyset := data.Keyset || beforeID != ""
+	fetchLimit := limit
+	if keyset {
+		fetchLimit++
+	}
 	var all []message_model.Message
 	for _, variant := range m.chatJidVariants(instance.Id, chatJid) {
 		var msgs []message_model.Message
 		var err error
 		if keyset {
-			msgs, err = m.messageRepository.SearchMessagesPage(instance.Id, variant, text, before, beforeID, limit)
+			msgs, err = m.messageRepository.SearchMessagesPage(instance.Id, variant, text, before, beforeID, fetchLimit)
 		} else {
 			msgs, err = m.messageRepository.SearchMessages(instance.Id, variant, text, before, limit)
 		}
@@ -1076,12 +1091,15 @@ func (m *messageService) SearchHistory(data *HistorySearchQuery, instance *insta
 	}
 
 	merged := mergeMessagesByID(all)
+	hasMore := false
 	if keyset {
+		hasMore = len(merged) > limit
 		merged = limitPage(merged, limit)
 	} else {
 		merged = wholeSecondPage(merged, limit)
+		hasMore = len(merged) >= limit
 	}
-	return historyPage(merged, limit), nil
+	return historyPage(merged, limit, hasMore, keyset), nil
 }
 
 // wholeSecondPage cuts merged rows to limit without splitting a second: the
@@ -1107,9 +1125,19 @@ func limitPage(rows []message_model.Message, limit int) []message_model.Message 
 }
 
 // historyPage wraps rows with the cursor that reads the next older page.
-func historyPage(rows []message_model.Message, limit int) *HistoryPage {
-	page := &HistoryPage{Messages: rows}
-	if len(rows) > 0 && len(rows) >= limit {
+func historyPage(rows []message_model.Message, limit int, hasMore, keyset bool) *HistoryPage {
+	page := &HistoryPage{
+		ContractVersion: HistoryCursorContractVersion,
+		Messages:        rows,
+		HasMore:         hasMore,
+	}
+	if len(rows) == 0 {
+		return page
+	}
+	// A keyset cursor is only returned when another page really exists. The
+	// legacy timestamp-only path keeps its old "full page may have more"
+	// behaviour so existing clients do not stop early.
+	if hasMore || (!keyset && len(rows) >= limit) {
 		last := rows[len(rows)-1]
 		// The repository compares the UUID primary key, not the WhatsApp id.
 		page.NextCursor = &HistoryCursor{Before: last.Timestamp, BeforeID: last.Id}
