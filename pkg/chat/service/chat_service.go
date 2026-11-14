@@ -3,6 +3,7 @@ package chat_service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -31,6 +32,7 @@ type ChatService interface {
 	ChatUnmute(data *BodyStruct, instance *instance_model.Instance) (string, error)
 	SetEphemeralExpiration(data *EphemeralStruct, instance *instance_model.Instance) error
 	HistorySyncRequest(ctx context.Context, data *HistorySyncRequestStruct, instance *instance_model.Instance) (*whatsmeow.SendResponse, error)
+	LidMapping(ctx context.Context, data *LidMappingStruct, instance *instance_model.Instance) (*LidMappingResult, error)
 }
 
 type chatService struct {
@@ -94,9 +96,21 @@ type HistorySyncRequestStruct struct {
 	Count       int                `json:"count" example:"50"`
 }
 
+type LidMappingStruct struct {
+	Lids []string `json:"lids,omitempty" example:"1234567890@lid"`
+	Pns  []string `json:"pns,omitempty" example:"5511999999999"`
+}
+
+type LidMappingResult struct {
+	// Keys are the exact values the caller sent; null means no mapping.
+	Lids map[string]*string `json:"lids"`
+	Pns  map[string]*string `json:"pns"`
+}
+
 const (
 	defaultHistorySyncCount = 50
 	maxHistorySyncCount     = 100
+	lidMappingMaxEntries    = 200
 )
 
 var (
@@ -416,6 +430,110 @@ func (c *chatService) HistorySyncRequest(ctx context.Context, data *HistorySyncR
 	}
 
 	return &res, nil
+}
+
+// LidMapping resolves LIDs to phone numbers and phone numbers to LIDs from the
+// instance's own Signal mapping. Unknown or invalid entries are null.
+func (c *chatService) LidMapping(ctx context.Context, data *LidMappingStruct, instance *instance_model.Instance) (*LidMappingResult, error) {
+	if data == nil || len(data.Lids)+len(data.Pns) == 0 {
+		return nil, ErrInvalidLidMapping
+	}
+	if len(data.Lids)+len(data.Pns) > lidMappingMaxEntries {
+		return nil, fmt.Errorf("%w: at most %d entries", ErrInvalidLidMapping, lidMappingMaxEntries)
+	}
+	client, err := c.ensureClientConnected(instance.Id)
+	if err != nil {
+		return nil, err
+	}
+	if client.Store.LIDs == nil {
+		return nil, errors.New("lid store unavailable")
+	}
+	return resolveLidMapping(ctx, client.Store.LIDs, data)
+}
+
+// ErrInvalidLidMapping is a malformed or oversized mapping request.
+var ErrInvalidLidMapping = errors.New("invalid lid mapping request")
+
+func normalizeMappingJID(value, kind string) (types.JID, bool) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return types.EmptyJID, false
+	}
+	if !strings.Contains(value, "@") {
+		digits := strings.Map(func(r rune) rune {
+			if r >= '0' && r <= '9' {
+				return r
+			}
+			return -1
+		}, value)
+		if digits == "" {
+			return types.EmptyJID, false
+		}
+		server := types.DefaultUserServer
+		if kind == "lid" {
+			server = types.HiddenUserServer
+		}
+		value = digits + "@" + server
+	}
+	jid, ok := utils.ParseJID(value)
+	if !ok {
+		return types.EmptyJID, false
+	}
+	jid = jid.ToNonAD()
+	if kind == "lid" && jid.Server != types.HiddenUserServer {
+		return types.EmptyJID, false
+	}
+	if kind == "pn" && jid.Server != types.DefaultUserServer {
+		return types.EmptyJID, false
+	}
+	return jid, true
+}
+
+func resolveLidMapping(ctx context.Context, lids interface {
+	GetPNForLID(context.Context, types.JID) (types.JID, error)
+	GetManyLIDsForPNs(context.Context, []types.JID) (map[types.JID]types.JID, error)
+}, data *LidMappingStruct) (*LidMappingResult, error) {
+	result := &LidMappingResult{Lids: map[string]*string{}, Pns: map[string]*string{}}
+
+	uniqueLIDs := map[types.JID]struct{}{}
+	for _, input := range data.Lids {
+		jid, ok := normalizeMappingJID(input, "lid")
+		value := (*string)(nil)
+		if ok {
+			uniqueLIDs[jid] = struct{}{}
+			if pn, err := lids.GetPNForLID(ctx, jid); err == nil && !pn.IsEmpty() {
+				s := pn.ToNonAD().String()
+				value = &s
+			}
+		}
+		result.Lids[input] = value
+	}
+
+	pnInputs := map[types.JID][]string{}
+	for _, input := range data.Pns {
+		jid, ok := normalizeMappingJID(input, "pn")
+		if !ok {
+			result.Pns[input] = nil
+			continue
+		}
+		pnInputs[jid] = append(pnInputs[jid], input)
+		result.Pns[input] = nil
+	}
+	if len(pnInputs) > 0 {
+		pns := make([]types.JID, 0, len(pnInputs))
+		for pn := range pnInputs {
+			pns = append(pns, pn)
+		}
+		if mappings, err := lids.GetManyLIDsForPNs(ctx, pns); err == nil {
+			for pn, lid := range mappings {
+				s := lid.ToNonAD().String()
+				for _, input := range pnInputs[pn] {
+					result.Pns[input] = &s
+				}
+			}
+		}
+	}
+	return result, nil
 }
 
 // historySyncMember reports whether our account appears in the group roster.

@@ -24,6 +24,7 @@ type ChatHandler interface {
 	ChatUnmute(ctx *gin.Context)
 	SetEphemeralExpiration(ctx *gin.Context)
 	HistorySyncRequest(ctx *gin.Context)
+	LidMapping(ctx *gin.Context)
 }
 
 type chatHandler struct {
@@ -439,6 +440,41 @@ func (c *chatHandler) HistorySyncRequest(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": resp})
+}
+
+// LidMapping resolves LIDs and phone numbers in both directions
+// @Summary Resolve LID/phone mappings
+// @Description Batch-resolves up to 200 LIDs and phone numbers using this instance's WhatsApp mapping. Unknown entries are null.
+// @Tags Chat
+// @Accept json
+// @Produce json
+// @Param message body chat_service.LidMappingStruct true "LIDs and/or phone numbers"
+// @Success 200 {object} docmodels.Envelope{data=chat_service.LidMappingResult} "mappings"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
+// @Router /chat/lidMapping [post]
+func (c *chatHandler) LidMapping(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+	data := &chat_service.LidMappingStruct{}
+	if err := ctx.ShouldBindBodyWithJSON(data); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	result, err := c.chatService.LidMapping(ctx.Request.Context(), data, instance)
+	if errors.Is(err, chat_service.ErrInvalidLidMapping) {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": result})
 }
 
 func NewChatHandler(

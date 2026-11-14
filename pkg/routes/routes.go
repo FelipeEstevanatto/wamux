@@ -282,6 +282,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.POST("/unmute", r.jidValidationMiddleware.ValidateNumberField(), r.chatHandler.ChatUnmute)
 			routes.POST("/ephemeral", r.chatHandler.SetEphemeralExpiration)
 			routes.POST("/history-sync", r.chatHandler.HistorySyncRequest)
+			routes.POST("/lidMapping", r.chatHandler.LidMapping)
 			// Read stored history back (requires DATABASE_SAVE_MESSAGES).
 			routes.GET("/history", r.messageHandler.GetHistory)
 			routes.GET("/history/search", r.messageHandler.SearchHistory)
