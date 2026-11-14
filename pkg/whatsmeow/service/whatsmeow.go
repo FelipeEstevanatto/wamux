@@ -3,6 +3,7 @@ package whatsmeow_service
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
 	"errors"
@@ -2117,6 +2118,24 @@ func MediaFileLength(msg *waE2E.Message) uint64 {
 	return largest
 }
 
+// verifyDownloadedMedia checks the bytes against the size and SHA-256 the
+// message declared. WhatsApp's encrypted media has its own MAC, but the
+// metadata and the plaintext can still disagree; storing a mismatched file
+// makes every later download and preview wrong. A zero size/SHA means the
+// sender did not provide one, so only the check we can perform is applied.
+func verifyDownloadedMedia(data []byte, expectedSize int64, expectedSHA []byte) error {
+	if expectedSize > 0 && int64(len(data)) != expectedSize {
+		return fmt.Errorf("media size mismatch: got %d bytes, want %d", len(data), expectedSize)
+	}
+	if len(expectedSHA) > 0 {
+		sum := sha256.Sum256(data)
+		if !bytes.Equal(sum[:], expectedSHA) {
+			return fmt.Errorf("media SHA-256 mismatch")
+		}
+	}
+	return nil
+}
+
 func (mycli *MyClient) downloadMedia(ctx context.Context, msg whatsmeow.DownloadableMessage) ([]byte, error) {
 	if mycli.mediaDownloader != nil {
 		return mycli.mediaDownloader(ctx, msg)
@@ -2737,6 +2756,7 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 				var extension string
 				var mimeType string
 				var mediaSize int64
+				var expectedSHA []byte
 
 				// Create context with timeout for large files
 				downloadCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
@@ -2753,6 +2773,10 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 					if img.FileLength != nil {
 						mediaSize = int64(*img.FileLength)
 					}
+					expectedSHA = img.FileSHA256
+					if err == nil {
+						err = verifyDownloadedMedia(data, mediaSize, expectedSHA)
+					}
 				} else if audio != nil {
 					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Downloading audio - ID: %s", mycli.userID, evt.Info.ID)
 					data, err = mycli.downloadMedia(downloadCtx, audio)
@@ -2760,6 +2784,10 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 					mimeType = "audio/ogg"
 					if audio.FileLength != nil {
 						mediaSize = int64(*audio.FileLength)
+					}
+					expectedSHA = audio.FileSHA256
+					if err == nil {
+						err = verifyDownloadedMedia(data, mediaSize, expectedSHA)
 					}
 				} else if document != nil {
 					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Downloading document - ID: %s, FileName: %s, Size: %d bytes", mycli.userID, evt.Info.ID, document.GetFileName(), document.GetFileLength())
@@ -2769,6 +2797,10 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 					if document.FileLength != nil {
 						mediaSize = int64(*document.FileLength)
 					}
+					expectedSHA = document.FileSHA256
+					if err == nil {
+						err = verifyDownloadedMedia(data, mediaSize, expectedSHA)
+					}
 				} else if video != nil {
 					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Downloading video - ID: %s, Size: %d bytes", mycli.userID, evt.Info.ID, video.GetFileLength())
 					data, err = mycli.downloadMedia(downloadCtx, video)
@@ -2777,6 +2809,10 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 					if video.FileLength != nil {
 						mediaSize = int64(*video.FileLength)
 					}
+					expectedSHA = video.FileSHA256
+					if err == nil {
+						err = verifyDownloadedMedia(data, mediaSize, expectedSHA)
+					}
 				} else if sticker != nil {
 					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Downloading sticker - ID: %s", mycli.userID, evt.Info.ID)
 					data, err = mycli.downloadMedia(downloadCtx, sticker)
@@ -2784,6 +2820,10 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 					mimeType = "image/png"
 					if sticker.FileLength != nil {
 						mediaSize = int64(*sticker.FileLength)
+					}
+					expectedSHA = sticker.FileSHA256
+					if err == nil {
+						err = verifyDownloadedMedia(data, mediaSize, expectedSHA)
 					}
 
 					if err == nil {
@@ -2809,26 +2849,61 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 					data, err = mycli.downloadMedia(context.Background(), associatedImg)
 					extension = ".jpg"
 					mimeType = "image/jpeg"
+					if associatedImg.FileLength != nil {
+						mediaSize = int64(*associatedImg.FileLength)
+					}
+					expectedSHA = associatedImg.FileSHA256
+					if err == nil {
+						err = verifyDownloadedMedia(data, mediaSize, expectedSHA)
+					}
 					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Processing associated child image message", mycli.userID)
 				} else if associatedAudio != nil {
 					data, err = mycli.downloadMedia(context.Background(), associatedAudio)
 					extension = ".ogg"
 					mimeType = "audio/ogg"
+					if associatedAudio.FileLength != nil {
+						mediaSize = int64(*associatedAudio.FileLength)
+					}
+					expectedSHA = associatedAudio.FileSHA256
+					if err == nil {
+						err = verifyDownloadedMedia(data, mediaSize, expectedSHA)
+					}
 					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Processing associated child audio message", mycli.userID)
 				} else if associatedDocument != nil {
 					data, err = mycli.downloadMedia(context.Background(), associatedDocument)
 					extension = getExtensionFromMimeType(associatedDocument.GetMimetype())
 					mimeType = associatedDocument.GetMimetype()
+					if associatedDocument.FileLength != nil {
+						mediaSize = int64(*associatedDocument.FileLength)
+					}
+					expectedSHA = associatedDocument.FileSHA256
+					if err == nil {
+						err = verifyDownloadedMedia(data, mediaSize, expectedSHA)
+					}
 					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Processing associated child document message", mycli.userID)
 				} else if associatedVideo != nil {
 					data, err = mycli.downloadMedia(context.Background(), associatedVideo)
 					extension = ".mp4"
 					mimeType = "video/mp4"
+					if associatedVideo.FileLength != nil {
+						mediaSize = int64(*associatedVideo.FileLength)
+					}
+					expectedSHA = associatedVideo.FileSHA256
+					if err == nil {
+						err = verifyDownloadedMedia(data, mediaSize, expectedSHA)
+					}
 					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Processing associated child video message", mycli.userID)
 				} else if associatedSticker != nil {
 					data, err = mycli.downloadMedia(context.Background(), associatedSticker)
 					extension = ".png"
 					mimeType = "image/png"
+					if associatedSticker.FileLength != nil {
+						mediaSize = int64(*associatedSticker.FileLength)
+					}
+					expectedSHA = associatedSticker.FileSHA256
+					if err == nil {
+						err = verifyDownloadedMedia(data, mediaSize, expectedSHA)
+					}
 					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Processing associated child sticker message", mycli.userID)
 
 					if err == nil {
@@ -2854,7 +2929,11 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 				downloadDuration := time.Since(downloadStart)
 
 				if err != nil {
-					mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to download media - ID: %s, Size: %d bytes, Duration: %v, Error: %v", mycli.userID, evt.Info.ID, mediaSize, downloadDuration, err)
+					mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to download/verify media - ID: %s, Size: %d bytes, Duration: %v, Error: %v", mycli.userID, evt.Info.ID, mediaSize, downloadDuration, err)
+					if mm, ok := dataMap["Message"].(map[string]interface{}); ok {
+						mm["mediaError"] = err.Error()
+						dataMap["Message"] = mm
+					}
 
 					// Check if it's a timeout error
 					if downloadCtx.Err() == context.DeadlineExceeded {
