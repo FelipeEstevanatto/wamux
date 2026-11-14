@@ -23,10 +23,11 @@
 //   - Redirects: every hop of a redirect goes through DialContext again, so an
 //     allowed public URL cannot bounce the client to an internal one.
 //
-// The guard is OPT-IN: it only blocks when SSRF_PROTECTION=true. The default is
-// permissive so updating the fork does not break senders that fetch media from
-// an internal host; enable it when all media comes from public hosts. This is a
-// deliberate, reversible posture (see FORK_NOTES.md §3n).
+// The default guard always blocks private destinations. Every caller-supplied
+// media/link/avatar URL goes through it, so a tenant cannot use an endpoint as a
+// proxy into the server's network. Configured internal services that
+// deliberately fetch private hosts can use Configured(), which still honours
+// SSRF_PROTECTION=false as an explicit escape hatch.
 package ssrf
 
 import (
@@ -72,16 +73,17 @@ func New(opts ...Option) *Guard {
 	return g
 }
 
-// Default returns the process-wide guard. Protection is OPT-IN for now:
-// addresses are only checked when SSRF_PROTECTION=true. With the variable unset
-// (or any other value) the guard allows private networks, so updating the fork
-// does not silently break senders that fetch media from an internal host
-// (self-hosted MinIO, Typebot, an internal CDN).
-//
-// Set SSRF_PROTECTION=true to refuse loopback/private/link-local/metadata
-// destinations. It is evaluated per call so the toggle is honoured wherever it
-// is read from.
-func Default() *Guard {
+// Default returns the always-safe guard used for caller-supplied URLs:
+// loopback, private, link-local, metadata, CGNAT and multicast destinations are
+// always refused.
+func Default() *Guard { return New() }
+
+// Configured returns a guard that honours SSRF_PROTECTION. It exists for
+// explicitly configured internal services (for example a self-hosted media
+// store) that intentionally fetch private hosts. Caller-supplied URLs must use
+// Default instead. SSRF_PROTECTION=true keeps the strict behaviour; the
+// default false allows private networks for those configured integrations.
+func Configured() *Guard {
 	enabled := config_env.Bool(config_env.SSRF_PROTECTION, false)
 	return New(WithAllowPrivateNetworks(!enabled))
 }

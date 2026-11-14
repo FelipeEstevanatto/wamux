@@ -234,10 +234,14 @@ token or the raw owner JID, so it is safe to feed a monitoring system.
 
 ### SSRF protection
 
-Endpoints that fetch a caller-supplied URL can refuse loopback, private
+Endpoints that fetch a caller-supplied URL (media, link previews, button/
+carousel headers, stickers, group photos) **always** refuse loopback, private
 (RFC1918), link-local (including `169.254.169.254`), CGNAT and multicast
-addresses. It is opt-in (`SSRF_PROTECTION=true`) so senders that fetch media
-from an internal host keep working by default.
+addresses. DNS is pinned and every redirect is revalidated.
+
+`SSRF_PROTECTION` still exists for explicitly configured internal services that
+intentionally fetch private hosts; it does not loosen the caller-URL guard.
+Send internal media by upload/base64, or expose it through a public endpoint.
 
 ## Manager
 
