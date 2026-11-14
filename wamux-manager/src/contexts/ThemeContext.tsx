@@ -1,14 +1,6 @@
-import React, { createContext, useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 
-export type Theme = 'light' | 'dark';
-
-export interface DarkModeContextType {
-  theme: Theme;
-  toggleTheme: () => void;
-}
-
-// Create context for theme
-export const DarkModeContext = createContext<DarkModeContextType | undefined>(undefined);
+import { DarkModeContext, type Theme } from './theme-context';
 
 // Provider that will be used at the root of the application
 export function DarkModeProvider({ children }: { children: React.ReactNode }) {
