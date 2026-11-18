@@ -324,6 +324,19 @@ func (mycli *MyClient) normalizeEventData(postMap map[string]interface{}) bool {
 	return true
 }
 
+// keepNewsletterStatus puts IsNewsletterStatus back on a message webhook.
+// whatsmeow now records the same fact as Info.StanzaTag ("status" for a
+// newsletter or status broadcast). Adding StanzaTag is fine; dropping the
+// field integrations already read is not.
+func keepNewsletterStatus(data map[string]interface{}) {
+	info, ok := data["Info"].(map[string]interface{})
+	if !ok {
+		return
+	}
+	tag, _ := info["StanzaTag"].(string)
+	info["IsNewsletterStatus"] = tag == "status"
+}
+
 // persistRetryDelays are the waits between attempts. The message was already acked, so
 // WhatsApp will not deliver it again: this write is the only chance to store it, and
 // a database restart or failover should not cost messages.

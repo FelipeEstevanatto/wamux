@@ -81,6 +81,20 @@ func TestGoldenWebhookPayloads(t *testing.T) {
 	}
 }
 
+func TestStatusStanzaKeepsNewsletterStatus(t *testing.T) {
+	evt := inbound(t, "MSG1", "story")
+	evt.Info.StanzaTag = "status"
+	h := newEventHarness(t)
+	h.cli.processEvent(evt)
+	payload := h.deliveries(t, 1)[0].payload
+	if !bytes.Contains(payload, []byte(`"IsNewsletterStatus":true`)) {
+		t.Fatalf("status stanza dropped IsNewsletterStatus: %s", payload)
+	}
+	if !bytes.Contains(payload, []byte(`"StanzaTag":"status"`)) {
+		t.Fatalf("status stanza dropped StanzaTag: %s", payload)
+	}
+}
+
 func checkGolden(t *testing.T, name string, payload []byte) {
 	t.Helper()
 	var pretty bytes.Buffer

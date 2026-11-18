@@ -2620,6 +2620,9 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 		if !ok {
 			dataMap = make(map[string]interface{})
 		}
+		// whatsmeow replaced IsNewsletterStatus with StanzaTag. The webhook
+		// already published the old field, so a status stanza still reports it.
+		keepNewsletterStatus(dataMap)
 
 		if validDestJID != nil {
 			destStr := validDestJID.String()

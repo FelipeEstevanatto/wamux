@@ -33,6 +33,7 @@
       "Sender": "5511999990001@s.whatsapp.net",
       "SenderAlt": "",
       "ServerID": 0,
+      "StanzaTag": "",
       "Timestamp": "2026-01-02T03:04:05Z",
       "Type": "text",
       "VerifiedName": null

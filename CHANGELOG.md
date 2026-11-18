@@ -3,6 +3,12 @@
 ## Unreleased
 
 ### ✨ Manager
+- The inbox empty state links to Instances when nothing is connected. Storage
+  warnings explain the limitation in plain language, with the server setting
+  behind “how to turn this on”. A chat shows its name, with the number
+  underneath, instead of a raw JID.
+- An instance card opens that instance’s messages, its actions stay visible,
+  and the list no longer stops at 24. Counts follow the selected language.
 - `/messages` shows unread messages like WhatsApp: a count on each conversation, a
   divider at the first unread message, opening there, and a count on the jump-to-latest
   button while scrolled up. A chat counts as read when you reach its newest message, or
@@ -122,6 +128,10 @@
   JSON handling is one helper.
 
 ### ✨ Deployment
+- whatsmeow moved to `19d61352436f` (16 November 2026), with libsignal 0.2.3.
+  Block and unblock pass an empty blocklist hash so the API still returns the
+  updated list. Message webhooks gain `StanzaTag` and still include
+  `IsNewsletterStatus`.
 - Image bases moved to `alpine:3.24.4`, `golang:1.27.4-alpine` and
   `oven/bun:1.4.4-alpine`. The Go module version matches the image.
 - **A new install needs no configuration.** `docker compose up -d` works with no `.env`.

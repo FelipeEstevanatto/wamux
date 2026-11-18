@@ -658,7 +658,9 @@ func (u *userService) BlockContact(data *BlockStruct, instance *instance_model.I
 		return nil, errors.New("invalid phone number")
 	}
 
-	resp, err := client.UpdateBlocklist(context.Background(), jid, events.BlocklistChangeActionBlock)
+	// An empty dhash asks the server for the updated list. A matching hash
+	// comes back with no list, which would change this response.
+	resp, err := client.UpdateBlocklist(context.Background(), jid, events.BlocklistChangeActionBlock, "")
 	if err != nil {
 		return nil, err
 	}
@@ -677,7 +679,7 @@ func (u *userService) UnlockContact(data *BlockStruct, instance *instance_model.
 		return nil, errors.New("invalid phone number")
 	}
 
-	resp, err := client.UpdateBlocklist(context.Background(), jid, events.BlocklistChangeActionUnblock)
+	resp, err := client.UpdateBlocklist(context.Background(), jid, events.BlocklistChangeActionUnblock, "")
 	if err != nil {
 		return nil, err
 	}
