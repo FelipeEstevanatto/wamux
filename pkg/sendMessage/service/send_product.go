@@ -128,12 +128,16 @@ func (s *sendService) SendProduct(data *ProductStruct, instance *instance_model.
 	if err != nil {
 		return nil, err
 	}
+	imgBytes, imageType, err := stillImage(imgBytes)
+	if err != nil {
+		return nil, err
+	}
 	uploaded, err := s.upload(context.Background(), client, imgBytes, whatsmeow.MediaImage)
 	if err != nil {
 		return nil, fmt.Errorf("failed to upload product image: %w", err)
 	}
 	productImage := &waE2E.ImageMessage{
-		Mimetype:      proto.String("image/jpeg"),
+		Mimetype:      proto.String(imageType),
 		URL:           &uploaded.URL,
 		DirectPath:    &uploaded.DirectPath,
 		MediaKey:      uploaded.MediaKey,

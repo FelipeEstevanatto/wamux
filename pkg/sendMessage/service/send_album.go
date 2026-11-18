@@ -10,9 +10,13 @@ import (
 	"time"
 
 	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
+	localmedia "github.com/felipeestevanatto/wamux/pkg/media"
+	message_model "github.com/felipeestevanatto/wamux/pkg/message/model"
+	whatsmeow_service "github.com/felipeestevanatto/wamux/pkg/whatsmeow/service"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waCommon"
 	"go.mau.fi/whatsmeow/proto/waE2E"
+	"go.mau.fi/whatsmeow/types"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -148,16 +152,65 @@ func (s *sendService) SendAlbum(data *AlbumStruct, instance *instance_model.Inst
 		Items: make([]*MessageSendStruct, 0, len(data.Items)),
 	}
 
+	// The container is already on WhatsApp. If a later item is rejected, revoke
+	// everything accepted so far and report the failure with nothing left behind.
+	accepted := []string{containerID}
 	for i := range items {
 		items[i].media.AlbumParentKey = parentKey
 		sent, err := s.SendMediaFile(items[i].media, items[i].data, instance)
 		if err != nil {
-			return result, fmt.Errorf("album item %d failed: %w", i, err)
+			s.rollbackAlbum(client, instance, recipient, accepted)
+			return nil, fmt.Errorf("album item %d failed: %w", i, err)
+		}
+		if sent != nil && sent.Info.ID != "" {
+			accepted = append(accepted, sent.Info.ID)
 		}
 		result.Items = append(result.Items, sent)
 	}
 
 	return result, nil
+}
+
+// rollbackAlbum revokes an album that could not be finished. ids[0] is the
+// container, which is not a history row; the rest are items already stored.
+// A revoke is not echoed back, so each item is tombstoned here.
+func (s *sendService) rollbackAlbum(client *whatsmeow.Client, instance *instance_model.Instance, chat types.JID, ids []string) {
+	if client == nil || instance == nil {
+		return
+	}
+	logger := s.loggerWrapper.GetLogger(instance.Id)
+	direct := chat.Server != types.GroupServer
+	chatID := chat.ToNonAD().String()
+	for i, id := range ids {
+		if id == "" {
+			continue
+		}
+		revoke := client.BuildRevoke(chat, types.EmptyJID, id)
+		if _, err := s.deliver(context.Background(), client, chat, revoke, whatsmeow.SendRequestExtra{ID: client.GenerateMessageID()}); err != nil {
+			logger.LogError("[%s] album rollback could not revoke %s: %v", instance.Id, id, err)
+		}
+		whatsmeow_service.ForgetSentMessage(client, id, chat)
+		if i == 0 || s.messageRepository == nil {
+			continue
+		}
+		row := message_model.Message{
+			MessageID:   id,
+			InstanceId:  instance.Id,
+			Timestamp:   time.Now().Format("2006-01-02 15:04:05"),
+			Status:      "Sent",
+			Source:      chat.User,
+			ChatJid:     chatID,
+			SenderJid:   chatID,
+			MessageType: "delete",
+			IsFromMe:    true,
+		}
+		if _, err := s.messageRepository.MarkMessageDeleted(row, []string{chatID}, direct); err != nil {
+			logger.LogError("[%s] album rollback could not tombstone %s: %v", instance.Id, id, err)
+		}
+		if err := localmedia.Remove(instance.Id, id); err != nil {
+			logger.LogError("[%s] album rollback could not remove media for %s: %v", instance.Id, id, err)
+		}
+	}
 }
 
 // preparedAlbumItem is one album item whose bytes are already in memory.

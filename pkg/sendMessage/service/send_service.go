@@ -1406,6 +1406,48 @@ func jpegFromWebP(data []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// fetchRemoteMedia downloads a caller-supplied URL. A non-2xx response is an
+// error: the body of an error page must not be uploaded as the attachment.
+func fetchRemoteMedia(rawURL string) ([]byte, error) {
+	resp, err := mediaHTTPClient.Get(rawURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to download media: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("failed to download media: HTTP status %d", resp.StatusCode)
+	}
+	return readAllLimited(resp.Body)
+}
+
+// stillImage accepts a JPEG or PNG as-is and re-encodes a still WebP as JPEG.
+// The returned type is the type of the bytes that will be uploaded.
+func stillImage(data []byte) ([]byte, string, error) {
+	detected, _ := mimetype.DetectReader(bytes.NewReader(data))
+	switch detected.String() {
+	case "image/jpeg", "image/png":
+		return data, detected.String(), nil
+	case "image/webp":
+		converted, err := jpegFromWebP(data)
+		if err != nil {
+			return nil, "", err
+		}
+		return converted, "image/jpeg", nil
+	default:
+		return nil, "", fmt.Errorf("invalid file format: '%s'. Only 'image/jpeg', 'image/png' and 'image/webp' are accepted", detected.String())
+	}
+}
+
+// videoMP4 accepts a file only when the bytes are an MP4. Callers used to label
+// whatever they downloaded as video/mp4.
+func videoMP4(data []byte) ([]byte, string, error) {
+	detected, _ := mimetype.DetectReader(bytes.NewReader(data))
+	if detected.String() != "video/mp4" {
+		return nil, "", fmt.Errorf("invalid file format: '%s'. Only 'video/mp4' is accepted", detected.String())
+	}
+	return data, "video/mp4", nil
+}
+
 // isWebP checks the RIFF/WEBP magic bytes.
 func isWebP(data []byte) bool {
 	return len(data) >= 12 && bytes.Equal(data[0:4], []byte("RIFF")) && bytes.Equal(data[8:12], []byte("WEBP"))
@@ -1798,55 +1840,64 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 			}
 		}
 
-		// Optional media header (equivalent to wamux-api's `thumbnailUrl`).
+		// Optional media header. A URL the caller asked for has to come back as
+		// that media: a 404 page or a WebP labeled JPEG used to be sent anyway.
 		if data.ImageUrl != "" {
-			if resp, err := mediaHTTPClient.Get(data.ImageUrl); err == nil {
-				fileData, readErr := readAllLimited(resp.Body)
-				resp.Body.Close()
-				if readErr == nil {
-					if uploaded, upErr := s.upload(context.Background(), client, fileData, whatsmeow.MediaImage); upErr == nil {
-						interactive.Header = &waE2E.InteractiveMessage_Header{
-							HasMediaAttachment: proto.Bool(true),
-							Media: func() *waE2E.InteractiveMessage_Header_ImageMessage {
-								img := &waE2E.ImageMessage{
-									URL:           proto.String(uploaded.URL),
-									DirectPath:    proto.String(uploaded.DirectPath),
-									MediaKey:      uploaded.MediaKey,
-									Mimetype:      proto.String("image/jpeg"),
-									FileEncSHA256: uploaded.FileEncSHA256,
-									FileSHA256:    uploaded.FileSHA256,
-									FileLength:    proto.Uint64(uint64(len(fileData))),
-									JPEGThumbnail: makeJPEGThumbnail(fileData, 72),
-								}
-								applyImageDims(img, fileData)
-								return &waE2E.InteractiveMessage_Header_ImageMessage{ImageMessage: img}
-							}(),
-						}
+			fileData, ferr := fetchRemoteMedia(data.ImageUrl)
+			if ferr != nil {
+				return nil, ferr
+			}
+			fileData, mimeType, ferr := stillImage(fileData)
+			if ferr != nil {
+				return nil, ferr
+			}
+			uploaded, upErr := s.upload(context.Background(), client, fileData, whatsmeow.MediaImage)
+			if upErr != nil {
+				return nil, upErr
+			}
+			interactive.Header = &waE2E.InteractiveMessage_Header{
+				HasMediaAttachment: proto.Bool(true),
+				Media: func() *waE2E.InteractiveMessage_Header_ImageMessage {
+					img := &waE2E.ImageMessage{
+						URL:           proto.String(uploaded.URL),
+						DirectPath:    proto.String(uploaded.DirectPath),
+						MediaKey:      uploaded.MediaKey,
+						Mimetype:      proto.String(mimeType),
+						FileEncSHA256: uploaded.FileEncSHA256,
+						FileSHA256:    uploaded.FileSHA256,
+						FileLength:    proto.Uint64(uint64(len(fileData))),
+						JPEGThumbnail: makeJPEGThumbnail(fileData, 72),
 					}
-				}
+					applyImageDims(img, fileData)
+					return &waE2E.InteractiveMessage_Header_ImageMessage{ImageMessage: img}
+				}(),
 			}
 		} else if data.VideoUrl != "" {
-			if resp, err := mediaHTTPClient.Get(data.VideoUrl); err == nil {
-				fileData, readErr := readAllLimited(resp.Body)
-				resp.Body.Close()
-				if readErr == nil {
-					if uploaded, upErr := s.upload(context.Background(), client, fileData, whatsmeow.MediaVideo); upErr == nil {
-						interactive.Header = &waE2E.InteractiveMessage_Header{
-							HasMediaAttachment: proto.Bool(true),
-							Media: &waE2E.InteractiveMessage_Header_VideoMessage{
-								VideoMessage: &waE2E.VideoMessage{
-									URL:           proto.String(uploaded.URL),
-									DirectPath:    proto.String(uploaded.DirectPath),
-									MediaKey:      uploaded.MediaKey,
-									Mimetype:      proto.String("video/mp4"),
-									FileEncSHA256: uploaded.FileEncSHA256,
-									FileSHA256:    uploaded.FileSHA256,
-									FileLength:    proto.Uint64(uint64(len(fileData))),
-								},
-							},
-						}
-					}
-				}
+			fileData, ferr := fetchRemoteMedia(data.VideoUrl)
+			if ferr != nil {
+				return nil, ferr
+			}
+			fileData, mimeType, ferr := videoMP4(fileData)
+			if ferr != nil {
+				return nil, ferr
+			}
+			uploaded, upErr := s.upload(context.Background(), client, fileData, whatsmeow.MediaVideo)
+			if upErr != nil {
+				return nil, upErr
+			}
+			interactive.Header = &waE2E.InteractiveMessage_Header{
+				HasMediaAttachment: proto.Bool(true),
+				Media: &waE2E.InteractiveMessage_Header_VideoMessage{
+					VideoMessage: &waE2E.VideoMessage{
+						URL:           proto.String(uploaded.URL),
+						DirectPath:    proto.String(uploaded.DirectPath),
+						MediaKey:      uploaded.MediaKey,
+						Mimetype:      proto.String(mimeType),
+						FileEncSHA256: uploaded.FileEncSHA256,
+						FileSHA256:    uploaded.FileSHA256,
+						FileLength:    proto.Uint64(uint64(len(fileData))),
+					},
+				},
 			}
 		}
 
@@ -3068,19 +3119,6 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 // fetchCardMedia downloads a carousel card's image or video. A card still goes out
 // without it, so a failure only drops the media. An error page is a failure too:
 // uploaded as the file, it would deliver a broken card.
-func fetchCardMedia(url string) ([]byte, bool) {
-	resp, err := mediaHTTPClient.Get(url)
-	if err != nil {
-		return nil, false
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, false
-	}
-	data, err := readAllLimited(resp.Body)
-	return data, err == nil
-}
-
 func (s *sendService) SendCarousel(data *CarouselStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
 	client, err := s.ensureClientConnected(instance.Id)
 	if err != nil {
@@ -3124,49 +3162,59 @@ func (s *sendService) SendCarousel(data *CarouselStruct, instance *instance_mode
 			},
 		}
 
-		// Add media to header if URL provided
+		// A card that names media has to carry that media. Skipping a failed
+		// download used to send the card with an empty header.
 		if card.Header.ImageUrl != "" || card.Header.VideoUrl != "" {
 			header := interactiveCard.Header
-
+			var fileData []byte
+			var mimeType string
+			var uploadType whatsmeow.MediaType
+			var ferr error
 			if card.Header.ImageUrl != "" {
-				if fileData, ok := fetchCardMedia(card.Header.ImageUrl); ok {
-					uploaded, err := s.upload(context.Background(), client, fileData, whatsmeow.MediaImage)
-					if err == nil {
-						// Generate JPEG thumbnail for iOS compatibility
-						jpegThumb := makeJPEGThumbnail(fileData, 72)
-
-						header.HasMediaAttachment = proto.Bool(true)
-						img := &waE2E.ImageMessage{
-							URL:           proto.String(uploaded.URL),
-							DirectPath:    proto.String(uploaded.DirectPath),
-							MediaKey:      uploaded.MediaKey,
-							Mimetype:      proto.String("image/jpeg"),
-							FileEncSHA256: uploaded.FileEncSHA256,
-							FileSHA256:    uploaded.FileSHA256,
-							FileLength:    proto.Uint64(uint64(len(fileData))),
-							JPEGThumbnail: jpegThumb,
-						}
-						applyImageDims(img, fileData)
-						header.Media = &waE2E.InteractiveMessage_Header_ImageMessage{ImageMessage: img}
-					}
+				fileData, ferr = fetchRemoteMedia(card.Header.ImageUrl)
+				if ferr == nil {
+					fileData, mimeType, ferr = stillImage(fileData)
 				}
-			} else if card.Header.VideoUrl != "" {
-				if fileData, ok := fetchCardMedia(card.Header.VideoUrl); ok {
-					uploaded, err := s.upload(context.Background(), client, fileData, whatsmeow.MediaVideo)
-					if err == nil {
-						header.HasMediaAttachment = proto.Bool(true)
-						header.Media = &waE2E.InteractiveMessage_Header_VideoMessage{
-							VideoMessage: &waE2E.VideoMessage{
-								URL:           proto.String(uploaded.URL),
-								DirectPath:    proto.String(uploaded.DirectPath),
-								MediaKey:      uploaded.MediaKey,
-								Mimetype:      proto.String("video/mp4"),
-								FileEncSHA256: uploaded.FileEncSHA256,
-								FileSHA256:    uploaded.FileSHA256,
-								FileLength:    proto.Uint64(uint64(len(fileData))),
-							},
-						}
-					}
+				uploadType = whatsmeow.MediaImage
+			} else {
+				fileData, ferr = fetchRemoteMedia(card.Header.VideoUrl)
+				if ferr == nil {
+					fileData, mimeType, ferr = videoMP4(fileData)
+				}
+				uploadType = whatsmeow.MediaVideo
+			}
+			if ferr != nil {
+				return nil, fmt.Errorf("carousel card %d: %w", i, ferr)
+			}
+			uploaded, err := s.upload(context.Background(), client, fileData, uploadType)
+			if err != nil {
+				return nil, fmt.Errorf("carousel card %d: %w", i, err)
+			}
+			header.HasMediaAttachment = proto.Bool(true)
+			if uploadType == whatsmeow.MediaImage {
+				img := &waE2E.ImageMessage{
+					URL:           proto.String(uploaded.URL),
+					DirectPath:    proto.String(uploaded.DirectPath),
+					MediaKey:      uploaded.MediaKey,
+					Mimetype:      proto.String(mimeType),
+					FileEncSHA256: uploaded.FileEncSHA256,
+					FileSHA256:    uploaded.FileSHA256,
+					FileLength:    proto.Uint64(uint64(len(fileData))),
+					JPEGThumbnail: makeJPEGThumbnail(fileData, 72),
+				}
+				applyImageDims(img, fileData)
+				header.Media = &waE2E.InteractiveMessage_Header_ImageMessage{ImageMessage: img}
+			} else {
+				header.Media = &waE2E.InteractiveMessage_Header_VideoMessage{
+					VideoMessage: &waE2E.VideoMessage{
+						URL:           proto.String(uploaded.URL),
+						DirectPath:    proto.String(uploaded.DirectPath),
+						MediaKey:      uploaded.MediaKey,
+						Mimetype:      proto.String(mimeType),
+						FileEncSHA256: uploaded.FileEncSHA256,
+						FileSHA256:    uploaded.FileSHA256,
+						FileLength:    proto.Uint64(uint64(len(fileData))),
+					},
 				}
 			}
 		}

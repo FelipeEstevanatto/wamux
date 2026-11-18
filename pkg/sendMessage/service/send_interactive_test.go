@@ -1,9 +1,13 @@
 package send_service
 
 import (
+	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/color"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -11,7 +15,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chai2010/webp"
 	"github.com/felipeestevanatto/wamux/pkg/utils"
+	"go.mau.fi/whatsmeow"
 	waBinary "go.mau.fi/whatsmeow/binary"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 )
@@ -46,6 +52,17 @@ func hasNode(extra []waBinary.Node, tag string) bool {
 }
 
 // mediaServer serves one file per path, and 404 for anything else.
+// testMP4 is a 24-byte ftyp box. The detector accepts it as video/mp4.
+func testMP4() []byte {
+	return []byte{
+		0x00, 0x00, 0x00, 0x18,
+		'f', 't', 'y', 'p',
+		'm', 'p', '4', '2',
+		0x00, 0x00, 0x00, 0x00,
+		'm', 'p', '4', '2', 'i', 's', 'o', 'm',
+	}
+}
+
 func mediaServer(t *testing.T, files map[string][]byte) *httptest.Server {
 	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -58,6 +75,105 @@ func mediaServer(t *testing.T, files map[string][]byte) *httptest.Server {
 	}))
 	t.Cleanup(server.Close)
 	return server
+}
+
+func TestSendButtonHeaderKeepsTheRealImageType(t *testing.T) {
+	h := newSendHarness(t)
+	var uploaded []byte
+	h.upload = func(_ context.Context, _ *whatsmeow.Client, data []byte, kind whatsmeow.MediaType) (whatsmeow.UploadResponse, error) {
+		uploaded = append([]byte(nil), data...)
+		h.uploads = append(h.uploads, kind)
+		return whatsmeow.UploadResponse{
+			URL: "https://mmg.test/file", DirectPath: "/v/file",
+			MediaKey: []byte{1}, FileEncSHA256: []byte{4}, FileSHA256: []byte{5},
+			FileLength: uint64(len(data)),
+		}, nil
+	}
+	file := testPNG(t)
+	server := mediaServer(t, map[string][]byte{"/pic.png": file})
+
+	_, err := h.SendButton(&ButtonStruct{
+		Number: testNumber, Title: "t", Description: "d", Footer: "f", FormatJid: raw(),
+		ImageUrl: server.URL + "/pic.png",
+		Buttons:  []Button{{Type: "reply", DisplayText: "ok", Id: "1"}},
+	}, h.instance)
+	if err != nil {
+		t.Fatalf("SendButton: %v", err)
+	}
+	img := h.only(t).msg.GetInteractiveMessage().GetHeader().GetImageMessage()
+	if img.GetMimetype() != "image/png" || !bytes.Equal(uploaded, file) {
+		t.Fatalf("mimetype %q, uploaded %d bytes", img.GetMimetype(), len(uploaded))
+	}
+}
+
+func TestSendButtonHeaderConvertsWebP(t *testing.T) {
+	h := newSendHarness(t)
+	var uploaded []byte
+	h.upload = func(_ context.Context, _ *whatsmeow.Client, data []byte, kind whatsmeow.MediaType) (whatsmeow.UploadResponse, error) {
+		uploaded = append([]byte(nil), data...)
+		h.uploads = append(h.uploads, kind)
+		return whatsmeow.UploadResponse{
+			URL: "https://mmg.test/file", DirectPath: "/v/file",
+			MediaKey: []byte{1}, FileEncSHA256: []byte{4}, FileSHA256: []byte{5},
+			FileLength: uint64(len(data)),
+		}, nil
+	}
+	img := image.NewRGBA(image.Rect(0, 0, 2, 2))
+	img.Set(0, 0, color.RGBA{R: 10, A: 255})
+	var encoded bytes.Buffer
+	if err := webp.Encode(&encoded, img, &webp.Options{Lossless: true}); err != nil {
+		t.Fatal(err)
+	}
+	server := mediaServer(t, map[string][]byte{"/pic.webp": encoded.Bytes()})
+
+	_, err := h.SendButton(&ButtonStruct{
+		Number: testNumber, Title: "t", Description: "d", Footer: "f", FormatJid: raw(),
+		ImageUrl: server.URL + "/pic.webp",
+		Buttons:  []Button{{Type: "reply", DisplayText: "ok", Id: "1"}},
+	}, h.instance)
+	if err != nil {
+		t.Fatalf("SendButton: %v", err)
+	}
+	if got := h.only(t).msg.GetInteractiveMessage().GetHeader().GetImageMessage().GetMimetype(); got != "image/jpeg" {
+		t.Fatalf("mimetype = %q", got)
+	}
+	if len(uploaded) < 3 || uploaded[0] != 0xff || uploaded[1] != 0xd8 {
+		t.Fatalf("uploaded %d bytes, want JPEG", len(uploaded))
+	}
+}
+
+func TestSendButtonHeaderRejectsAMissingImage(t *testing.T) {
+	h := newSendHarness(t)
+	server := mediaServer(t, nil)
+
+	_, err := h.SendButton(&ButtonStruct{
+		Number: testNumber, Title: "t", Description: "d", Footer: "f", FormatJid: raw(),
+		ImageUrl: server.URL + "/gone.png",
+		Buttons:  []Button{{Type: "reply", DisplayText: "ok", Id: "1"}},
+	}, h.instance)
+	if err == nil || !strings.Contains(err.Error(), "HTTP status 404") {
+		t.Fatalf("err = %v", err)
+	}
+	if len(h.sent) != 0 || len(h.uploads) != 0 {
+		t.Fatalf("sent %d, uploaded %d", len(h.sent), len(h.uploads))
+	}
+}
+
+func TestSendButtonHeaderRejectsANonMP4Video(t *testing.T) {
+	h := newSendHarness(t)
+	server := mediaServer(t, map[string][]byte{"/clip.mov": []byte("not-an-mp4")})
+
+	_, err := h.SendButton(&ButtonStruct{
+		Number: testNumber, Title: "t", Description: "d", Footer: "f", FormatJid: raw(),
+		VideoUrl: server.URL + "/clip.mov",
+		Buttons:  []Button{{Type: "reply", DisplayText: "ok", Id: "1"}},
+	}, h.instance)
+	if err == nil || !strings.Contains(err.Error(), "invalid file format") {
+		t.Fatalf("err = %v", err)
+	}
+	if len(h.sent) != 0 {
+		t.Fatalf("sent %d messages", len(h.sent))
+	}
 }
 
 func TestSendButtonReply(t *testing.T) {
@@ -237,7 +353,7 @@ func TestSendList(t *testing.T) {
 
 func TestSendCarouselWithMedia(t *testing.T) {
 	h := newSendHarness(t)
-	server := mediaServer(t, map[string][]byte{"/a.png": testPNG(t), "/b.mp4": []byte("video bytes")})
+	server := mediaServer(t, map[string][]byte{"/a.png": testPNG(t), "/b.mp4": testMP4()})
 
 	_, err := h.SendCarousel(&CarouselStruct{
 		Number: testNumber, Body: "Offers", Footer: "Shop", FormatJid: raw(),
@@ -277,7 +393,7 @@ func TestSendCarouselWithMedia(t *testing.T) {
 	if len(cards) != 2 {
 		t.Fatalf("cards = %d", len(cards))
 	}
-	if !cards[0].GetHeader().GetHasMediaAttachment() || cards[0].GetHeader().GetImageMessage().GetURL() == "" {
+	if !cards[0].GetHeader().GetHasMediaAttachment() || cards[0].GetHeader().GetImageMessage().GetMimetype() != "image/png" {
 		t.Errorf("image card = %+v", cards[0].GetHeader())
 	}
 	if !cards[1].GetHeader().GetHasMediaAttachment() || cards[1].GetHeader().GetVideoMessage().GetMimetype() != "video/mp4" {
@@ -455,8 +571,9 @@ func TestValidateMessageFieldsKeepsOtherAddressesWithFormatOff(t *testing.T) {
 	}
 }
 
-// An error page is not the card's media, and uploading it delivers a broken card.
-func TestSendCarouselSkipsMediaThatFailedToDownload(t *testing.T) {
+// An error page is not the card's media. The send stops instead of delivering
+// the cards with the picture missing.
+func TestSendCarouselRejectsMediaThatFailedToDownload(t *testing.T) {
 	h := newSendHarness(t)
 	server := mediaServer(t, nil)
 
@@ -467,17 +584,11 @@ func TestSendCarouselSkipsMediaThatFailedToDownload(t *testing.T) {
 			{Header: CarouselCardHeaderStruct{VideoUrl: server.URL + "/gone.mp4"}, Body: CarouselCardBodyStruct{Text: "b"}},
 		},
 	}, h.instance)
-	if err != nil {
-		t.Fatalf("SendCarousel: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "HTTP status 404") {
+		t.Fatalf("err = %v", err)
 	}
-
-	if len(h.uploads) != 0 {
-		t.Fatalf("uploaded an error page: %v", h.uploads)
-	}
-	for i, card := range h.only(t).msg.GetInteractiveMessage().GetCarouselMessage().GetCards() {
-		if card.GetHeader().GetHasMediaAttachment() {
-			t.Errorf("card %d claims to have media", i)
-		}
+	if len(h.uploads) != 0 || len(h.sent) != 0 {
+		t.Fatalf("uploaded %d, sent %d", len(h.uploads), len(h.sent))
 	}
 }
 

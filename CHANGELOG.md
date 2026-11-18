@@ -59,6 +59,13 @@
   replace the hardcoded 30/min burst-5 (`0` disables).
 
 ### 🐛 Fixes
+- **Button, carousel and product images** keep their real type. A PNG stays
+  `image/png`, a still WebP is re-encoded as JPEG, and a video is sent only when
+  the bytes are MP4. A header or card whose URL fails is not sent.
+- **Albums** revoke the container and the items already accepted when a later
+  item fails, and the API returns only the error.
+- **Instance saves** no longer write the decrypted token back into the plaintext
+  column. Encrypting a token also clears that column.
 - **Idempotency-Key** covers every JSON send except albums. A retry of a location,
   poll, sticker, contact, interactive message or status was sent again.
 - **Albums** fetch every item before sending the container. A URL item was
@@ -115,6 +122,8 @@
   JSON handling is one helper.
 
 ### ✨ Deployment
+- Image bases moved to `alpine:3.24.4`, `golang:1.27.4-alpine` and
+  `oven/bun:1.4.4-alpine`. The Go module version matches the image.
 - **A new install needs no configuration.** `docker compose up -d` works with no `.env`.
   `GLOBAL_API_KEY` is generated on first boot into `global-api-key` on the data volume,
   and is never logged. `DATABASE_SAVE_MESSAGES` now defaults to `true`, `CLIENT_NAME` to

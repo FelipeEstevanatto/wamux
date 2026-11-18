@@ -3,7 +3,7 @@
 # package-lock.json. Bun is used because it installs straight from
 # package-lock.json and is far
 # faster than npm; the toolchain only exists in this stage.
-FROM oven/bun:1.4.2-alpine@sha256:d888c0ae6c86d7866ff10c5aafdd9077b36aee6455b33dd270fb93c0dd5cef6f AS manager
+FROM oven/bun:1.4.4-alpine@sha256:4cf82f5686b196504fe119db3fcd9185b191f82ece82c40680e597228ec6070a AS manager
 
 WORKDIR /manager
 COPY wamux-manager/package.json wamux-manager/bun.lock ./
@@ -11,7 +11,7 @@ RUN bun install --frozen-lockfile
 COPY wamux-manager/ ./
 RUN bun run build
 
-FROM golang:1.26.11-alpine@sha256:ae52b5bc6ed045a9ed26ab03dc19327a802a9cc9aa8b27ed57f5c6b60579b0bb AS build
+FROM golang:1.27.4-alpine@sha256:70bd7ddea8b6cbe5d6943cde279d6b67feb10cc924fb9100d1d8757c1575b280 AS build
 
 RUN apk update && apk add --no-cache git build-base libjpeg-turbo-dev libwebp-dev
 
@@ -54,11 +54,11 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o wamux-replay-webhook ./cmd/wamux-replay-webhook
 
 # Runtime base is kept on the same Alpine major.minor as the build stage
-# (golang:1.26.10-alpine is Alpine 3.24.x). The CGO binary links dynamically against
+# (golang:1.27.4-alpine is Alpine 3.24.x). The CGO binary links dynamically against
 # musl, so building on 3.24 and running on 3.24 avoids a cross-version libc
-# mismatch, and 3.24 carries current ffmpeg/poppler/libjpeg/libwebp security
-# fixes that 3.19.1 no longer receives.
-FROM alpine:3.24@sha256:3f4d6b32e26703c6082839234f43769d5046b3ac7c910033911d1e71d8cd630a AS final
+# mismatch, and 3.24.4 carries the current ffmpeg/poppler/libjpeg/libwebp
+# security fixes.
+FROM alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf AS final
 
 # Image metadata. This is an independent build; the labels mark it as such.
 # The CI workflow adds source/revision/version on top of these.

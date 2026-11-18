@@ -311,7 +311,8 @@ func TestSendProduct(t *testing.T) {
 
 			product := h.only(t).msg.GetProductMessage()
 			snapshot := product.GetProduct()
-			if snapshot.GetTitle() != "Shirt" || snapshot.GetPriceAmount1000() != 10000 || snapshot.GetProductImage().GetURL() == "" {
+			image := snapshot.GetProductImage()
+			if snapshot.GetTitle() != "Shirt" || snapshot.GetPriceAmount1000() != 10000 || image.GetURL() == "" || image.GetMimetype() != "image/png" {
 				t.Errorf("snapshot = %+v", snapshot)
 			}
 			if product.GetBusinessOwnerJID() != "5511999990000@s.whatsapp.net" {

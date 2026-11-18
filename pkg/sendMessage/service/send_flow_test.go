@@ -62,6 +62,10 @@ func (f *fakeRepo) InsertMessage(m message_model.Message) error {
 	return nil
 }
 
+func (f *fakeRepo) MarkMessageDeleted(message_model.Message, []string, bool) (bool, error) {
+	return true, nil
+}
+
 // sendHarness runs the real send logic, with only the WhatsApp calls replaced.
 type sendHarness struct {
 	*sendService

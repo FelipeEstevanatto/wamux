@@ -2,6 +2,7 @@ package send_service
 
 import (
 	"encoding/base64"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -169,5 +170,42 @@ func TestSendAlbumDoesNotSendWhenAURLItemFails(t *testing.T) {
 	h.mu.Unlock()
 	if sent != 0 {
 		t.Fatalf("sent %d messages before the album was complete", sent)
+	}
+}
+
+func TestSendAlbumRevokesWhenALaterItemFails(t *testing.T) {
+	h := newSendHarness(t)
+	h.sendErr = func(attempt int) error {
+		if attempt == 3 {
+			return errors.New("whatsapp rejected item")
+		}
+		return nil
+	}
+	item := base64.StdEncoding.EncodeToString(testPNG(t))
+
+	result, err := h.SendAlbum(&AlbumStruct{
+		Number: testNumber, FormatJid: raw(),
+		Items: []AlbumItem{
+			{Mediatype: "image", Media: item},
+			{Mediatype: "image", Media: item},
+		},
+	}, h.instance)
+	if err == nil || result != nil || !strings.Contains(err.Error(), "album item 1") {
+		t.Fatalf("result=%v err=%v", result, err)
+	}
+
+	h.mu.Lock()
+	sent := append([]sentMessage(nil), h.sent...)
+	h.mu.Unlock()
+	var revoked []string
+	for _, msg := range sent {
+		protoMsg := msg.msg.GetProtocolMessage()
+		if protoMsg == nil || protoMsg.GetType() != waE2E.ProtocolMessage_REVOKE {
+			continue
+		}
+		revoked = append(revoked, protoMsg.GetKey().GetID())
+	}
+	if len(revoked) != 2 {
+		t.Fatalf("revoked %v, want the container and the item that was accepted", revoked)
 	}
 }

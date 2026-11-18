@@ -107,7 +107,7 @@ func (i *instanceRepository) GetInstanceByTokenHash(tokenHash string) (*instance
 func (i *instanceRepository) UpdateToken(instanceId, tokenHash, tokenEnc string) error {
 	return i.db.Model(&instance_model.Instance{}).
 		Where("id = ?", instanceId).
-		Updates(map[string]interface{}{"token_hash": tokenHash, "token_enc": tokenEnc}).
+		Updates(map[string]interface{}{"token": "", "token_hash": tokenHash, "token_enc": tokenEnc}).
 		Error
 }
 
@@ -150,7 +150,10 @@ func (i *instanceRepository) GetConnectedInstanceByID(instanceId string) (*insta
 }
 
 func (i *instanceRepository) Update(instance *instance_model.Instance) error {
-	err := i.db.Save(&instance).Error
+	// Token on this struct is the decrypted credential after hydrate. Saving it
+	// would put the plaintext back in the legacy column. Token changes go
+	// through UpdateToken, which stores the hash and ciphertext.
+	err := i.db.Omit("Token").Save(&instance).Error
 	if err != nil {
 		applog.Logger.LogError("Error updating instance in DB: %v", err)
 	}
