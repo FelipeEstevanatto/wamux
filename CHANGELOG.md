@@ -1,6 +1,8 @@
 # WaMux - Changelog
 
-## Unreleased
+## 1.0.1 — albums, idempotent sends, and a clearer manager
+
+Upgrade notes are in `.github/release-notes/1.0.1.md`.
 
 ### ✨ Manager
 - Instance settings has a section list (connection, webhooks, events, proxy,
