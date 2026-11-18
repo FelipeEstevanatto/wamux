@@ -111,4 +111,63 @@ func TestSendAlbumValidatesItems(t *testing.T) {
 	}}, h.instance); err == nil || !strings.Contains(err.Error(), "base64") {
 		t.Fatalf("invalid base64 error = %v", err)
 	}
+	h.mu.Lock()
+	sent := len(h.sent)
+	h.mu.Unlock()
+	if sent != 0 {
+		t.Fatalf("invalid media sent %d messages", sent)
+	}
+}
+
+func TestSendAlbumFetchesURLItemsBeforeSending(t *testing.T) {
+	h := newSendHarness(t)
+	png := testPNG(t)
+	server := mediaServer(t, map[string][]byte{"/a.png": png, "/b.png": png})
+
+	result, err := h.SendAlbum(&AlbumStruct{
+		Number:    testNumber,
+		FormatJid: raw(),
+		Items: []AlbumItem{
+			{Mediatype: "image", Media: server.URL + "/a.png", Caption: "from-url"},
+			{Mediatype: "image", Media: server.URL + "/b.png"},
+		},
+	}, h.instance)
+	if err != nil {
+		t.Fatalf("SendAlbum: %v", err)
+	}
+	h.mu.Lock()
+	sent := append([]sentMessage(nil), h.sent...)
+	h.mu.Unlock()
+	if len(result.Items) != 2 || len(sent) != 3 {
+		t.Fatalf("items %d, sent %d", len(result.Items), len(sent))
+	}
+	if got := sent[1].msg.GetImageMessage().GetCaption(); got != "from-url" {
+		t.Fatalf("caption = %q", got)
+	}
+	if sent[1].msg.GetImageMessage().GetMimetype() != "image/png" {
+		t.Fatalf("mimetype = %q", sent[1].msg.GetImageMessage().GetMimetype())
+	}
+}
+
+func TestSendAlbumDoesNotSendWhenAURLItemFails(t *testing.T) {
+	h := newSendHarness(t)
+	server := mediaServer(t, map[string][]byte{"/a.png": testPNG(t)})
+
+	_, err := h.SendAlbum(&AlbumStruct{
+		Number:    testNumber,
+		FormatJid: raw(),
+		Items: []AlbumItem{
+			{Mediatype: "image", Media: server.URL + "/a.png"},
+			{Mediatype: "image", Media: server.URL + "/missing.png"},
+		},
+	}, h.instance)
+	if err == nil || !strings.Contains(err.Error(), "album item 1") {
+		t.Fatalf("err = %v", err)
+	}
+	h.mu.Lock()
+	sent := len(h.sent)
+	h.mu.Unlock()
+	if sent != 0 {
+		t.Fatalf("sent %d messages before the album was complete", sent)
+	}
 }

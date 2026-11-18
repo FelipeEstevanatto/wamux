@@ -148,7 +148,9 @@ SELECT * FROM (
         count(*) OVER (PARTITION BY chat_jid) AS message_count
     FROM messages
     WHERE instance_id = ? AND chat_jid <> ''
-    ORDER BY chat_jid, "timestamp" DESC
+    ORDER BY chat_jid,
+        CASE WHEN message_type IN ('edit', 'delete', 'deleted', 'reaction', 'poll_update', 'unknown') THEN 1 ELSE 0 END,
+        "timestamp" DESC
 ) t
 ORDER BY "timestamp" DESC
 LIMIT ?`

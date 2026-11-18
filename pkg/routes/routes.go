@@ -74,6 +74,17 @@ func (r *Routes) SetIdempotency(h *idempotency.Handler) {
 	r.idempotency = h
 }
 
+// withIdempotency runs the Idempotency-Key middleware in front of a JSON send.
+// Without a configured handler the route behaves as before.
+func (r *Routes) withIdempotency(handlers ...gin.HandlerFunc) []gin.HandlerFunc {
+	if r.idempotency == nil {
+		return handlers
+	}
+	out := make([]gin.HandlerFunc, 0, len(handlers)+1)
+	out = append(out, r.idempotency.Middleware())
+	return append(out, handlers...)
+}
+
 // loopbackOnly admits a scrape only from a loopback TCP peer. It deliberately
 // uses RemoteAddr rather than ClientIP: a forwarded header must not turn a
 // public request into a local one.
@@ -207,30 +218,24 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.Use(r.sendGuard.Middleware())
 		}
 		{
-			textHandlers := []gin.HandlerFunc{}
-			mediaHandlers := []gin.HandlerFunc{}
-			if r.idempotency != nil {
-				textHandlers = append(textHandlers, r.idempotency.Middleware())
-				mediaHandlers = append(mediaHandlers, r.idempotency.Middleware())
-			}
-			textHandlers = append(textHandlers, r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendText)
-			mediaHandlers = append(mediaHandlers, r.uploadGuard(), r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendMedia)
-
-			routes.POST("/text", textHandlers...)
-			routes.POST("/link", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendLink)
-			routes.POST("/media", mediaHandlers...)
+			// Every JSON send replays a repeated Idempotency-Key. An album is the
+			// exception: it is several WhatsApp messages, and the handler rejects
+			// the header. Multipart uploads are rejected by the middleware itself.
+			routes.POST("/text", r.withIdempotency(r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendText)...)
+			routes.POST("/link", r.withIdempotency(r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendLink)...)
+			routes.POST("/media", r.withIdempotency(r.uploadGuard(), r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendMedia)...)
 			routes.POST("/album", r.uploadGuard(), r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendAlbum)
-			routes.POST("/poll", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendPoll)
-			routes.POST("/sticker", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendSticker)
-			routes.POST("/location", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendLocation)
-			routes.POST("/contact", r.jidValidationMiddleware.ValidateContactFields(), r.sendHandler.SendContact) // TODO: send multiple contacts
-			routes.POST("/button", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendButton)
-			routes.POST("/list", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendList)
-			routes.POST("/carousel", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendCarousel)
-			routes.POST("/event", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendEvent)
-			routes.POST("/product", r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendProduct)
-			routes.POST("/status/text", r.sendHandler.SendStatusText)
-			routes.POST("/status/media", r.uploadGuard(), r.sendHandler.SendStatusMedia)
+			routes.POST("/poll", r.withIdempotency(r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendPoll)...)
+			routes.POST("/sticker", r.withIdempotency(r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendSticker)...)
+			routes.POST("/location", r.withIdempotency(r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendLocation)...)
+			routes.POST("/contact", r.withIdempotency(r.jidValidationMiddleware.ValidateContactFields(), r.sendHandler.SendContact)...) // TODO: send multiple contacts
+			routes.POST("/button", r.withIdempotency(r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendButton)...)
+			routes.POST("/list", r.withIdempotency(r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendList)...)
+			routes.POST("/carousel", r.withIdempotency(r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendCarousel)...)
+			routes.POST("/event", r.withIdempotency(r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendEvent)...)
+			routes.POST("/product", r.withIdempotency(r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendProduct)...)
+			routes.POST("/status/text", r.withIdempotency(r.sendHandler.SendStatusText)...)
+			routes.POST("/status/media", r.withIdempotency(r.uploadGuard(), r.sendHandler.SendStatusMedia)...)
 		}
 	}
 	routes = eng.Group("/user")

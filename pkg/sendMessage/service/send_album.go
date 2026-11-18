@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
@@ -107,6 +108,17 @@ func (s *sendService) SendAlbum(data *AlbumStruct, instance *instance_model.Inst
 	// WhatsApp node lookup fail.
 	recipient.User = strings.ReplaceAll(recipient.User, "+", "")
 
+	// Fetch every item before the container goes out. A URL that fails, or a
+	// payload that is not base64, must not leave the earlier items already sent.
+	items := make([]preparedAlbumItem, len(data.Items))
+	for i, item := range data.Items {
+		prepared, err := s.prepareAlbumItem(data, item, i)
+		if err != nil {
+			return nil, fmt.Errorf("album item %d failed: %w", i, err)
+		}
+		items[i] = prepared
+	}
+
 	containerID := data.Id
 	if containerID == "" {
 		containerID = client.GenerateMessageID()
@@ -136,35 +148,9 @@ func (s *sendService) SendAlbum(data *AlbumStruct, instance *instance_model.Inst
 		Items: make([]*MessageSendStruct, 0, len(data.Items)),
 	}
 
-	for i, item := range data.Items {
-		media := &MediaStruct{
-			Number:         data.Number,
-			Type:           strings.ToLower(item.Mediatype),
-			Caption:        item.Caption,
-			Filename:       item.FileName,
-			FormatJid:      data.FormatJid,
-			AlbumParentKey: parentKey,
-			AlbumIndex:     proto.Int32(int32(i)),
-		}
-		// A reply and mentions belong to the album, not to every item: put
-		// them on the first one only.
-		if i == 0 {
-			media.Quoted = data.Quoted
-			media.MentionedJID = data.MentionedJID
-			media.MentionAll = data.MentionAll
-			media.Delay = data.Delay
-		}
-
-		var sent *MessageSendStruct
-		if isMediaURL(item.Media) {
-			sent, err = s.SendMediaUrl(media, instance)
-		} else {
-			var raw []byte
-			raw, err = decodeAlbumMedia(item.Media)
-			if err == nil {
-				sent, err = s.SendMediaFile(media, raw, instance)
-			}
-		}
+	for i := range items {
+		items[i].media.AlbumParentKey = parentKey
+		sent, err := s.SendMediaFile(items[i].media, items[i].data, instance)
 		if err != nil {
 			return result, fmt.Errorf("album item %d failed: %w", i, err)
 		}
@@ -172,6 +158,66 @@ func (s *sendService) SendAlbum(data *AlbumStruct, instance *instance_model.Inst
 	}
 
 	return result, nil
+}
+
+// preparedAlbumItem is one album item whose bytes are already in memory.
+type preparedAlbumItem struct {
+	media *MediaStruct
+	data  []byte
+}
+
+// prepareAlbumItem decodes or downloads one item. A URL is copied onto the
+// media struct: SendMediaUrl reads MediaStruct.Url, not the album field.
+func (s *sendService) prepareAlbumItem(album *AlbumStruct, item AlbumItem, index int) (preparedAlbumItem, error) {
+	media := &MediaStruct{
+		Number:     album.Number,
+		Type:       strings.ToLower(item.Mediatype),
+		Caption:    item.Caption,
+		Filename:   item.FileName,
+		FormatJid:  album.FormatJid,
+		AlbumIndex: proto.Int32(int32(index)),
+	}
+	// A reply and mentions belong to the album, not to every item.
+	if index == 0 {
+		media.Quoted = album.Quoted
+		media.MentionedJID = album.MentionedJID
+		media.MentionAll = album.MentionAll
+		media.Delay = album.Delay
+	}
+
+	if isMediaURL(item.Media) {
+		media.Url = strings.TrimSpace(item.Media)
+		data, err := fetchAlbumMedia(media.Url)
+		if err != nil {
+			return preparedAlbumItem{}, err
+		}
+		return preparedAlbumItem{media: media, data: data}, nil
+	}
+	data, err := decodeAlbumMedia(item.Media)
+	if err != nil {
+		return preparedAlbumItem{}, err
+	}
+	return preparedAlbumItem{media: media, data: data}, nil
+}
+
+// fetchAlbumMedia downloads one album item. The caller has not sent anything
+// yet, so a refusal here leaves the chat untouched.
+func fetchAlbumMedia(rawURL string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), largeDownloadTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := largeMediaHTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("failed to download media: HTTP %s", resp.Status)
+	}
+	return readAllLimited(resp.Body)
 }
 
 // isMediaURL reports whether media is an HTTP(S) URL rather than base64.

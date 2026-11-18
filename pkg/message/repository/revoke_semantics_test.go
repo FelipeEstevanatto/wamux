@@ -37,6 +37,28 @@ func wantTombstone(t *testing.T, row *message_model.Message) {
 	}
 }
 
+func TestChatListPreviewSkipsARevokedMessage(t *testing.T) {
+	repo := NewMessageRepository(realDB(t))
+	older := contentRow("sem-preview-older", "still here")
+	older.Timestamp = "2026-10-01 10:00:00"
+	newer := contentRow("sem-preview-newer", "gone")
+	newer.Timestamp = "2026-10-01 11:00:00"
+	if err := repo.InsertMessages([]message_model.Message{older, newer}); err != nil {
+		t.Fatal(err)
+	}
+	revoked := newer
+	revoked.TextContent = ""
+	applied, err := repo.MarkMessageDeleted(revoked, []string{semChat}, true)
+	if err != nil || !applied {
+		t.Fatalf("applied %v, err %v", applied, err)
+	}
+
+	got := chatSummary(t, repo, semChat)
+	if got.MessageID != older.MessageID || got.TextContent != "still here" || got.MessageType != "text" {
+		t.Fatalf("preview = %+v", got)
+	}
+}
+
 func TestRevokeEmptiesTheMessageAndKeepsItsPlace(t *testing.T) {
 	repo := NewMessageRepository(realDB(t))
 	original := richRow("sem-revoke")

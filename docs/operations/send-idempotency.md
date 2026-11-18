@@ -1,6 +1,6 @@
 # Idempotent sends
 
-`POST /send/text` and JSON `POST /send/media` accept an `Idempotency-Key`
+Every JSON `POST /send/*` route except `/send/album` accepts an `Idempotency-Key`
 header (up to 255 characters). The first request runs normally; a retry with the
 same method, path and exact body replays the first response and sends nothing.
 

@@ -19,7 +19,7 @@
   `keyset=true` plus the `before`/`before_id` cursor returned in `next_cursor`, so pages
   are exact even when many messages share one second. `GET /chat/history/capabilities`
   publishes the contract. The old `before`-only cursor still works.
-- **Idempotent sends** — `POST /send/text` and JSON `POST /send/media` accept an
+- **Idempotent sends** — JSON `POST /send/*` except `/send/album` accepts an
   `Idempotency-Key`. A retry with the same body replays the first response without
   sending again; the same key with a different body is `409`. `GET /send/operations` and
   `GET /send/operations/:id` report the state (migration `0012`).
@@ -59,6 +59,15 @@
   replace the hardcoded 30/min burst-5 (`0` disables).
 
 ### 🐛 Fixes
+- **Idempotency-Key** covers every JSON send except albums. A retry of a location,
+  poll, sticker, contact, interactive message or status was sent again.
+- **Albums** fetch every item before sending the container. A URL item was
+  downloaded from an empty address, and the API returned an error after earlier
+  items had already been delivered.
+- **WebP images** are re-encoded as JPEG before upload. The file was sent with a
+  JPEG type and the original WebP bytes.
+- **Chat list** preview skips a revoked message when the conversation still has
+  an earlier visible one, instead of showing an empty tombstone.
 - **`QRCODE_MAX_COUNT`** stops the instance. It restarted instead, with the count back at
   zero, so an unscanned instance rotated codes forever. `/instance/connect` starts again.
   The count now also survives the restart between batches of codes, or a limit above

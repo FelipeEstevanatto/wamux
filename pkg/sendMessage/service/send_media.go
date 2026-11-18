@@ -46,6 +46,11 @@ func (s *sendService) deliverMedia(
 			return nil, errors.New(errMsg)
 		}
 		if mimeType == "image/webp" {
+			converted, cerr := jpegFromWebP(fileData)
+			if cerr != nil {
+				return nil, cerr
+			}
+			fileData = converted
 			mimeType = "image/jpeg"
 		}
 		uploadType = whatsmeow.MediaImage

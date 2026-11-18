@@ -376,6 +376,8 @@ type Button struct {
 type ButtonStruct struct {
 	// Destination phone number.
 	Number string `json:"number" example:"5582900000001"`
+	// Optional WhatsApp message id. Idempotency-Key fills this so a retry is the same message.
+	Id string `json:"id,omitempty" example:"3EB0A1B2C3D4E5F6A7B8C9"`
 	// Header title (required).
 	Title string `json:"title" example:"Oferta especial"`
 	// Body description text (required).
@@ -424,6 +426,8 @@ type Section struct {
 type ListStruct struct {
 	// Destination phone number.
 	Number string `json:"number" example:"5582900000001"`
+	// Optional WhatsApp message id. Idempotency-Key fills this so a retry is the same message.
+	Id string `json:"id,omitempty" example:"3EB0A1B2C3D4E5F6A7B8C9"`
 	// Header title (required).
 	Title string `json:"title" example:"Nossos planos"`
 	// Body description text (required).
@@ -512,6 +516,8 @@ type CarouselCardStruct struct {
 type CarouselStruct struct {
 	// Destination phone number.
 	Number string `json:"number" example:"5582900000001"`
+	// Optional WhatsApp message id. Idempotency-Key fills this so a retry is the same message.
+	Id string `json:"id,omitempty" example:"3EB0A1B2C3D4E5F6A7B8C9"`
 	// Optional message body shown above the cards.
 	Body string `json:"body,omitempty" example:"Confira nossas novidades!"`
 	// Optional message footer shown below the cards.
@@ -1382,6 +1388,24 @@ func convertBytesToWebP(data []byte) ([]byte, error) {
 	return webpBuffer.Bytes(), nil
 }
 
+// jpegFromWebP re-encodes a still WebP as JPEG. WhatsApp image messages are
+// JPEG or PNG; labeling the original WebP bytes as JPEG delivers a file the
+// recipient cannot display.
+func jpegFromWebP(data []byte) ([]byte, error) {
+	if isAnimatedWebP(data) {
+		return nil, errors.New("animated WebP cannot be sent as a still image; send it as a sticker")
+	}
+	img, err := webp.Decode(bytes.NewReader(data))
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode WebP: %w", err)
+	}
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: 90}); err != nil {
+		return nil, fmt.Errorf("failed to encode JPEG: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
 // isWebP checks the RIFF/WEBP magic bytes.
 func isWebP(data []byte) bool {
 	return len(data) >= 12 && bytes.Equal(data[0:4], []byte("RIFF")) && bytes.Equal(data[8:12], []byte("WEBP"))
@@ -1891,6 +1915,7 @@ func (s *sendService) SendButton(data *ButtonStruct, instance *instance_model.In
 
 	// Route through centralized SendMessage for ContextInfo, webhooks, quotes, mentions.
 	message, err := s.SendMessage(instance, msg, msgType, &SendDataStruct{
+		Id:              data.Id,
 		Number:          data.Number,
 		Delay:           data.Delay,
 		MentionAll:      data.MentionAll,
@@ -2498,6 +2523,7 @@ func (s *sendService) SendList(data *ListStruct, instance *instance_model.Instan
 	}
 
 	message, err := s.SendMessage(instance, msg, "InteractiveMessage", &SendDataStruct{
+		Id:              data.Id,
 		Number:          data.Number,
 		Delay:           data.Delay,
 		MentionAll:      data.MentionAll,
@@ -3250,6 +3276,7 @@ func (s *sendService) SendCarousel(data *CarouselStruct, instance *instance_mode
 
 		s.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Single card without media: sending as an interactive message instead of a carousel", instance.Id)
 		message, err := s.SendMessage(instance, &waE2E.Message{InteractiveMessage: cards[0]}, "InteractiveMessage", &SendDataStruct{
+			Id:              data.Id,
 			Number:          data.Number,
 			Delay:           data.Delay,
 			FormatJid:       data.FormatJid,
@@ -3314,6 +3341,7 @@ func (s *sendService) SendCarousel(data *CarouselStruct, instance *instance_mode
 	}
 
 	message, err := s.SendMessage(instance, msg, "InteractiveMessage", &SendDataStruct{
+		Id:        data.Id,
 		Number:    data.Number,
 		Delay:     data.Delay,
 		FormatJid: data.FormatJid,
@@ -3446,6 +3474,11 @@ func (s *sendService) sendStatusMedia(client *whatsmeow.Client, data *StatusMedi
 			return nil, fmt.Errorf("invalid file format: '%s'. Only 'image/jpeg', 'image/png' and 'image/webp' are accepted", mimeType)
 		}
 		if mimeType == "image/webp" {
+			converted, cerr := jpegFromWebP(fileData)
+			if cerr != nil {
+				return nil, cerr
+			}
+			fileData = converted
 			mimeType = "image/jpeg"
 		}
 		uploadType = whatsmeow.MediaImage

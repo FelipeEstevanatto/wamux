@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/chai2010/webp"
+
 	config "github.com/felipeestevanatto/wamux/pkg/config"
 	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
 	logger_wrapper "github.com/felipeestevanatto/wamux/pkg/logger"
@@ -378,6 +380,37 @@ func TestSendImageFile(t *testing.T) {
 	}
 	if got.MediaMimetype != "image/png" {
 		t.Errorf("MediaMimetype = %q", got.MediaMimetype)
+	}
+}
+
+func TestSendImageConvertsWebPToJPEG(t *testing.T) {
+	h := newSendHarness(t)
+	img := image.NewRGBA(image.Rect(0, 0, 2, 2))
+	img.Set(0, 0, color.RGBA{R: 255, A: 255})
+	var encoded bytes.Buffer
+	if err := webp.Encode(&encoded, img, &webp.Options{Lossless: true}); err != nil {
+		t.Fatal(err)
+	}
+	var uploaded []byte
+	h.upload = func(_ context.Context, _ *whatsmeow.Client, data []byte, kind whatsmeow.MediaType) (whatsmeow.UploadResponse, error) {
+		uploaded = append([]byte(nil), data...)
+		h.uploads = append(h.uploads, kind)
+		return whatsmeow.UploadResponse{
+			URL: "https://mmg.test/file", DirectPath: "/v/file",
+			MediaKey: []byte{1}, FileEncSHA256: []byte{4}, FileSHA256: []byte{5},
+			FileLength: uint64(len(data)),
+		}, nil
+	}
+
+	_, err := h.SendMediaFile(&MediaStruct{Number: testNumber, Type: "image", FormatJid: raw()}, encoded.Bytes(), h.instance)
+	if err != nil {
+		t.Fatalf("SendMediaFile: %v", err)
+	}
+	if len(uploaded) < 2 || uploaded[0] != 0xff || uploaded[1] != 0xd8 {
+		t.Fatalf("uploaded %d bytes, want JPEG", len(uploaded))
+	}
+	if got := h.only(t).msg.GetImageMessage().GetMimetype(); got != "image/jpeg" {
+		t.Fatalf("mimetype = %q", got)
 	}
 }
 

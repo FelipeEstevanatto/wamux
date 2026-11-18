@@ -739,11 +739,33 @@ WITH RECURSIVE chats AS (
     SELECT l.*
       FROM chats c
      CROSS JOIN LATERAL (
-        SELECT x.chat_jid, x.message_id, x."timestamp", x.message_type, x.text_content,
-               x.status, x.media_url, x.sender_jid, x.is_from_me
-          FROM messages x
-         WHERE x.instance_id = ? AND x.chat_jid = c.chat_jid
-         ORDER BY x."timestamp" DESC
+        -- Prefer the newest message a person can read. A revoke keeps the
+        -- original timestamp and clears the text, so ordering by time alone
+        -- makes the tombstone the preview and hides the previous message.
+        -- The second branch is only reached when the chat has nothing else.
+        SELECT picked.chat_jid, picked.message_id, picked."timestamp", picked.message_type,
+               picked.text_content, picked.status, picked.media_url, picked.sender_jid, picked.is_from_me
+          FROM (
+            (
+                SELECT 0 AS preview_rank, x.chat_jid, x.message_id, x."timestamp", x.message_type,
+                       x.text_content, x.status, x.media_url, x.sender_jid, x.is_from_me
+                  FROM messages x
+                 WHERE x.instance_id = ? AND x.chat_jid = c.chat_jid
+                   AND x.message_type NOT IN ('edit', 'delete', 'deleted', 'reaction', 'poll_update', 'unknown')
+                 ORDER BY x."timestamp" DESC
+                 LIMIT 1
+            )
+            UNION ALL
+            (
+                SELECT 1 AS preview_rank, x.chat_jid, x.message_id, x."timestamp", x.message_type,
+                       x.text_content, x.status, x.media_url, x.sender_jid, x.is_from_me
+                  FROM messages x
+                 WHERE x.instance_id = ? AND x.chat_jid = c.chat_jid
+                 ORDER BY x."timestamp" DESC
+                 LIMIT 1
+            )
+        ) picked
+         ORDER BY picked.preview_rank
          LIMIT 1
      ) l
      WHERE c.chat_jid IS NOT NULL
@@ -770,7 +792,7 @@ SELECT t.*,
   LEFT JOIN chat_reads r ON r.instance_id = ? AND r.chat_jid = t.chat_jid
  ORDER BY t."timestamp" DESC`
 
-	err := m.db.Raw(query, instanceId, instanceId, instanceId, clampHistoryLimit(limit), instanceId, instanceId, instanceId, instanceId).Scan(&summaries).Error
+	err := m.db.Raw(query, instanceId, instanceId, instanceId, instanceId, clampHistoryLimit(limit), instanceId, instanceId, instanceId, instanceId).Scan(&summaries).Error
 	return summaries, err
 }
 
