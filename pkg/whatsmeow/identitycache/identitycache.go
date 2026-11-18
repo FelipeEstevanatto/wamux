@@ -26,7 +26,6 @@ package identitycache
 
 import (
 	"context"
-	"encoding/hex"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -68,7 +67,7 @@ type Store struct {
 	max   int
 
 	mu      sync.Mutex
-	entries map[string]entry
+	entries map[identityKey]entry
 	inserts int
 
 	hits       atomic.Uint64
@@ -107,7 +106,7 @@ func New(inner store.IdentityStore, opts ...Option) *Store {
 		inner:   inner,
 		ttl:     DefaultTTL,
 		max:     DefaultMaxEntries,
-		entries: make(map[string]entry),
+		entries: make(map[identityKey]entry),
 	}
 	for _, o := range opts {
 		o(s)
@@ -115,14 +114,17 @@ func New(inner store.IdentityStore, opts ...Option) *Store {
 	return s
 }
 
-func cacheKey(address string, key [32]byte) string {
-	return address + "\x00" + hex.EncodeToString(key[:])
+// identityKey is the map key for one trust decision. It is copied by value, so a
+// hit does not allocate the way a hex-encoded string key did.
+type identityKey struct {
+	address string
+	key     [32]byte
 }
 
 // IsTrustedIdentity returns the cached decision when present, else delegates and
 // caches the result. Errors are returned and never cached.
 func (s *Store) IsTrustedIdentity(ctx context.Context, address string, key [32]byte) (bool, error) {
-	ck := cacheKey(address, key)
+	ck := identityKey{address: address, key: key}
 	if trusted, ok := s.get(ck); ok {
 		s.hits.Add(1)
 		return trusted, nil
@@ -178,7 +180,7 @@ func (s *Store) Stats() Stats {
 	}
 }
 
-func (s *Store) get(ck string) (trusted bool, ok bool) {
+func (s *Store) get(ck identityKey) (trusted bool, ok bool) {
 	now := time.Now().UnixNano()
 	s.mu.Lock()
 	e, ok := s.entries[ck]
@@ -195,7 +197,7 @@ func (s *Store) get(ck string) (trusted bool, ok bool) {
 	return e.trusted, true
 }
 
-func (s *Store) set(ck string, trusted bool) {
+func (s *Store) set(ck identityKey, trusted bool) {
 	now := time.Now().UnixNano()
 	s.mu.Lock()
 	if len(s.entries) >= s.max {
@@ -217,7 +219,7 @@ func (s *Store) set(ck string, trusted bool) {
 
 func (s *Store) flush() {
 	s.mu.Lock()
-	s.entries = make(map[string]entry)
+	s.entries = make(map[identityKey]entry)
 	s.mu.Unlock()
 }
 
