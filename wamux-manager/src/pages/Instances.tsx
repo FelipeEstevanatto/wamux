@@ -79,9 +79,6 @@ export default function Instances() {
   // Synchronous guard against a double click landing before the state update.
   const connectingInstanceRef = useRef<string | null>(null);
 
-  // Pagination states
-  const [currentPage] = useState(1);
-  const [perPage] = useState(24);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [deleteModal, setDeleteModal] = useState<{
     isOpen: boolean;
@@ -122,33 +119,28 @@ export default function Instances() {
     // so the page no longer needs its own interval.
   }, [fetchInstances]);
 
-  const { paginatedInstances, totalCount } = useMemo(() => {
-    // First filter by search query
-    const filtered = query
-      ? instances.filter((i: Instance) => {
-          const q = query.toLowerCase();
-          return (
-            i.instanceName?.toLowerCase().includes(q) ||
-            i.profileName?.toLowerCase().includes(q) ||
-            i.owner?.toLowerCase().includes(q)
-          );
-        })
-      : instances;
-
-    // Then paginate
-    const startIndex = (currentPage - 1) * perPage;
-    const endIndex = startIndex + perPage;
-    const paginated = filtered.slice(startIndex, endIndex);
-
-    return {
-      paginatedInstances: paginated,
-      totalCount: filtered.length,
-    };
-  }, [instances, query, currentPage, perPage]);
+  const filteredInstances = useMemo(() => {
+    if (!query) return instances;
+    const q = query.toLowerCase();
+    return instances.filter(
+      (i: Instance) =>
+        i.instanceName?.toLowerCase().includes(q) ||
+        i.profileName?.toLowerCase().includes(q) ||
+        i.owner?.toLowerCase().includes(q)
+    );
+  }, [instances, query]);
+  const totalCount = filteredInstances.length;
 
   const handleNewInstance = useCallback(() => {
     setCreateModalOpen(true);
   }, []);
+
+  const handleOpen = useCallback(
+    (instance: Instance) => {
+      navigate(`/manager/messages?instance=${encodeURIComponent(instance.id)}`);
+    },
+    [navigate]
+  );
 
   const handleSettings = useCallback(
     (instance: Instance) => {
@@ -505,13 +497,14 @@ export default function Instances() {
           />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {paginatedInstances.map((instance: Instance) => (
+            {filteredInstances.map((instance: Instance) => (
               <InstanceCard
                 key={instance.instanceName}
                 instance={instance}
                 overview={overviews[instance.id]}
                 isDeleting={isDeleting}
                 isConnecting={connectingInstance === instance.instanceName}
+                onOpen={handleOpen}
                 onSettings={handleSettings}
                 onDelete={openDeleteModal}
                 onConnect={handleConnect}

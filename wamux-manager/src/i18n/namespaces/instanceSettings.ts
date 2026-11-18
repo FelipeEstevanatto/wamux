@@ -34,6 +34,15 @@ export const instanceSettingsNs: {
     'instanceSettings.status.connected': 'Conectado',
     'instanceSettings.status.disconnected': 'Desconectado',
 
+    'instanceSettings.nav.label': 'Seções das configurações',
+    'instanceSettings.nav.connection': 'Conexão',
+    'instanceSettings.nav.webhooks': 'Webhooks',
+    'instanceSettings.nav.events': 'Eventos',
+    'instanceSettings.nav.proxy': 'Proxy',
+    'instanceSettings.nav.behavior': 'Comportamento',
+    'instanceSettings.nav.danger': 'Perigo',
+    'instanceSettings.unsaved': 'Não salvo',
+
     'instanceSettings.action.saveName': 'Salvar nome',
     'instanceSettings.action.editName': 'Editar nome',
     'instanceSettings.action.showToken': 'Mostrar token',
@@ -76,6 +85,10 @@ export const instanceSettingsNs: {
     'instanceSettings.webhook.urlHelp': 'URL que receberá os eventos do WhatsApp',
     'instanceSettings.webhook.events': 'Eventos para Webhook',
     'instanceSettings.webhook.save': 'Salvar Webhook',
+    'instanceSettings.events.savedWithWebhook':
+      'Os eventos são gravados junto com o webhook.',
+    'instanceSettings.events.save': 'Salvar eventos',
+    'instanceSettings.behavior.save': 'Salvar comportamento',
 
     'instanceSettings.events.ALL': 'Todos',
     'instanceSettings.events.MESSAGE': 'Mensagem',
@@ -235,6 +248,15 @@ export const instanceSettingsNs: {
     'instanceSettings.status.connected': 'Connected',
     'instanceSettings.status.disconnected': 'Disconnected',
 
+    'instanceSettings.nav.label': 'Settings sections',
+    'instanceSettings.nav.connection': 'Connection',
+    'instanceSettings.nav.webhooks': 'Webhooks',
+    'instanceSettings.nav.events': 'Events',
+    'instanceSettings.nav.proxy': 'Proxy',
+    'instanceSettings.nav.behavior': 'Behavior',
+    'instanceSettings.nav.danger': 'Danger',
+    'instanceSettings.unsaved': 'Unsaved',
+
     'instanceSettings.action.saveName': 'Save name',
     'instanceSettings.action.editName': 'Edit name',
     'instanceSettings.action.showToken': 'Show token',
@@ -277,6 +299,10 @@ export const instanceSettingsNs: {
     'instanceSettings.webhook.urlHelp': 'URL that will receive WhatsApp events',
     'instanceSettings.webhook.events': 'Webhook Events',
     'instanceSettings.webhook.save': 'Save Webhook',
+    'instanceSettings.events.savedWithWebhook':
+      'Events are saved together with the webhook.',
+    'instanceSettings.events.save': 'Save events',
+    'instanceSettings.behavior.save': 'Save behavior',
 
     'instanceSettings.events.ALL': 'All',
     'instanceSettings.events.MESSAGE': 'Message',

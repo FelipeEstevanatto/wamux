@@ -3,6 +3,9 @@
 ## Unreleased
 
 ### ✨ Manager
+- Instance settings has a section list (connection, webhooks, events, proxy,
+  behavior, danger). Webhook, events, proxy and behavior show when they have
+  unsaved changes, and each save button stays on its own form.
 - The inbox empty state links to Instances when nothing is connected. Storage
   warnings explain the limitation in plain language, with the server setting
   behind “how to turn this on”. A chat shows its name, with the number

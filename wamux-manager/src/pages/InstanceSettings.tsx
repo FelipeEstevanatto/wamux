@@ -10,6 +10,8 @@ import { z } from "zod";
 import * as instancesApi from "@/services/api/instances";
 import type { Instance, InstanceOverview, ProxyConfig, ProxyTestResult } from "@/types/instance";
 import { deviceLabel } from "@/utils/device";
+import { cn } from "@/utils/cn";
+import { proxyFormDirty, sameMembers } from "@/utils/settingsDirty";
 import { updateInstanceInCache } from '@/hooks/useInstances';
 import { useI18n } from '@/i18n/I18nContext';
 
@@ -41,6 +43,30 @@ function parseEvents(events: string): string[] {
     .filter(Boolean);
 }
 
+const SECTIONS = [
+  { id: "connection", labelKey: "instanceSettings.nav.connection" },
+  { id: "webhooks", labelKey: "instanceSettings.nav.webhooks" },
+  { id: "events", labelKey: "instanceSettings.nav.events" },
+  { id: "proxy", labelKey: "instanceSettings.nav.proxy" },
+  { id: "behavior", labelKey: "instanceSettings.nav.behavior" },
+  { id: "danger", labelKey: "instanceSettings.nav.danger" },
+] as const;
+
+function sectionClass(dirty: boolean) {
+  return cn(
+    "scroll-mt-16 rounded-lg border bg-card p-6",
+    dirty ? "border-amber-500/60" : "border-sidebar-border"
+  );
+}
+
+function UnsavedMark({ label }: { label: string }) {
+  return (
+    <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+      {label}
+    </span>
+  );
+}
+
 const availableEvents = [
   "ALL",
   "MESSAGE",
@@ -64,7 +90,9 @@ export default function InstanceSettings() {
   const [instance, setInstance] = useState<Instance | null>(null);
   const [overview, setOverview] = useState<InstanceOverview | null>(null);
   const [editedEvents, setEditedEvents] = useState<string[] | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
+  const [savingSection, setSavingSection] = useState<null | "webhook" | "behavior">(null);
+  const [activeSection, setActiveSection] = useState<string>(SECTIONS[0].id);
+  const scrollerRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showToken, setShowToken] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -91,7 +119,7 @@ export default function InstanceSettings() {
   const {
     register: registerWebhook,
     handleSubmit: handleSubmitWebhook,
-    formState: { errors: webhookErrors },
+    formState: { errors: webhookErrors, isDirty: webhookFormDirty },
     reset: resetWebhook,
   } = useForm<WebhookFormData>({
     resolver: zodResolver(webhookSchema),
@@ -100,6 +128,7 @@ export default function InstanceSettings() {
   const {
     register: registerAdvanced,
     handleSubmit: handleSubmitAdvanced,
+    formState: { isDirty: behaviorDirty },
     reset: resetAdvanced,
   } = useForm<AdvancedFormData>({
     resolver: zodResolver(advancedSchema),
@@ -234,7 +263,7 @@ export default function InstanceSettings() {
     }
 
     try {
-      setIsSaving(true);
+      setSavingSection("webhook");
       const config = {
         webhookUrl: data.webhookUrl || "",
         subscribe: selectedEvents,
@@ -244,6 +273,13 @@ export default function InstanceSettings() {
       };
 
       await instancesApi.connectInstance(instance.apikey, config);
+      resetWebhook({
+        webhookUrl: data.webhookUrl || "",
+        rabbitmqEnable: data.rabbitmqEnable || "",
+        websocketEnable: data.websocketEnable || "",
+        natsEnable: data.natsEnable || "",
+      });
+      setEditedEvents(null);
       toast.success(t('instanceSettings.toast.webhookUpdated'));
 
       // Refetch instance data
@@ -255,7 +291,7 @@ export default function InstanceSettings() {
         error instanceof Error ? error.message : t('instanceSettings.toast.webhookUpdateError')
       );
     } finally {
-      setIsSaving(false);
+      setSavingSection(null);
     }
   };
 
@@ -266,12 +302,19 @@ export default function InstanceSettings() {
     }
 
     try {
-      setIsSaving(true);
+      setSavingSection("behavior");
       await instancesApi.updateAdvancedSettings(
         instance.id,
         instance.apikey,
         data
       );
+      resetAdvanced({
+        alwaysOnline: Boolean(data.alwaysOnline),
+        rejectCall: Boolean(data.rejectCall),
+        readMessages: Boolean(data.readMessages),
+        ignoreGroups: Boolean(data.ignoreGroups),
+        ignoreStatus: Boolean(data.ignoreStatus),
+      });
       toast.success(t('instanceSettings.toast.advancedUpdated'));
 
       // Refetch instance data
@@ -285,7 +328,7 @@ export default function InstanceSettings() {
           : t('instanceSettings.toast.advancedUpdateError')
       );
     } finally {
-      setIsSaving(false);
+      setSavingSection(null);
     }
   };
 
@@ -462,6 +505,13 @@ export default function InstanceSettings() {
       await instancesApi.setProxy(instanceId, proxyForm);
       const saved = await instancesApi.getProxy(instanceId);
       setProxy(saved);
+      setProxyForm({
+        protocol: saved?.protocol || "http",
+        host: saved?.host || "",
+        port: saved?.port || "",
+        username: saved?.username || "",
+        password: "",
+      });
       toast.success(t('instanceSettings.toast.proxySaved'));
     } catch (e) {
       toast.error(proxyErrorMessage(e, t('instanceSettings.toast.proxySaveError')));
@@ -519,6 +569,28 @@ export default function InstanceSettings() {
     }
   };
 
+  useEffect(() => {
+    const root = scrollerRef.current;
+    if (!root || typeof IntersectionObserver === "undefined") return;
+    const nodes = SECTIONS.map((section) => document.getElementById(section.id)).filter(
+      (node): node is HTMLElement => node !== null
+    );
+    if (nodes.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        const id = visible[0]?.target.id;
+        if (id) setActiveSection(id);
+      },
+      { root, rootMargin: "-10% 0px -70% 0px", threshold: 0 }
+    );
+    nodes.forEach((node) => observer.observe(node));
+    return () => observer.disconnect();
+  }, [instance, isLoading]);
+
   if (isLoading) return <InstanceSettingsSkeleton />;
 
   if (!instance) {
@@ -536,9 +608,20 @@ export default function InstanceSettings() {
             {t('instanceSettings.backToInstances')}
           </Button>
         </div>
-      </div>
-    );
+    </div>
+  );
   }
+
+  const eventsDirty = editedEvents !== null && !sameMembers(editedEvents, parsedEvents);
+  const proxyDirty = proxyFormDirty(proxyForm, proxy);
+  const webhookBusy = savingSection === "webhook";
+  const behaviorBusy = savingSection === "behavior";
+  const saving = savingSection !== null;
+  const unsavedLabel = t("instanceSettings.unsaved");
+  const showSection = (id: string) => {
+    setActiveSection(id);
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   return (
     <div className="h-full flex flex-col">
@@ -569,8 +652,44 @@ export default function InstanceSettings() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-        <div className="max-w-4xl mx-auto space-y-6">
+      <div ref={scrollerRef} className="flex-1 overflow-y-auto">
+        <nav
+          aria-label={t("instanceSettings.nav.label")}
+          className="sticky top-0 z-10 border-b border-sidebar-border bg-background"
+        >
+          <div className="mx-auto flex max-w-4xl gap-1 overflow-x-auto px-4 py-2 sm:px-6">
+            {SECTIONS.map((section) => {
+              const dirty =
+                (section.id === "webhooks" && webhookFormDirty) ||
+                (section.id === "events" && eventsDirty) ||
+                (section.id === "proxy" && proxyDirty) ||
+                (section.id === "behavior" && behaviorDirty);
+              const active = activeSection === section.id;
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  data-section={section.id}
+                  data-unsaved={dirty ? "true" : "false"}
+                  aria-current={active ? "true" : undefined}
+                  onClick={() => showSection(section.id)}
+                  className={cn(
+                    "inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-sm transition-colors",
+                    active
+                      ? "bg-primary/10 font-medium text-primary"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                  )}
+                >
+                  {t(section.labelKey)}
+                  {dirty && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+        <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6">
           {/* Instance Info Card */}
           <div className="rounded-lg border border-sidebar-border bg-card p-6">
             <h2 className="text-lg font-semibold text-foreground mb-4">
@@ -719,7 +838,7 @@ export default function InstanceSettings() {
           </div>
 
           {/* Connection Settings Card */}
-          <div className="rounded-lg border border-sidebar-border bg-card p-6">
+          <section id="connection" className={sectionClass(false)}>
             <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold text-foreground">
               <KeyRound className="h-5 w-5" />
               {t('instanceSettings.connection.title')}
@@ -812,13 +931,14 @@ export default function InstanceSettings() {
                 </div>
               )}
             </div>
-          </div>
+          </section>
 
-          {/* Webhook Settings Card */}
-          <form onSubmit={handleSubmitWebhook(onSubmitWebhook)}>
-            <div className="rounded-lg border border-sidebar-border bg-card p-6">
-              <h2 className="text-lg font-semibold text-foreground mb-4">
+          {/* Webhook and events share one save: the API writes them together. */}
+          <form onSubmit={handleSubmitWebhook(onSubmitWebhook)} className="space-y-6">
+            <section id="webhooks" className={sectionClass(webhookFormDirty)}>
+              <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-foreground">
                 {t('instanceSettings.webhook.title')}
+                {webhookFormDirty && <UnsavedMark label={unsavedLabel} />}
               </h2>
               <div className="space-y-4">
                 <div>
@@ -845,63 +965,7 @@ export default function InstanceSettings() {
                   </p>
                 </div>
 
-                {/* Events Selection */}
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    {t('instanceSettings.webhook.events')}
-                  </label>
-                  <div className="space-y-2 rounded-md border border-input p-3 max-h-60 overflow-y-auto">
-                    {/* ALL Option */}
-                    <div className="p-2 rounded-md bg-primary/10 border border-primary/20">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={selectedEvents.includes("ALL")}
-                          onChange={() => toggleEvent("ALL")}
-                          className="rounded border-input w-4 h-4"
-                        />
-                        <span className="text-sm font-semibold text-primary">
-                          {t('instanceSettings.events.ALL')}
-                        </span>
-                      </label>
-                    </div>
-
-                    {/* Individual Events */}
-                    <div className="grid grid-cols-2 gap-2">
-                      {availableEvents
-                        .filter((e) => e !== "ALL")
-                        .map((event) => (
-                        <label
-                          key={event}
-                          className="flex items-center gap-2 text-sm cursor-pointer hover:bg-accent p-2 rounded"
-                        >
-                          <input
-                            type="checkbox"
-                              checked={
-                                selectedEvents.includes(event) ||
-                                selectedEvents.includes("ALL")
-                              }
-                            onChange={() => toggleEvent(event)}
-                              disabled={selectedEvents.includes("ALL")}
-                            className="rounded border-input"
-                          />
-                            <span
-                              className={
-                                selectedEvents.includes("ALL")
-                                  ? "text-muted-foreground"
-                                  : "text-foreground"
-                              }
-                            >
-                            {t(`instanceSettings.events.${event}`)}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Event Producers */}
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   <div>
                     <label
                       htmlFor="rabbitmqEnable"
@@ -958,21 +1022,94 @@ export default function InstanceSettings() {
                 </div>
 
                 <div className="flex justify-end">
-                  <Button type="submit" disabled={isSaving} className="gap-2">
+                  <Button type="submit" disabled={saving || !webhookFormDirty} className="gap-2">
                     <Save className="h-4 w-4" />
-                    {isSaving ? t('instanceSettings.action.saving') : t('instanceSettings.webhook.save')}
+                    {webhookBusy ? t('instanceSettings.action.saving') : t('instanceSettings.webhook.save')}
                   </Button>
                 </div>
               </div>
-            </div>
+            </section>
+
+            <section id="events" className={sectionClass(eventsDirty)}>
+              <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold text-foreground">
+                {t('instanceSettings.nav.events')}
+                {eventsDirty && <UnsavedMark label={unsavedLabel} />}
+              </h2>
+              <p className="mb-4 text-xs text-muted-foreground">
+                {t('instanceSettings.events.savedWithWebhook')}
+              </p>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    {t('instanceSettings.webhook.events')}
+                  </label>
+                  <div className="space-y-2 rounded-md border border-input p-3 max-h-60 overflow-y-auto">
+                    {/* ALL Option */}
+                    <div className="p-2 rounded-md bg-primary/10 border border-primary/20">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedEvents.includes("ALL")}
+                          onChange={() => toggleEvent("ALL")}
+                          className="rounded border-input w-4 h-4"
+                        />
+                        <span className="text-sm font-semibold text-primary">
+                          {t('instanceSettings.events.ALL')}
+                        </span>
+                      </label>
+                    </div>
+
+                    {/* Individual Events */}
+                    <div className="grid grid-cols-2 gap-2">
+                      {availableEvents
+                        .filter((e) => e !== "ALL")
+                        .map((event) => (
+                        <label
+                          key={event}
+                          className="flex items-center gap-2 text-sm cursor-pointer hover:bg-accent p-2 rounded"
+                        >
+                          <input
+                            type="checkbox"
+                              checked={
+                                selectedEvents.includes(event) ||
+                                selectedEvents.includes("ALL")
+                              }
+                            onChange={() => toggleEvent(event)}
+                              disabled={selectedEvents.includes("ALL")}
+                            className="rounded border-input"
+                          />
+                            <span
+                              className={
+                                selectedEvents.includes("ALL")
+                                  ? "text-muted-foreground"
+                                  : "text-foreground"
+                              }
+                            >
+                            {t(`instanceSettings.events.${event}`)}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button type="submit" disabled={saving || !eventsDirty} className="gap-2">
+                    <Save className="h-4 w-4" />
+                    {webhookBusy ? t('instanceSettings.action.saving') : t('instanceSettings.events.save')}
+                  </Button>
+                </div>
+              </div>
+            </section>
           </form>
 
           {/* Proxy Settings Card */}
-          <div className="rounded-lg border border-sidebar-border bg-card p-6">
-            <div className="mb-4 flex items-center justify-between">
+          <section id="proxy" className={sectionClass(proxyDirty)}>
+            <div className="mb-4 flex items-center justify-between gap-3">
               <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
                 <Network className="h-5 w-5" />
                 {t('instanceSettings.proxy.title')}
+                {proxyDirty && <UnsavedMark label={unsavedLabel} />}
               </h2>
               <span
                 className={`rounded-full border px-2 py-0.5 text-xs ${
@@ -1138,7 +1275,7 @@ export default function InstanceSettings() {
                 <Button
                   type="button"
                   onClick={handleSaveProxy}
-                  disabled={proxyBusy !== null}
+                  disabled={proxyBusy !== null || !proxyDirty}
                   className="gap-2"
                 >
                   <Save className="h-4 w-4" />
@@ -1146,13 +1283,14 @@ export default function InstanceSettings() {
                 </Button>
               </div>
             </div>
-          </div>
+          </section>
 
           {/* Advanced Settings Card */}
           <form onSubmit={handleSubmitAdvanced(onSubmitAdvanced)}>
-            <div className="rounded-lg border border-sidebar-border bg-card p-6">
-              <h2 className="text-lg font-semibold text-foreground mb-4">
-                {t('instanceSettings.advanced.title')}
+            <section id="behavior" className={sectionClass(behaviorDirty)}>
+              <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-foreground">
+                {t('instanceSettings.nav.behavior')}
+                {behaviorDirty && <UnsavedMark label={unsavedLabel} />}
               </h2>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -1256,17 +1394,17 @@ export default function InstanceSettings() {
                 </div>
 
                 <div className="flex justify-end">
-                  <Button type="submit" disabled={isSaving} className="gap-2">
+                  <Button type="submit" disabled={saving || !behaviorDirty} className="gap-2">
                     <Save className="h-4 w-4" />
-                    {isSaving ? t('instanceSettings.action.saving') : t('instanceSettings.advanced.save')}
+                    {behaviorBusy ? t('instanceSettings.action.saving') : t('instanceSettings.behavior.save')}
                   </Button>
                 </div>
               </div>
-            </div>
+            </section>
           </form>
 
           {/* Danger Zone Card */}
-          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-6">
+          <section id="danger" className="scroll-mt-16 rounded-lg border border-destructive/50 bg-destructive/10 p-6">
             <h2 className="text-lg font-semibold text-destructive mb-4">
               {t('instanceSettings.danger.title')}
             </h2>
@@ -1308,7 +1446,7 @@ export default function InstanceSettings() {
                 </Button>
               </div>
             </div>
-          </div>
+          </section>
         </div>
       </div>
 

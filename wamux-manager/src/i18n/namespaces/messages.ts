@@ -12,6 +12,9 @@ export const messagesNs: {
     'messages.loadingInstances': 'Carregando instâncias…',
     'messages.noConnectedInstance':
       'Nenhuma instância conectada. Conecte uma instância para ver as conversas.',
+    'messages.instanceOffline':
+      '{name} não está conectada. Conecte-a para ver as conversas.',
+    'messages.connectInstance': 'Conectar uma instância',
 
     'messages.filterPlaceholder': 'Filtrar conversas…',
     'messages.clearFilter': 'Limpar busca',
@@ -40,7 +43,7 @@ export const messagesNs: {
     'messages.deleted': 'Mensagem apagada',
     'messages.recover': 'Recuperar',
     'messages.recoverTitle':
-      'Pede ao WhatsApp as mensagens antigas. Requer a opção de guardar mensagens (DATABASE_SAVE_MESSAGES) para aparecerem aqui.',
+      'Pede ao WhatsApp as mensagens antigas. Elas só aparecem aqui se o servidor estiver guardando o histórico.',
     'messages.loadingContacts': 'Carregando contatos…',
     'messages.noContacts': 'Nenhum contato conhecido ainda.',
     'messages.noChats': 'Sem conversas salvas. Inicie uma acima.',
@@ -51,9 +54,9 @@ export const messagesNs: {
     'messages.tabAll': 'Tudo',
 
     'messages.chatFallback': 'Conversa',
-    'messages.chatGroup': 'Grupo {id}',
-    'messages.chatChannel': 'Canal {id}',
-    'messages.chatLid': 'LID {id}',
+    'messages.unknownContact': 'Contato',
+    'messages.unknownGroup': 'Grupo',
+    'messages.unknownChannel': 'Canal',
     'messages.unknownSender': 'Desconhecido',
 
     'messages.selectChat': 'Selecione uma conversa ou inicie uma nova.',
@@ -111,18 +114,15 @@ export const messagesNs: {
       'Esta instância está com o WebSocket desabilitado, então o servidor não publica eventos em tempo real. Habilite em Instâncias → Configurar → WebSocket = Habilitado.',
     'messages.wsDisabled': 'Tempo real desabilitado na instância',
 
-    'messages.mediaLocalDisabledPre': 'O armazenamento local de anexos está ',
-    'messages.mediaLocalDisabledStrong': 'desativado',
-    'messages.and': 'e',
-    'messages.mediaLocalDisabledMid':
-      '). Arquivos enviados e recebidos não são guardados em disco, então não há pré-visualização aqui — eles são apenas encaminhados ao webhook. Para ver os arquivos, defina ',
-    'messages.mediaLocalDisabledEnd': '.',
-
-    'messages.historyDisabledPre': 'O histórico de mensagens está ',
-    'messages.historyDisabledStrong': 'desativado',
-    'messages.historyDisabledMid': '). As conversas e o botão ',
-    'messages.historyDisabledEnd': ' não terão o que mostrar aqui. Defina ',
-    'messages.historyDisabledSuffix': ' para habilitar.',
+    'messages.mediaLocalDisabled':
+      'Os arquivos enviados e recebidos não ficam guardados neste servidor, então não há pré-visualização. Eles só seguem para o webhook.',
+    'messages.mediaLocalDisabledHow':
+      'Ative o armazenamento de arquivos no servidor (MEDIA_LOCAL_STORE).',
+    'messages.historyDisabled':
+      'As mensagens não ficam salvas neste servidor, então as conversas e o botão Recuperar não têm o que mostrar.',
+    'messages.historyDisabledHow':
+      'Ative o histórico de mensagens no servidor (DATABASE_SAVE_MESSAGES).',
+    'messages.showHow': 'Como ativar',
 
     'messages.qrUpdated': 'QR Code atualizado!',
     'messages.qrUpdateError': 'Erro ao atualizar QR Code',
@@ -164,6 +164,9 @@ export const messagesNs: {
     'messages.loadingInstances': 'Loading instances…',
     'messages.noConnectedInstance':
       'No connected instance. Connect an instance to view conversations.',
+    'messages.instanceOffline':
+      '{name} is not connected. Connect it to view conversations.',
+    'messages.connectInstance': 'Connect an instance',
 
     'messages.filterPlaceholder': 'Filter conversations…',
     'messages.clearFilter': 'Clear search',
@@ -192,7 +195,7 @@ export const messagesNs: {
     'messages.deleted': 'Message deleted',
     'messages.recover': 'Recover',
     'messages.recoverTitle':
-      'Requests old messages from WhatsApp. Requires the save-messages option (DATABASE_SAVE_MESSAGES) for them to appear here.',
+      'Asks WhatsApp for older messages. They only show up here when the server is keeping history.',
     'messages.loadingContacts': 'Loading contacts…',
     'messages.noContacts': 'No known contacts yet.',
     'messages.noChats': 'No saved conversations. Start one above.',
@@ -203,9 +206,9 @@ export const messagesNs: {
     'messages.tabAll': 'All',
 
     'messages.chatFallback': 'Conversation',
-    'messages.chatGroup': 'Group {id}',
-    'messages.chatChannel': 'Channel {id}',
-    'messages.chatLid': 'LID {id}',
+    'messages.unknownContact': 'Contact',
+    'messages.unknownGroup': 'Group',
+    'messages.unknownChannel': 'Channel',
     'messages.unknownSender': 'Unknown',
 
     'messages.selectChat': 'Select a conversation or start a new one.',
@@ -262,18 +265,15 @@ export const messagesNs: {
       'This instance has WebSocket disabled, so the server does not publish real-time events. Enable it in Instances → Configure → WebSocket = Enabled.',
     'messages.wsDisabled': 'Real time disabled on the instance',
 
-    'messages.mediaLocalDisabledPre': 'Local attachment storage is ',
-    'messages.mediaLocalDisabledStrong': 'disabled',
-    'messages.and': 'and',
-    'messages.mediaLocalDisabledMid':
-      '). Sent and received files are not saved to disk, so there is no preview here — they are only forwarded to the webhook. To see the files, set ',
-    'messages.mediaLocalDisabledEnd': '.',
-
-    'messages.historyDisabledPre': 'Message history is ',
-    'messages.historyDisabledStrong': 'disabled',
-    'messages.historyDisabledMid': '). Conversations and the ',
-    'messages.historyDisabledEnd': ' button will have nothing to show here. Set ',
-    'messages.historyDisabledSuffix': ' to enable it.',
+    'messages.mediaLocalDisabled':
+      'Sent and received files are not kept on this server, so there is no preview. They are only forwarded to the webhook.',
+    'messages.mediaLocalDisabledHow':
+      'Turn on file storage on the server (MEDIA_LOCAL_STORE).',
+    'messages.historyDisabled':
+      'Messages are not saved on this server, so conversations and the Recover button have nothing to show.',
+    'messages.historyDisabledHow':
+      'Turn on message history on the server (DATABASE_SAVE_MESSAGES).',
+    'messages.showHow': 'How to turn this on',
 
     'messages.qrUpdated': 'QR Code updated!',
     'messages.qrUpdateError': 'Error updating QR Code',

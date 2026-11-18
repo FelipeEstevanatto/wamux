@@ -3,6 +3,7 @@
  * Displays an instance as a card with status and actions
  */
 
+import { Link } from "react-router-dom";
 import { Button, Card, CardContent, Badge } from "@/components/ui";
 import {
   Settings,
@@ -19,6 +20,7 @@ import {
 } from "lucide-react";
 import type { Instance, InstanceOverview } from "@/types/instance";
 import { deviceLabel } from "@/utils/device";
+import { prefetchRoute } from "@/utils/prefetch";
 import { useI18n } from "@/i18n/I18nContext";
 
 type InstanceCardProps = {
@@ -30,6 +32,7 @@ type InstanceCardProps = {
   onDelete: (instance: Instance) => void;
   onConnect: (instance: Instance) => void;
   onDisconnect: (instance: Instance) => void;
+  onOpen: (instance: Instance) => void;
   onSendMessage?: (instance: Instance) => void;
 };
 
@@ -59,8 +62,8 @@ const initials = (name?: string) => {
   ).toUpperCase();
 };
 
-const formatCount = (value?: number) =>
-  value === undefined || value === null ? "—" : value.toLocaleString("pt-BR");
+const formatCount = (value: number | undefined, locale: string) =>
+  value === undefined || value === null ? "—" : value.toLocaleString(locale);
 
 export default function InstanceCard({
   instance,
@@ -71,18 +74,31 @@ export default function InstanceCard({
   onDelete,
   onConnect,
   onDisconnect,
+  onOpen,
   onSendMessage,
 }: InstanceCardProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const messagesTo = `/manager/messages?instance=${encodeURIComponent(instance.id)}`;
   const isConnected = instance.status === "open";
   const displayName =
     overview?.profileName || instance.profileName || instance.instanceName;
 
   return (
-    <Card className="group relative bg-sidebar border-sidebar-border hover:bg-sidebar-accent/30 transition-all duration-300 hover:shadow-lg hover:shadow-black/10 overflow-hidden">
+    <Card
+      className="relative cursor-pointer overflow-hidden border-sidebar-border bg-sidebar transition-colors hover:bg-sidebar-accent/30"
+      onClick={() => onOpen(instance)}
+      onMouseEnter={() => prefetchRoute("/manager/messages")}
+    >
       <CardContent className="flex flex-1 flex-col p-0">
-        {/* Header with avatar, name and status */}
-        <div className="flex items-center gap-3 p-4 border-b border-sidebar-border">
+        {/* Header with avatar, name and status. The name is the keyboard path
+            into this instance's messages; the rest of the card does the same. */}
+        <div className="flex items-center gap-3 border-b border-sidebar-border p-4">
+          <Link
+            to={messagesTo}
+            onClick={(e) => e.stopPropagation()}
+            aria-label={t("instances.openMessages", { name: displayName })}
+            className="flex min-w-0 flex-1 items-center gap-3 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
           <div className="shrink-0">
             <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-sidebar-border bg-sidebar-accent/40 text-sm font-semibold text-sidebar-foreground/70">
               {overview?.profilePicUrl ? (
@@ -104,14 +120,15 @@ export default function InstanceCard({
             </div>
           </div>
 
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-base truncate text-sidebar-foreground">
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate text-base font-semibold text-sidebar-foreground">
               {displayName}
             </h3>
-            <p className="text-xs text-sidebar-foreground/60 truncate">
+            <p className="truncate text-xs text-sidebar-foreground/60">
               {instance.instanceName}
             </p>
           </div>
+          </Link>
 
           <div className="shrink-0">{getStatusBadge(instance.status, t)}</div>
         </div>
@@ -170,7 +187,7 @@ export default function InstanceCard({
               <Users className="h-3 w-3" /> {t("instances.contacts")}
             </span>
             <span className="font-mono">
-              {isConnected ? formatCount(overview?.contactsCount) : "—"}
+              {isConnected ? formatCount(overview?.contactsCount, locale) : "—"}
             </span>
           </div>
           <div className="flex items-center justify-between">
@@ -178,7 +195,7 @@ export default function InstanceCard({
               <MessageSquare className="h-3 w-3" /> {t("instances.chats")}
             </span>
             <span className="font-mono">
-              {isConnected ? formatCount(overview?.chatsCount) : "—"}
+              {isConnected ? formatCount(overview?.chatsCount, locale) : "—"}
             </span>
           </div>
           <div className="flex items-center justify-between">
@@ -186,18 +203,18 @@ export default function InstanceCard({
               <Mail className="h-3 w-3" /> {t("instances.messages")}
             </span>
             <span className="font-mono">
-              {isConnected ? formatCount(overview?.messagesCount) : "—"}
+              {isConnected ? formatCount(overview?.messagesCount, locale) : "—"}
             </span>
           </div>
         </div>
 
-        {/* Action buttons. On desktop the destructive/secondary icons fade in
-            on hover to keep the card calm; on touch they are always visible
-            (there is no hover on a phone). Desconectar is a compact labelled
-            button, not a stretched one, so the icon buttons to its right are
-            never pushed out of the card. */}
-        {/* w-full + min-w-0 lets the labelled button shrink before the icons. */}
-        <div className="mt-auto flex w-full items-stretch border-t border-sidebar-border transition-opacity duration-200 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
+        {/* Actions stay visible. Desconectar is a compact labelled button, so
+            the icons to its right are never pushed out of the card. Clicks
+            here must not also open the inbox. */}
+        <div
+          className="mt-auto flex w-full items-stretch border-t border-sidebar-border"
+          onClick={(e) => e.stopPropagation()}
+        >
           {/* Connect/Disconnect Button */}
           {!isConnected && (
             <Button

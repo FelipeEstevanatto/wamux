@@ -14,6 +14,7 @@ import {
 import { useI18n } from '@/i18n/I18nContext';
 import * as messagesApi from '@/services/api/messages';
 import type { ChatContact, ChatSummary } from '@/types/messages';
+import { chatHeading } from '@/utils/chatTitle';
 import { cn } from '@/utils/cn';
 
 type TabId = 'all' | 'contact' | 'group';
@@ -27,19 +28,11 @@ interface NewChatDialogProps {
   onSelect: (jid: string) => void;
 }
 
-function jidUser(jid: string): string {
-  return jid.split('@')[0].split(':')[0] || jid;
-}
-
 function toChatJid(raw: string): string {
   const value = raw.trim();
   if (!value) return '';
   if (value.includes('@')) return value;
   return value.replace(/[^0-9]/g, '') + '@s.whatsapp.net';
-}
-
-function contactLabel(contact: ChatContact): string {
-  return contact.name?.trim() || jidUser(contact.jid);
 }
 
 /**
@@ -80,12 +73,15 @@ export default function NewChatDialog({
         ? contacts
         : contacts.filter((c) => (tab === 'group' ? c.is_group : !c.is_group));
     if (!q) return byTab;
-    return byTab.filter(
-      (c) =>
-        contactLabel(c).toLowerCase().includes(q) ||
+    return byTab.filter((c) => {
+      const heading = chatHeading(c.jid, c.name, t);
+      return (
+        heading.title.toLowerCase().includes(q) ||
+        heading.detail.toLowerCase().includes(q) ||
         c.jid.toLowerCase().includes(q)
-    );
-  }, [contacts, q, tab]);
+      );
+    });
+  }, [contacts, q, tab, t]);
 
   const counts = useMemo(() => {
     const all = contacts.length;
@@ -217,7 +213,7 @@ export default function NewChatDialog({
                 {t('messages.newChatRecent')}
               </p>
               {recent.map((chat) => {
-                const label = chat.name?.trim() || jidUser(chat.chat_jid);
+                const heading = chatHeading(chat.chat_jid, chat.name, t);
                 return (
                   <button
                     key={chat.chat_jid}
@@ -230,7 +226,14 @@ export default function NewChatDialog({
                     ) : (
                       <User className="h-4 w-4 shrink-0 text-muted-foreground" />
                     )}
-                    <span className="min-w-0 flex-1 truncate text-sm">{label}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm">{heading.title}</span>
+                      {heading.detail && (
+                        <span className="block truncate text-[11px] text-muted-foreground">
+                          {heading.detail}
+                        </span>
+                      )}
+                    </span>
                     {chat.last_timestamp && (
                       <span className="shrink-0 text-[11px] text-muted-foreground">
                         {chat.last_timestamp.slice(11, 16)}
@@ -261,30 +264,35 @@ export default function NewChatDialog({
               </p>
             ) : (
               <div className="max-h-[45vh] overflow-y-auto overscroll-contain rounded-md border border-border">
-                {filteredContacts.map((contact) => (
-                  <button
-                    key={contact.jid}
-                    type="button"
-                    onClick={() => select(contact.jid)}
-                    className="flex w-full items-center gap-3 border-b border-border px-3 py-2 text-left last:border-b-0 hover:bg-accent"
-                  >
-                    <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
-                      {contact.is_group ? (
-                        <Users className="h-4 w-4" />
-                      ) : (
-                        contactLabel(contact).charAt(0).toUpperCase() || '?'
-                      )}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium">
-                        {contactLabel(contact)}
+                {filteredContacts.map((contact) => {
+                  const heading = chatHeading(contact.jid, contact.name, t);
+                  return (
+                    <button
+                      key={contact.jid}
+                      type="button"
+                      onClick={() => select(contact.jid)}
+                      className="flex w-full items-center gap-3 border-b border-border px-3 py-2 text-left last:border-b-0 hover:bg-accent"
+                    >
+                      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
+                        {contact.is_group ? (
+                          <Users className="h-4 w-4" />
+                        ) : (
+                          heading.title.charAt(0).toUpperCase() || '?'
+                        )}
                       </span>
-                      <span className="block truncate text-[11px] text-muted-foreground">
-                        {jidUser(contact.jid)}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">
+                          {heading.title}
+                        </span>
+                        {heading.detail && (
+                          <span className="block truncate text-[11px] text-muted-foreground">
+                            {heading.detail}
+                          </span>
+                        )}
                       </span>
-                    </span>
-                  </button>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>

@@ -19,6 +19,7 @@ const CHAT = '100@s.whatsapp.net';
 const live = vi.hoisted(() => ({
   status: 'open' as WsStatus,
   websocketEnable: 'enabled',
+  instances: null as null | Array<Record<string, unknown>>,
   onEvent: (() => {}) as (event: { event: string }) => void,
 }));
 const toastInfo = vi.hoisted(() => vi.fn());
@@ -33,16 +34,18 @@ vi.mock('@/hooks/useInstanceEvents', () => ({
 
 vi.mock('@/hooks/useInstances', () => ({
   default: () => ({
-    instances: [
-      {
-        id: 'inst',
-        instanceName: 'One',
-        owner: '',
-        apikey: 'instance-token',
-        connected: true,
-        websocketEnable: live.websocketEnable,
-      },
-    ],
+    instances:
+      live.instances ??
+      [
+        {
+          id: 'inst',
+          instanceName: 'One',
+          owner: '',
+          apikey: 'instance-token',
+          connected: true,
+          websocketEnable: live.websocketEnable,
+        },
+      ],
     isLoading: false,
     fetchInstances: () => Promise.resolve(),
   }),
@@ -163,6 +166,7 @@ describe('Messages page', () => {
     localStorage.setItem('wamux-lang', 'pt');
     live.status = 'open';
     live.websocketEnable = 'enabled';
+    live.instances = null;
     toastInfo.mockClear();
     toastError.mockClear();
     vi.mocked(messagesApi.sendMedia).mockReset();
@@ -181,13 +185,13 @@ describe('Messages page', () => {
     root = createRoot(host);
   });
 
-  const render = async () => {
+  const render = async (path = '/') => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     await act(async () => {
       root.render(
         <QueryClientProvider client={client}>
           <I18nProvider>
-            <MemoryRouter>
+            <MemoryRouter initialEntries={[path]}>
               <Messages />
             </MemoryRouter>
           </I18nProvider>
@@ -203,6 +207,72 @@ describe('Messages page', () => {
     document.body.innerHTML = '';
     vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it('offers a way to connect when nothing is connected', async () => {
+    live.instances = [];
+    await render();
+
+    expect(document.body.textContent).toContain('Nenhuma instância conectada');
+    expect(document.querySelector('a')?.getAttribute('href')).toBe('/manager/instances');
+    expect(document.body.textContent).toContain('Conectar uma instância');
+  });
+
+  it('shows the contact name with the number underneath', async () => {
+    vi.mocked(messagesApi.listChats).mockResolvedValue([{ ...chat, name: 'Ana' }]);
+    await render();
+
+    expect(document.body.textContent).toContain('Ana');
+    expect(document.body.textContent).toContain('100');
+    expect(document.body.textContent).not.toContain(CHAT);
+  });
+
+  it('keeps a raw JID out of an unnamed chat title', async () => {
+    await render();
+
+    expect(document.body.textContent).toContain('Contato');
+    expect(document.body.textContent).toContain('100');
+    expect(document.body.textContent).not.toContain(CHAT);
+  });
+
+  it('opens the instance named in the URL', async () => {
+    live.instances = [
+      {
+        id: 'a',
+        instanceName: 'Alpha',
+        owner: '',
+        apikey: 'token-a',
+        connected: true,
+        websocketEnable: 'enabled',
+      },
+      {
+        id: 'b',
+        instanceName: 'Beta',
+        owner: '',
+        apikey: 'token-b',
+        connected: true,
+        websocketEnable: 'enabled',
+      },
+    ];
+    await render('/manager/messages?instance=b');
+
+    expect(document.querySelector('select')?.value).toBe('b');
+    expect(messagesApi.listChats).toHaveBeenCalledWith('token-b');
+  });
+
+  it('explains a disabled history in plain language', async () => {
+    vi.mocked(serverApi.fetchServerStats).mockResolvedValue({
+      system: {},
+      messages: {},
+      storage: { historyEnabled: false, mediaLocal: true },
+    } as Awaited<ReturnType<typeof serverApi.fetchServerStats>>);
+    await render();
+
+    const summary = [...document.querySelectorAll('p')].find((p) =>
+      p.textContent?.includes('não ficam salvas')
+    );
+    expect(summary?.textContent).not.toContain('DATABASE_SAVE_MESSAGES');
+    expect(document.querySelector('details')?.textContent).toContain('DATABASE_SAVE_MESSAGES');
   });
 
   it('lists conversations and opens a thread', async () => {

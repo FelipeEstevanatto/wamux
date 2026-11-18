@@ -42,6 +42,7 @@ import {
   X,
   Forward,
 } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { Button, Input, Skeleton } from '@/components/ui';
@@ -63,13 +64,13 @@ import type { ChatSummary, HistoryMessage } from '@/types/messages';
 import { cn } from '@/utils/cn';
 import { applyEdits } from '@/utils/messageEdits';
 import { unreadLabel, unreadMessages } from '@/utils/unread';
+import { chatHeading, chatKind, jidUser, type ChatKind } from '@/utils/chatTitle';
 import { captionOf, humanSize, showsInline } from '@/utils/fileInfo';
 
 const PAGE_SIZE = 50;
 // When to look for what a history request brought in.
 const RECOVER_RELOAD_DELAYS_MS = [4000, 12000, 30000];
 
-type ChatKind = 'contact' | 'group' | 'channel';
 type TabId = 'all' | ChatKind;
 type ThreadData = InfiniteData<HistoryMessage[], string | undefined>;
 
@@ -109,40 +110,6 @@ const messageKeys = {
     ['message-senders', instanceId, chat] as const,
   flags: ['server-flags'] as const,
 };
-
-function jidUser(jid: string): string {
-  if (!jid) return '—';
-  return jid.split('@')[0].split(':')[0] || jid;
-}
-
-function chatKind(jid: string): ChatKind {
-  if (jid.endsWith('@g.us')) return 'group';
-  if (jid.endsWith('@newsletter')) return 'channel';
-  return 'contact';
-}
-
-function chatTitle(
-  jid: string,
-  t: (key: string, vars?: Record<string, string | number>) => string
-): string {
-  if (!jid) return t('messages.chatFallback');
-  if (jid.endsWith('@g.us')) return t('messages.chatGroup', { id: jidUser(jid) });
-  if (jid.endsWith('@newsletter'))
-    return t('messages.chatChannel', { id: jidUser(jid) });
-  if (jid.endsWith('@lid')) return t('messages.chatLid', { id: jidUser(jid) });
-  return jidUser(jid);
-}
-
-// displayTitle prefers the server-resolved name (group subject / contact name),
-// falling back to the number/JID when the name is unknown or the instance is
-// offline.
-function displayTitle(
-  chat: ChatSummary | undefined,
-  jid: string,
-  t: (key: string, vars?: Record<string, string | number>) => string
-): string {
-  return chat?.name?.trim() || chatTitle(jid, t);
-}
 
 // Larger files stream through the server, which only works for these two kinds.
 const MAX_IN_MEMORY_BYTES = 64 * 1024 * 1024;
@@ -597,8 +564,32 @@ function Bubble({
   );
 }
 
+function FeatureNotice({
+  summary,
+  howLabel,
+  how,
+}: {
+  summary: string;
+  howLabel: string;
+  how: string;
+}) {
+  return (
+    <div className="flex items-start gap-2 border-b border-border bg-muted/50 px-4 py-2 text-xs text-muted-foreground">
+      <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+      <div className="min-w-0">
+        <p>{summary}</p>
+        <details className="mt-1">
+          <summary className="cursor-pointer text-foreground/80">{howLabel}</summary>
+          <p className="mt-1">{how}</p>
+        </details>
+      </div>
+    </div>
+  );
+}
+
 export default function Messages() {
   const { t, locale } = useI18n();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const {
     instances,
@@ -610,10 +601,12 @@ export default function Messages() {
     [instances]
   );
 
-  const [selectedInstanceId, setInstanceId] = useState('');
-  // Fall back to the first connected instance as a derived value, so no effect
-  // has to set it (and the very first render already targets an instance).
-  const instanceId = selectedInstanceId || connected[0]?.id || '';
+  // `?instance=` is how a card opens this inbox. The id is the URL string,
+  // not a field off the instance object, so later memos can depend on it.
+  // Fall back to the first connected instance when the link does not name one.
+  const requestedId = searchParams.get('instance') || '';
+  const requested = instances.find((i) => i.id === requestedId);
+  const instanceId = requested?.connected ? requestedId : connected[0]?.id || '';
   const instance = useMemo(
     () => instances.find((i) => i.id === instanceId),
     [instances, instanceId]
@@ -811,7 +804,7 @@ export default function Messages() {
   const activeKind = selectedChat ? chatKind(selectedChat) : 'contact';
   const showSenderNames = activeKind !== 'contact';
   const namesForChat = sendersQuery.data ?? {};
-  const activeTitle = displayTitle(activeChat, selectedChat, t);
+  const activeHeading = chatHeading(selectedChat, activeChat?.name, t);
   const messagesById = useMemo(
     () => new Map(messages.map((m) => [m.message_id, m])),
     [messages]
@@ -943,7 +936,8 @@ export default function Messages() {
     setMobileThread(true);
     atBottomRef.current = true;
     setAtBottom(true);
-  }, []);
+    // Listed so the compiler keeps this callback; both setters are stable.
+  }, [setMobileThread, setSearchOpen]);
 
   // A hit can be older than what is loaded, so pages come in until it appears.
   const jumpToMessage = async (messageId: string) => {
@@ -1309,13 +1303,19 @@ export default function Messages() {
     );
   }
 
-  if (connected.length === 0) {
+  const requestedOffline = Boolean(requested && !requested.connected);
+  if (connected.length === 0 || requestedOffline) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
         <MessageSquare className="h-10 w-10 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">
-          {t('messages.noConnectedInstance')}
+        <p className="max-w-sm text-sm text-muted-foreground">
+          {requestedOffline
+            ? t('messages.instanceOffline', { name: requested?.instanceName ?? '' })
+            : t('messages.noConnectedInstance')}
         </p>
+        <Button asChild>
+          <Link to="/manager/instances">{t('messages.connectInstance')}</Link>
+        </Button>
       </div>
     );
   }
@@ -1328,7 +1328,9 @@ export default function Messages() {
         </h1>
         <select
           value={instanceId}
-          onChange={(e) => setInstanceId(e.target.value)}
+          onChange={(e) =>
+            setSearchParams({ instance: e.target.value }, { replace: true })
+          }
           aria-label={t('messages.title')}
           className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm sm:max-w-xs sm:flex-none"
         >
@@ -1382,44 +1384,18 @@ export default function Messages() {
       </div>
 
       {flags.loaded && !flags.mediaLocal && (
-        <div className="flex items-start gap-2 border-b border-border bg-muted/50 px-4 py-2 text-xs text-muted-foreground">
-          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span>
-            {t('messages.mediaLocalDisabledPre')}
-            <strong>{t('messages.mediaLocalDisabledStrong')}</strong>{' '}
-            (<code>MEDIA_LOCAL_STORE=false</code>
-            {!flags.historyEnabled && (
-              <>
-                {' '}
-                {t('messages.and')} <code>DATABASE_SAVE_MESSAGES=false</code>
-              </>
-            )}
-            {t('messages.mediaLocalDisabledMid')}
-            <code>MEDIA_LOCAL_STORE=true</code>
-            {!flags.historyEnabled && (
-              <>
-                {' '}
-                {t('messages.and')} <code>DATABASE_SAVE_MESSAGES=true</code>
-              </>
-            )}
-            {t('messages.mediaLocalDisabledEnd')}
-          </span>
-        </div>
+        <FeatureNotice
+          summary={t('messages.mediaLocalDisabled')}
+          howLabel={t('messages.showHow')}
+          how={t('messages.mediaLocalDisabledHow')}
+        />
       )}
-      {flags.loaded && !flags.historyEnabled && flags.mediaLocal && (
-        <div className="flex items-start gap-2 border-b border-border bg-muted/50 px-4 py-2 text-xs text-muted-foreground">
-          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span>
-            {t('messages.historyDisabledPre')}
-            <strong>{t('messages.historyDisabledStrong')}</strong>{' '}
-            (<code>DATABASE_SAVE_MESSAGES=false</code>
-            {t('messages.historyDisabledMid')}
-            <strong>{t('messages.recover')}</strong>
-            {t('messages.historyDisabledEnd')}
-            <code>DATABASE_SAVE_MESSAGES=true</code>
-            {t('messages.historyDisabledSuffix')}
-          </span>
-        </div>
+      {flags.loaded && !flags.historyEnabled && (
+        <FeatureNotice
+          summary={t('messages.historyDisabled')}
+          howLabel={t('messages.showHow')}
+          how={t('messages.historyDisabledHow')}
+        />
       )}
 
       <div
@@ -1522,12 +1498,7 @@ export default function Messages() {
               </p>
             ) : (
               visibleChats.map((c) => {
-                const title = displayTitle(c, c.chat_jid, t);
-                // Show the phone number as a subtitle when the row displays a
-                // real name above it (a 1:1 contact whose name was resolved).
-                const number =
-                  chatKind(c.chat_jid) === 'contact' ? jidUser(c.chat_jid) : '';
-                const showNumber = !!number && number !== title;
+                const { title, detail } = chatHeading(c.chat_jid, c.name, t);
                 // The server clears this on unmute; a stale timestamp only keeps
                 // the icon until the next chat-state refresh, so avoid reading
                 // the clock during render.
@@ -1575,9 +1546,9 @@ export default function Messages() {
                           {formatShort(c.last_timestamp, locale)}
                         </span>
                       </span>
-                      {showNumber && (
+                      {detail && (
                         <span className="block truncate text-[10px] text-muted-foreground">
-                          {number}
+                          {detail}
                         </span>
                       )}
                       <span className="flex items-center justify-between gap-2">
@@ -1644,14 +1615,14 @@ export default function Messages() {
                 <ChatAvatar
                   jid={selectedChat}
                   token={token}
-                  label={activeTitle}
+                  label={activeHeading.title}
                   size={36}
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{activeTitle}</p>
+                  <p className="truncate text-sm font-medium">{activeHeading.title}</p>
                   <p className="truncate text-xs text-muted-foreground">
                     {[
-                      activeKind === 'contact' ? jidUser(selectedChat) : '',
+                      activeHeading.detail,
                       activeChat
                         ? t('messages.messageCount', {
                             count: activeChat.message_count,
