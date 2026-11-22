@@ -43,6 +43,12 @@ const createInstanceSchema = z.object({
       'instanceSettings.validation.namePattern'
     ),
   token: z.string().optional(),
+  integration: z.enum(['WHATSAPP-BAILEYS', 'WHATSAPP-BUSINESS']),
+  cloudAppId: z.string().optional(),
+  cloudWabaId: z.string().optional(),
+  cloudPhoneNumberId: z.string().optional(),
+  cloudBusinessId: z.string().optional(),
+  cloudAccessToken: z.string().optional(),
   proxyHost: z.string().optional(),
   proxyPort: z.string().optional(),
   proxyUsername: z.string().optional(),
@@ -64,18 +70,26 @@ export default function CreateInstanceModal({
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm<CreateInstanceFormData>({
     resolver: zodResolver(createInstanceSchema),
     defaultValues: {
       instanceName: '',
       token: '',
+      integration: 'WHATSAPP-BAILEYS',
+      cloudAppId: '',
+      cloudWabaId: '',
+      cloudPhoneNumberId: '',
+      cloudBusinessId: '',
+      cloudAccessToken: '',
       proxyHost: '',
       proxyPort: '',
       proxyUsername: '',
       proxyPassword: '',
     },
   });
+  const integration = watch('integration');
 
   const onSubmit = async (data: CreateInstanceFormData) => {
     setIsLoading(true);
@@ -84,10 +98,24 @@ export default function CreateInstanceModal({
       const payload: CreateInstancePayload = {
         name: data.instanceName,
         token: data.token || uuidv4(), // Generate UUID if not provided
+        integration: data.integration,
         // The manager's live pages read this feed, and an instance left without it
         // sends them nothing.
         websocketEnable: 'enabled',
       };
+
+      if (data.integration === 'WHATSAPP-BUSINESS') {
+        if (!data.cloudWabaId || !data.cloudPhoneNumberId || !data.cloudAccessToken) {
+          throw new Error('WABA ID, phone number ID and access token are required for Cloud API');
+        }
+        payload.cloud = {
+          appId: data.cloudAppId || undefined,
+          wabaId: data.cloudWabaId,
+          phoneNumberId: data.cloudPhoneNumberId,
+          businessId: data.cloudBusinessId || undefined,
+          accessToken: data.cloudAccessToken,
+        };
+      }
 
       // Add proxy configuration if provided
       if (data.proxyHost && data.proxyPort) {
@@ -172,6 +200,61 @@ export default function CreateInstanceModal({
               {t('instanceSettings.create.instanceNameHelp')}
             </p>
           </div>
+
+          {/* Transport */}
+          <div className="space-y-2">
+            <Label htmlFor="integration">Channel</Label>
+            <select
+              id="integration"
+              disabled={isLoading}
+              {...register('integration')}
+              className="flex h-10 w-full rounded-md border border-sidebar-border bg-sidebar px-3 py-2 text-sm text-sidebar-foreground"
+            >
+              <option value="WHATSAPP-BAILEYS">WhatsApp Web (QR)</option>
+              <option value="WHATSAPP-BUSINESS">WhatsApp Cloud API</option>
+            </select>
+            {integration === 'WHATSAPP-BUSINESS' && (
+              <p className="text-xs text-sidebar-foreground/60">
+                Official Meta Cloud API. No QR code: the number must be registered and the Meta
+                webhook configured.
+              </p>
+            )}
+          </div>
+
+          {integration === 'WHATSAPP-BUSINESS' && (
+            <div className="space-y-3 rounded-md border border-sidebar-border p-3">
+              <div className="space-y-1">
+                <Label htmlFor="cloudWabaId">WABA ID *</Label>
+                <Input id="cloudWabaId" disabled={isLoading} {...register('cloudWabaId')} className="bg-sidebar" />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="cloudPhoneNumberId">Phone number ID *</Label>
+                <Input id="cloudPhoneNumberId" disabled={isLoading} {...register('cloudPhoneNumberId')} className="bg-sidebar" />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="cloudBusinessId">Business ID</Label>
+                <Input id="cloudBusinessId" disabled={isLoading} {...register('cloudBusinessId')} className="bg-sidebar" />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="cloudAppId">Meta app ID</Label>
+                <Input id="cloudAppId" disabled={isLoading} {...register('cloudAppId')} className="bg-sidebar" />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="cloudAccessToken">Access token *</Label>
+                <Input
+                  id="cloudAccessToken"
+                  type="password"
+                  autoComplete="off"
+                  disabled={isLoading}
+                  {...register('cloudAccessToken')}
+                  className="bg-sidebar"
+                />
+                <p className="text-xs text-sidebar-foreground/60">
+                  Stored encrypted and never returned by the API.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Token (Optional) */}
           <div className="space-y-2">

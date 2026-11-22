@@ -18,6 +18,10 @@ import type {
   HmacStatus,
   HmacResponse,
   InstanceHealth,
+  CloudCredentialsInput,
+  CloudStatus,
+  CloudDiagnostics,
+  CloudTemplate,
 } from '@/types/instance';
 import type { LogEntry } from '@/utils/instanceLogs';
 
@@ -41,6 +45,7 @@ const normalizeInstance = (raw: RawInstance): Instance => {
   return {
     id: raw.id,
     instanceName: raw.name,
+    integration: raw.integration || 'WHATSAPP-BAILEYS',
     status,
     apikey: raw.token,
     // jid is "5514900000003:5@s.whatsapp.net": drop the "@server" and the
@@ -575,4 +580,79 @@ export default {
   sendButtonMessage,
   sendListMessage,
   sendCarouselMessage,
+};
+
+// --- WhatsApp Cloud API -----------------------------------------------------
+
+export const getCloudCredentials = async (instanceToken: string) => {
+  const response = await apiClient.get('/cloud/credentials', {
+    headers: { apikey: instanceToken },
+  });
+  return response.data.data;
+};
+
+export const setCloudCredentials = async (
+  instanceToken: string,
+  payload: CloudCredentialsInput
+) => {
+  const response = await apiClient.put('/cloud/credentials', payload, {
+    headers: { apikey: instanceToken },
+  });
+  return response.data.data;
+};
+
+export const verifyCloud = async (instanceToken: string): Promise<CloudStatus> => {
+  const response = await apiClient.post('/cloud/verify', {}, {
+    headers: { apikey: instanceToken },
+  });
+  return response.data.data;
+};
+
+export const registerCloudPhone = async (
+  instanceToken: string,
+  pin: string
+): Promise<CloudStatus> => {
+  const response = await apiClient.post('/cloud/register', { pin }, {
+    headers: { apikey: instanceToken },
+  });
+  return response.data.data;
+};
+
+export const getCloudDiagnostics = async (
+  instanceToken: string
+): Promise<CloudDiagnostics> => {
+  const response = await apiClient.get('/cloud/diagnostics', {
+    headers: { apikey: instanceToken },
+  });
+  return response.data.data;
+};
+
+export const listCloudTemplates = async (
+  instanceToken: string
+): Promise<CloudTemplate[]> => {
+  const response = await apiClient.get('/cloud/templates', {
+    headers: { apikey: instanceToken },
+  });
+  return response.data.data;
+};
+
+export const syncCloudTemplates = async (
+  instanceToken: string
+): Promise<CloudTemplate[]> => {
+  const response = await apiClient.post('/cloud/templates/sync', {}, {
+    headers: { apikey: instanceToken },
+  });
+  return response.data.data;
+};
+
+export const deleteCloudTemplate = async (
+  instanceToken: string,
+  name: string,
+  language: string
+) => {
+  const response = await apiClient.delete(
+    `/cloud/templates/${encodeURIComponent(name)}/${encodeURIComponent(language)}`,
+    { headers: { apikey: instanceToken } }
+  );
+  return response.data;
 };

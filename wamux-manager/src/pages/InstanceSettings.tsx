@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Save, Trash2, Power, Eye, EyeOff, Copy, Check, Network, RefreshCw, Pencil, X, KeyRound } from "lucide-react";
 import { Button, ConfirmDialog } from "@/components/ui";
 import { InstanceSettingsSkeleton } from "@/components/base/PageSkeleton";
+import { CloudSettingsCard } from "@/components/instances";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -95,6 +96,8 @@ const availableEvents = [
   "CONTACT",
   "GROUP",
   "NEWSLETTER",
+  "TEMPLATE",
+  "CLOUD_ACCOUNT",
 ];
 
 export default function InstanceSettings() {
@@ -964,6 +967,10 @@ export default function InstanceSettings() {
               </div>
             </div>
           </div>
+
+          {instance.integration === 'WHATSAPP-BUSINESS' && (
+            <CloudSettingsCard instance={instance} />
+          )}
 
           {/* Connection Settings Card */}
           <section id="connection" className={sectionClass(false)}>

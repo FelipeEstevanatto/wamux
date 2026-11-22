@@ -105,6 +105,8 @@ export const instanceSettingsNs: {
     'instanceSettings.events.CONTACT': 'Contato',
     'instanceSettings.events.GROUP': 'Grupo',
     'instanceSettings.events.NEWSLETTER': 'Newsletter',
+    'instanceSettings.events.TEMPLATE': 'Template',
+    'instanceSettings.events.CLOUD_ACCOUNT': 'Conta Cloud',
 
     'instanceSettings.option.default': 'Padrão',
     'instanceSettings.option.enabled': 'Habilitado',
@@ -364,6 +366,8 @@ export const instanceSettingsNs: {
     'instanceSettings.events.CONTACT': 'Contact',
     'instanceSettings.events.GROUP': 'Group',
     'instanceSettings.events.NEWSLETTER': 'Newsletter',
+    'instanceSettings.events.TEMPLATE': 'Template',
+    'instanceSettings.events.CLOUD_ACCOUNT': 'Cloud account',
 
     'instanceSettings.option.default': 'Default',
     'instanceSettings.option.enabled': 'Enabled',

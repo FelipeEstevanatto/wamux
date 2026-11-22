@@ -157,6 +157,20 @@ export default function Instances() {
       }
       if (connectingInstanceRef.current === instance.instanceName) return;
 
+      if (instance.integration === 'WHATSAPP-BUSINESS') {
+        try {
+          setConnectingInstance(instance.instanceName);
+          await instancesApi.verifyCloud(instance.apikey);
+          await fetchInstances();
+          toast.success('Cloud API connection verified');
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : 'Cloud API verification failed');
+        } finally {
+          setConnectingInstance(null);
+        }
+        return;
+      }
+
       const attempt = ++connectAttemptRef.current;
       const isCurrent = () => attempt === connectAttemptRef.current;
 

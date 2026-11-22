@@ -130,7 +130,14 @@ export default function InstanceCard({
           </div>
           </Link>
 
-          <div className="shrink-0">{getStatusBadge(instance.status, t)}</div>
+          <div className="shrink-0 flex items-center gap-2">
+            {instance.integration === 'WHATSAPP-BUSINESS' && (
+              <Badge className="bg-blue-500/10 text-blue-500 hover:bg-blue-500/20">
+                Cloud API
+              </Badge>
+            )}
+            {getStatusBadge(instance.status, t)}
+          </div>
         </div>
 
         {/* Details section */}

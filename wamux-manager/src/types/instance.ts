@@ -9,6 +9,7 @@ export type InstanceStatus = 'open' | 'close';
 export interface RawInstance {
   id: string;
   name: string;
+  integration?: 'WHATSAPP-BAILEYS' | 'WHATSAPP-BUSINESS' | string;
   token: string;
   webhook: string;
   rabbitmqEnable: string;
@@ -69,10 +70,66 @@ export interface Instance {
   ignoreStatus?: boolean;
 }
 
+export interface CloudCredentialsInput {
+  appId?: string;
+  wabaId: string;
+  phoneNumberId: string;
+  businessId?: string;
+  accessToken?: string;
+  displayPhoneNumber?: string;
+  enforceWindow?: boolean;
+}
+
+export interface CloudStatus {
+  displayPhoneNumber?: string;
+  verifiedName?: string;
+  lastVerifiedAt?: string;
+  lastWebhookAt?: string;
+  subscribed: boolean;
+  registered: boolean;
+  registrationStatus?: string;
+  qualityRating?: string;
+  messagingLimit?: string;
+  windowHours: number;
+  capabilities?: Record<string, boolean>;
+  capabilityNotes?: Record<string, string>;
+}
+
+export interface CloudDiagnostics {
+  tokenValid: boolean;
+  appSecretSet: boolean;
+  phoneRegistered: boolean;
+  subscribed: boolean;
+  displayPhoneNumber?: string;
+  verifiedName?: string;
+  qualityRating?: string;
+  messagingLimit?: string;
+  lastGraphError?: string;
+  lastWebhookAt?: string;
+  effectiveRPS?: number;
+  templatesApproved?: number;
+  templatesPending?: number;
+  templatesRejected?: number;
+}
+
+export interface CloudTemplate {
+  id: string;
+  templateId?: string;
+  name: string;
+  language: string;
+  category?: string;
+  status?: string;
+  components?: unknown;
+  rejectedReason?: string;
+  qualityScore?: string;
+}
+
 export interface CreateInstancePayload {
   instanceId?: string;
   name: string;
   token: string;
+  integration?: 'WHATSAPP-BAILEYS' | 'WHATSAPP-BUSINESS';
+  cloud?: CloudCredentialsInput;
   websocketEnable?: string;
   proxy?: {
     host: string;
