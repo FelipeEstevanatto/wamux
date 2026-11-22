@@ -6,4 +6,4 @@ implemented.
 
 | Document | Status |
 |---|---|
-| [`waba-cloud-api.md`](./waba-cloud-api.md) | Proposed; 6–8 engineer-weeks for production Phases 1–3 |
+| [`waba-cloud-api.md`](./waba-cloud-api.md) | Revision 2; 8–10 engineer-weeks for production Phases 1–3 |

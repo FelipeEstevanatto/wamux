@@ -1,10 +1,21 @@
 # WABA / WhatsApp Cloud API — implementation plan
 
-**Status:** proposed; no implementation started.
+**Status:** proposed, Revision 2; no implementation started.
 **Target:** WaMux `1.1.0` (or the next minor release).
 **Companion design:** [`../spikes/waba-cloud-api.md`](../spikes/waba-cloud-api.md).
 **Baseline:** WaMux `1.0.1` + 29 commits, latest migration `0017`.
-**Reference implementation:** Evolution API `2.3.7` and Reforged `3.3.0` (functional reference only; not a security or reliability template).
+**Reference implementations:** Evolution API `2.3.7`, Reforged `3.3.0`,
+[`wapikit/wapi.go`](https://github.com/wapikit/wapi.go),
+[`piusalfred/whatsapp`](https://github.com/piusalfred/whatsapp) and
+[`jjuanrivvera/waba-cli`](https://github.com/jjuanrivvera/waba-cli). They are
+references, not dependencies; none is Meta-endorsed.
+
+> **Revision 2 changes:** BSUID/usernames are mandatory; Cloud Groups, Calling,
+> Flows and typing indicators exist and must be represented accurately; sends
+> must not be automatically retried; phone registration, webhook hardening,
+> adaptive rate limiting and richer error handling are in scope. See
+> [Sources](#sources) for the official and reference material behind these
+> changes.
 
 ---
 
@@ -26,15 +37,17 @@ implementation untouched.
 First production slice:
 
 1. Cloud instance creation with encrypted Meta credentials.
-2. Signed `GET/POST /webhook/cloud`.
-3. Inbound text and status events.
-4. Outbound text with idempotency and message persistence.
+2. Phone registration and verification.
+3. Signed `GET/POST /webhook/cloud`, including BSUID identity mapping.
+4. Inbound text/status events and outbound text with operation tracking.
 5. Cloud status, disconnect, delete and capability reporting.
 
-Then media, templates, the 24-hour window, interactive messages and manager
-onboarding.
+Then media, templates, the 24-hour window, interactive messages, diagnostics and
+manager onboarding.
 
-**Estimate:** 6–8 engineer-weeks for production Phases 1–3. A demo/text-only
+**Estimate:** 8–10 engineer-weeks for production Phases 1–3. BSUID support,
+safe send semantics, phone registration and the expanded operational surface
+add roughly two weeks over the earlier 6–8 week estimate. A demo/text-only
 channel is 2–3 weeks, but is not the acceptance bar.
 
 ---
@@ -53,12 +66,19 @@ channel is 2–3 weeks, but is not the acceptance bar.
 - Reuse existing message persistence, event producers, audit, idempotency,
   media storage and manager patterns.
 - Make the channel safe for multiple tenants on one WaMux deployment.
+- Support BSUID and usernames from the first release; a phone number is no
+  longer guaranteed to be present on inbound events.
+- Make send outcomes explicit: never silently retry a non-idempotent message
+  send after an ambiguous timeout.
 
 ### Non-goals
 
 - Feature parity with Baileys or with Reforged.
-- Groups, communities, newsletters, status/stories, albums, polls, carousels,
-  product catalogs, calls, presence/typing parity or chat-history sync.
+- Implementing Cloud Groups, Calling, Flows or commerce in Phases 1–3. These
+  are Cloud API products, not “unsupported features”; they are deliberately
+  deferred to a separate project.
+- Communities, newsletters, status/stories, albums, polls, carousels, product
+  catalogs and full presence parity.
 - Embedded Signup in the first release (Phase 4).
 - WaMux billing or Meta conversation pricing.
 - A durable outbound queue or a new Redis/MySQL/Kafka dependency.
@@ -94,11 +114,17 @@ outside it are rejected by Meta (`131047`). Templates are allowed outside it.
 WaMux should pre-check the window for a good error, but it must also map Meta's
 error because clocks and Meta state can disagree.
 
-### 3.3 Cloud API has no chat history or contact-list API
+### 3.3 Cloud API has no general chat-history or contact-list API
 
 WaMux can store messages received by webhook, but it cannot import a phone's
-history or contact list. The manager must not show a “sync history” action for
-Cloud instances.
+arbitrary history or contact list. The manager must not show a “sync history”
+action for direct Cloud instances.
+
+There is a `history` webhook field, but it is for onboarding WhatsApp Business
+app users through a solution provider, not a general history fetch. It can
+contain thousands of messages and must be handled asynchronously if WaMux ever
+implements SMB onboarding. See
+[Meta webhook fields](https://developers.facebook.com/documentation/business-messaging/whatsapp/webhooks/overview).
 
 ### 3.4 Cloud API does not accept a client-generated message ID
 
@@ -113,6 +139,62 @@ System-user tokens can be long-lived, but user tokens expire. Store
 rotation endpoint. Do not build automatic refresh unless a refresh token and a
 testable flow are available.
 
+### 3.6 BSUID and usernames are mandatory
+
+Meta now requires BSUID support for partners and directly integrated businesses
+because a user may enable a username and hide their phone number. The send API
+accepts a `recipient` field for a BSUID, and webhooks include `user_id`,
+`from_user_id`, `parent_user_id` and `recipient_user_id`.
+
+Consequences:
+
+- A Cloud contact is not guaranteed to have a phone number.
+- A message send is not always addressed by `number`/`to`; it may be addressed
+  by `recipient`.
+- The 24-hour window and chat identity must be keyed by a Cloud contact
+  identity, not by `chat_jid` alone.
+- Error `131062` means BSUID recipients are not supported for that message type.
+  One-tap, zero-tap and copy-code authentication templates still require a
+  phone number.
+
+See [Business-scoped user IDs](https://developers.facebook.com/documentation/business-messaging/whatsapp/business-scoped-user-ids/).
+
+### 3.7 Cloud API is broader than the original plan assumed
+
+The Cloud API now includes products that earlier notes called unavailable:
+
+- **Groups API** — available to Official Business Accounts (OBA). Max 8
+  participants, max 10,000 groups per business number, text/media/text-template
+  messages only; no interactive, auth, commerce, calling, disappearing,
+  view-once, edit or delete. See
+  [Groups API](https://developers.facebook.com/documentation/business-messaging/whatsapp/groups).
+- **Calling API** — WebRTC/SIP calling, call permissions, call settings and
+  `calls` webhooks. It is a separate project. See
+  [Cloud API Calling](https://developers.facebook.com/documentation/business-messaging/whatsapp/calling).
+- **Flows** — interactive Flows and `nfm_reply` messages. Deliberately
+  deferred. See
+  [WhatsApp Flows](https://developers.facebook.com/documentation/business-messaging/whatsapp/flows).
+- **Typing indicator** — marking a message as read can include a
+  `typing_indicator`; this is not full presence parity.
+
+The capability matrix must say “Cloud supports this, WaMux has not implemented
+it” where applicable, not “Cloud does not support it.”
+
+### 3.8 Phone registration is part of onboarding
+
+A verified phone number may still fail to send with `133010` until it is
+registered for Cloud API. The registration call requires a six-digit PIN:
+
+```text
+POST /{phone-number-id}/register
+{"messaging_product":"whatsapp","pin":"123456"}
+```
+
+Add registration status to the instance lifecycle and never store the PIN.
+Registration is limited to 10 requests per business number in a 72-hour window;
+map `133016` and stop retrying. See
+[phone number registration](https://developers.facebook.com/documentation/business-messaging/whatsapp/business-phone-numbers/registration).
+
 ---
 
 ## 4. Scope matrix
@@ -120,25 +202,33 @@ testable flow are available.
 | Capability | Phase 1 | Phase 2 | Phase 3 | Notes |
 |---|---:|---:|---:|---|
 | Cloud instance + credentials | ✅ | | | encrypted, write-only |
+| Phone verification + registration | ✅ | | | `register` with six-digit PIN |
 | Signed webhook GET/POST | ✅ | | | app-level verify token |
+| BSUID/username identity | ✅ | | | phone is optional; `recipient` send field |
 | Inbound text | ✅ | | | persisted + event |
 | Inbound statuses | ✅ | | | sent/delivered/read/failed |
-| Outbound text | ✅ | | | `wamid`, status mapping |
+| Outbound text | ✅ | | | `wamid`, safe send outcomes |
 | Instance status/disconnect/delete | ✅ | | | no QR/socket |
+| Cloud diagnostics | ✅ basic | ✅ | ✅ full | token, registration, subscription, webhook |
 | Cloud media upload | | ✅ | | local/multipart and URL |
 | Cloud media download | | ✅ | | queued, S3/local |
 | Templates CRUD/send | | ✅ | | Graph + local cache |
-| 24-hour window | | ✅ | | pre-check + Meta error |
-| Buttons/lists | | | ✅ | subset of WaMux buttons |
+| 24-hour window | | ✅ | | BSUID-aware; pre-check + Meta error |
+| Buttons/lists | | | ✅ | reply/list subset; granular capability |
+| CTA URL/Flows/product/catalog | | | Deferred | Cloud supports; separate project |
 | Location/contact/reaction | | | ✅ | Cloud payload mapping |
 | Sticker | | | ✅ | if Meta account supports it |
-| Rate-limit/error mapping | ✅ basic | ✅ | ✅ full | 429, retry, typed errors |
+| Typing indicator | | | ✅ | mark-read + `typing_indicator`; not presence |
+| Rate-limit/error mapping | ✅ basic | ✅ | ✅ full | adaptive limiter + typed hints |
 | Capability discovery | ✅ | ✅ | ✅ | API + manager |
-| Manager onboarding | | | ✅ | create/settings/templates |
+| Manager onboarding | | | ✅ | create/settings/templates/diagnostics |
 | Embedded Signup | | | | Phase 4 |
-| Groups/albums/polls/newsletters/status | ❌ | ❌ | ❌ | explicit unsupported |
-| Chat history/contact sync | ❌ | ❌ | ❌ | Cloud has no API |
-| Presence/typing parity | ❌ | ❌ | ❌ | not available |
+| Groups API | | | | Cloud-supported (OBA), deferred |
+| Calling API | | | | Cloud-supported, separate project |
+| Flows | | | | Cloud-supported, deferred |
+| Albums/polls/carousels/status/communities/newsletters | ❌ | ❌ | ❌ | no Cloud equivalent |
+| General chat history/contact sync | ❌ | ❌ | ❌ | no API; SMB `history` webhook is separate |
+| Full presence parity | ❌ | ❌ | ❌ | typing indicator only |
 
 ---
 
@@ -182,23 +272,30 @@ const (
 )
 
 type Capabilities struct {
-    Text        bool `json:"text"`
-    Media       bool `json:"media"`
-    Templates   bool `json:"templates"`
-    Interactive bool `json:"interactive"`
-    Location    bool `json:"location"`
-    Contacts    bool `json:"contacts"`
-    Reactions   bool `json:"reactions"`
-    Groups      bool `json:"groups"`
-    Albums      bool `json:"albums"`
-    Polls       bool `json:"polls"`
-    Newsletters bool `json:"newsletters"`
-    Status      bool `json:"status"`
-    Presence    bool `json:"presence"`
-    History     bool `json:"history"`
+    Text            bool `json:"text"`
+    Media           bool `json:"media"`
+    Templates       bool `json:"templates"`
+    Interactive     bool `json:"interactive"`
+    Location        bool `json:"location"`
+    Contacts        bool `json:"contacts"`
+    Reactions       bool `json:"reactions"`
+    BSUID           bool `json:"bsuid"`
+    TypingIndicator bool `json:"typingIndicator"`
+    Groups          bool `json:"groups"`
+    Calls           bool `json:"calls"`
+    Flows           bool `json:"flows"`
+    Albums          bool `json:"albums"`
+    Polls           bool `json:"polls"`
+    Newsletters     bool `json:"newsletters"`
+    Status          bool `json:"status"`
+    Presence        bool `json:"presence"`
+    History         bool `json:"history"`
 }
 
-var ErrUnsupported = errors.New("unsupported_on_channel")
+var (
+    ErrUnsupported     = errors.New("unsupported_on_channel")
+    ErrNotImplemented  = errors.New("not_implemented_on_channel")
+)
 
 type UnsupportedError struct {
     Channel Kind
@@ -207,34 +304,53 @@ type UnsupportedError struct {
 
 func (e *UnsupportedError) Error() string { ... }
 func (e *UnsupportedError) Unwrap() error { return ErrUnsupported }
+
+// NotImplementedError distinguishes "Cloud has this but WaMux has not built it"
+// (Groups, Calling, Flows) from "Cloud has no equivalent" (albums, polls).
+type NotImplementedError struct {
+    Channel Kind
+    Op      string
+}
+
+func (e *NotImplementedError) Error() string { ... }
+func (e *NotImplementedError) Unwrap() error { return ErrNotImplemented }
 ```
 
 Neutral DTOs (minimal shape; add fields as operations are implemented):
 
 ```go
 type TextMessage struct {
-    To         string
-    Body       string
-    PreviewURL bool
-    ReplyTo    string
+    To            string
+    Recipient     string // BSUID or parent BSUID
+    RecipientType string // individual (default) or group
+    Body          string
+    PreviewURL    bool
+    ReplyTo       string
+    OperationID   string
 }
 
 type MediaMessage struct {
-    To       string
-    Kind     string // image/video/audio/document/sticker
-    URL      string
-    Data     []byte
-    Filename string
-    MIME     string
-    Caption  string
-    ReplyTo  string
+    To            string
+    Recipient     string
+    RecipientType string
+    Kind          string // image/video/audio/document/sticker
+    URL           string
+    Data          []byte
+    Filename      string
+    MIME          string
+    Caption       string
+    ReplyTo       string
+    OperationID   string
 }
 
 type Result struct {
-    ID        string
-    Timestamp time.Time
-    Channel   Kind
-    Raw       map[string]any // optional, never serialized directly
+    ID          string
+    Timestamp   time.Time
+    Channel     Kind
+    Recipient   string // BSUID actually used, if any
+    WAID        string // phone actually used, if any
+    OperationID string
+    Raw         map[string]any // optional, never serialized directly
 }
 ```
 
@@ -282,11 +398,14 @@ Rules:
   maps `channel.Result` back to the compatibility response.
 - For Cloud, the router fills a compatibility `MessageSendStruct`:
   - `Info.ID` = Graph `wamid`
-  - `Info.Chat` = recipient JID
+  - `Info.Chat` = the compatibility chat key only; for a BSUID-only recipient,
+    do not fabricate a phone JID. Put the BSUID in `cloud.recipient` and
+    `contactId` instead.
   - `Info.Sender` = instance JID (or the Cloud phone number)
   - `Info.Timestamp` = send time
   - `Message` stays nil for non-media, or a minimal map for media metadata
-  - add `Channel` and `Cloud` fields to the response envelope (additive)
+  - add `Channel`, `contactId` and `Cloud` fields to the response envelope
+    (additive)
 
 If changing `MessageSendStruct` is too invasive, add a wrapper response with
 `channel` and `externalId` while preserving `Info.ID`. Do not expose the raw
@@ -301,8 +420,9 @@ rewrite:
 | Operation | Baileys | Cloud |
 |---|---|---|
 | Create | current | insert instance + encrypted credentials in one transaction |
-| Connect | start client/QR | verify token/phone, subscribe app; no client |
-| Status | socket state | cached verification + webhook state |
+| Connect | start client/QR | verify token/phone, subscribe app, check registration; no client |
+| Register | n/a | six-digit PIN; `registered` status; no PIN stored |
+| Status | socket state | cached verification/registration + webhook state |
 | Disconnect | stop client | mark disconnected; keep credentials |
 | Delete | current cleanup | delete child rows + media; no device store |
 | Logout | current | `422 unsupported_on_channel` (rotate/delete instead) |
@@ -323,18 +443,19 @@ Meta ──POST /webhook/cloud──▶ signature ──▶ route by phone_numbe
                                                 │
                         ┌───────────────────────┼───────────────────────┐
                         ▼                       ▼                       ▼
-                  message row             status event             template update
+                  contact identity        status event             template/account
+                  (BSUID/phone)           cloud_status_events      cloud_templates
                         │                       │                       │
-                  media job queue         cloud_status_events      cloud_templates
-                        │                       │                       │
-                        └───────────────────────┴───────────▶ EventSink
-                                                              (Message/Receipt)
+                  message row + media      account events          EventSink
+                  job queue                                             │
+                        └───────────────────────┴───────────▶ (Message/Receipt)
 ```
 
 Outbound:
 
 ```
 /send/* ──▶ SendRouter ──▶ CloudSender ──▶ Graph /messages
+                                      ──▶ send_operations (pending/accepted/unknown)
                                       ──▶ persist row (channel=cloud, Sent)
                                       ──▶ publish SendMessage
 ```
@@ -368,12 +489,46 @@ CREATE INDEX idx_instances_integration ON instances (integration);
 
 ```sql
 ALTER TABLE messages ADD COLUMN channel TEXT NOT NULL DEFAULT 'baileys';
+ALTER TABLE messages ADD COLUMN contact_id TEXT;
+ALTER TABLE messages ADD COLUMN sender_user_id TEXT;
+ALTER TABLE messages ADD COLUMN recipient_user_id TEXT;
 CREATE INDEX idx_messages_instance_channel ON messages (instance_id, channel);
+CREATE INDEX idx_messages_instance_contact ON messages (instance_id, contact_id, "timestamp" DESC);
 ```
 
 Use lowercase `baileys` / `cloud` for the row-level channel. The instance
 integration remains the canonical `WHATSAPP-BAILEYS` / `WHATSAPP-BUSINESS`
 value.
+
+`contact_id` is the Cloud contact key: `bsuid:<BSUID>` when a BSUID is present,
+otherwise `phone:<E.164 digits>`. `chat_jid` remains the manager-facing chat key;
+Cloud read paths must not parse it as a phone JID when the contact is BSUID-only.
+
+### 6.2a `cloud_contacts`
+
+```sql
+CREATE TABLE IF NOT EXISTS cloud_contacts (
+    instance_id   UUID NOT NULL REFERENCES instances(id) ON DELETE CASCADE,
+    contact_id    TEXT NOT NULL,          -- bsuid:<value> or phone:<digits>
+    bsuid         TEXT,
+    parent_bsuid  TEXT,
+    wa_id         TEXT,                   -- phone number, when Meta provides it
+    username      TEXT,
+    display_name  TEXT,
+    first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_seen_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (instance_id, contact_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_cloud_contacts_bsuid
+    ON cloud_contacts (instance_id, bsuid);
+CREATE INDEX IF NOT EXISTS idx_cloud_contacts_wa_id
+    ON cloud_contacts (instance_id, wa_id);
+```
+
+The identity row is updated on every message/status webhook. BSUID is the
+primary identity; phone is optional. Handle customer identity/number-change
+events by upserting the new mapping and preserving the conversation history.
 
 ### 6.3 `cloud_apps`
 
@@ -382,7 +537,7 @@ CREATE TABLE IF NOT EXISTS cloud_apps (
     app_id            TEXT PRIMARY KEY,
     app_secret_enc    TEXT NOT NULL,
     verify_token_hash TEXT NOT NULL,
-    graph_version     TEXT NOT NULL DEFAULT 'v23.0',
+    graph_version     TEXT NOT NULL DEFAULT 'v27.0',
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -412,6 +567,12 @@ CREATE TABLE IF NOT EXISTS cloud_api_credentials (
     token_expires_at  TIMESTAMPTZ,
     last_verified_at  TIMESTAMPTZ,
     last_verify_error TEXT,
+    registered        BOOLEAN NOT NULL DEFAULT FALSE,
+    registered_at     TIMESTAMPTZ,
+    registration_status TEXT,
+    last_registration_error TEXT,
+    quality_rating    TEXT,
+    messaging_limit   TEXT,
     enforce_window    BOOLEAN NOT NULL DEFAULT TRUE,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -457,11 +618,12 @@ the message model does, but the migration must pass on both drivers.
 ```sql
 CREATE TABLE IF NOT EXISTS cloud_chat_windows (
     instance_id     UUID NOT NULL REFERENCES instances(id) ON DELETE CASCADE,
-    chat_jid        TEXT NOT NULL,
+    contact_id      TEXT NOT NULL,          -- bsuid:<value> or phone:<digits>
+    chat_jid        TEXT,                   -- display/compatibility key
     last_inbound_at TIMESTAMPTZ NOT NULL,
     expires_at      TIMESTAMPTZ NOT NULL,
     last_message_id TEXT,
-    PRIMARY KEY (instance_id, chat_jid)
+    PRIMARY KEY (instance_id, contact_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_cloud_windows_expiry
@@ -469,8 +631,10 @@ CREATE INDEX IF NOT EXISTS idx_cloud_windows_expiry
 ```
 
 Use the Meta message timestamp, not the webhook receipt time, so a delayed
-webhook does not extend the window incorrectly. Keep rows; a later inbound
-upsert refreshes the window. Cleanup is optional.
+webhook does not extend the window incorrectly. Key by `contact_id`, because a
+BSUID user may have no phone number and a phone-number change must not split the
+window. Keep rows; a later inbound upsert refreshes the window. Cleanup is
+optional.
 
 ### 6.7 `cloud_webhook_events` (dedupe/replay)
 
@@ -541,6 +705,8 @@ CREATE TABLE IF NOT EXISTS cloud_status_events (
     instance_id   UUID NOT NULL REFERENCES instances(id) ON DELETE CASCADE,
     message_id    TEXT NOT NULL,
     status        TEXT NOT NULL,
+    recipient_user_id TEXT,
+    recipient_id  TEXT,
     error_code    TEXT,
     error_title   TEXT,
     error_message TEXT,
@@ -555,6 +721,45 @@ CREATE INDEX IF NOT EXISTS idx_cloud_status_message
 
 `messages.status` remains the current state. `cloud_status_events` keeps the
 history and Meta error detail for the manager and support.
+
+Add `recipient_user_id TEXT` and `recipient_id TEXT` to this table so a failed
+status can still be tied to a BSUID when the phone number is absent.
+
+### 6.9a `cloud_account_events`
+
+```sql
+CREATE TABLE IF NOT EXISTS cloud_account_events (
+    id          UUID PRIMARY KEY,
+    instance_id UUID NOT NULL REFERENCES instances(id) ON DELETE CASCADE,
+    field       TEXT NOT NULL,             -- account_alerts, security, ...
+    event_type  TEXT,
+    payload     JSONB NOT NULL,
+    received_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_cloud_account_events_instance
+    ON cloud_account_events (instance_id, received_at DESC);
+```
+
+Store quality, account-review, capability, security, username and template
+quality/category/component updates here. Surface the latest state in the
+manager; do not require a separate service.
+
+### 6.9b `cloud_user_preferences`
+
+```sql
+CREATE TABLE IF NOT EXISTS cloud_user_preferences (
+    instance_id        UUID NOT NULL REFERENCES instances(id) ON DELETE CASCADE,
+    contact_id         TEXT NOT NULL,
+    marketing_opt_out  BOOLEAN NOT NULL DEFAULT FALSE,
+    source_event_at    TIMESTAMPTZ,
+    updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (instance_id, contact_id)
+);
+```
+
+Meta can send `user_preferences` changes. WaMux should record them even though
+the tenant owns the final opt-in/opt-out policy.
 
 ### 6.10 Status ordering
 
@@ -586,13 +791,16 @@ Append only, in order:
 |---|---|
 | `0018_instances_integration` | `instances.integration`, default, index |
 | `0019_cloud_apps` | app credentials + verify-token hash |
-| `0020_cloud_api_credentials` | per-instance WABA/phone/token |
-| `0021_cloud_templates` | template cache/lifecycle |
-| `0022_cloud_chat_windows` | 24-hour window state |
-| `0023_cloud_webhook_events` | dedupe/replay claims |
-| `0024_cloud_media_jobs` | durable media download queue |
-| `0025_messages_channel` | message channel column + index |
-| `0026_cloud_status_events` | status/error history |
+| `0020_cloud_api_credentials` | per-instance WABA/phone/token + registration status |
+| `0021_cloud_contacts` | BSUID/username/phone identity mapping |
+| `0022_cloud_templates` | template cache/lifecycle |
+| `0023_cloud_chat_windows` | BSUID-aware 24-hour window state |
+| `0024_cloud_webhook_events` | dedupe/replay claims |
+| `0025_cloud_media_jobs` | durable media download queue |
+| `0026_messages_cloud_identity` | message `channel`, `contact_id`, BSUID columns |
+| `0027_cloud_status_events` | status/error history |
+| `0028_cloud_account_events` | account/template/security/quality events |
+| `0029_cloud_user_preferences` | marketing preference state |
 
 Postgres steps must use `IF NOT EXISTS` where supported. SQLite cannot add a
 column with `IF NOT EXISTS`; AutoMigrate runs first, so SQLite steps should only
@@ -601,8 +809,12 @@ drivers.
 
 ### 6.12 Retention
 
-- `cloud_webhook_events`: 30 days.
+- `cloud_webhook_events`: 30 days (Meta retries non-200 deliveries for up to
+  7 days, so this comfortably covers retries).
 - `cloud_status_events`: 90 days.
+- `cloud_account_events`: 90 days.
+- `cloud_user_preferences`: keep while the contact exists; it is state, not an
+  event log.
 - `cloud_media_jobs` failed rows: 30 days, or keep until manually retried.
 - `cloud_templates`: keep while the instance exists; stale rows are harmless.
 - Add these to the existing cleanup/retention path or a small `pkg/cloud/cleanup`
@@ -618,18 +830,22 @@ Add to `pkg/config/config.go` and the environment reference:
 |---|---|---|
 | `CLOUD_API_ENABLED` | `false` | Master switch for routes/creation; phase rollout |
 | `CLOUD_API_GRAPH_BASE_URL` | `https://graph.facebook.com` | Test override; production fixed |
-| `CLOUD_API_GRAPH_VERSION` | `v23.0` | Default for app rows; configurable |
+| `CLOUD_API_GRAPH_VERSION` | `v27.0` | Default for app rows; confirm the supported version at implementation time |
 | `CLOUD_API_APP_ID` | empty | Initial Meta app id |
 | `CLOUD_API_APP_SECRET` | empty | Initial app secret (encrypted at boot/seed) |
 | `CLOUD_API_VERIFY_TOKEN` | empty | Initial webhook verify token |
-| `CLOUD_API_HTTP_TIMEOUT_SECONDS` | `30` | Graph request timeout |
+| `CLOUD_API_HTTP_TIMEOUT_SECONDS` | `30` | Graph JSON request timeout |
+| `CLOUD_API_RESPONSE_HEADER_TIMEOUT_SECONDS` | `60` | Time to first response header |
 | `CLOUD_API_MEDIA_TIMEOUT_SECONDS` | `120` | Media transfer timeout |
-| `CLOUD_API_MAX_WEBHOOK_BYTES` | `2097152` | Webhook body cap |
+| `CLOUD_API_MAX_WEBHOOK_BYTES` | `4194304` | Webhook body cap; Meta documents 3 MB |
+| `CLOUD_API_MAX_RESPONSE_BYTES` | `10485760` | Bounded JSON response body |
+| `CLOUD_API_MAX_RESPONSE_HEADER_BYTES` | `1048576` | Max response header |
 | `CLOUD_API_MAX_MEDIA_BYTES` | `104857600` | Inbound media cap |
 | `CLOUD_API_MEDIA_WORKERS` | `2` | Media download worker count |
 | `CLOUD_API_WINDOW_HOURS` | `24` | Window length; Meta policy default |
 | `CLOUD_API_ENFORCE_WINDOW` | `true` | Default for new credentials |
-| `CLOUD_API_RETRY_MAX` | `3` | Graph retry attempts |
+| `CLOUD_API_RPS` | conservative value | Adaptive limiter floor |
+| `CLOUD_API_RETRY_MAX` | `3` | Retries for idempotent requests only |
 
 If `CLOUD_API_APP_ID`/`APP_SECRET`/`VERIFY_TOKEN` are set, seed/update the
 single `cloud_apps` row at boot. If they are absent, the manager/API can create
@@ -654,7 +870,7 @@ shape unless explicitly noted.
   "appId": "1234567890",
   "appSecret": "EAAG...",
   "verifyToken": "a-long-random-value",
-  "graphVersion": "v23.0"
+  "graphVersion": "v27.0"
 }
 ```
 
@@ -726,17 +942,52 @@ shape unless explicitly noted.
 {
   "connected": true,
   "subscribed": true,
+  "registered": true,
   "displayPhoneNumber": "+5511999999999",
   "verifiedName": "Acme Support",
   "qualityRating": "GREEN",
+  "messagingLimit": "TIER_1K",
   "checkedAt": "2026-11-22T14:00:00Z"
 }
 ```
 
-`POST /instance/connect` for Cloud performs verification and
-`POST /{waba-id}/subscribed_apps`; it returns the normal instance object plus
-`cloud`. If subscription fails, keep credentials, set `connected` only after
-verification, and return a clear error with `subscription: false`.
+`POST /instance/connect` for Cloud performs verification,
+`POST /{waba-id}/subscribed_apps`, and checks phone registration. It returns the
+normal instance object plus `cloud`. If subscription or registration fails,
+keep credentials, set `connected` only after verification, and return a clear
+error with `subscription`/`registered` flags.
+
+`POST /instance/cloud/register`
+
+```json
+{
+  "pin": "123456"
+}
+```
+
+- Calls `POST /{phone-number-id}/register` with
+  `{"messaging_product":"whatsapp","pin":"..."}`.
+- Six-digit PIN; never store the PIN.
+- Treat an already-registered response as success.
+- Map `133010` to a “register this number” action.
+
+`GET /instance/cloud/diagnostics`
+
+```json
+{
+  "tokenValid": true,
+  "appSecretSet": true,
+  "phoneRegistered": true,
+  "subscribed": true,
+  "lastWebhookAt": "2026-11-22T14:05:00Z",
+  "lastGraphError": null,
+  "rateLimitState": {"effectiveRPS": 8.5},
+  "templates": {"approved": 12, "pending": 1, "rejected": 0}
+}
+```
+
+Diagnostics are read-only and must not call Graph on every poll unless the
+caller explicitly requests a refresh.
 
 ### 8.4 Status
 
@@ -753,19 +1004,30 @@ verification, and return a clear error with `subscription: false`.
     "lastVerifiedAt": "2026-11-22T14:00:00Z",
     "lastWebhookAt": "2026-11-22T14:05:00Z",
     "subscribed": true,
+    "registered": true,
     "windowHours": 24,
     "capabilities": {
       "text": true,
       "media": true,
       "templates": true,
       "interactive": true,
+      "bsuid": true,
+      "typingIndicator": true,
       "groups": false,
+      "calls": false,
+      "flows": false,
       "albums": false,
       "polls": false,
       "newsletters": false,
       "status": false,
       "presence": false,
       "history": false
+    },
+    "capabilityNotes": {
+      "groups": "Cloud Groups API exists for Official Business Accounts; not implemented in WaMux",
+      "calls": "Cloud Calling API exists; separate project",
+      "flows": "Cloud Flows exist; deferred",
+      "history": "No general history API; the SMB history webhook is separate"
     }
   }
 }
@@ -783,16 +1045,24 @@ the manager can render settings even when the instance is offline.
 ```json
 {
   "number": "5511999999999",
+  "recipient": "US.13491208655302741918",
+  "recipientType": "individual",
   "text": "Hello from WaMux",
   "quoted": {"messageId": "wamid..."}
 }
 ```
 
 - `number` is normalized to digits; Cloud `to` is E.164 without `+`.
+- `recipient` is a BSUID or parent BSUID and maps to Cloud `recipient`.
+- If both `number` and `recipient` are present, `to` takes precedence, matching
+  Meta.
+- `recipientType` is `individual` (default) or `group` when Groups support is
+  implemented.
 - `quoted.messageId` maps to `context.message_id`; it must be a `wamid`.
 - `mentionAll` / `mentionedJid` are unsupported on Cloud: return
   `422 unsupported_on_channel` rather than silently dropping mentions.
-- `delay` is honored as a bounded local sleep; Cloud has no typing indicator.
+- `delay` is honored as a bounded local sleep; Cloud has no presence, but
+  mark-read can optionally send a `typing_indicator`.
 - `linkPreview` maps to `preview_url` only; rich link metadata is ignored.
 
 Response (additive fields; `data.Info.ID` remains for compatibility):
@@ -807,11 +1077,17 @@ Response (additive fields; `data.Info.ID` remains for compatibility):
     },
     "channel": "cloud",
     "cloud": {
-      "wamid": "wamid.HBgM..."
+      "wamid": "wamid.HBgM...",
+      "recipient": "US.13491208655302741918",
+      "waId": "5511999999999"
     }
   }
 }
 ```
+
+If the Graph request times out, return `202` with an operation record only
+when the operation state is `unknown`; otherwise return the typed error. Do not
+blindly retry the send. See §9.2.
 
 ### 8.6 Send media
 
@@ -834,6 +1110,8 @@ Response (additive fields; `data.Info.ID` remains for compatibility):
 ```json
 {
   "number": "5511999999999",
+  "recipient": "US.13491208655302741918",
+  "recipientType": "individual",
   "name": "order_update",
   "language": "en_US",
   "components": [
@@ -847,9 +1125,14 @@ Response (additive fields; `data.Info.ID` remains for compatibility):
 
 - `name` + `language` identify the approved template.
 - `components` is passed through after structural validation.
+- Parameter types supported by Meta include text, currency, date-time, image,
+  document, video, location, limited-time-offer and product. Unknown types are
+  rejected with a clear validation error.
 - If the local cache says the template is rejected/disabled, return
   `422 cloud_template_error` before calling Graph.
 - Template sends bypass the 24-hour window.
+- BSUID recipients cannot use one-tap, zero-tap or copy-code authentication
+  templates (`131062`); require a phone number for those.
 
 ### 8.8 Templates
 
@@ -872,7 +1155,19 @@ Create body:
 ```
 
 Template status is Meta-owned: `APPROVED`, `PENDING`, `REJECTED`, `PAUSED`,
-`DISABLED`, etc. Surface `rejected_reason` and `quality_score`.
+`DISABLED`, etc. Surface `rejected_reason`, `quality_score`, category and
+component updates.
+
+Template sync:
+
+- Use `paging.cursors.after`; do not follow an absolute `paging.next` URL
+  blindly. Rebuild the request against the configured Graph host.
+- Store `template_id`, name, language, category, status, components, quality
+  score and rejection reason.
+- Handle `message_template_status_update`,
+  `message_template_quality_update`, `template_category_update` and
+  `message_template_components_update`.
+- Template changes are audited without message content.
 
 ### 8.9 Webhook
 
@@ -881,6 +1176,8 @@ Template status is Meta-owned: `APPROVED`, `PENDING`, `REJECTED`, `PAUSED`,
 - Look up `verify_token_hash`; if matched, return `hub.challenge` as plain text.
 - Otherwise `403`.
 - No auth middleware; this is Meta's callback.
+- Support `GET /webhook/cloud/:appId` for multi-app deployments; the app ID
+  selects the verify-token hash/secret without being a secret itself.
 
 `POST /webhook/cloud`
 
@@ -888,12 +1185,24 @@ Template status is Meta-owned: `APPROVED`, `PENDING`, `REJECTED`, `PAUSED`,
 - Verify HMAC-SHA256 over the raw body using the app secret selected by the
   event's WABA/phone number. If the WABA is unknown, try all configured app
   secrets (bounded); otherwise `401`.
-- Body cap `CLOUD_API_MAX_WEBHOOK_BYTES`; oversized `413`.
+- For multiple Meta apps, support `/webhook/cloud/:appId` and configure that
+  URL in each app. The path selects the app secret before parsing, instead of
+  trying every secret.
+- Body cap `CLOUD_API_MAX_WEBHOOK_BYTES` (4 MiB default); oversized `413`.
 - Valid signed event: return 200 with `{"status":"ok"}`.
 - Invalid/missing signature: `401`.
 - Unknown phone number but valid signature: 200 and ignore (avoid Meta retry
   storms).
-- Processing failure: 500 after releasing the dedupe claim.
+- One malformed message/change: log, increment a metric, and continue with the
+  rest. Do not fail the whole payload and trigger Meta retries for events that
+  were already processed.
+- Unknown webhook field: acknowledge with 200; store/log if useful.
+- Panic in parsing/handling: recover, return 500, log stack; never crash the
+  process.
+- Infrastructure failure (DB unavailable): 500 after releasing the dedupe
+  claim.
+- Meta retries non-200 responses for up to 7 days; dedupe/data retention must
+  cover that window.
 
 ### 8.10 Error contract
 
@@ -916,10 +1225,14 @@ Status codes:
 | Condition | Status | Code |
 |---|---|---:|
 | Validation | 400 | `invalid_request` |
-| Unsupported on channel | 422 | `unsupported_on_channel` |
+| No Cloud equivalent | 422 | `unsupported_on_channel` |
+| Cloud-supported, WaMux not implemented | 501 | `not_implemented_on_channel` |
 | Window closed | 422 | `cloud_window_expired` |
 | Template rejected/not found | 422 | `cloud_template_error` |
 | Undeliverable | 422 | `cloud_undeliverable` |
+| BSUID unsupported for message type | 422 | `cloud_bsuid_unsupported` |
+| Phone not registered | 424 | `cloud_phone_not_registered` |
+| Send outcome unknown | 202 | `cloud_send_outcome_unknown` |
 | Invalid Meta token | 502 | `cloud_auth_failed` |
 | Meta rate limit | 429 | `cloud_rate_limited` |
 | Meta 5xx/timeout | 503 | `cloud_upstream_unavailable` |
@@ -941,8 +1254,11 @@ pkg/cloud/
     webhook.go         signature, parsing, routing, handlers
     signature.go       HMAC verification helpers
     credentials.go     app/credential service
-    window.go          24-hour window logic
+    contacts.go        BSUID/username/phone identity resolution
+    window.go          BSUID-aware 24-hour window
     status.go          status mapping
+    account.go         quality/account/security/preferences events
+    diagnostics.go     doctor/health checks
     worker.go          media download worker
     cleanup.go         retention
 ```
@@ -961,8 +1277,10 @@ type Client interface {
     GetMedia(ctx context.Context, mediaID string) (MediaInfo, error)
     DownloadMedia(ctx context.Context, url string) (io.ReadCloser, int64, error)
     VerifyPhoneNumber(ctx context.Context, phoneNumberID string) (PhoneInfo, error)
+    RegisterPhone(ctx context.Context, phoneNumberID, pin string) error
+    DeregisterPhone(ctx context.Context, phoneNumberID string) error
     SubscribeApp(ctx context.Context, wabaID string) error
-    ListTemplates(ctx context.Context, wabaID string) ([]Template, error)
+    ListTemplates(ctx context.Context, wabaID string, after string) ([]Template, string, error)
     CreateTemplate(ctx context.Context, wabaID string, t Template) (Template, error)
     UpdateTemplate(ctx context.Context, templateID string, t Template) (Template, error)
     DeleteTemplate(ctx context.Context, wabaID, name string) error
@@ -974,17 +1292,56 @@ Implementation rules:
 - Use a dedicated `http.Client`; never `http.DefaultClient`.
 - `Authorization: Bearer <access token>`.
 - Base URL and version from config/app row; no hardcoded Graph version in
-  payload code.
-- Request timeout 30 s (media 120 s), bounded response body (1 MiB JSON,
-  streamed media with a byte cap).
-- Retry 429, 500, 502, 503, 504 with jitter; honor `Retry-After`. Do not retry
-  other 4xx.
-- Parse `X-Business-Use-Case-Usage`; back off when call/cpu usage is near the
-  limit.
+  payload code. The reference version is `v27.0`; confirm it is still supported
+  before release.
+- Dial/TLS timeout 10 s, response-header timeout 60 s, JSON timeout 30 s.
+  Media transfers use a 120 s per-phase/idle cap and a byte cap; do not apply a
+  single overall timeout that cuts off a large upload.
+- Bound JSON response bodies to 10 MiB and response headers to 1 MiB. Stream
+  media with a byte cap.
+- **Retry policy:** retry only idempotent methods (`GET`, `HEAD`, `PUT`,
+  `DELETE`, `OPTIONS`) on 429/5xx with full jitter and `Retry-After`. Never
+  automatically retry `POST /messages`, template-create, or phone-register
+  requests on a network error or 5xx. A send timeout is an ambiguous outcome,
+  not a retry instruction.
+- For a 429 on a send, retry only when the response confirms the request was not
+  accepted; otherwise return `cloud_rate_limited` with `Retry-After`.
+- Parse `X-Business-Use-Case-Usage`; when any usage percentage is near 90%,
+  halve the effective rate before hitting the hard block.
+- Adaptive limiter: conservative configured floor, halve on 429/90% usage,
+  restore gradually (+25% per 10 s of calm), full jitter, `Retry-After` wins.
 - Capture `X-FB-Trace-ID`/`fbtrace_id` for support; never log the token.
+- Parse the full error envelope: `message`, `type`, `code`,
+  `error_subcode`, `error_user_title`, `error_user_msg`,
+  `error_data.details` and `fbtrace_id`.
 - Set a `WaMux/<version>` user agent.
 - Treat a 200 with `error` as an error.
-- Use `context.Context` end to end.
+- Use `context.Context` end to end; cancellation must interrupt backoff.
+- Shared transport with bounded idle connections and connection reuse.
+
+### 9.2a Send operation state
+
+WaMux already has a `send_operations` table for `Idempotency-Key`. Extend it
+with a Cloud operation state:
+
+- `pending` — request not yet written to Graph.
+- `accepted` — Graph returned a `wamid`.
+- `failed` — Graph returned a definitive failure.
+- `unknown` — the request may have been accepted but the response was lost
+  (timeout, connection reset, 5xx after write).
+
+Rules:
+
+- Set `unknown` on send timeout/network loss/ambiguous 5xx. Do not retry
+  automatically.
+- Return `202 cloud_send_outcome_unknown` with the operation ID and a
+  “do not retry blindly” message.
+- `GET /send/operations/:operationId` reports the state and any `wamid` later
+  correlated from a status webhook.
+- Include the operation ID in `biz_opaque_callback_data` (<=512 chars,
+  URL-safe).
+- A caller may explicitly retry with the same `Idempotency-Key`; WaMux must
+  still warn that Graph may have accepted the first request.
 
 ### 9.3 Payload builders
 
@@ -992,12 +1349,17 @@ Implementation rules:
 POST /{version}/{phone-number-id}/messages
 {
   "messaging_product": "whatsapp",
-  "recipient_type": "individual",
-  "to": "<digits>",
+  "recipient_type": "individual", // or "group" when implemented
+  "to": "<digits>",              // phone, optional when recipient is used
+  "recipient": "US...",          // BSUID/parent BSUID, optional when to is used
   "type": "<type>",
+  "biz_opaque_callback_data": "<waMux operation id>",
   ...
 }
 ```
+
+When both `to` and `recipient` are present, Meta gives `to` precedence. When
+sending to a group, use the group ID and `recipient_type: "group"`.
 
 Supported builders:
 
@@ -1014,15 +1376,14 @@ Supported builders:
 | `/send/template` | `template` | name/language/components |
 | quoted reply | `context.message_id` | applies to supported types |
 
-Unsupported on Cloud:
+Deliberately deferred or unavailable:
 
-- `/send/album`
-- `/send/poll`
-- `/send/carousel` (unless implemented as a template in a later phase)
-- `/send/event`
-- `/send/product`
-- `/send/status/text`, `/send/status/media`
-- groups, communities, newsletters, presence, calls, history
+- Cloud-supported but not implemented: Groups, Calling, Flows, product/catalog
+  interactive messages, CTA URL/contact/location-request interactions.
+- No equivalent: `/send/album`, `/send/poll`, `/send/carousel` (unless mapped to
+  a template), `/send/event`, `/send/status/text`, `/send/status/media`,
+  communities, newsletters and status/stories. `/send/product` can be mapped to
+  a Cloud product template later if catalog support is added.
 
 ### 9.4 Media
 
@@ -1058,16 +1419,28 @@ Parse `error.code`, `error_subcode`, `error_user_title`,
 | Meta code | WaMux code | Retry? |
 |---|---|---|
 | `190` | `cloud_auth_failed` | no |
-| `131047` | `cloud_window_expired` | no (template required) |
+| `131009` | `cloud_invalid_message_id` | no |
 | `131026` | `cloud_undeliverable` | no |
-| `131051` | `unsupported_on_channel` | no |
-| `132000` | `cloud_template_error` | no |
-| `132001` | `cloud_template_error` | no |
-| `132005`/`132007`/`132012` | `cloud_template_error` | no |
-| `80007`/`130429`/`131048` | `cloud_rate_limited` | yes, after backoff |
-| `368` | `cloud_temporarily_blocked` | after `Retry-After` |
+| `131030` | `cloud_recipient_not_allowed` | no; add number to the test allowlist |
+| `131031` | `cloud_account_locked` | no |
 | `131042` | `cloud_payment_issue` | no |
-| unknown | `cloud_upstream_error` | 5xx only |
+| `131047` | `cloud_window_expired` | no (template required) |
+| `131048` | `cloud_rate_limited` | yes for idempotent requests only |
+| `131051` | `unsupported_on_channel` | no |
+| `131056` | `cloud_pair_rate_limited` | pause sends to this recipient |
+| `131062` | `cloud_bsuid_unsupported` | no |
+| `132000`/`132001` | `cloud_template_error` | no |
+| `132005`/`132007`/`132012` | `cloud_template_error` | no |
+| `133010` | `cloud_phone_not_registered` | no; register the number |
+| `133016` | `cloud_registration_limit` | no; 10 registration attempts per 72 h |
+| `147005` | `cloud_username_transfer_required` | no |
+| `368` | `cloud_temporarily_blocked` | only after `Retry-After` |
+| `80007`/`130429` | `cloud_rate_limited` | only for idempotent requests |
+| unknown | `cloud_upstream_error` | 5xx for GET/PUT/DELETE only |
+
+Include `error_user_title`, `error_user_msg`, `error_data.details` and
+`fbtrace_id` in internal diagnostics. The public error should be actionable but
+must not leak the access token or raw request bodies.
 
 Always include the Meta trace id in structured logs, not in the public error
 unless it helps support.
@@ -1080,12 +1453,16 @@ unless it helps support.
 
 ```
 rawBody, err := readLimited(c.Request.Body, CLOUD_API_MAX_WEBHOOK_BYTES)
-candidateApps := resolveAppsFromBody(rawBody) // WABA id / phone number id
+candidateApps := resolveAppsFromPathOrBody(c.Request, rawBody)
 for each app secret:
     expected := "sha256=" + hex(HMAC-SHA256(secret, rawBody))
     if hmac.Equal([]byte(expected), []byte(header)) { verified = true }
 if !verified { 401 }
 ```
+
+If the route is `/webhook/cloud/:appId`, use that app’s secret first and do not
+fall back to other app secrets. Only the single `/webhook/cloud` route needs
+WABA/phone-number discovery and bounded fallback.
 
 Important:
 
@@ -1096,7 +1473,13 @@ Important:
 - Do not log the body on failure.
 - If the body contains an unknown WABA, try all configured app secrets (bounded
   to 10) before rejecting; this handles events for numbers not yet registered.
+- Prefer `/webhook/cloud/:appId` when multiple Meta apps are configured. The
+  app ID is not a secret; it selects the secret used for signature verification.
 - The verify token is **not** accepted as POST authentication.
+- Body cap is 4 MiB by default (Meta documents 3 MB). Oversized requests get
+  413.
+- Wrap processing in `defer recover()`; a malformed event must not panic the
+  server.
 
 ### 10.2 Event shape
 
@@ -1115,10 +1498,18 @@ Important:
               "display_phone_number": "5511999999999",
               "phone_number_id": "1122334455"
             },
-            "contacts": [{"profile": {"name": "Ana"}, "wa_id": "5511888888888"}],
+            "contacts": [
+              {
+                "profile": {"name": "Ana", "username": "ana.example"},
+                "wa_id": "5511888888888",
+                "user_id": "BR.13491208655302741918",
+                "parent_user_id": "BR.ENT.13491208655302741918"
+              }
+            ],
             "messages": [
               {
                 "from": "5511888888888",
+                "from_user_id": "BR.13491208655302741918",
                 "id": "wamid...",
                 "timestamp": "1763900000",
                 "type": "text",
@@ -1138,31 +1529,43 @@ Statuses arrive in the same `value` with a `statuses` array.
 ### 10.3 Processing steps
 
 1. Validate `object == whatsapp_business_account`.
-2. Iterate entries/changes; ignore unknown `field` values safely.
+2. Iterate entries/changes; ignore unknown `field` values safely and record a
+   metric. One malformed change must not fail the whole payload.
 3. Resolve credentials by `value.metadata.phone_number_id`.
 4. For each message:
    - Build `event_key`; claim in `cloud_webhook_events`.
-   - Normalize `wa_id` to `<digits>@s.whatsapp.net`.
+   - Resolve the contact identity from `from_user_id`, `contacts[].user_id`,
+     `wa_id`, `parent_user_id` and `profile.username`. Create/update
+     `cloud_contacts`.
+   - Compute `contact_id` (`bsuid:<value>` or `phone:<digits>`).
    - Map `type` to the internal message type.
    - Persist a `message_model.Message` with `channel="cloud"`,
-     `status="Received"`, `is_from_me=false`, text/caption/media metadata.
-   - Upsert `cloud_chat_windows` using the Meta timestamp.
+     `status="Received"`, `is_from_me=false`, `contact_id`, BSUID columns and
+     text/caption/media metadata.
+   - Upsert `cloud_chat_windows` by `contact_id` using the Meta timestamp.
    - If media, insert `cloud_media_jobs` (ignore duplicate).
    - Publish a `Message` event through the shared `EventSink`.
    - Update `lastWebhookAt` for the instance.
 5. For each status:
    - Claim dedupe key.
+   - Resolve `recipient_user_id`/`recipient_id` to `contact_id` when present.
    - Insert `cloud_status_events` (unique key) and update `messages.status`
      using the rank rules.
    - Publish a `Receipt` event with `status` mapped to `Sent`/`Delivered`/
      `Read`/`Failed`.
-6. For `message_template_status_update`:
-   - Locate `cloud_templates` by `message_template_id` (fallback name +
-     language).
-   - Update status/rejected reason.
-   - Publish a new `Template` event (add `TEMPLATE` to the internal event types
-     as an additive change).
-7. Return 200 only after all non-media work committed.
+6. Handle account/template events:
+   - `message_template_status_update`, `message_template_quality_update`,
+     `template_category_update`, `message_template_components_update`.
+   - `phone_number_quality_update`, `account_alerts`, `account_review_update`,
+     `business_capability_update`, `security`, `business_username_updates`.
+   - `user_preferences` → `cloud_user_preferences`.
+   - Store in `cloud_account_events`/`cloud_templates`; publish a `Template` or
+     account event where useful.
+7. Handle customer identity/number-change events by updating `cloud_contacts`
+   and preserving the existing conversation. Do not create a duplicate chat
+   just because the phone/BSUID changed.
+8. Return 200 only after all non-media work committed. Media work remains
+   queued.
 
 ### 10.4 Event mapping
 
@@ -1170,9 +1573,10 @@ Use the existing event names so consumers do not need a new API:
 
 - inbound message → `Message`
 - status → `Receipt`
-- credentials verified → `Connected`
-- template status → `Template` (new; document it)
-- template quality/account updates → `Template` or log-only
+- credentials verified/registered → `Connected`
+- template/account/quality/security update → `Template` (new event type) or
+  `CloudAccountEvent`
+- user preference change → `CloudUserPreference`
 
 Add to every Cloud event:
 
@@ -1186,9 +1590,13 @@ Add to every Cloud event:
 ```
 
 Payload shape should stay close to the Baileys event shape where possible:
-`key.remoteJid`, `key.fromMe`, `key.id`, `pushName`, `message`,
-`messageType`, `messageTimestamp`, `source`. For media, include the stored
-`mediaUrl`/`mediaMimetype`, not the expiring Meta URL.
+`key.remoteJid` (the compatibility chat key), `key.fromMe`, `key.id`,
+`pushName`, `message`, `messageType`, `messageTimestamp`, `source`. Add:
+`contactId`, `bsuid`, `parentBsuid`, `username`, `waId`. For media, include the
+stored `mediaUrl`/`mediaMimetype`, not the expiring Meta URL.
+
+`remoteJid` must not be treated as a phone number when the contact is
+BSUID-only. Consumers should use `contactId` and the identity fields.
 
 ### 10.4a Inbound type mapping
 
@@ -1204,10 +1612,15 @@ Payload shape should stay close to the Baileys event shape where possible:
 | `contacts` | `contact` | vCard/contact array |
 | `reaction` | `reaction` | `message_id`, `emoji` |
 | `button` | `button_reply` | `payload`, `text` |
-| `interactive` | `interactive_reply` | `button_reply` or `list_reply` |
+| `interactive` | `interactive_reply` | `button_reply`, `list_reply`, `nfm_reply`, `call_permission_reply` |
 | `order` | `order` | store raw metadata; no product sync |
 | `system` | `system` | store/log only |
+| `request_contact_info` | `contact_request` | contact info/vCard; update identity |
 | unknown | `unknown` | persist raw type, emit event, never panic |
+
+Every inbound message should carry `from_user_id`, `from`, and the contact’s
+`user_id`/`parent_user_id`/username when present. If only a BSUID is available,
+create a BSUID-keyed contact and do not invent a phone number.
 
 For unsupported inbound types, persist the message metadata and log a warning;
 do not drop the webhook. The manager can show a generic “unsupported message”
@@ -1233,8 +1646,10 @@ row.
   - Validate numeric-looking `appId`, `wabaId`, `phoneNumberId`; access token
     non-empty.
   - Insert instance + credentials in one transaction.
-  - Set `Connected=false`, `AutoReconnect=false` until verified.
-  - Never write the Meta token to `instances.token`.
+  - Set `Connected=false`, `registered=false`, `AutoReconnect=false` until
+    verified.
+  - Never write the Meta token to `instances.token` or store the registration
+    PIN.
 - If Baileys: current behavior, `integration` defaults; no other changes.
 
 ### 11.2 Connect
@@ -1243,18 +1658,36 @@ row.
 - Decrypt token; if decryption fails → `500` with a config/rotation message.
 - Call `GET /{phone-number-id}?fields=display_phone_number,verified_name,quality_rating,status`.
 - Call `POST /{waba-id}/subscribed_apps`.
-- Update cached display name/phone, `last_verified_at`, `last_verify_error`.
-- Set `Connected=true` on successful verification; store `subscribed` status
-  separately.
+- Check phone registration; if unregistered, return `cloud_phone_not_registered`
+  and require `cloud/register`.
+- Update cached display name/phone, `last_verified_at`, `last_verify_error`,
+  `registered`, `registration_status`, `quality_rating`, `messaging_limit`.
+- Set `Connected=true` on successful verification; store `subscribed` and
+  `registered` separately.
 - No QR, no `whatsmeow.Client`, no ownership lease.
 - On failure, keep the instance and credentials; return the error.
+
+### 11.2a Register phone
+
+- `POST /instance/cloud/register` accepts the six-digit PIN.
+- Call Graph `POST /{phone-number-id}/register`.
+- On success: `registered=true`, `registered_at=now`, clear error; publish
+  `Connected`/diagnostic update.
+- Never persist the PIN; leave it in memory only for the request.
+- If Meta says the number is already registered, treat it as success.
+- Registration is limited to 10 attempts per number per 72 hours; surface
+  `133016` and do not retry automatically.
+- `deregister` is an explicit admin action for retiring a number, not part of
+  instance deletion.
 
 ### 11.3 Status
 
 - Do not call Graph on every poll.
-- Return cached verification, `lastWebhookAt`, subscription flag and
-  capabilities.
+- Return cached verification, `lastWebhookAt`, subscription and registration
+  flags, quality/messaging limit and capabilities.
 - If credentials are missing, return `connected=false` plus a clear reason.
+- `GET /instance/cloud/diagnostics` can refresh token/registration/webhook
+  checks explicitly; status itself stays cheap.
 
 ### 11.4 Disconnect
 
@@ -1264,8 +1697,9 @@ row.
 
 ### 11.5 Delete
 
-- Delete child rows (`cloud_status_events`, `cloud_media_jobs`,
-  `cloud_webhook_events`, `cloud_chat_windows`, `cloud_templates`,
+- Delete child rows (`cloud_status_events`, `cloud_account_events`,
+  `cloud_user_preferences`, `cloud_media_jobs`, `cloud_webhook_events`,
+  `cloud_chat_windows`, `cloud_contacts`, `cloud_templates`,
   `cloud_api_credentials`) in a transaction, then the instance.
 - Remove local media.
 - Skip `whatsmeow` logout/device-store cleanup.
@@ -1299,20 +1733,24 @@ that touches the client and give Cloud an explicit answer:
 
 | Surface | Cloud behavior |
 |---|---|
-| `GET /chat/history`, `GET /chat/chats` | Works from `messages`; no contact sync |
-| `GET /chat/contacts` / contact resolution | Phone/`wa_id` fallback only; no address book |
-| `POST /chat/read` / `POST /message/read` | Optionally Graph “mark as read”; otherwise `unsupported_on_channel` |
+| `GET /chat/history`, `GET /chat/chats` | Works from `messages`; no contact sync; resolve Cloud identity by `contact_id` |
+| `GET /chat/contacts` / contact resolution | BSUID/username/`wa_id` fallback; no address book |
+| `POST /chat/read` / `POST /message/read` | Graph “mark as read”, optionally with `typing_indicator` |
 | `GET /message/*` history | Works from DB |
 | `POST /message/react` | Supported in Phase 3 |
 | `GET /user/*` (check, avatar, privacy, block) | `unsupported_on_channel` |
-| `GET /group/*`, `/community/*`, `/newsletter/*` | `unsupported_on_channel` |
+| `GET /group/*`, `/community/*`, `/newsletter/*` | `unsupported_on_channel`; Cloud Groups is a separate deferred project |
 | `GET /instance/overview` | Return zero/null profile fields; do not call whatsmeow |
 | `GET /instance/qr`, `POST /pair`, `POST /logout` | `unsupported_on_channel` |
-| `GET /server/health` | Include Cloud instance counts and webhook/media state |
+| `GET /server/health` | Include Cloud instance counts, registration, webhook/media state |
 
 Implement this as a small `ChannelCapabilities` check in handlers, not as
 nil-pointer defensive code. A Cloud instance must never reach
 `clientPointer.Get()` in a path that assumes a connected Baileys client.
+
+For BSUID-only contacts, `chat_jid` may be a synthetic compatibility key. The
+manager and chat service should use `contact_id`/`cloud_contacts` for display
+name, username and phone, and must not parse `chat_jid` as a phone JID.
 
 ### 11.10 Typebot/chatbot dispatch
 
@@ -1326,10 +1764,13 @@ back through `SendRouter` and is sent by the Cloud channel.
 
 ## 12. Security
 
-- **Secrets:** AES-256-GCM via `pkg/tokencrypt`; app secret and access token
-  never appear in API responses, logs, audit detail or errors.
-- **Webhook:** HMAC-SHA256 over raw bytes, constant-time compare, body cap,
-  signature-before-side-effects.
+- **Secrets:** AES-256-GCM via `pkg/tokencrypt`; app secret, access token and
+  registration PIN never appear in API responses, logs, audit detail or errors.
+- **Webhook:** HMAC-SHA256 over raw bytes, constant-time compare, 4 MiB body cap,
+  signature-before-side-effects, panic recovery.
+- **BSUID/identity:** treat BSUID/username as personal data; scope all identity
+  lookups by `instance_id`; do not merge contacts across instances or business
+  portfolios.
 - **SSRF:** outbound URL media fetches use `pkg/ssrf`; Graph base URL is fixed
   except for tests. Inbound media URLs returned by Graph must be HTTPS,
   public-IP validated, and (defensively) restricted to Meta/CDN host suffixes;
@@ -1362,6 +1803,11 @@ Add metrics (existing registry):
 - `wamux_cloud_template_status_total{status}`
 - `wamux_cloud_media_jobs_total{status}`
 - `wamux_cloud_media_queue_depth`
+- `wamux_cloud_send_outcome_unknown_total`
+- `wamux_cloud_rate_limit_usage{scope}`
+- `wamux_cloud_registration_total{result}`
+- `wamux_cloud_account_events_total{field}`
+- `wamux_cloud_webhook_partial_failures_total`
 
 Health:
 
@@ -1382,32 +1828,48 @@ Health:
 - Cloud fields: app (select or app id), WABA id, phone number id, business id,
   access token, enforce window.
 - Create in one request; no QR dialog.
-- Show a “Verify connection” action after creation.
+- After creation, show **Verify connection** and **Register phone** steps.
+- Registration asks for the six-digit PIN and never stores it.
+- Show a diagnostics button that checks token, registration, subscription and
+  webhook health.
 
 ### 14.2 Instances list
 
-- Cloud badge and display phone number.
-- Replace “Connect/QR” with “Verify” for Cloud.
-- Hide QR/pair/logout actions; show rotate credentials/delete.
-- Status panel: verified, subscribed, last webhook, capabilities.
+- Cloud badge and display phone number/username.
+- Replace “Connect/QR” with “Verify/Register” for Cloud.
+- Hide QR/pair/logout actions; show rotate credentials, diagnostics/delete.
+- Status panel: verified, registered, subscribed, quality/messaging limit,
+  last webhook, capabilities.
+- Show BSUID-only conversations with the username/display name, not a blank
+  phone field.
 
 ### 14.3 Instance settings
 
 - Cloud credentials form (write-only token, app/WABA/phone/business).
-- Verify button, subscription status, webhook URL copy field.
-- 24-hour window toggle/status.
-- Templates tab: list status, create/edit/delete, sync.
+- Verify/register buttons, registration status, subscription status, webhook
+  URL copy field.
+- Diagnostics panel: token, app secret, registration, subscription, last
+  webhook, last Graph error, rate-limit state.
+- 24-hour window toggle/status and BSUID-aware contact identity.
+- Templates tab: status, quality, category, rejected reason, create/edit/delete,
+  sync.
+- Account events panel: quality, messaging limit, security/two-step verification,
+  username changes.
 - Danger zone: rotate credentials, delete instance.
 
 ### 14.4 Conversations/send UI
 
-- Capability-aware buttons: hide/disable groups, albums, polls, newsletters,
-  status, presence.
+- Capability-aware buttons: hide/disable unimplemented groups, calls, flows,
+  albums, polls, newsletters, status and presence.
 - Template picker; if the window is closed, require a template.
+- BSUID-only chat: show username/display name, not a missing phone number.
+- Typing indicator on mark-read when the instance supports it.
 - Show `Failed` status with Meta error code/message from
   `cloud_status_events`.
 - Show `Template` badge and `Cloud` channel badge.
 - Do not offer “sync history” or “contacts” for Cloud.
+- Do not label Groups/Calling/Flows as “not supported by WhatsApp”; label them
+  “not implemented in WaMux.”
 
 ### 14.5 i18n and tests
 
@@ -1431,26 +1893,29 @@ Health:
 | `pkg/cloud/templates.go` | **new**: CRUD/send/cache |
 | `pkg/cloud/webhook.go` | **new**: parse/route/persist |
 | `pkg/cloud/signature.go` | **new**: HMAC verification |
-| `pkg/cloud/credentials.go` | **new**: app/credential service |
-| `pkg/cloud/window.go` | **new**: 24-hour window |
+| `pkg/cloud/credentials.go` | **new**: app/credential/registration service |
+| `pkg/cloud/contacts.go` | **new**: BSUID/username/phone identity |
+| `pkg/cloud/window.go` | **new**: BSUID-aware 24-hour window |
 | `pkg/cloud/status.go` | **new**: status mapping |
+| `pkg/cloud/account.go` | **new**: quality/account/security/preferences events |
+| `pkg/cloud/diagnostics.go` | **new**: token/registration/webhook diagnostics |
 | `pkg/cloud/worker.go` | **new**: media download worker |
 | `pkg/cloud/cleanup.go` | **new**: retention |
 | `pkg/cloud/*_test.go` | **new**: unit/integration tests |
 | `pkg/instance/model/instance_model.go` | add `Integration` |
 | `pkg/instance/service/instance_service.go` | Cloud branches in create/connect/status/delete/logout |
-| `pkg/instance/service/cloud_service.go` | **new**: credentials/verify/subscription |
-| `pkg/instance/handler/instance_handler.go` | Cloud handlers, error mapping, status |
+| `pkg/instance/service/cloud_service.go` | **new**: credentials/verify/registration/subscription/diagnostics |
+| `pkg/instance/handler/instance_handler.go` | Cloud handlers, error mapping, status, register |
 | `pkg/instance/repository/*` | create with Cloud credentials transaction |
 | `pkg/sendMessage/service/send_service.go` | extract/reuse outbound persistence; add channel field |
 | `pkg/sendMessage/service/router.go` | **new**: `SendService` router |
 | `pkg/sendMessage/service/template_structs.go` | **new**: `TemplateStruct` |
-| `pkg/sendMessage/handler/send_handler.go` | `/send/template`, error mapping |
+| `pkg/sendMessage/handler/send_handler.go` | `/send/template`, BSUID recipient fields, error mapping |
 | `pkg/sendMessage/handler/*` | pass channel capability errors through |
-| `pkg/routes/routes.go` | public webhook; Cloud/template routes |
-| `pkg/migrations/migrations.go` | migrations 0018–0026 |
-| `pkg/message/model/message_model.go` | `Channel` column |
-| `pkg/message/repository/message_repository.go` | `Failed` rank, channel/error handling |
+| `pkg/routes/routes.go` | public webhook; Cloud/template/register/diagnostics routes |
+| `pkg/migrations/migrations.go` | migrations 0018–0029 |
+| `pkg/message/model/message_model.go` | `Channel`, `contact_id`, BSUID columns |
+| `pkg/message/repository/message_repository.go` | `Failed` rank, channel/contact/error handling |
 | `pkg/internal/event_types/event_types.go` | add `TEMPLATE` |
 | `pkg/events/interfaces/*` | optional `EventSink` interface |
 | `pkg/config/config.go` | Cloud configuration |
@@ -1469,6 +1934,8 @@ Health:
 | `wamux-manager/src/components/instances/CreateInstanceModal.tsx` | channel selector + Cloud form |
 | `wamux-manager/src/components/instances/InstanceCard.tsx` | Cloud badge/actions |
 | `wamux-manager/src/components/instances/CloudCredentialsForm.tsx` | **new** |
+| `wamux-manager/src/components/instances/CloudRegisterPhone.tsx` | **new** |
+| `wamux-manager/src/components/instances/CloudDiagnostics.tsx` | **new** |
 | `wamux-manager/src/components/instances/CloudStatusPanel.tsx` | **new** |
 | `wamux-manager/src/components/instances/TemplateManager.tsx` | **new** |
 | `wamux-manager/src/pages/InstanceSettings.tsx` | Cloud tab |
@@ -1482,6 +1949,8 @@ Health:
 - `docs/wiki/guias-api/api-cloud.md`
 - `docs/wiki/referencia/environment-variables.md`
 - `docs/wiki/deploy-producao/*` (HTTPS callback, Meta app setup)
+- `docs/archive/plans/cloud-api-coverage.md` — implemented/deferred/not-planned
+  operation matrix and permissions
 - Swagger annotations and generated docs
 - Update the WABA spike/design links
 - `README` feature matrix
@@ -1493,63 +1962,69 @@ Health:
 Estimates assume one engineer familiar with WaMux, including tests and review
 time. Add 20–30% for Meta app review/ops wait time.
 
-### Phase 0 — prerequisites (2–3 days)
+### Phase 0 — prerequisites (3–5 days)
 
 - Meta Business Portfolio, WABA, test phone number, system-user token.
 - Meta app product setup, app secret, webhook verify token.
 - Public HTTPS callback URL/tunnel for staging.
 - Permissions: `whatsapp_business_messaging`,
   `whatsapp_business_management`.
-- Save sanitized webhook fixtures (text/status/media/template).
-- Confirm the Graph version and current media limits.
-- Decide single-app vs multi-app deployment.
+- Save sanitized webhook fixtures: text, media, status, template,
+  BSUID-only, phone+BSUID, phone-only, user preference, account quality.
+- Confirm the Graph version; reference fixture uses `v27.0`.
+- Confirm phone registration requirements and the six-digit PIN workflow.
+- Decide single-app vs multi-app deployment and whether `/webhook/cloud/:appId`
+  is needed.
 
-**Exit:** a `curl` to Graph returns the test phone number; a webhook reaches a
-stub endpoint with a valid signature.
+**Exit:** a `curl` to Graph returns the test phone number; the number is
+registered; a signed webhook reaches a stub endpoint; BSUID and phone-only
+fixtures are captured.
 
-### Phase 1 — channel skeleton, credentials, signed webhook, text (12–15 days)
+### Phase 1 — channel skeleton, credentials, BSUID, signed webhook, text (16–20 days)
 
 | ID | Task | Est. |
 |---|---|---:|
-| P1.1 | `instances.integration`, `messages.channel`, models/repositories | 2 d |
-| P1.2 | migration steps + SQLite/Postgres tests | 1 d |
-| P1.3 | `cloud_apps`/credentials service with `tokencrypt`; redaction | 2 d |
-| P1.4 | Graph client core: auth, timeout, retries, errors | 2 d |
-| P1.5 | `SendRouter` + Cloud text send + persistence/event | 3 d |
-| P1.6 | webhook GET verification + POST signature + routing | 2 d |
-| P1.7 | inbound text/status processing + dedupe | 3 d |
-| P1.8 | Cloud create/connect/status/disconnect/delete | 2 d |
-| P1.9 | handler error mapping, Swagger, audit | 1 d |
-| P1.10 | tests, docs, manager minimal create/status | 3 d |
+| P1.1 | `instances.integration`, `messages.channel`, `contact_id`, BSUID models | 2 d |
+| P1.2 | migration steps 0018–0029 + SQLite/Postgres tests | 2 d |
+| P1.3 | `cloud_apps`/credentials/registration service with `tokencrypt` | 3 d |
+| P1.4 | Graph client core: auth, timeouts, retry policy, error envelope | 3 d |
+| P1.5 | `SendRouter` + Cloud text send + operation state/persistence/event | 4 d |
+| P1.6 | webhook GET/POST signature + `/webhook/cloud/:appId` routing | 2 d |
+| P1.7 | BSUID/phone identity resolution + inbound text/status + dedupe | 4 d |
+| P1.8 | Cloud create/connect/register/status/disconnect/delete | 3 d |
+| P1.9 | handler error mapping, diagnostics, Swagger, audit | 2 d |
+| P1.10 | tests, docs, manager minimal create/verify/register/status | 4 d |
 
-**Exit:** a Cloud instance sends and receives text; statuses update; unsigned
+**Exit:** a Cloud instance registers, sends and receives text to phone or BSUID;
+statuses update; ambiguous send outcomes are surfaced without retry; unsigned
 webhooks are rejected; existing Baileys tests still pass.
 
-### Phase 2 — media, templates, window (12–15 days)
+### Phase 2 — media, templates, window (13–16 days)
 
 | ID | Task | Est. |
 |---|---|---:|
 | P2.1 | media upload (multipart/URL), limits, local/S3 | 3 d |
 | P2.2 | inbound media job queue/worker, SHA/size checks | 3 d |
-| P2.3 | template CRUD + local cache + sync | 3 d |
-| P2.4 | `/send/template` + component validation | 2 d |
-| P2.5 | 24-hour window tracking and pre-check | 2 d |
-| P2.6 | manager templates/window/media UI | 3 d |
+| P2.3 | template CRUD + local cache + paginated sync | 3 d |
+| P2.4 | `/send/template` + component/parameter validation + BSUID auth rules | 3 d |
+| P2.5 | BSUID-aware 24-hour window tracking and pre-check | 2 d |
+| P2.6 | manager templates/window/media/registration UI | 3 d |
 | P2.7 | tests/fixtures/docs | 2 d |
 
 **Exit:** image/video/document/audio round-trip; templates can be created,
 synced and sent; free-form outside the window returns a clear error; template
-status updates appear.
+quality/category/component updates appear.
 
-### Phase 3 — interactive, operations, hardening (7–10 days)
+### Phase 3 — interactive, operations, hardening (10–13 days)
 
 | ID | Task | Est. |
 |---|---|---:|
-| P3.1 | buttons/lists/location/contact/reaction mapping | 3 d |
-| P3.2 | Graph error/rate-limit/backoff hardening | 2 d |
-| P3.3 | metrics, health, audit, log redaction | 2 d |
-| P3.4 | capability matrix + manager gating | 2 d |
-| P3.5 | load/race/fuzz tests, docs, release notes | 2 d |
+| P3.1 | buttons/lists/location/contact/reaction mapping + typing indicator | 3 d |
+| P3.2 | adaptive rate limiter, `Retry-After`, full error hints | 3 d |
+| P3.3 | account/quality/security/user-preference webhooks | 3 d |
+| P3.4 | diagnostics, metrics, health, audit, log redaction | 2 d |
+| P3.5 | capability matrix + manager gating; coverage manifest | 2 d |
+| P3.6 | load/race/fuzz tests, docs, release notes | 3 d |
 
 **Exit:** production checklist and acceptance criteria pass; load and security
 tests pass.
@@ -1559,15 +2034,27 @@ tests pass.
 - Facebook Login for Business, code exchange, shared WABA discovery.
 - App review, privacy/terms.
 - Token rotation UI and expiry reminders.
-- Multi-app onboarding.
+- Multi-app onboarding and per-app webhook paths.
 
 Do not start Phase 4 until manual onboarding has real usage.
 
+### Phase 5 — Cloud product expansion (separate projects, optional)
+
+Not part of Phases 1–3:
+
+- Groups API (OBA only; max 8 participants; text/media/text templates only).
+- Calling API (WebRTC/SIP, call permissions, calls webhooks).
+- Flows and product/catalog interactive messages.
+
+Each is a product decision and estimate of its own. Do not fold them into the
+8–10 week estimate.
+
 ### Total
 
-- **Phases 1–3:** 6–8 engineer-weeks.
+- **Phases 1–3:** 8–10 engineer-weeks.
 - **Phase 4:** +2–3 weeks.
 - **Functional demo only:** 2–3 weeks (not production-ready).
+- **Groups/Calling/Flows:** separate projects; no estimate included here.
 
 ---
 
@@ -1575,42 +2062,60 @@ Do not start Phase 4 until manual onboarding has real usage.
 
 ### Unit
 
-- `pkg/cloud/payload_test.go`: every supported type, limits, quoted reply,
-  `wamid`, unsupported operations.
+- `pkg/cloud/payload_test.go`: every supported type, phone/BSUID recipients,
+  precedence, limits, quoted reply, `wamid`, unsupported operations.
+- `pkg/cloud/contacts_test.go`: BSUID-only, phone-only, both, parent BSUID,
+  username changes, number changes, identity merge without duplicate chats.
 - `pkg/cloud/signature_test.go`: valid, invalid, missing, malformed prefix,
-  multiple app secrets, body mutation, unknown WABA.
+  multiple app secrets, `/webhook/cloud/:appId`, body mutation, unknown WABA.
 - `pkg/cloud/webhook_test.go`: text, media, statuses, failed errors, template
-  status, unknown phone, duplicate, malformed JSON, oversized, nil arrays.
-- `pkg/cloud/errors_test.go`: Graph code mapping, retry decisions,
-  `Retry-After`.
-- `pkg/cloud/window_test.go`: open/closed, timestamp, template bypass, Meta
-  `131047` mapping.
-- `pkg/cloud/templates_test.go`: component payloads, status mapping, cache
-  updates.
+  status/quality/category/components, account/security/user-preference events,
+  unknown phone, duplicate, malformed single change, oversized 4 MiB+ payload,
+  nil arrays, panic recovery.
+- `pkg/cloud/errors_test.go`: Graph code mapping, `error_data.details`,
+  `error_user_title`/`error_user_msg`, `fbtrace_id`, retry decisions,
+  `Retry-After` both forms, no POST retry on timeout/5xx.
+- `pkg/cloud/window_test.go`: open/closed, BSUID key, timestamp, template
+  bypass, Meta `131047` mapping.
+- `pkg/cloud/templates_test.go`: component/parameter payloads, cursor
+  pagination, status/quality mapping, cache updates, BSUID auth restriction.
+- `pkg/cloud/ratelimit_test.go`: adaptive slowdown, 90% usage, 429 halving,
+  recovery, jitter, Retry-After.
+- `pkg/cloud/account_test.go`: account/quality/security/username/user-preference
+  events and manager-visible state.
+- `pkg/cloud/diagnostics_test.go`: token, app secret, registration, subscription,
+  webhook and template checks.
 - `pkg/channel/router_test.go`: routing by integration, unsupported errors,
   no Baileys call for Cloud.
 - `pkg/instance/service/cloud_test.go`: create transaction, rotate, verify,
-  status, delete, no secret in JSON.
-- `pkg/message/repository/status_order_test.go`: add `Failed` transitions.
+  register, diagnostics, status, delete, no secret/PIN in JSON.
+- `pkg/message/repository/status_order_test.go`: add `Failed` transitions and
+  BSUID `contact_id` reconciliation.
 - `pkg/migrations/*`: apply on SQLite and Postgres; seeded Baileys rows keep
   working.
-- Manager Vitest: create Cloud, credential redaction, capability gating,
-  window-closed send, template picker.
+- Manager Vitest: create Cloud, credential redaction, phone registration,
+  BSUID display, diagnostics, capability gating, window-closed send, template
+  picker.
 
 ### Integration/HTTP
 
-- `httptest` Graph fake for send, upload, download, verify, subscribe,
+- `httptest` Graph fake for send, upload, download, verify, register, subscribe,
   templates, 429, 5xx, timeout, malformed response.
 - Webhook fixture → instance lookup → message row → fake `EventSink` receives
-  one `Message`.
-- Status fixture → row status moves forward only; failed errors stored.
+  one `Message`; BSUID-only fixture resolves to one contact/chat.
+- Status fixture → row status moves forward only; failed errors and BSUID
+  recipient stored.
 - Duplicate delivery → one row/event.
 - Bad signature → 401, no DB writes.
 - Unknown phone number + valid signature → 200, no DB writes.
+- One malformed change among valid changes → valid ones processed, 200.
 - Media job → storage → message row URL; retry after transient failure.
+- Phone registration: success, already registered, invalid PIN, `133010`.
+- Send timeout → operation marked `unknown`, no automatic second POST.
 - Multi-tenant: two Cloud instances; event routed to the right one; instance A
   token cannot read B templates/status/messages.
-- Secret scan: DB rows/API JSON/log buffer contain no access token/app secret.
+- Secret scan: DB rows/API JSON/log buffer contain no access token/app secret/
+  registration PIN.
 
 ### Fuzz/race
 
@@ -1622,10 +2127,13 @@ Do not start Phase 4 until manual onboarding has real usage.
 
 ### Manual staging
 
-- Meta test number; send text/template to a verified recipient.
-- Verify webhook in Meta dashboard.
+- Meta test number; send text/template to a verified recipient by phone and by
+  BSUID.
+- Verify webhook in Meta dashboard, including a BSUID-only payload.
+- Register the phone number with the six-digit PIN; confirm `133010` guidance.
 - Rotate token; confirm old token fails and new one works.
-- Trigger a rejected template and confirm UI/status.
+- Trigger a rejected template and confirm UI/status/quality/category.
+- Trigger a test-number allowlist error (`131030`) and confirm the hint.
 - Confirm no Graph call at boot for disconnected Cloud instances.
 
 ---
@@ -1639,31 +2147,44 @@ A release is acceptable only if all are true:
 2. Migrations apply cleanly on Postgres and SQLite, including a seeded
    pre-Cloud database with existing messages/tokens.
 3. A Cloud instance can be created with encrypted credentials; API responses
-   and logs never reveal the Meta token or app secret.
-4. `GET /webhook/cloud` echoes the challenge for a valid verify token and
-   rejects others.
-5. `POST /webhook/cloud` rejects missing/invalid signatures with 401 and
-   processes valid signed events.
-6. Inbound text is persisted once, routed to the correct instance, opens the
-   24-hour window and emits one `Message` event.
-7. Outbound text returns a Graph `wamid`, stores a `Sent` row and emits one
-   `SendMessage` event.
-8. Status webhooks move `Sent → Delivered → Read` monotonically and store
-   `Failed` errors without downgrading `Read`.
-9. Media upload/download works for image, video, audio and document; size/type
-   limits are enforced; expired/failed downloads are retryable.
-10. Template create/list/send/sync works; status updates appear in the manager.
-11. Free-form sends outside the window return 422 `cloud_window_expired`;
-    template sends are allowed.
-12. Groups/albums/polls/carousels/events/products/status/presence return 422
-    `unsupported_on_channel`; capability discovery reports them false.
-13. Cross-tenant access is impossible via API, webhook routing or template IDs.
-14. Rate-limit/5xx responses produce backoff and typed errors; no retry storm.
-15. Metrics, health, audit and structured logs cover Cloud operations.
-16. Manager can create, verify, inspect, rotate and delete a Cloud instance,
-    manage templates and respect capabilities.
-17. Docs, Swagger and env reference are updated.
-18. `gofmt`, `go vet`, `go test -race -shuffle=on ./...`, `golangci-lint`, and
+   and logs never reveal the Meta token, app secret or registration PIN.
+4. A Cloud instance can verify and register its phone number; `133010` produces
+   a clear registration action, and the PIN is not persisted.
+5. `GET /webhook/cloud` echoes the challenge for a valid verify token and
+   rejects others; `/webhook/cloud/:appId` works for multi-app deployments.
+6. `POST /webhook/cloud` rejects missing/invalid signatures with 401, recovers
+   from panics, accepts a 4 MiB payload, and processes valid signed events.
+7. Inbound text is persisted once, routed to the correct instance, resolves
+   phone/BSUID identity, opens the 24-hour window and emits one `Message` event.
+8. A BSUID-only inbound message produces a stable contact/chat without a phone
+   number; a phone+BSUID event does not create a duplicate chat.
+9. Outbound text/template accepts `number` or `recipient`, returns a Graph
+   `wamid`, stores a `Sent` row and emits one `SendMessage` event.
+10. A send timeout/5xx never causes an automatic second POST; the operation is
+    marked `unknown` and surfaced to the caller.
+11. Status webhooks move `Sent → Delivered → Read` monotonically, store
+    `Failed` errors without downgrading `Read`, and retain BSUID recipients.
+12. Media upload/download works for image, video, audio and document; size/type
+    limits are enforced; expired/failed downloads are retryable.
+13. Template create/list/send/sync works with cursor pagination; status,
+    quality, category and component updates appear in the manager.
+14. Free-form sends outside the window return 422 `cloud_window_expired`;
+    template sends are allowed; BSUID auth-template restrictions are enforced.
+15. Groups, Calling and Flows are reported as “Cloud-supported, not implemented
+    in WaMux” (`501 not_implemented_on_channel`), not “Cloud does not support
+    it.” Albums/polls/carousels/events/status/presence return 422
+    `unsupported_on_channel`.
+16. Cross-tenant access is impossible via API, webhook routing, identity lookup
+    or template IDs.
+17. Rate-limit handling uses adaptive pacing, `Retry-After` and full jitter;
+    POST sends are never auto-retried.
+18. Metrics, health, diagnostics, audit and structured logs cover Cloud
+    operations, including registration and send-outcome-unknown.
+19. Manager can create, verify, register, inspect, rotate and delete a Cloud
+    instance, manage templates and respect capabilities.
+20. Docs, Swagger, env reference and the Cloud API coverage manifest are
+    updated.
+21. `gofmt`, `go vet`, `go test -race -shuffle=on ./...`, `golangci-lint`, and
     manager lint/build/test pass.
 
 ---
@@ -1674,10 +2195,11 @@ A release is acceptable only if all are true:
 
 1. Merge schema and code behind `CLOUD_API_ENABLED=false`.
 2. Deploy to staging; enable the flag; create a Meta test instance.
-3. Verify GET/POST webhook, text, statuses and media.
+3. Verify GET/POST webhook, phone registration, text by phone/BSUID, statuses
+   and media.
 4. Enable in production for one internal instance.
 5. Canary one real customer; monitor Graph errors, webhook failures, send
-   latency and media backlog.
+   latency, unknown send outcomes, registration and media backlog.
 6. Open to all tenants after two clean weeks.
 
 ### Rollback
@@ -1692,7 +2214,8 @@ A release is acceptable only if all are true:
 ### Versioning
 
 - Pin Graph version per app; upgrading is a config change plus contract/fixture
-  test run.
+  test run. Reference version: `v27.0`.
+- Re-check BSUID/username behavior and Groups OBA eligibility at each upgrade.
 - Record the Meta app review status and permissions in the ops runbook.
 
 ---
@@ -1703,25 +2226,30 @@ A release is acceptable only if all are true:
 |---|---|---|
 | Meta app review/verification delays | launch slips | Start Phase 0 early; use test number in staging |
 | Meta API version changes | breakage | configurable version, fixtures, contract tests |
-| Webhook signature with multiple apps | event rejection | app/WABA mapping + bounded multi-secret verify; one app per deployment initially |
-| Token expiry/rotation | sends fail | expiry field, verify endpoint, health metric, rotation UI |
-| 24-hour window mismatch | rejected sends | pre-check + `131047` mapping + template fallback |
+| BSUID/username rollout | missing phone identities, duplicate chats | identity table, BSUID-first contact key, merge tests |
+| Groups API availability | product mismatch | capability says “not implemented in WaMux”; OBA requirements documented |
+| Webhook signature with multiple apps | event rejection | `/webhook/cloud/:appId`, app/WABA mapping, bounded fallback |
+| Token expiry/rotation | sends fail | expiry field, verify endpoint, diagnostics, rotation UI |
+| Phone not registered | sends fail | registration step + `133010` hint + diagnostics |
+| 24-hour window mismatch | rejected sends | BSUID-aware pre-check + `131047` mapping + template fallback |
 | Media ID expiry/size | missing attachments | job queue, immediate download, size caps, retries |
 | Duplicate webhooks/retries | duplicate events | dedupe table + idempotent upserts + status rank |
-| Duplicate sends on timeout | customer spam | Idempotency-Key + `biz_opaque_callback_data`; document Graph limitation |
-| Rate limits | 429 storms | backoff, jitter, per-phone limiter, metrics |
-| No groups/history | product mismatch | capability matrix, manager gating, docs |
-| Secret leakage | severe | encryption, redaction, tests, no token logs |
-| Multi-node send limits | over-limit | conservative limits; Phase 3 DB limiter or document single-node |
-| DB growth | storage | retention for events/status/media jobs |
-| Pricing/opt-in compliance | legal/cost | docs: Meta pricing, opt-in/opt-out are tenant responsibilities |
+| Duplicate sends on timeout | customer spam | **no POST auto-retry**, operation `unknown`, `biz_opaque_callback_data`, Idempotency-Key |
+| Rate limits | 429 storms | adaptive limiter, 90% usage slowdown, jitter, `Retry-After`, metrics |
+| Partial webhook failure | retry storms/duplicates | skip bad change, 200 for valid remainder, 500 only for infrastructure failure |
+| Groups/Calling/Flows absent | product mismatch | accurate capability notes; separate Phase 5 |
+| Secret leakage | severe | encryption, redaction, tests, no token/PIN logs |
+| Multi-node send limits | over-limit | conservative limits; shared/DB limiter or document single-node |
+| DB growth | storage | retention for events/status/account/media jobs |
+| Pricing/opt-in compliance | legal/cost | docs: Meta pricing, opt-in/opt-out; store `user_preferences` |
 
 ---
 
 ## 21. Documentation deliverables
 
 - Cloud API guide: onboarding, Meta app setup, callback URL, verify token,
-  permissions, sending, templates, window, unsupported features, troubleshooting.
+  phone registration, BSUID/username behavior, permissions, sending, templates,
+  window, capability deferrals, troubleshooting.
 - Environment variables reference.
 - Swagger/OpenAPI for all new/changed routes and fields.
 - Migration/release notes.
@@ -1736,40 +2264,53 @@ A release is acceptable only if all are true:
 
 Recommended defaults are in bold; resolve before Phase 1 coding is complete.
 
-1. **One Meta app per deployment** (recommended) vs multiple apps/tenants.
-   The schema supports multiple; the UI starts with one.
+1. **One Meta app per deployment** initially; support multiple apps with
+   `/webhook/cloud/:appId`. The schema supports multiple; the UI starts with
+   one.
 2. Manual onboarding first; Embedded Signup later. **Yes.**
-3. Unsupported feature status: **422 `unsupported_on_channel`**.
-4. `/send/link`: **send as Cloud text with `preview_url`**, document the
+3. BSUID support: **mandatory in Phase 1**, not optional.
+4. Send retry policy: **POST sends are never auto-retried**; operation state
+   `unknown` and `biz_opaque_callback_data` are required.
+5. Unsupported feature status: **422 `unsupported_on_channel`** for truly
+   unavailable features; “Cloud-supported but not implemented” uses the
+   capability notes and a separate error message.
+6. Groups, Calling and Flows: **deferred to separate projects**; do not claim
+   Cloud lacks them.
+7. `/send/link`: **send as Cloud text with `preview_url`**, document the
    difference.
-5. Sticker/product/carousel: **not in Phases 1–3**; revisit after real demand.
-6. Multi-node rate limiting: **per-node limiter first**, document the limit;
-   add a Postgres limiter only if a deployment needs horizontal Cloud sending.
-7. Opt-out storage: **out of scope**; tenant handles STOP/opt-out policy.
-8. Template edit semantics: pass through to Graph; local cache is not the
-   source of truth for approval.
-9. Media event timing: **publish `Message` after the file is stored**, with a
-   `mediaStatus` field; add a retry endpoint for failures.
-10. Feature flag default: **off** until staging passes.
+8. Sticker/product/carousel: **not in Phases 1–3**; revisit after real demand.
+9. Multi-node rate limiting: **conservative per-node limiter first**, document
+   the limit; add a Postgres/shared limiter if a deployment needs horizontal
+   Cloud sending.
+10. Opt-out storage: **store Meta `user_preferences`**, but the tenant owns the
+    final marketing policy.
+11. Template edit semantics: pass through to Graph; local cache is not the
+    source of truth for approval.
+12. Media event timing: **publish `Message` after the file is stored**, with a
+    `mediaStatus` field; add a retry endpoint for failures.
+13. Feature flag default: **off** until staging passes.
 
 ---
 
 ## 23. Definition of done
 
 - [ ] Plan approved and open decisions resolved.
-- [ ] `integration` model + migrations merged.
-- [ ] Encrypted Cloud credentials + audit merged.
-- [ ] Graph client with fake-server tests merged.
-- [ ] Signed webhook + inbound text/status merged.
-- [ ] Cloud text send + persistence/events merged.
-- [ ] Cloud lifecycle (create/connect/status/disconnect/delete) merged.
-- [ ] Media + templates + window merged.
-- [ ] Interactive subset + capability gating merged.
-- [ ] Manager create/settings/templates/window merged.
+- [ ] `integration` model + migrations 0018–0029 merged.
+- [ ] Encrypted Cloud credentials + registration status + audit merged.
+- [ ] BSUID/username/phone identity model and backfill merged.
+- [ ] Graph client with fake-server tests and no-POST-retry policy merged.
+- [ ] Signed webhook (4 MiB, partial failures, panic recovery) merged.
+- [ ] Inbound text/status/BSUID identity merged.
+- [ ] Cloud text send + operation tracking + persistence/events merged.
+- [ ] Cloud lifecycle (create/connect/register/status/diagnostics/disconnect/delete) merged.
+- [ ] Media + templates + BSUID-aware window merged.
+- [ ] Account/quality/security/user-preference webhooks merged.
+- [ ] Interactive subset + typing indicator + capability gating merged.
+- [ ] Manager create/register/settings/templates/window/diagnostics merged.
 - [ ] Metrics/health/audit merged.
-- [ ] Docs/Swagger/env reference merged.
+- [ ] Docs/Swagger/env/coverage manifest merged.
 - [ ] Acceptance tests and full verification pass.
-- [ ] Staging Meta test number verified.
+- [ ] Staging Meta test number verified by phone and BSUID.
 - [ ] Rollout/rollback runbook reviewed.
 
 ---
@@ -1778,22 +2319,118 @@ Recommended defaults are in bold; resolve before Phase 1 coding is complete.
 
 Keep commits reviewable and each one test-backed:
 
-1. `docs(cloud): add WABA Cloud API implementation plan`
-2. `feat(cloud): add integration field and Cloud schema`
+1. `docs(cloud): revise WABA Cloud API implementation plan`
+2. `feat(cloud): add integration field, BSUID identity and Cloud schema`
 3. `feat(cloud): encrypt and manage Meta app/instance credentials`
-4. `feat(cloud): add Graph API client`
-5. `feat(cloud): verify and route signed webhooks`
-6. `feat(cloud): receive text and status events`
-7. `feat(send): route sends by instance integration`
-8. `feat(cloud): send text through the Cloud channel`
-9. `feat(cloud): add Cloud instance lifecycle`
-10. `feat(cloud): add media upload/download`
-11. `feat(cloud): add template management`
-12. `feat(cloud): enforce the customer service window`
-13. `feat(cloud): add interactive message mapping`
-14. `feat(manager): add Cloud onboarding and settings`
-15. `docs(cloud): add API, ops and security documentation`
+4. `feat(cloud): add phone registration and diagnostics`
+5. `feat(cloud): add Graph API client with safe retry policy`
+6. `feat(cloud): verify and route signed webhooks`
+7. `feat(cloud): receive text/status events and resolve BSUID identity`
+8. `feat(send): route sends by instance integration`
+9. `feat(cloud): send text by phone or BSUID with operation tracking`
+10. `feat(cloud): add Cloud instance lifecycle`
+11. `feat(cloud): add media upload/download`
+12. `feat(cloud): add template management`
+13. `feat(cloud): enforce the BSUID-aware customer service window`
+14. `feat(cloud): add account/quality/security webhooks`
+15. `feat(cloud): add interactive message mapping and typing indicator`
+16. `feat(manager): add Cloud onboarding, registration and diagnostics`
+17. `docs(cloud): add API, ops, coverage and security documentation`
 
 Each commit should include `gofmt`, `go vet`, focused tests and, where UI is
 touched, manager lint/build/test. Run the full race/shuffle suite before the
 release candidate.
+
+---
+
+## Sources
+
+Accessed 2026-11-22. Official Meta docs change frequently; re-check the Graph
+version, group eligibility, BSUID requirements and webhook fields before
+implementation. Meta’s registration examples currently use `v27.0`; the
+`waba-cli` manifest references `v25.0` from August 2026. Treat `v27.0` as the
+reference and pin the version after a contract test.
+
+### Official Meta docs
+
+- [WhatsApp Business Platform overview](https://developers.facebook.com/documentation/business-messaging/whatsapp/overview)
+  — Cloud API products, including messaging, Calling and Groups.
+- [Cloud API get started](https://developers.facebook.com/documentation/business-messaging/whatsapp/get-started)
+  — app/WABA/test-number setup and first message.
+- [Business-scoped user IDs (BSUID)](https://developers.facebook.com/documentation/business-messaging/whatsapp/business-scoped-user-ids/)
+  — `user_id`, `from_user_id`, `parent_user_id`, `recipient` sends and username
+  rollout.
+- [Groups API](https://developers.facebook.com/documentation/business-messaging/whatsapp/groups)
+  — OBA requirement, 8-participant limit, supported message types, group
+  webhooks.
+- [Cloud API Calling](https://developers.facebook.com/documentation/business-messaging/whatsapp/calling)
+  — WebRTC/SIP, call permissions and `calls` webhooks.
+- [WhatsApp Flows](https://developers.facebook.com/documentation/business-messaging/whatsapp/flows)
+  — interactive Flows and `nfm_reply`; deferred.
+- [WhatsApp webhooks](https://developers.facebook.com/documentation/business-messaging/whatsapp/webhooks/overview)
+  — fields, retries and payload shapes, including template/account/security
+  events.
+- [Phone number registration](https://developers.facebook.com/documentation/business-messaging/whatsapp/business-phone-numbers/registration)
+  — `register`/`deregister`, six-digit PIN and `133010`.
+- [WhatsApp Cloud API message API](https://developers.facebook.com/documentation/business-messaging/whatsapp/reference/whatsapp-business-phone-number/message-api)
+  — send payloads, `recipient`, `biz_opaque_callback_data`, status behavior.
+- [WhatsApp Cloud API pricing](https://developers.facebook.com/documentation/business-messaging/whatsapp/pricing)
+  — Meta charges for conversations/messages; WaMux does not bill.
+- [Graph API changelog](https://developers.facebook.com/docs/graph-api/changelog)
+  — version lifecycle and breaking changes; confirm the pinned version.
+
+### Reference implementations
+
+These are third-party and not Meta-endorsed. Use them for patterns, fixtures
+and coverage checks; do not make them the core dependency.
+
+- [`wapikit/wapi.go`](https://github.com/wapikit/wapi.go) — Apache-2.0,
+  `v0.8.2`. Particularly useful:
+  - [`manager/webhook_manager.go`](https://github.com/wapikit/wapi.go/blob/main/manager/webhook_manager.go)
+    — signature verification, partial-change skipping, webhook field coverage.
+  - [`pkg/client/client.go`](https://github.com/wapikit/wapi.go/blob/main/pkg/client/client.go)
+    — app secret vs verify token separation, custom HTTP client/base URL.
+  - [`pkg/components/template_message.go`](https://github.com/wapikit/wapi.go/blob/main/pkg/components/template_message.go)
+    — template component/parameter types.
+  - [`pkg/messaging/client.go`](https://github.com/wapikit/wapi.go/blob/main/pkg/messaging/client.go)
+    — phone registration/deregistration and typing-indicator patterns.
+  - [`pkg/client/errors.go`](https://github.com/wapikit/wapi.go/blob/main/pkg/client/errors.go)
+    — typed Graph errors.
+- [`piusalfred/whatsapp`](https://github.com/piusalfred/whatsapp) — MIT,
+  `v0.2.9`, marked alpha. Particularly useful:
+  - [`webhooks/listener.go`](https://github.com/piusalfred/whatsapp/blob/main/webhooks/listener.go)
+    — 4 MiB body cap, per-request config reader, signature validation, panic
+    recovery, partial/fallback handling.
+  - [`webhooks/field.go`](https://github.com/piusalfred/whatsapp/blob/main/webhooks/field.go)
+    — exhaustive webhook field/event coverage.
+  - [`pkg/http/core_client.go`](https://github.com/piusalfred/whatsapp/blob/main/pkg/http/core_client.go)
+    — body/header limits, timeouts, interceptors and connection reuse.
+  - [`groups/groups.go`](https://github.com/piusalfred/whatsapp/blob/main/groups/groups.go)
+    — Cloud Groups API coverage and OBA constraints.
+- [`jjuanrivvera/waba-cli`](https://github.com/jjuanrivvera/waba-cli) — MIT,
+  CLI not an SDK. Particularly useful:
+  - [`internal/api/retry.go`](https://github.com/jjuanrivvera/waba-cli/blob/main/internal/api/retry.go)
+    — only idempotent methods are retried; POST sends are deliberately never
+    auto-retried; `Retry-After` handles delta-seconds and HTTP-date forms.
+  - [`internal/api/ratelimit.go`](https://github.com/jjuanrivvera/waba-cli/blob/main/internal/api/ratelimit.go)
+    — adaptive limiter, 90% usage slowdown, 429 halving and gradual recovery.
+  - [`internal/api/errors.go`](https://github.com/jjuanrivvera/waba-cli/blob/main/internal/api/errors.go)
+    — full Graph error envelope, `fbtrace_id` and actionable hints.
+  - [`api-manifest.json`](https://github.com/jjuanrivvera/waba-cli/blob/main/api-manifest.json)
+    — 105-operation coverage manifest and Graph version reference.
+  - [`commands/groups.go`](https://github.com/jjuanrivvera/waba-cli/blob/main/commands/groups.go)
+    — group eligibility, participant limit and supported message types.
+  - [`commands/doctor.go`](https://github.com/jjuanrivvera/waba-cli/blob/main/commands/doctor.go)
+    — diagnostics layout for token, permissions and account health.
+
+### What each source changed in this plan
+
+| Source | Change |
+|---|---|
+| Meta BSUID docs | Added `cloud_contacts`, `contact_id`, `recipient` sends, BSUID webhook fields and `131062` |
+| Meta Groups/Calling/Flows docs | Corrected capability matrix; deferred implementation without claiming Cloud lacks the products |
+| Meta phone registration docs | Added `register`/`deregister`, PIN handling and `133010` |
+| `wapi.go` | Webhook partial-failure handling, template parameter types, phone registration, typing indicator, typed errors |
+| `piusalfred/whatsapp` | 4 MiB webhook cap, per-request/multi-app config, panic recovery, webhook field coverage, HTTP body/header limits |
+| `waba-cli` | No POST auto-retry, adaptive rate limiter, full error hints, pagination safety, diagnostics and coverage manifest |
+| Evolution API / Reforged | Payload-shape reference only; not a security, retry or tenancy model |

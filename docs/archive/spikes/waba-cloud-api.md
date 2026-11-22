@@ -7,9 +7,11 @@
 **Reference:** Reforged `3.3.0` (`8c223ce`), `src/api/integrations/channel/meta/`
 
 > **Correction:** Meta's webhook verify token is configured **per Meta app**, not
-> per WABA or instance. The detailed plan stores app secrets and verify-token
-> hashes in `cloud_apps`; per-instance credentials hold the WABA, phone number
-> and access token. The snippets below predate that correction.
+> per WABA or instance. BSUID/usernames are mandatory, and Cloud API now also
+> has Groups, Calling, Flows and typing indicators. See
+> [`../plans/waba-cloud-api.md`](../plans/waba-cloud-api.md) Revision 2 for the
+> corrected scope and implementation. The snippets below predate those
+> corrections.
 
 ---
 
@@ -28,7 +30,8 @@ Cloud API is fundamentally different from WhatsApp Web/Baileys/whatsmeow:
 | Outbound | Encrypted protobuf | Graph API JSON |
 | History | Phone sync + local store | No chat history API |
 | Contacts | Local store | No contact list API |
-| Groups/communities/newsletters | Supported | Not supported |
+| Groups | Supported | Groups API for OBA (deferred here) |
+| Communities/newsletters | Supported | Not supported |
 | Free-form messages | Always | Only inside the 24-hour customer service window |
 | Templates | Not a concept | Required outside the window; approval workflow |
 | Media | Upload/download via WhatsApp | Media ID upload, then download by ID |
@@ -36,9 +39,11 @@ Cloud API is fundamentally different from WhatsApp Web/Baileys/whatsmeow:
 | Reliability | Socket lifecycle | Webhook retries + Graph rate limits |
 
 So this is a **new channel**, not a new set of send handlers for the existing
-one. Some WaMux features (groups, communities, newsletters, albums, polls,
-status, presence, chat history) have no Cloud API equivalent and must return a
-clear “not supported on this channel” error rather than silently fail.
+one. Some WaMux features (communities, newsletters, albums, polls, status,
+full presence, general chat history) have no Cloud API equivalent and must
+return a clear “not supported on this channel” error. Groups, Calling, Flows
+and a limited typing indicator do exist in Cloud and are deliberately deferred;
+the capability response must say that accurately.
 
 ---
 
@@ -163,9 +168,10 @@ Then:
 - `pkg/channel/cloud` implements the Graph client.
 - `instanceService` selects the adapter from `instance.Integration`.
 - Existing `SendService` methods keep their validation but delegate transport to
-  the instance’s channel. For unsupported methods (groups, albums, polls,
-  presence, newsletters), the Cloud adapter returns a typed
-  `ErrUnsupportedOnChannel`.
+  the instance’s channel. For unavailable methods (albums, polls, newsletters,
+  full presence), the Cloud adapter returns a typed `ErrUnsupportedOnChannel`.
+  Groups, Calling and Flows are Cloud-supported but deferred; report them as
+  “not implemented in WaMux,” not as absent from Cloud.
 
 This refactor can be staged: first make `SendText`, `SendMedia` and
 `SendTemplate` channel-aware; leave the rest on Baileys and return
@@ -279,7 +285,8 @@ Endpoint mapping for existing sends:
 | `/send/template` (new) | `type=template` |
 | `/message/react` | `type=reaction` |
 | quoted reply | `context.message_id` |
-| album/carousel/poll/product/status/presence/groups/communities/newsletters | return `unsupported_on_channel` |
+| album/carousel/poll/product/status/full presence/communities/newsletters | return `unsupported_on_channel` |
+| groups/calls/flows | Cloud-supported but deferred; return `not_implemented_on_channel` |
 
 Media rules:
 
@@ -377,23 +384,23 @@ Later (only if needed):
 
 ---
 
-## 3. What has no Cloud API equivalent
+## 3. What is unavailable or deferred
 
 These must return a clear typed error, not pretend to work:
 
-- Groups, communities, newsletters
-- Status/stories broadcasts
-- Presence/typing indicators (Cloud has typing indicator API? Only a limited
-  `typing_indicator`; not the same as Baileys presence)
-- Albums, carousels, polls, product cards (Cloud has some product/template
-  features, not the Baileys payloads)
-- Chat history/contact list sync
-- QR/pairing/passkey/session management
-- Message edit/revoke semantics (Cloud supports delete for business? limited)
-- Calls (Cloud calling API is a separate product, if available in the region)
+- **Unavailable:** communities, newsletters, status/stories broadcasts, albums,
+  carousels, polls, general chat-history/contact-list sync, QR/pairing/passkey
+  sessions, full presence parity.
+- **Deferred:** Groups (OBA, max 8 participants, text/media/text templates),
+  Calling (WebRTC/SIP), Flows, product/catalog interactive messages. These are
+  Cloud-supported; WaMux has not implemented them yet.
+- **Limited:** typing indicator via mark-read, not full presence.
+- **SMB-only:** `history` and `smb_message_echoes` webhooks for onboarding
+  WhatsApp Business app users through a solution provider.
 
-The API should expose `channel_capabilities` on the instance so clients can
-discover this instead of guessing.
+The API should expose `channel_capabilities` and capability notes on the
+instance so clients can distinguish “not supported by Cloud” from “not
+implemented in WaMux.”
 
 ---
 
@@ -403,7 +410,7 @@ discover this instead of guessing.
 POST /instance/create
   { "name": "...", "token": "...", "integration": "WHATSAPP-BUSINESS",
     "cloud": { "wabaId": "...", "phoneNumberId": "...", "accessToken": "...",
-               "appSecret": "...", "verifyToken": "...", "graphVersion": "v23.0" } }
+               "appSecret": "...", "verifyToken": "...", "graphVersion": "v27.0" } }
 
 GET  /instance/info/:id          -> integration, cloud ids, tokenSet flags
 POST /instance/cloud/credentials -> rotate/update
