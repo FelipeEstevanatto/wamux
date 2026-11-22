@@ -16,6 +16,10 @@
   A per-instance `publicUrl` remains an explicit public-read signal.
 
 ### ✨ Features
+- **Played status.** A `played` receipt now stores `Played`, above `Read` in the
+  delivery order; late read/delivered receipts cannot move it back. The manager
+  shows the played tick. History rows with WhatsApp status `PLAYED` import as
+  `Played` instead of `Read`.
 - **Socket watchdog.** `WATCHDOG_MODE` (`report` default, `on`, `off`) detects an
   instance whose state reads `open` but whose websocket is closed or whose
   keepalive is silent. Report mode logs; `on` rebuilds that one socket through the

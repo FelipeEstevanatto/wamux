@@ -231,6 +231,8 @@ function senderColor(name: string): string {
 }
 
 function StatusTick({ status }: { status: string }) {
+  if (status === 'Played')
+    return <CheckCheck className="h-3.5 w-3.5 text-emerald-400" />;
   if (status === 'Read')
     return <CheckCheck className="h-3.5 w-3.5 text-sky-400" />;
   if (status === 'Delivered')

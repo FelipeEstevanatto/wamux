@@ -1269,6 +1269,14 @@ Sempre trate erros HTTP 4xx (validação) e 5xx (servidor):
 
 Sempre verifique o status code da resposta e o campo `error` no JSON retornado.
 
+### Status de entrega
+
+Uma mensagem enviada percorre `Sent → Delivered → Read → Played` (o último para
+mídia de visualização única/áudio). Os recibos podem chegar fora de ordem; o
+status armazenado só avança. `POST /message/markplayed` envia um recibo de
+"played" para o destinatário, e um recibo `played` recebido é armazenado como
+`Played`.
+
 ### 4. Usar Webhooks
 Para receber mensagens, configure webhooks em vez de polling:
 ```env

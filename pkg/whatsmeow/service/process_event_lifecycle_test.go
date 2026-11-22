@@ -53,6 +53,29 @@ func TestRepeatedReadReceiptIsStoredOnce(t *testing.T) {
 	}
 }
 
+func TestPlayedReceiptStoresPlayed(t *testing.T) {
+	h := newEventHarness(t)
+	got := h.one(t, receipt(t, types.ReceiptTypePlayed, "A", "B"))
+	wantField(t, got, "Receipt", "event")
+	wantField(t, got, "Played", "state")
+
+	stored := h.messages.stored()
+	if len(stored) != 2 || stored[0].Status != "Played" || stored[1].Status != "Played" {
+		t.Fatalf("stored %+v", stored)
+	}
+}
+
+func TestRepeatedPlayedReceiptIsStoredOnce(t *testing.T) {
+	h := newEventHarness(t)
+	h.one(t, receipt(t, types.ReceiptTypePlayed, "A"))
+	h.none(t, receipt(t, types.ReceiptTypePlayed, "A"))
+	if n := len(h.messages.stored()); n != 1 {
+		t.Errorf("stored %d times", n)
+	}
+}
+
+// A read receipt must not be stored as a separate state after Played, and a
+// duplicate played receipt must not reopen anything.
 func TestReadSelfIsDeliveredButNotStored(t *testing.T) {
 	h := newEventHarness(t)
 	got := h.one(t, receipt(t, types.ReceiptTypeReadSelf, "A"))

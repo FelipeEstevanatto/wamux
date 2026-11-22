@@ -3326,6 +3326,35 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 			} else {
 				postMap["state"] = "ReadSelf"
 			}
+		} else if evt.Type == types.ReceiptTypePlayed {
+			postMap["state"] = "Played"
+
+			fresh := false
+			for _, v := range evt.MessageIDs {
+				messageKey := fmt.Sprintf("%s_%s_%s", mycli.userID, v, "Played")
+				if _, found := mycli.processedMessages.Get(messageKey); found {
+					mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Message duplicated ignored: %s", mycli.userID, v)
+					continue
+				}
+
+				mycli.processedMessages.Set(messageKey, true, 30*time.Minute)
+				fresh = true
+
+				if mycli.config.DatabaseSaveMessages {
+					mycli.persistMessageAsync(message_model.Message{
+						MessageID:  v,
+						InstanceId: mycli.userID,
+						Timestamp:  evt.Timestamp.Format("2006-01-02 15:04:05"),
+						Status:     "Played",
+						Source:     evt.Chat.ToNonAD().User,
+					})
+				}
+			}
+			if !fresh {
+				return
+			}
+
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Message played by %s", mycli.userID, evt.SourceString())
 		} else if evt.Type == types.ReceiptTypeDelivered {
 			postMap["state"] = "Delivered"
 

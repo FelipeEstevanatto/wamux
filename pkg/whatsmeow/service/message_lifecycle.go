@@ -336,7 +336,9 @@ func historyStatus(web *waWeb.WebMessageInfo) string {
 		return "Received"
 	}
 	switch web.GetStatus() {
-	case waWeb.WebMessageInfo_READ, waWeb.WebMessageInfo_PLAYED:
+	case waWeb.WebMessageInfo_PLAYED:
+		return "Played"
+	case waWeb.WebMessageInfo_READ:
 		return "Read"
 	case waWeb.WebMessageInfo_DELIVERY_ACK:
 		return "Delivered"
