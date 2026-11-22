@@ -161,3 +161,30 @@ func TestNonRetryableCloseCode(t *testing.T) {
 		}
 	}
 }
+
+// BenchmarkReconnectAllowed measures the hot path called on every disconnect.
+// It resets the instance after each iteration so the map does not accumulate.
+func BenchmarkReconnectAllowed(b *testing.B) {
+	const id = "bench-reconnect"
+	t0 := time.Unix(1_700_000_000, 0)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		reconnectAllowedAt(id, t0)
+		reconnectSucceeded(id)
+	}
+}
+
+// BenchmarkReconnectStableDrop measures the stable-window check that replaced
+// the immediate reset on every Connected event.
+func BenchmarkReconnectStableDrop(b *testing.B) {
+	const id = "bench-reconnect-stable"
+	t0 := time.Unix(1_700_000_000, 0)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		reconnectConnectedAt(id, t0)
+		reconnectAllowedAt(id, t0.Add(stableConnectionWindow+time.Second))
+		reconnectSucceeded(id)
+	}
+}

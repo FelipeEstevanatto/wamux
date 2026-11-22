@@ -103,3 +103,21 @@ func TestHealthWindowPrunesOldCounts(t *testing.T) {
 		t.Fatalf("drops = %d, want %d", got.ReconnectDrops, healthLoopDrops)
 	}
 }
+
+// BenchmarkHealthSnapshot measures the read path used by /instance/status,
+// /instance/inventory and every /metrics scrape.
+func BenchmarkHealthSnapshot(b *testing.B) {
+	now := time.Unix(1_700_000_000, 0)
+	h := newInstanceHealthTracker(now)
+	for i := 0; i < 100; i++ {
+		h.markOpened(now)
+		h.markDisconnected(now, "440")
+	}
+	h.markInbound(now)
+	h.markAck(now)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = h.snapshot("bench", now, false, true, false, "")
+	}
+}
