@@ -68,6 +68,49 @@ blueprint**:
 WaMux should implement the same capability with its existing security posture:
 encrypted secrets, signed webhooks, tenant scoping, audit and tests.
 
+### 1.1 Does upstream Evolution API meet these requirements?
+
+It depends on what “original” means:
+
+- **Node `evolution-foundation/evolution-api` 2.3.7:** yes, it has a **basic
+  functional** Cloud API channel.
+- **`evolution-foundation/evolution-go`:** no. That is WaMux’s upstream, and it
+  only implements whatsmeow.
+- **Reforged 3.3.0:** inherits the Node Cloud API code almost unchanged. It did
+  not harden it.
+
+Upstream’s Cloud API is enough for a demo or a simple text/template sender, but
+it does **not** meet the production requirements in this plan:
+
+| Requirement | Upstream Evolution API | Reforged |
+|---|---|---|
+| `WHATSAPP-BUSINESS` channel selector | ✅ | ✅ |
+| Per-instance WABA / phone number / token fields | ⚠️ uses `number`, `businessId`, instance `token` | same |
+| Dedicated encrypted Meta access token | ❌ (reuses instance token) | ❌ |
+| Per-instance webhook verify token | ❌ (one global `WA_BUSINESS_TOKEN_WEBHOOK`) | ❌ |
+| `X-Hub-Signature-256` verification | ❌ | ❌ |
+| Route webhook by `phone_number_id` | ✅ | ✅ |
+| Webhook idempotency/replay protection | ❌ | ❌ |
+| Text send | ✅ | ✅ |
+| Media upload/download | ✅ basic | ✅ basic |
+| Template CRUD + send | ✅ basic Graph wrapper | ✅ |
+| Location/contact/reaction/interactive | ✅ basic | ✅ |
+| 24-hour customer-service window | ❌ | ❌ |
+| Graph rate-limit/backoff/error mapping | ❌ | ❌ |
+| Media size/type/expiry hardening | ❌ | ❌ |
+| Status mapping incl. failed | ⚠️ basic uppercase status | ⚠️ |
+| Unsupported-feature gating | ❌ | ❌ |
+| Encrypted credentials at rest | ❌ | ❌ |
+| Audit log | ❌ | ❌ |
+| Cloud API tests | ❌ | ❌ (fork tests do not cover Meta) |
+| Manager onboarding/credentials UI | ⚠️ basic | ⚠️ |
+| Embedded Signup / token rotation | ❌ | ❌ |
+
+So the correct statement is: **the Node original supports Cloud API, but it does
+not meet the production bar described here.** The Reforged fork did not close
+that gap. WaMux should use it only as a payload-shape reference, not as a
+security or reliability blueprint.
+
 ---
 
 ## 2. Proposed architecture
