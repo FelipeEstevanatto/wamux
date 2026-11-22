@@ -16,6 +16,11 @@
   A per-instance `publicUrl` remains an explicit public-read signal.
 
 ### ✨ Features
+- **Idle runtime eviction.** `INSTANCE_IDLE_EVICT_MINUTES` (default `0`, off)
+  removes a disconnected instance's in-memory client after the window, bounding
+  memory for fleets with many offline instances. The DB row, JID and session are
+  kept; a manual connect resumes it. A pending reconnect or in-flight pairing is
+  never evicted.
 - **Played status.** A `played` receipt now stores `Played`, above `Read` in the
   delivery order; late read/delivered receipts cannot move it back. The manager
   shows the played tick. History rows with WhatsApp status `PLAYED` import as

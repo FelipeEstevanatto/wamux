@@ -748,6 +748,7 @@ func main() {
 
 	r, whatsmeowService, eventDrainers := setupRouter(db, authDB, sqliteDB, cfg, conn, exPath, messageRepository)
 	go whatsmeowService.StartWatchdog(workersCtx)
+	go whatsmeowService.StartIdleEviction(workersCtx)
 
 	srv := &http.Server{
 		Addr:    ":" + os.Getenv("SERVER_PORT"),

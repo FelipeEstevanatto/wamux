@@ -160,6 +160,9 @@ type WhatsmeowService interface {
 	Shutdown(ctx context.Context)
 	// StartWatchdog runs the per-instance socket watchdog until ctx is done.
 	StartWatchdog(ctx context.Context)
+	// StartIdleEviction evicts disconnected runtime clients after the configured
+	// idle window. No-op when INSTANCE_IDLE_EVICT_MINUTES is 0.
+	StartIdleEviction(ctx context.Context)
 }
 
 // InstanceHealth is one instance's live connection state, for the health view.
