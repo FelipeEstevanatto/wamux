@@ -73,6 +73,8 @@ POSTGRES_USERS_DB=postgresql://user:pass@host:5432/wamux_users?sslmode=disable
 | `HISTORY_SYNC_MAX_MB` | `10240` | Tamanho máximo do histórico pedido ao celular (MB) |
 | `HISTORY_STORAGE_QUOTA_MB` | `10240` | Cota de armazenamento declarada ao celular (MB) |
 | `RECONNECT_CONFLICT_LIMIT` | `10` | Fechamentos 440 consecutivos antes de bloquear a reconexão automática; `0` = ilimitado. A sessão é mantida para um connect manual |
+| `WATCHDOG_MODE` | `report` | `off`, `report` (só registra o que faria) ou `on` (reconstrói o socket travado sem logout) |
+| `WATCHDOG_MAX_REBUILDS` | `5` | Reconstruções consecutivas sem socket saudável antes de desistir daquela instância |
 | `QRCODE_TERMINAL` | `true` | Desenha o QR Code no log da instância e no terminal (`docker logs`). Com `LOG_TYPE=json`, só no log da instância |
 | `QRCODE_MAX_COUNT` | `5` | Tentativas máximas de QR Code |
 | `CHECK_USER_EXISTS` | `true` | Validar destinatário antes de enviar |

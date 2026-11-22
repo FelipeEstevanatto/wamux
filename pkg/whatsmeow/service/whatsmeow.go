@@ -158,6 +158,8 @@ type WhatsmeowService interface {
 	// Shutdown stops accepting events (disconnects clients), waits for in-flight
 	// handlers up to the context deadline, and releases ownership.
 	Shutdown(ctx context.Context)
+	// StartWatchdog runs the per-instance socket watchdog until ctx is done.
+	StartWatchdog(ctx context.Context)
 }
 
 // InstanceHealth is one instance's live connection state, for the health view.

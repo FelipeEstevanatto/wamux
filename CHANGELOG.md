@@ -16,6 +16,11 @@
   A per-instance `publicUrl` remains an explicit public-read signal.
 
 ### ✨ Features
+- **Socket watchdog.** `WATCHDOG_MODE` (`report` default, `on`, `off`) detects an
+  instance whose state reads `open` but whose websocket is closed or whose
+  keepalive is silent. Report mode logs; `on` rebuilds that one socket through the
+  normal reconnect path, never logs out, and stops after `WATCHDOG_MAX_REBUILDS`.
+  Unacked sends and a slow event queue are never triggers.
 - **Per-instance health verdict.** `/instance/status`, `/instance/inventory` and
   `/metrics` expose the last event/inbound/ack, reconnect opens/drops in a
   10-minute window, conflicts, event-handler age and a verdict

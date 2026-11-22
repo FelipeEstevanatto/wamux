@@ -178,6 +178,8 @@ func (h *instanceHealthTracker) snapshot(instanceID string, now time.Time, liveC
 	out.LastDisconnectReason = h.lastDisconnectReason
 	out.LastKeepAliveTimeoutAt = formatTime(h.lastKeepAliveTimeout)
 	out.LastKeepAliveRestoredAt = formatTime(h.lastKeepAliveRestored)
+	lastTimeout := h.lastKeepAliveTimeout
+	lastRestored := h.lastKeepAliveRestored
 	out.EventType = h.lastEventType
 	if !h.eventStart.IsZero() {
 		out.EventRunningAgeMs = now.Sub(h.eventStart).Milliseconds()
@@ -191,6 +193,12 @@ func (h *instanceHealthTracker) snapshot(instanceID string, now time.Time, liveC
 
 	if storedConnected && !liveConnected {
 		out.Reasons = append(out.Reasons, "ws_closed")
+		if out.Verdict == "" {
+			out.Verdict = "stalled"
+		}
+	}
+	if lastTimeout.After(lastRestored) && now.Sub(lastTimeout) < watchdogKeepAliveAge {
+		out.Reasons = append(out.Reasons, "keepalive_silent")
 		if out.Verdict == "" {
 			out.Verdict = "stalled"
 		}
