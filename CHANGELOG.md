@@ -40,6 +40,9 @@
 - **Global message search.** `GET /chat/history/search` now accepts `q` without
   `chat`, searching every conversation of the instance with the same filters and
   keyset pagination. A new `(instance_id, timestamp DESC)` index backs the page.
+- **Manager: Storage and Security sections.** Per-instance S3 (endpoint, bucket,
+  credentials, test/remove), webhook HMAC (save, generate once, remove) and the
+  connection health verdict are editable/visible from instance settings.
 - **Idle runtime eviction.** `INSTANCE_IDLE_EVICT_MINUTES` (default `0`, off)
   removes a disconnected instance's in-memory client after the window, bounding
   memory for fleets with many offline instances. The DB row, JID and session are
