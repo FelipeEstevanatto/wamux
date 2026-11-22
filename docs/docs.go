@@ -414,21 +414,20 @@ const docTemplate = `{
         },
         "/chat/history/search": {
             "get": {
-                "description": "Returns stored messages of one conversation whose text contains ` + "`" + `q` + "`" + `, ignoring case, newest first. Requires DATABASE_SAVE_MESSAGES.",
+                "description": "Returns stored messages whose text contains ` + "`" + `q` + "`" + `, ignoring case, newest first. Omit ` + "`" + `chat` + "`" + ` to search every conversation of the instance. Requires DATABASE_SAVE_MESSAGES.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Message"
                 ],
-                "summary": "Search a conversation",
+                "summary": "Search stored messages",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Phone number or JID of the conversation",
+                        "description": "Phone number or JID of one conversation; omit to search the whole instance",
                         "name": "chat",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     },
                     {
                         "type": "string",
@@ -5650,6 +5649,56 @@ const docTemplate = `{
                 }
             }
         },
+        "/server/audit": {
+            "get": {
+                "description": "Returns the newest local administrative actions (instance create/delete, proxy/S3/HMAC changes, token reads). Admin key only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Server"
+                ],
+                "summary": "Administrative audit log",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "example": 100,
+                        "description": "Entries to return (default 100, max 1000)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "audit entries",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_audit.Entry"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_docmodels.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/server/ok": {
             "get": {
                 "description": "Returns ok when the server is up (public, no apikey)",
@@ -6886,6 +6935,29 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "github_com_felipeestevanatto_wamux_pkg_audit.Entry": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "actor": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "detail": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "target": {
+                    "type": "string"
+                }
+            }
+        },
         "github_com_felipeestevanatto_wamux_pkg_call_service.RejectCallStruct": {
             "type": "object",
             "properties": {
@@ -9471,6 +9543,11 @@ const docTemplate = `{
                     "type": "boolean",
                     "example": true
                 },
+                "id": {
+                    "description": "Optional WhatsApp message id. Idempotency-Key fills this so a retry is the same message.",
+                    "type": "string",
+                    "example": "3EB0A1B2C3D4E5F6A7B8C9"
+                },
                 "imageUrl": {
                     "description": "Optional image URL used as header for reply-only buttons.",
                     "type": "string",
@@ -9648,6 +9725,11 @@ const docTemplate = `{
                     "description": "If false, skips automatic formatting/validation of ` + "`" + `number` + "`" + ` into a JID.",
                     "type": "boolean",
                     "example": true
+                },
+                "id": {
+                    "description": "Optional WhatsApp message id. Idempotency-Key fills this so a retry is the same message.",
+                    "type": "string",
+                    "example": "3EB0A1B2C3D4E5F6A7B8C9"
                 },
                 "number": {
                     "description": "Destination phone number.",
@@ -9895,6 +9977,11 @@ const docTemplate = `{
                     "description": "If false, skips automatic formatting/validation of ` + "`" + `number` + "`" + ` into a JID.",
                     "type": "boolean",
                     "example": true
+                },
+                "id": {
+                    "description": "Optional WhatsApp message id. Idempotency-Key fills this so a retry is the same message.",
+                    "type": "string",
+                    "example": "3EB0A1B2C3D4E5F6A7B8C9"
                 },
                 "mentionAll": {
                     "description": "Mention every participant (groups only).",
@@ -10789,6 +10876,7 @@ const docTemplate = `{
                 "createdAt": {
                     "type": "string"
                 },
+                "health": {},
                 "instanceId": {
                     "type": "string"
                 },
@@ -10862,6 +10950,14 @@ const docTemplate = `{
             "x-enum-comments": {
                 "EditAttributeAdminEdit": "only used in newsletters"
             },
+            "x-enum-descriptions": [
+                "",
+                "",
+                "",
+                "only used in newsletters",
+                "",
+                ""
+            ],
             "x-enum-varnames": [
                 "EditAttributeEmpty",
                 "EditAttributeMessageEdit",
@@ -10875,13 +10971,16 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "device": {
-                    "type": "integer"
+                    "type": "integer",
+                    "format": "int32"
                 },
                 "integrator": {
-                    "type": "integer"
+                    "type": "integer",
+                    "format": "int32"
                 },
                 "rawAgent": {
-                    "type": "integer"
+                    "type": "integer",
+                    "format": "int32"
                 },
                 "server": {
                     "type": "string"
@@ -10949,9 +11048,6 @@ const docTemplate = `{
                     "description": "Whether the chat is a group chat or broadcast list.",
                     "type": "boolean"
                 },
-                "isNewsletterStatus": {
-                    "type": "boolean"
-                },
                 "mediaType": {
                     "type": "string"
                 },
@@ -10993,6 +11089,10 @@ const docTemplate = `{
                 },
                 "serverID": {
                     "type": "integer"
+                },
+                "stanzaTag": {
+                    "description": "message for normal messages, status for newsletters and status broadcasts, appdata for some other things",
+                    "type": "string"
                 },
                 "timestamp": {
                     "type": "string"
@@ -11231,6 +11331,7 @@ const docTemplate = `{
         },
         "waAICommon.AISubscriptionRequestType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -11276,17 +11377,20 @@ const docTemplate = `{
         },
         "waAICommon.AIThreadInfo_AIThreadClientInfo_AIThreadType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
                 2,
-                3
+                3,
+                4
             ],
             "x-enum-varnames": [
                 "AIThreadInfo_AIThreadClientInfo_UNKNOWN",
                 "AIThreadInfo_AIThreadClientInfo_DEFAULT",
                 "AIThreadInfo_AIThreadClientInfo_INCOGNITO",
-                "AIThreadInfo_AIThreadClientInfo_SIDE_CHAT"
+                "AIThreadInfo_AIThreadClientInfo_SIDE_CHAT",
+                "AIThreadInfo_AIThreadClientInfo_PRIVATE_SEARCH_CHAT"
             ]
         },
         "waAICommon.AIThreadInfo_AIThreadServerInfo": {
@@ -11321,6 +11425,7 @@ const docTemplate = `{
         },
         "waAICommon.BotAgeCollectionMetadata_AgeCollectionType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1
@@ -11365,6 +11470,7 @@ const docTemplate = `{
         },
         "waAICommon.BotCapabilityMetadata_BotCapabilityType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -11439,7 +11545,23 @@ const docTemplate = `{
                 70,
                 71,
                 72,
-                76
+                73,
+                74,
+                75,
+                76,
+                77,
+                78,
+                79,
+                80,
+                81,
+                82,
+                83,
+                84,
+                85,
+                86,
+                87,
+                88,
+                89
             ],
             "x-enum-varnames": [
                 "BotCapabilityMetadata_UNKNOWN",
@@ -11515,7 +11637,23 @@ const docTemplate = `{
                 "BotCapabilityMetadata_AI_STOP_GENERATION_ENABLED",
                 "BotCapabilityMetadata_AI_RICH_RESPONSE_3P_LINKING_CARD_ENABLED",
                 "BotCapabilityMetadata_HATCH_NOTIFICATION_METADATA_EVENT_ENABLED",
-                "BotCapabilityMetadata_HATCH_CONNECTOR_ACTION_CARD_ENABLED"
+                "BotCapabilityMetadata_AI_SUGGESTED_REPLIES_ENABLED",
+                "BotCapabilityMetadata_RICH_RESPONSE_IN_APP_SURVEY_BLOKS",
+                "BotCapabilityMetadata_RICH_RESPONSE_IMAGE_SOURCE_ATTRIBUTION",
+                "BotCapabilityMetadata_HATCH_CONNECTOR_ACTION_CARD_ENABLED",
+                "BotCapabilityMetadata_HATCH_SECURE_CREDENTIAL_CARD_ENABLED",
+                "BotCapabilityMetadata_HATCH_BROWSER_TASK_CARD_ENABLED",
+                "BotCapabilityMetadata_HATCH_ARTIFACT_CARD_ENABLED",
+                "BotCapabilityMetadata_AI_STUDY_CENTER_ENABLED",
+                "BotCapabilityMetadata_AI_MUSE_JARVIS_SCHEMA_ENABLED",
+                "BotCapabilityMetadata_AI_STUDY_QUIZ_ENABLED",
+                "BotCapabilityMetadata_HATCH_CVM_ENABLED",
+                "BotCapabilityMetadata_RICH_RESPONSE_SOCIAL_ENTITY_PREFETCH_SCHEDULER_ENABLED",
+                "BotCapabilityMetadata_AI_MUSE_JARVIS_EXTENDED_CARDS_ENABLED",
+                "BotCapabilityMetadata_AI_INTERJECTIONS_ENABLED",
+                "BotCapabilityMetadata_AI_RICH_RESPONSE_READ_ALOUD_ENABLED",
+                "BotCapabilityMetadata_AI_RICH_RESPONSE_ITEM_LISTS_ENABLED",
+                "BotCapabilityMetadata_RICH_RESPONSE_SIDE_BY_SIDE_BUFFER_BOTH"
             ]
         },
         "waAICommon.BotCommandMetadata": {
@@ -11542,6 +11680,7 @@ const docTemplate = `{
         },
         "waAICommon.BotDocumentMessageMetadata_DocumentPluginType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1
@@ -11579,6 +11718,7 @@ const docTemplate = `{
         },
         "waAICommon.BotFeedbackMessage_BotFeedbackKind": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -11616,6 +11756,7 @@ const docTemplate = `{
         },
         "waAICommon.BotFeedbackMessage_ReportKind": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1
@@ -11787,6 +11928,7 @@ const docTemplate = `{
         },
         "waAICommon.BotImagineMetadata_ImagineType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -11821,6 +11963,7 @@ const docTemplate = `{
         },
         "waAICommon.BotInfrastructureDiagnostics_BotBackend": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1
@@ -11829,6 +11972,20 @@ const docTemplate = `{
                 "BotInfrastructureDiagnostics_AAPI",
                 "BotInfrastructureDiagnostics_CLIPPY"
             ]
+        },
+        "waAICommon.BotInterjectionMetadata": {
+            "type": "object",
+            "properties": {
+                "foldedPromptMessageIDs": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "targetPromptMessageID": {
+                    "type": "string"
+                }
+            }
         },
         "waAICommon.BotLinkedAccount": {
             "type": "object",
@@ -11840,6 +11997,7 @@ const docTemplate = `{
         },
         "waAICommon.BotLinkedAccount_BotLinkedAccountType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0
             ],
@@ -11895,6 +12053,7 @@ const docTemplate = `{
         },
         "waAICommon.BotMediaMetadata_OrientationType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 1,
                 2,
@@ -11951,6 +12110,9 @@ const docTemplate = `{
         "waAICommon.BotMessageOrigin": {
             "type": "object",
             "properties": {
+                "proactiveMessageCampaignID": {
+                    "type": "string"
+                },
                 "type": {
                     "$ref": "#/definitions/waAICommon.BotMessageOrigin_BotMessageOriginType"
                 }
@@ -11969,11 +12131,14 @@ const docTemplate = `{
         },
         "waAICommon.BotMessageOrigin_BotMessageOriginType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
-                0
+                0,
+                1
             ],
             "x-enum-varnames": [
-                "BotMessageOrigin_BOT_MESSAGE_ORIGIN_TYPE_AI_INITIATED"
+                "BotMessageOrigin_BOT_MESSAGE_ORIGIN_TYPE_AI_INITIATED",
+                "BotMessageOrigin_BOT_MESSAGE_ORIGIN_TYPE_META_AI_THREAD_WELCOME"
             ]
         },
         "waAICommon.BotMessageSharingInfo": {
@@ -12056,6 +12221,9 @@ const docTemplate = `{
                 "inThreadSurveyMetadata": {
                     "$ref": "#/definitions/waAICommon.InThreadSurveyMetadata"
                 },
+                "interjectionMetadata": {
+                    "$ref": "#/definitions/waAICommon.BotInterjectionMetadata"
+                },
                 "internalMetadata": {
                     "type": "array",
                     "items": {
@@ -12132,6 +12300,7 @@ const docTemplate = `{
         },
         "waAICommon.BotMetricsEntryPoint": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -12182,7 +12351,9 @@ const docTemplate = `{
                 55,
                 56,
                 57,
-                58
+                58,
+                59,
+                60
             ],
             "x-enum-varnames": [
                 "BotMetricsEntryPoint_UNDEFINED_ENTRY_POINT",
@@ -12234,7 +12405,9 @@ const docTemplate = `{
                 "BotMetricsEntryPoint_CHATLIST_SEARCH",
                 "BotMetricsEntryPoint_NEW_CHAT_LIST",
                 "BotMetricsEntryPoint_CONTACTS_TAB",
-                "BotMetricsEntryPoint_NEW_3P_AGENT_CREATION"
+                "BotMetricsEntryPoint_NEW_3P_AGENT_CREATION",
+                "BotMetricsEntryPoint_SHARE",
+                "BotMetricsEntryPoint_BIRTHDAY_BANNER"
             ]
         },
         "waAICommon.BotMetricsMetadata": {
@@ -12253,6 +12426,7 @@ const docTemplate = `{
         },
         "waAICommon.BotMetricsThreadEntryPoint": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 1,
                 2,
@@ -12287,6 +12461,7 @@ const docTemplate = `{
         },
         "waAICommon.BotModeSelectionMetadata_BotUserSelectionMode": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1
@@ -12312,6 +12487,7 @@ const docTemplate = `{
         },
         "waAICommon.BotModelMetadata_ModelType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -12325,6 +12501,7 @@ const docTemplate = `{
         },
         "waAICommon.BotModelMetadata_PremiumModelStatus": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -12379,6 +12556,7 @@ const docTemplate = `{
         },
         "waAICommon.BotPluginMetadata_PluginType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -12392,6 +12570,7 @@ const docTemplate = `{
         },
         "waAICommon.BotPluginMetadata_SearchProvider": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -12487,6 +12666,7 @@ const docTemplate = `{
         },
         "waAICommon.BotProgressIndicatorMetadata_BotPlanningStepMetadata_BotPlanningSearchSourcesMetadata_BotPlanningSearchSourceProvider": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -12519,6 +12699,7 @@ const docTemplate = `{
         },
         "waAICommon.BotProgressIndicatorMetadata_BotPlanningStepMetadata_BotSearchSourceProvider": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -12534,6 +12715,7 @@ const docTemplate = `{
         },
         "waAICommon.BotProgressIndicatorMetadata_BotPlanningStepMetadata_PlanningStepStatus": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -12560,6 +12742,7 @@ const docTemplate = `{
         },
         "waAICommon.BotPromotionMessageMetadata_BotPromotionType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -12628,6 +12811,7 @@ const docTemplate = `{
         },
         "waAICommon.BotQuotaMetadata_BotFeatureQuotaMetadata_BotFeatureType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1
@@ -12659,6 +12843,7 @@ const docTemplate = `{
         },
         "waAICommon.BotReminderMetadata_ReminderAction": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 1,
                 2,
@@ -12674,6 +12859,7 @@ const docTemplate = `{
         },
         "waAICommon.BotReminderMetadata_ReminderFrequency": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 1,
                 2,
@@ -12749,6 +12935,7 @@ const docTemplate = `{
         },
         "waAICommon.BotSessionSource": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -12789,7 +12976,8 @@ const docTemplate = `{
                     "items": {
                         "type": "array",
                         "items": {
-                            "type": "integer"
+                            "type": "integer",
+                            "format": "int32"
                         }
                     }
                 },
@@ -12815,6 +13003,7 @@ const docTemplate = `{
         },
         "waAICommon.BotSignatureVerificationUseCaseProof_BotSignatureUseCase": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -12885,6 +13074,7 @@ const docTemplate = `{
         },
         "waAICommon.BotSourcesMetadata_BotSourceItem_SourceProvider": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -13113,6 +13303,7 @@ const docTemplate = `{
         },
         "waAICommon.SessionTransparencyType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1
@@ -13149,6 +13340,7 @@ const docTemplate = `{
         },
         "waAICommonDeprecated.AIRichResponseCodeMetadata_AIRichResponseCodeHighlightType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -13190,6 +13382,7 @@ const docTemplate = `{
         },
         "waAICommonDeprecated.AIRichResponseContentItemsMetadata_ContentType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1
@@ -13218,6 +13411,7 @@ const docTemplate = `{
         },
         "waAICommonDeprecated.AIRichResponseDynamicMetadata_AIRichResponseDynamicMetadataType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -13276,6 +13470,7 @@ const docTemplate = `{
         },
         "waAICommonDeprecated.AIRichResponseInlineImageMetadata_AIRichResponseImageAlignment": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -13381,6 +13576,7 @@ const docTemplate = `{
         },
         "waAICommonDeprecated.AIRichResponseMessageType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1
@@ -13427,6 +13623,7 @@ const docTemplate = `{
         },
         "waAICommonDeprecated.AIRichResponseSubMessageType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -13482,6 +13679,7 @@ const docTemplate = `{
         },
         "waAdv.ADVEncryptionType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1
@@ -13501,6 +13699,7 @@ const docTemplate = `{
         },
         "waAea.NonE2EEAttestation_AccountType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -13548,6 +13747,7 @@ const docTemplate = `{
         },
         "waCommon.LimitSharing_Trigger": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -13902,6 +14102,7 @@ const docTemplate = `{
         },
         "waE2E.BCallMessage_MediaType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -13994,6 +14195,7 @@ const docTemplate = `{
         },
         "waE2E.ButtonsMessage_Button_Type": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -14007,6 +14209,7 @@ const docTemplate = `{
         },
         "waE2E.ButtonsMessage_HeaderType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -14045,6 +14248,7 @@ const docTemplate = `{
         },
         "waE2E.ButtonsResponseMessage_Type": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1
@@ -14129,6 +14333,7 @@ const docTemplate = `{
         },
         "waE2E.CallLogMessage_CallOutcome": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -14163,6 +14368,7 @@ const docTemplate = `{
         },
         "waE2E.CallLogMessage_CallType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -14235,6 +14441,7 @@ const docTemplate = `{
         },
         "waE2E.CloudAPIThreadControlNotification_CloudAPIThreadControl": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -14256,6 +14463,17 @@ const docTemplate = `{
                 },
                 "handoffNotificationText": {
                     "type": "string"
+                }
+            }
+        },
+        "waE2E.CoexConnectionDescriptor": {
+            "type": "object",
+            "properties": {
+                "product": {
+                    "type": "string"
+                },
+                "providerID": {
+                    "type": "integer"
                 }
             }
         },
@@ -14295,6 +14513,7 @@ const docTemplate = `{
         },
         "waE2E.ConditionalRevealMessage_ConditionalRevealMessageType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1
@@ -14431,8 +14650,17 @@ const docTemplate = `{
                 "featureEligibilities": {
                     "$ref": "#/definitions/waE2E.ContextInfo_FeatureEligibilities"
                 },
+                "foaMutualsSignature": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
                 "forwardOrigin": {
                     "$ref": "#/definitions/waE2E.ContextInfo_ForwardOrigin"
+                },
+                "forwardReachScore": {
+                    "type": "integer"
                 },
                 "forwardedAiBotMessageInfo": {
                     "$ref": "#/definitions/waAICommon.ForwardedAIBotMessageInfo"
@@ -14530,6 +14758,15 @@ const docTemplate = `{
                 "smbServerCampaignID": {
                     "type": "string"
                 },
+                "sourceExperienceID": {
+                    "type": "integer"
+                },
+                "sourceExperienceIDs": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
                 "stanzaID": {
                     "type": "string"
                 },
@@ -14584,6 +14821,7 @@ const docTemplate = `{
         },
         "waE2E.ContextInfo_AdReplyInfo_MediaType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -14626,6 +14864,7 @@ const docTemplate = `{
         },
         "waE2E.ContextInfo_BusinessInteractionPills_EntryPoint": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -14656,6 +14895,7 @@ const docTemplate = `{
         },
         "waE2E.ContextInfo_BusinessInteractionPills_PillType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -14714,6 +14954,7 @@ const docTemplate = `{
         },
         "waE2E.ContextInfo_CrossAppSource": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -14810,11 +15051,32 @@ const docTemplate = `{
                 "containsCtwaFlowsAutoReply": {
                     "type": "boolean"
                 },
+                "containsCtwaPromo": {
+                    "type": "boolean"
+                },
                 "ctaPayload": {
                     "type": "string"
                 },
                 "ctwaClid": {
                     "type": "string"
+                },
+                "ctwaPromoAdEntryID": {
+                    "type": "string"
+                },
+                "ctwaPromoAdgroupID": {
+                    "type": "string"
+                },
+                "ctwaPromoOfferID": {
+                    "type": "string"
+                },
+                "ctwaPromoResponseExpiresAtSeconds": {
+                    "type": "integer"
+                },
+                "ctwaPromoResponseID": {
+                    "type": "string"
+                },
+                "ctwaPromoSchemaVersion": {
+                    "type": "integer"
                 },
                 "disableNudge": {
                     "type": "boolean"
@@ -14877,6 +15139,7 @@ const docTemplate = `{
         },
         "waE2E.ContextInfo_ExternalAdReplyInfo_AdType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1
@@ -14888,6 +15151,7 @@ const docTemplate = `{
         },
         "waE2E.ContextInfo_ExternalAdReplyInfo_MediaType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -14921,6 +15185,7 @@ const docTemplate = `{
         },
         "waE2E.ContextInfo_ForwardOrigin": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -14963,6 +15228,7 @@ const docTemplate = `{
         },
         "waE2E.ContextInfo_ForwardedNewsletterMessageInfo_ContentType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 1,
                 2,
@@ -14984,6 +15250,7 @@ const docTemplate = `{
         },
         "waE2E.ContextInfo_PairedMediaType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -14993,7 +15260,13 @@ const docTemplate = `{
                 5,
                 6,
                 7,
-                8
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14
             ],
             "x-enum-varnames": [
                 "ContextInfo_NOT_PAIRED_MEDIA",
@@ -15004,7 +15277,13 @@ const docTemplate = `{
                 "ContextInfo_MOTION_PHOTO_PARENT",
                 "ContextInfo_MOTION_PHOTO_CHILD",
                 "ContextInfo_HEVC_VIDEO_PARENT",
-                "ContextInfo_HEVC_VIDEO_CHILD"
+                "ContextInfo_HEVC_VIDEO_CHILD",
+                "ContextInfo_AV1_VIDEO_PARENT",
+                "ContextInfo_AV1_VIDEO_CHILD",
+                "ContextInfo_STREAMED_VIDEO_PARENT",
+                "ContextInfo_STREAMED_VIDEO_CHILD",
+                "ContextInfo_ORIGINAL_VIDEO_CHILD",
+                "ContextInfo_ORIGINAL_IMAGE_CHILD"
             ]
         },
         "waE2E.ContextInfo_PartiallySelectedContent": {
@@ -15031,6 +15310,7 @@ const docTemplate = `{
         },
         "waE2E.ContextInfo_QuotedType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1
@@ -15042,6 +15322,7 @@ const docTemplate = `{
         },
         "waE2E.ContextInfo_StatusAttributionType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -15068,22 +15349,31 @@ const docTemplate = `{
                 },
                 "listName": {
                     "type": "string"
+                },
+                "orgID": {
+                    "type": "string"
                 }
             }
         },
         "waE2E.ContextInfo_StatusAudienceMetadata_AudienceType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
-                1
+                1,
+                2,
+                3
             ],
             "x-enum-varnames": [
                 "ContextInfo_StatusAudienceMetadata_UNKNOWN",
-                "ContextInfo_StatusAudienceMetadata_CLOSE_FRIENDS"
+                "ContextInfo_StatusAudienceMetadata_CLOSE_FRIENDS",
+                "ContextInfo_StatusAudienceMetadata_CUSTOM_LIST",
+                "ContextInfo_StatusAudienceMetadata_ORG"
             ]
         },
         "waE2E.ContextInfo_StatusSourceType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -15194,6 +15484,7 @@ const docTemplate = `{
         },
         "waE2E.DisappearingMode_Initiator": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -15209,6 +15500,7 @@ const docTemplate = `{
         },
         "waE2E.DisappearingMode_Trigger": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -15285,6 +15577,9 @@ const docTemplate = `{
                 },
                 "pageCount": {
                     "type": "integer"
+                },
+                "qrURL": {
+                    "type": "string"
                 },
                 "thumbnailDirectPath": {
                     "type": "string"
@@ -15457,6 +15752,9 @@ const docTemplate = `{
                 "contextInfo": {
                     "$ref": "#/definitions/waE2E.ContextInfo"
                 },
+                "coverImageHandle": {
+                    "type": "string"
+                },
                 "endTime": {
                     "type": "integer"
                 },
@@ -15469,10 +15767,41 @@ const docTemplate = `{
                 "isCanceled": {
                     "type": "boolean"
                 },
+                "lastUpdatedTSUsec": {
+                    "type": "integer"
+                },
+                "locationName": {
+                    "type": "string"
+                },
                 "startTime": {
                     "type": "integer"
+                },
+                "status": {
+                    "$ref": "#/definitions/waE2E.EventInviteMessage_EventStatus"
                 }
             }
+        },
+        "waE2E.EventInviteMessage_EventStatus": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6
+            ],
+            "x-enum-varnames": [
+                "EventInviteMessage_UNKNOWN",
+                "EventInviteMessage_ACTIVE",
+                "EventInviteMessage_CANCELED",
+                "EventInviteMessage_SUSPENDED",
+                "EventInviteMessage_DELETED",
+                "EventInviteMessage_LEFT_EVENT",
+                "EventInviteMessage_REMOVED_FROM_INVITE_LIST"
+            ]
         },
         "waE2E.EventMessage": {
             "type": "object",
@@ -15636,6 +15965,7 @@ const docTemplate = `{
         },
         "waE2E.ExtendedTextMessage_FontType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -15659,6 +15989,7 @@ const docTemplate = `{
         },
         "waE2E.ExtendedTextMessage_InviteLinkGroupType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -15674,6 +16005,7 @@ const docTemplate = `{
         },
         "waE2E.ExtendedTextMessage_PreviewType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -15707,6 +16039,9 @@ const docTemplate = `{
             "properties": {
                 "businessProduct": {
                     "type": "string"
+                },
+                "connection": {
+                    "$ref": "#/definitions/waE2E.CoexConnectionDescriptor"
                 },
                 "opaqueClientData": {
                     "type": "array",
@@ -15761,6 +16096,7 @@ const docTemplate = `{
         },
         "waE2E.GroupInviteMessage_GroupType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1
@@ -15777,6 +16113,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "groupSubject": {
+                    "type": "string"
+                }
+            }
+        },
+        "waE2E.GroupRootKeyRequest": {
+            "type": "object",
+            "properties": {
+                "keyID": {
                     "type": "string"
                 }
             }
@@ -15947,6 +16291,7 @@ const docTemplate = `{
         },
         "waE2E.HistorySyncType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -15956,7 +16301,8 @@ const docTemplate = `{
                 5,
                 6,
                 7,
-                8
+                8,
+                9
             ],
             "x-enum-varnames": [
                 "HistorySyncType_INITIAL_BOOTSTRAP",
@@ -15967,7 +16313,8 @@ const docTemplate = `{
                 "HistorySyncType_NON_BLOCKING_DATA",
                 "HistorySyncType_ON_DEMAND",
                 "HistorySyncType_NO_HISTORY",
-                "HistorySyncType_MESSAGE_ACCESS_STATUS"
+                "HistorySyncType_MESSAGE_ACCESS_STATUS",
+                "HistorySyncType_RECENT_CONVERSATIONS_ON_DEMAND"
             ]
         },
         "waE2E.HydratedTemplateButton": {
@@ -16117,6 +16464,7 @@ const docTemplate = `{
         },
         "waE2E.ImageMessage_ImageSourceType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -16140,6 +16488,7 @@ const docTemplate = `{
         },
         "waE2E.InsightDeliveryState": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -16180,6 +16529,7 @@ const docTemplate = `{
         },
         "waE2E.InteractiveAnnotation_StatusLinkType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 1,
                 2,
@@ -16303,6 +16653,7 @@ const docTemplate = `{
         },
         "waE2E.InteractiveResponseMessage_Body_Format": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1
@@ -16361,6 +16712,7 @@ const docTemplate = `{
         },
         "waE2E.InvoiceMessage_AttachmentType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1
@@ -16386,6 +16738,7 @@ const docTemplate = `{
         },
         "waE2E.KeepType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -16437,11 +16790,15 @@ const docTemplate = `{
                 },
                 "videoContentURL": {
                     "type": "string"
+                },
+                "videoID": {
+                    "type": "string"
                 }
             }
         },
         "waE2E.LinkPreviewMetadata_SocialMediaPostType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -16493,6 +16850,7 @@ const docTemplate = `{
         },
         "waE2E.ListMessage_ListType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -16607,6 +16965,7 @@ const docTemplate = `{
         },
         "waE2E.ListResponseMessage_ListType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1
@@ -16777,6 +17136,7 @@ const docTemplate = `{
         },
         "waE2E.MediaKeyDomain": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -16813,6 +17173,26 @@ const docTemplate = `{
                 },
                 "labelTimestamp": {
                     "type": "integer"
+                },
+                "showAdminBadge": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "waE2E.MembershipFormKeyFingerprintVerification": {
+            "type": "object",
+            "properties": {
+                "keyFingerprint": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "keyID": {
+                    "type": "string"
+                },
+                "requestID": {
+                    "type": "string"
                 }
             }
         },
@@ -16951,6 +17331,12 @@ const docTemplate = `{
                 "imageMessage": {
                     "$ref": "#/definitions/waE2E.ImageMessage"
                 },
+                "instantImageMessage": {
+                    "$ref": "#/definitions/waE2E.ImageMessage"
+                },
+                "instantVideoMessage": {
+                    "$ref": "#/definitions/waE2E.VideoMessage"
+                },
                 "interactiveMessage": {
                     "$ref": "#/definitions/waE2E.InteractiveMessage"
                 },
@@ -17010,6 +17396,9 @@ const docTemplate = `{
                 },
                 "orderMessage": {
                     "$ref": "#/definitions/waE2E.OrderMessage"
+                },
+                "paymentDetailsMessage": {
+                    "$ref": "#/definitions/waE2E.PaymentDetailsMessage"
                 },
                 "paymentInviteMessage": {
                     "$ref": "#/definitions/waE2E.PaymentInviteMessage"
@@ -17076,6 +17465,12 @@ const docTemplate = `{
                 },
                 "reactionMessage": {
                     "$ref": "#/definitions/waE2E.ReactionMessage"
+                },
+                "requestLocationMessage": {
+                    "$ref": "#/definitions/waE2E.RequestLocationMessage"
+                },
+                "requestLocationUpdateMessage": {
+                    "$ref": "#/definitions/waE2E.RequestLocationUpdateMessage"
                 },
                 "requestPaymentMessage": {
                     "$ref": "#/definitions/waE2E.RequestPaymentMessage"
@@ -17160,6 +17555,9 @@ const docTemplate = `{
                 },
                 "viewOnceMessageV2Extension": {
                     "$ref": "#/definitions/waE2E.FutureProofMessage"
+                },
+                "vpcRequestMessage": {
+                    "$ref": "#/definitions/waE2E.VpcRequestMessage"
                 }
             }
         },
@@ -17179,6 +17577,7 @@ const docTemplate = `{
         },
         "waE2E.MessageAssociation_AssociationType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -17200,7 +17599,11 @@ const docTemplate = `{
                 17,
                 18,
                 19,
-                20
+                20,
+                21,
+                22,
+                23,
+                24
             ],
             "x-enum-varnames": [
                 "MessageAssociation_UNKNOWN",
@@ -17223,7 +17626,11 @@ const docTemplate = `{
                 "MessageAssociation_STATUS_ADD_YOURS_DIWALI",
                 "MessageAssociation_STATUS_REACTION",
                 "MessageAssociation_HEVC_VIDEO_DUAL_UPLOAD",
-                "MessageAssociation_POLL_ADD_OPTION"
+                "MessageAssociation_POLL_ADD_OPTION",
+                "MessageAssociation_AV1_VIDEO_DUAL_UPLOAD",
+                "MessageAssociation_STREAMED_HD_VIDEO_DUAL_UPLOAD",
+                "MessageAssociation_ORIGINAL_VIDEO_DUAL_UPLOAD",
+                "MessageAssociation_ORIGINAL_IMAGE_DUAL_UPLOAD"
             ]
         },
         "waE2E.MessageContextInfo": {
@@ -17258,6 +17665,9 @@ const docTemplate = `{
                 },
                 "deviceListMetadataVersion": {
                     "type": "integer"
+                },
+                "lightE2Ee": {
+                    "type": "boolean"
                 },
                 "limitSharing": {
                     "$ref": "#/definitions/waCommon.LimitSharing"
@@ -17314,6 +17724,7 @@ const docTemplate = `{
         },
         "waE2E.MessageContextInfo_MessageAddonExpiryType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 1,
                 2
@@ -17430,10 +17841,61 @@ const docTemplate = `{
                 "embeddedMusic": {
                     "$ref": "#/definitions/waE2E.EmbeddedMusic"
                 },
+                "lyrics": {
+                    "$ref": "#/definitions/waE2E.MusicMessage_Lyrics"
+                },
                 "songUri": {
                     "type": "string"
                 },
                 "style": {
+                    "type": "integer"
+                }
+            }
+        },
+        "waE2E.MusicMessage_Lyrics": {
+            "type": "object",
+            "properties": {
+                "lines": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/waE2E.MusicMessage_Lyrics_Line"
+                    }
+                }
+            }
+        },
+        "waE2E.MusicMessage_Lyrics_Line": {
+            "type": "object",
+            "properties": {
+                "endTimeInMS": {
+                    "type": "integer"
+                },
+                "startTimeInMS": {
+                    "type": "integer"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "wordOffsets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/waE2E.MusicMessage_Lyrics_Line_WordOffset"
+                    }
+                }
+            }
+        },
+        "waE2E.MusicMessage_Lyrics_Line_WordOffset": {
+            "type": "object",
+            "properties": {
+                "endIndex": {
+                    "type": "integer"
+                },
+                "endOffsetMS": {
+                    "type": "integer"
+                },
+                "startIndex": {
+                    "type": "integer"
+                },
+                "startOffsetMS": {
                     "type": "integer"
                 }
             }
@@ -17542,6 +18004,7 @@ const docTemplate = `{
         },
         "waE2E.OrderMessage_OrderStatus": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 1,
                 2,
@@ -17555,6 +18018,7 @@ const docTemplate = `{
         },
         "waE2E.OrderMessage_OrderSurface": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 1
             ],
@@ -17628,6 +18092,7 @@ const docTemplate = `{
         },
         "waE2E.PaymentBackground_Type": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1
@@ -17635,6 +18100,59 @@ const docTemplate = `{
             "x-enum-varnames": [
                 "PaymentBackground_UNKNOWN",
                 "PaymentBackground_DEFAULT"
+            ]
+        },
+        "waE2E.PaymentDetailsMessage": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "$ref": "#/definitions/waE2E.Money"
+                },
+                "contextInfo": {
+                    "$ref": "#/definitions/waE2E.ContextInfo"
+                },
+                "payeeName": {
+                    "type": "string"
+                },
+                "payerName": {
+                    "type": "string"
+                },
+                "serviceType": {
+                    "$ref": "#/definitions/waE2E.PaymentDetailsMessage_ServiceType"
+                },
+                "status": {
+                    "$ref": "#/definitions/waE2E.PaymentDetailsMessage_Status"
+                },
+                "transactionID": {
+                    "type": "string"
+                },
+                "transactionTimestampMS": {
+                    "type": "integer"
+                }
+            }
+        },
+        "waE2E.PaymentDetailsMessage_ServiceType": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+                0,
+                1
+            ],
+            "x-enum-varnames": [
+                "PaymentDetailsMessage_UNKNOWN",
+                "PaymentDetailsMessage_UPI"
+            ]
+        },
+        "waE2E.PaymentDetailsMessage_Status": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+                0,
+                1
+            ],
+            "x-enum-varnames": [
+                "PaymentDetailsMessage_STATUS_UNKNOWN",
+                "PaymentDetailsMessage_SUCCESS"
             ]
         },
         "waE2E.PaymentExtendedMetadata": {
@@ -17673,6 +18191,7 @@ const docTemplate = `{
         },
         "waE2E.PaymentInviteMessage_InviteType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1
@@ -17684,6 +18203,7 @@ const docTemplate = `{
         },
         "waE2E.PaymentInviteMessage_ServiceType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -17731,6 +18251,7 @@ const docTemplate = `{
         },
         "waE2E.PaymentLinkMetadata_PaymentLinkHeader_PaymentLinkHeaderType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1
@@ -17782,6 +18303,7 @@ const docTemplate = `{
         },
         "waE2E.PaymentReminderMessage_ReminderFrequency": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -17799,6 +18321,7 @@ const docTemplate = `{
         },
         "waE2E.PaymentReminderMessage_ReminderStatus": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -17848,6 +18371,9 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/waE2E.PeerDataOperationRequestMessage_PlaceholderMessageResendRequest"
                     }
+                },
+                "recentConversationsOnDemandRequest": {
+                    "$ref": "#/definitions/waE2E.PeerDataOperationRequestMessage_RecentConversationsOnDemandRequest"
                 },
                 "requestStickerReupload": {
                     "type": "array",
@@ -17926,6 +18452,7 @@ const docTemplate = `{
         },
         "waE2E.PeerDataOperationRequestMessage_GalaxyFlowAction_GalaxyFlowActionType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 1,
                 2
@@ -17961,6 +18488,9 @@ const docTemplate = `{
                 "chatJID": {
                     "type": "string"
                 },
+                "mode": {
+                    "$ref": "#/definitions/waE2E.PeerDataOperationRequestMessage_HistorySyncOnDemandRequest_Mode"
+                },
                 "oldestMsgFromMe": {
                     "type": "boolean"
                 },
@@ -17978,11 +18508,34 @@ const docTemplate = `{
                 }
             }
         },
+        "waE2E.PeerDataOperationRequestMessage_HistorySyncOnDemandRequest_Mode": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+                0,
+                1
+            ],
+            "x-enum-varnames": [
+                "PeerDataOperationRequestMessage_HistorySyncOnDemandRequest_MODE_UNSPECIFIED",
+                "PeerDataOperationRequestMessage_HistorySyncOnDemandRequest_INITIAL_REVERSE_HISTORY"
+            ]
+        },
         "waE2E.PeerDataOperationRequestMessage_PlaceholderMessageResendRequest": {
             "type": "object",
             "properties": {
                 "messageKey": {
                     "$ref": "#/definitions/waCommon.MessageKey"
+                }
+            }
+        },
+        "waE2E.PeerDataOperationRequestMessage_RecentConversationsOnDemandRequest": {
+            "type": "object",
+            "properties": {
+                "conversationCount": {
+                    "type": "integer"
+                },
+                "messagesPerConversation": {
+                    "type": "integer"
                 }
             }
         },
@@ -18204,6 +18757,7 @@ const docTemplate = `{
         },
         "waE2E.PeerDataOperationRequestResponseMessage_PeerDataOperationResult_FullHistorySyncOnDemandResponseCode": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -18247,6 +18801,7 @@ const docTemplate = `{
         },
         "waE2E.PeerDataOperationRequestResponseMessage_PeerDataOperationResult_HistorySyncChunkRetryResponseCode": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 1,
                 2,
@@ -18383,6 +18938,7 @@ const docTemplate = `{
         },
         "waE2E.PeerDataOperationRequestType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -18398,7 +18954,8 @@ const docTemplate = `{
                 11,
                 12,
                 13,
-                14
+                14,
+                15
             ],
             "x-enum-varnames": [
                 "PeerDataOperationRequestType_UPLOAD_STICKER",
@@ -18415,7 +18972,8 @@ const docTemplate = `{
                 "PeerDataOperationRequestType_GALAXY_FLOW_ACTION",
                 "PeerDataOperationRequestType_BUSINESS_BROADCAST_INSIGHTS_DELIVERED_TO",
                 "PeerDataOperationRequestType_BUSINESS_BROADCAST_INSIGHTS_REFRESH",
-                "PeerDataOperationRequestType_CONTACT_REFRESH_REQUEST"
+                "PeerDataOperationRequestType_CONTACT_REFRESH_REQUEST",
+                "PeerDataOperationRequestType_RECENT_CONVERSATIONS_ON_DEMAND_REQUEST"
             ]
         },
         "waE2E.PinInChatMessage": {
@@ -18434,6 +18992,7 @@ const docTemplate = `{
         },
         "waE2E.PinInChatMessage_Type": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -18455,6 +19014,7 @@ const docTemplate = `{
         },
         "waE2E.PlaceholderMessage_PlaceholderType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0
             ],
@@ -18495,6 +19055,7 @@ const docTemplate = `{
         },
         "waE2E.PollContentType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -18611,6 +19172,7 @@ const docTemplate = `{
         },
         "waE2E.PollType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1
@@ -18688,6 +19250,7 @@ const docTemplate = `{
         },
         "waE2E.ProcessedVideo_VideoQuality": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -18785,6 +19348,12 @@ const docTemplate = `{
                 "acp2Setting": {
                     "$ref": "#/definitions/waCommon.ACP2Setting"
                 },
+                "additionalPromptIDs": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "afterReadDuration": {
                     "type": "integer"
                 },
@@ -18836,6 +19405,12 @@ const docTemplate = `{
                 "ephemeralSettingTimestamp": {
                     "type": "integer"
                 },
+                "groupRootKeyRequest": {
+                    "$ref": "#/definitions/waE2E.GroupRootKeyRequest"
+                },
+                "groupRootKeyShare": {
+                    "$ref": "#/definitions/waE2E.GroupRootKeyShare"
+                },
                 "historySyncNotification": {
                     "$ref": "#/definitions/waE2E.HistorySyncNotification"
                 },
@@ -18863,6 +19438,9 @@ const docTemplate = `{
                 "memberLabel": {
                     "$ref": "#/definitions/waE2E.MemberLabel"
                 },
+                "membershipFormKeyFingerprintVerification": {
+                    "$ref": "#/definitions/waE2E.MembershipFormKeyFingerprintVerification"
+                },
                 "peerDataOperationRequestMessage": {
                     "$ref": "#/definitions/waE2E.PeerDataOperationRequestMessage"
                 },
@@ -18888,6 +19466,7 @@ const docTemplate = `{
         },
         "waE2E.ProtocolMessage_Type": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 3,
@@ -18923,7 +19502,10 @@ const docTemplate = `{
                 37,
                 39,
                 40,
-                41
+                41,
+                42,
+                43,
+                44
             ],
             "x-enum-varnames": [
                 "ProtocolMessage_REVOKE",
@@ -18960,7 +19542,10 @@ const docTemplate = `{
                 "ProtocolMessage_COEX_STATE_SYNC",
                 "ProtocolMessage_ACP2_SETTING",
                 "ProtocolMessage_SHARED_DEVICE_CONTACT_HASH_KEY_SHARE",
-                "ProtocolMessage_SHARED_DEVICE_CONTACT_HASH_KEY_REQUEST"
+                "ProtocolMessage_SHARED_DEVICE_CONTACT_HASH_KEY_REQUEST",
+                "ProtocolMessage_GROUP_ROOT_KEY_REQUEST",
+                "ProtocolMessage_MEMBERSHIP_FORM_KEY_FINGERPRINT_VERIFICATION",
+                "ProtocolMessage_GROUP_ROOT_KEY_SHARE"
             ]
         },
         "waE2E.QuestionResponseMessage": {
@@ -18990,6 +19575,40 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "waE2E.RequestLocationMessage": {
+            "type": "object",
+            "properties": {
+                "contextInfo": {
+                    "$ref": "#/definitions/waE2E.ContextInfo"
+                }
+            }
+        },
+        "waE2E.RequestLocationUpdateMessage": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "$ref": "#/definitions/waCommon.MessageKey"
+                },
+                "senderTimestampMS": {
+                    "type": "integer"
+                },
+                "updateType": {
+                    "$ref": "#/definitions/waE2E.RequestLocationUpdateMessage_UpdateType"
+                }
+            }
+        },
+        "waE2E.RequestLocationUpdateMessage_UpdateType": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+                0,
+                1
+            ],
+            "x-enum-varnames": [
+                "RequestLocationUpdateMessage_UNKNOWN",
+                "RequestLocationUpdateMessage_CANCEL"
+            ]
         },
         "waE2E.RequestPaymentMessage": {
             "type": "object",
@@ -19041,6 +19660,7 @@ const docTemplate = `{
         },
         "waE2E.RequestWelcomeMessageMetadata_LocalChatState": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1
@@ -19052,6 +19672,7 @@ const docTemplate = `{
         },
         "waE2E.RequestWelcomeMessageMetadata_WelcomeTrigger": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1
@@ -19085,6 +19706,7 @@ const docTemplate = `{
         },
         "waE2E.ScheduledCallCreationMessage_CallType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -19109,6 +19731,7 @@ const docTemplate = `{
         },
         "waE2E.ScheduledCallEditMessage_EditType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1
@@ -19146,6 +19769,7 @@ const docTemplate = `{
         },
         "waE2E.SecretEncryptedMessage_SecretEncType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -19232,6 +19856,7 @@ const docTemplate = `{
         },
         "waE2E.SharedDeviceContactHashKey_Kind": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -19288,6 +19913,7 @@ const docTemplate = `{
         },
         "waE2E.SplitPaymentParticipant_SplitPaymentStatus": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1
@@ -19318,6 +19944,7 @@ const docTemplate = `{
         },
         "waE2E.StatusLinkPreviewMetadata_Style": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -19347,6 +19974,7 @@ const docTemplate = `{
         },
         "waE2E.StatusNotificationMessage_StatusNotificationType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -19395,6 +20023,7 @@ const docTemplate = `{
         },
         "waE2E.StatusQuotedMessage_StatusQuotedMessageType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 1
             ],
@@ -19418,6 +20047,7 @@ const docTemplate = `{
         },
         "waE2E.StatusStickerInteractionMessage_StatusStickerType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1
@@ -19636,6 +20266,7 @@ const docTemplate = `{
         },
         "waE2E.StickerPackMessage_StickerPackOrigin": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -19740,6 +20371,7 @@ const docTemplate = `{
         },
         "waE2E.ThreadID_ThreadType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -19937,6 +20569,7 @@ const docTemplate = `{
         },
         "waE2E.VideoMessage_Attribution": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -19952,6 +20585,7 @@ const docTemplate = `{
         },
         "waE2E.VideoMessage_VideoSourceType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1
@@ -19961,8 +20595,43 @@ const docTemplate = `{
                 "VideoMessage_AI_GENERATED"
             ]
         },
+        "waE2E.VpcRequestMessage": {
+            "type": "object",
+            "properties": {
+                "payloadSchemaVersion": {
+                    "type": "integer"
+                },
+                "requestID": {
+                    "type": "string"
+                },
+                "scopeHint": {
+                    "$ref": "#/definitions/waE2E.VpcRequestMessage_ScopeHint"
+                }
+            }
+        },
+        "waE2E.VpcRequestMessage_ScopeHint": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5
+            ],
+            "x-enum-varnames": [
+                "VpcRequestMessage_UNKNOWN",
+                "VpcRequestMessage_WA_ONLY",
+                "VpcRequestMessage_WAFFLE",
+                "VpcRequestMessage_WA_META_AI",
+                "VpcRequestMessage_META_AI_ONLY",
+                "VpcRequestMessage_FOA_ONLY"
+            ]
+        },
         "waE2E.WebLinkRenderConfig": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1
@@ -19974,6 +20643,7 @@ const docTemplate = `{
         },
         "waMmsRetry.MediaRetryNotification_ResultType": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -20042,6 +20712,7 @@ const docTemplate = `{
         },
         "waServerSync.SyncdMutation_SyncdOperation": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1
@@ -20078,6 +20749,7 @@ const docTemplate = `{
         },
         "waStatusAttributions.StatusAttribution_Type": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,

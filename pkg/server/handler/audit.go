@@ -5,8 +5,12 @@ import (
 	"strconv"
 
 	"github.com/felipeestevanatto/wamux/pkg/audit"
+	docmodels "github.com/felipeestevanatto/wamux/pkg/docmodels"
 	"github.com/gin-gonic/gin"
 )
+
+// Keep docmodels referenced so swag can resolve Envelope from this file.
+var _ = docmodels.Envelope{}
 
 // Audit serves GET /server/audit: the newest local administrative actions.
 // @Summary Administrative audit log
