@@ -83,6 +83,10 @@ type WhatsmeowService interface {
 	SendOperationalEvent(instance *instance_model.Instance, event string, data map[string]any)
 
 	ReconnectClient(instanceId string) error
+	// StopClientRuntime disconnects and removes one instance's runtime client
+	// without starting a replacement. The DB row and session are kept, so a
+	// later manual connect can resume it.
+	StopClientRuntime(instanceId string)
 	ClearInstanceCache(instanceId string, token string) error
 	// DeleteInstanceDevice removes the instance's device (and, by cascade, its
 	// sessions/keys/contacts) from the whatsmeow store.
@@ -833,6 +837,32 @@ func (w whatsmeowService) ReconnectClient(instanceId string) error {
 	return w.StartInstance(instanceId)
 }
 
+// StopClientRuntime disconnects one instance's runtime client and removes it from
+// the shared maps without starting a replacement. Used when automatic reconnect
+// is suppressed (session replaced, logged out, banned) and by idle eviction. The
+// DB row and the stored session are kept, so POST /instance/connect can resume it.
+func (w whatsmeowService) StopClientRuntime(instanceId string) {
+	client, hasClient := w.clientPointer.Lookup(instanceId)
+	mycli, hasMyClient := w.myClientPointer.Lookup(instanceId)
+
+	// Detach first: the StartClient loop owns the socket teardown and must not
+	// touch the shared maps when it wakes (a replacement may already exist).
+	if kill := w.killChannel.Get(instanceId); kill != nil {
+		kill.Fire(killswitch.Detach)
+	}
+	if hasClient && client != nil && client.IsConnected() {
+		client.Disconnect()
+	}
+	w.clientPointer.Delete(instanceId)
+	w.myClientPointer.Delete(instanceId)
+	w.killChannel.Delete(instanceId)
+
+	if hasMyClient && mycli != nil && w.userInfoCache != nil {
+		w.userInfoCache.Delete(mycli.token)
+	}
+	w.releaseOwnership(instanceId)
+}
+
 // releaseOwnership drops the single-writer lock and the visible lease so the
 // instance can be claimed again, by this node or another.
 func (w whatsmeowService) releaseOwnership(instanceId string) {
@@ -981,109 +1011,6 @@ func (w whatsmeowService) getSharedSQLStoreContainer() (*sqlstore.Container, err
 	h.sqliteDB = db
 	h.container = container
 	return h.container, nil
-}
-
-// ============================================================================
-// Backoff for the reconnect loop.
-//
-// THE LOOP: an instance whose device was logged out from the phone spins
-// forever. Disconnected -> ReconnectClient -> the instance comes up with no
-// session -> emits a QR -> nobody scans -> max QR count -> forced logout ->
-// Disconnected again. Measured in production: 110 reconnects and 1135 QR codes
-// in 50 minutes from a single instance, and it only stopped when a human looked.
-//
-// Nothing in the current code counts those restarts, because from
-// ReconnectClient's point of view every turn SUCCEEDS — the instance really does
-// come up. What fails afterwards is the pairing, which nobody was measuring.
-//
-// THE SHAPE: the first reconnectFreeAttempts restarts inside the window go
-// straight through — that is the good case, a healthy instance that lost its
-// websocket and must come back within seconds. Past that the loop turns into a
-// growing wait, and the instance keeps trying: this is a backoff, not a
-// give-up. An instance with a valid session still heals on its own; what is
-// lost is the hammering.
-//
-// NOTE: only one goroutine waits per instance (the scheduled flag). Without it
-// every Disconnected arriving during the wait would stack another one, and the
-// backoff would become the very loop it was written to stop.
-// ============================================================================
-
-const (
-	reconnectWindow       = 15 * time.Minute // restarts inside this window count together
-	reconnectFreeAttempts = 5                // how many go through with no wait
-)
-
-// The ladder of waits. The last step repeats indefinitely.
-var reconnectBackoff = []time.Duration{5 * time.Minute, 15 * time.Minute, 30 * time.Minute}
-
-type reconnectState struct {
-	restarts  int
-	since     time.Time
-	step      int
-	scheduled bool
-}
-
-var (
-	reconnectMu    sync.Mutex
-	reconnectTrack = map[string]*reconnectState{}
-)
-
-// reconnectAllowed reports whether this instance may restart right now.
-//
-//	(true, 0)   — go ahead, normal path
-//	(false, d)  — wait d and then try; this goroutine owns the wait
-//	(false, -1) — another goroutine is already waiting for this instance; give up
-func reconnectAllowed(instanceID string) (bool, time.Duration) {
-	reconnectMu.Lock()
-	defer reconnectMu.Unlock()
-
-	now := time.Now()
-	st := reconnectTrack[instanceID]
-	if st == nil || now.Sub(st.since) > reconnectWindow {
-		reconnectTrack[instanceID] = &reconnectState{restarts: 1, since: now}
-		return true, 0
-	}
-	if st.scheduled {
-		return false, -1
-	}
-	st.restarts++
-	if st.restarts <= reconnectFreeAttempts {
-		return true, 0
-	}
-
-	d := reconnectBackoff[len(reconnectBackoff)-1]
-	if st.step < len(reconnectBackoff) {
-		d = reconnectBackoff[st.step]
-		st.step++
-	}
-	st.scheduled = true
-	return false, d
-}
-
-// reconnectWaitDone puts the instance back in line once its wait is over.
-func reconnectWaitDone(instanceID string) {
-	reconnectMu.Lock()
-	if st := reconnectTrack[instanceID]; st != nil {
-		st.scheduled = false
-	}
-	reconnectMu.Unlock()
-}
-
-// reconnectSucceeded clears the state — called when the instance actually
-// connects. Without it the backoff would inherit the count of a problem that is
-// already solved.
-func reconnectSucceeded(instanceID string) {
-	reconnectMu.Lock()
-	delete(reconnectTrack, instanceID)
-	reconnectMu.Unlock()
-}
-
-// ClearReconnectBackoff forgets an instance's reconnect history so the next
-// reconnect gets a fresh, unthrottled budget. Used when a human explicitly asks
-// for a reconnect (for example after changing the proxy), which is exactly the
-// signal that the automatic counter no longer describes the situation.
-func ClearReconnectBackoff(instanceID string) {
-	reconnectSucceeded(instanceID)
 }
 
 // AccountLimitsCacheEntry holds the last successfully fetched WhatsApp account
@@ -1258,15 +1185,6 @@ func (mycli *MyClient) logAccountLimits() {
 	mycli.bgPool.Go(refresh)
 }
 
-// History-sync depth requested from the phone when a device links (DeviceProps.HistorySyncConfig).
-// Generous defaults so a newly linked device receives the full available history; tune here if
-// bandwidth/storage is a concern.
-const (
-	historyFullSyncDaysLimit   = 3650 // ~10 years
-	historyFullSyncSizeMbLimit = 2048 // 2 GB
-	historyStorageQuotaMb      = 2048 // 2 GB
-)
-
 // maxParallelRetryReceipts caps how many retry receipts whatsmeow handles at
 // once. Its default is unlimited; a burst of undecryptable messages (each
 // triggering a retry receipt) would otherwise spawn unbounded goroutines.
@@ -1366,12 +1284,24 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 	store.DeviceProps.RequireFullSync = proto.Bool(true)
 	// RequireFullSync alone still yields a shallow/uneven backfill because the phone falls back to
 	// conservative defaults. Explicitly request a deep on-link HistorySync window so newly linked
-	// devices receive the full available message history. Values are named constants so deployments
-	// can tune history depth / resource usage in one place.
+	// devices receive the full available message history. The defaults are generous; operators can
+	// tune them with HISTORY_SYNC_DAYS / HISTORY_SYNC_MAX_MB / HISTORY_STORAGE_QUOTA_MB.
+	historyDays := w.config.HistorySyncDays
+	if historyDays <= 0 {
+		historyDays = 3650
+	}
+	historyMaxMB := w.config.HistorySyncMaxMB
+	if historyMaxMB <= 0 {
+		historyMaxMB = 10240
+	}
+	historyQuotaMB := w.config.HistoryStorageQuotaMB
+	if historyQuotaMB <= 0 {
+		historyQuotaMB = 10240
+	}
 	store.DeviceProps.HistorySyncConfig = &waCompanionReg.DeviceProps_HistorySyncConfig{
-		FullSyncDaysLimit:   proto.Uint32(historyFullSyncDaysLimit),
-		FullSyncSizeMbLimit: proto.Uint32(historyFullSyncSizeMbLimit),
-		StorageQuotaMb:      proto.Uint32(historyStorageQuotaMb),
+		FullSyncDaysLimit:   proto.Uint32(uint32(historyDays)),
+		FullSyncSizeMbLimit: proto.Uint32(uint32(historyMaxMB)),
+		StorageQuotaMb:      proto.Uint32(uint32(historyQuotaMB)),
 	}
 
 	if w.config.WhatsappVersionMajor != 0 && w.config.WhatsappVersionMinor != 0 && w.config.WhatsappVersionPatch != 0 {
@@ -2009,6 +1939,11 @@ func (mycli *MyClient) scheduleReconnect(reason string) {
 			// few restarts go straight through (healthy socket drop); after that
 			// we slow the loop down instead of hammering WhatsApp.
 			if allowed, wait := reconnectAllowed(instanceID); !allowed {
+				if wait == reconnectBlockedResult {
+					reason := reconnectBlockedReason(instanceID)
+					mycli.loggerWrapper.GetLogger(instanceID).LogWarn("[%s] automatic reconnect is blocked: %s. Use POST /instance/connect or /instance/reconnect to resume.", instanceID, reason)
+					return
+				}
 				if wait < 0 {
 					mycli.loggerWrapper.GetLogger(instanceID).LogWarn("[%s] a reconnect is already scheduled — this event will not open another", instanceID)
 					return
@@ -2042,6 +1977,41 @@ func (mycli *MyClient) scheduleReconnect(reason string) {
 			mycli.loggerWrapper.GetLogger(instanceID).LogInfo("[%s] Reconnected during QR pairing (same session, no device reset)", instanceID)
 		}
 	}(mycli.userID)
+}
+
+// blockAutomaticReconnect stops the reconnect loop for this instance and persists
+// why. autoReconnect controls whether a later process restart may try again: a
+// non-retryable close (logged out, banned) clears it, while a replaced session
+// keeps it until the configured conflict cap is reached.
+//
+// The runtime client is removed so a manual POST /instance/connect starts a fresh
+// one instead of reporting the dead client as "still running".
+func (mycli *MyClient) blockAutomaticReconnect(reason string, autoReconnect bool) {
+	reconnectBlock(mycli.userID, reason)
+
+	mycli.Instance.Connected = false
+	mycli.Instance.DisconnectReason = reason
+	mycli.Instance.AutoReconnect = autoReconnect
+	if err := mycli.instanceRepository.UpdateConnectSettings(mycli.userID, map[string]interface{}{
+		"connected":         false,
+		"disconnect_reason": reason,
+		"auto_reconnect":    autoReconnect,
+	}); err != nil {
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to persist the reconnect block: %v", mycli.userID, err)
+	}
+	go mycli.service.StopClientRuntime(mycli.userID)
+}
+
+// nonRetryableCloseCode reports whether the server closed the stream for a reason
+// that retrying cannot fix. 401 is logged out, 402 temporarily banned, 403 the
+// primary device is gone, 406 banned/unknown logout.
+func nonRetryableCloseCode(code int) bool {
+	switch code {
+	case 401, 402, 403, 406:
+		return true
+	default:
+		return false
+	}
 }
 
 // myEventHandler is what whatsmeow calls for every event.
@@ -2182,9 +2152,10 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 			}
 		}
 	case *events.Connected, *events.PushNameSetting:
-		// A real connection ends the loop, so the backoff counter dies here.
-		// Without this, a drop tomorrow would inherit today's restarts.
-		reconnectSucceeded(mycli.userID)
+		// Record when the socket opened. The restart counter is cleared only
+		// after the connection stays open for the stable window; a 440 loop
+		// reaches Connected briefly on every attempt and must not reset it.
+		reconnectConnected(mycli.userID)
 		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] events.Connected to Whatsapp for user '%s'", mycli.userID, mycli.WAClient.Store.PushName)
 		// Refresh the account-level limits cache (new-chat quota / reachout
 		// timelock) in the background so /instance/limits does not have to pay
@@ -2419,18 +2390,36 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 		mycli.service.HandleMediaRetry(mycli.userID, evt)
 		return
 	case *events.StreamReplaced:
-		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Received StreamReplaced event", mycli.userID)
-		// The socket was replaced, so any in-flight passkey ceremony's pairing
-		// context is gone. Clear it rather than leave the extension polling a
-		// dead ceremony (issue #107).
+		// Another client connected with these credentials (440). Reconnecting
+		// cannot win while that client is alive, so block the automatic loop and
+		// keep the session for a manual connect. After RECONNECT_CONFLICT_LIMIT
+		// consecutive replacements, stop reconnecting even across a restart.
+		count, capped := reconnectRecordConflict(mycli.userID, mycli.config.ReconnectConflictLimit)
+		limit := mycli.config.ReconnectConflictLimit
+		limitText := "unlimited"
+		if limit > 0 {
+			limitText = fmt.Sprintf("%d", limit)
+		}
+		reason := fmt.Sprintf("Session replaced (440): another client is using this session (conflict %d/%s)", count, limitText)
+		mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] %s; automatic reconnect suppressed", mycli.userID, reason)
+		if capped {
+			reason = fmt.Sprintf("Session replaced (440): conflict limit reached (%d); reconnect manually", count)
+		}
 		if mycli.passkeyCeremony.Clear(mycli.userID) {
 			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Cleared in-flight passkey ceremony after stream replacement (issue #107)", mycli.userID)
 		}
+		// Under the cap the operator may restart the process to try again;
+		// at the cap only a manual connect is allowed.
+		mycli.blockAutomaticReconnect(reason, !capped)
 		return
 	case *events.TemporaryBan:
 		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] User received temporary ban for %s", mycli.userID, evt.Code.String())
 		doWebhook = true
 		postMap["event"] = "TemporaryBan"
+
+		// A temporary ban (402) cannot be fixed by reconnecting. Keep the
+		// session and let the operator resume after the ban expires.
+		mycli.blockAutomaticReconnect(fmt.Sprintf("Temporarily banned: %s (expires in %s)", evt.Code.String(), evt.Expire), false)
 
 		if !mycli.normalizeEventData(postMap) {
 			return
@@ -3403,17 +3392,27 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 		postMap["event"] = "LoggedOut"
 		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Logged out for reason %s", mycli.userID, evt.Reason.String())
 
+		// A logout is final for this session: reconnecting would only spin a new
+		// QR that nobody scans. Block the loop and keep the event flow intact;
+		// the operator pairs again with POST /instance/connect.
+		reconnectBlock(mycli.userID, "Logged out: "+evt.Reason.String())
+
 		// Limpar cache de userInfo para esta instância
 		mycli.userInfoCache.Delete(mycli.Instance.Token)
 		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] UserInfo cache cleared", mycli.userID)
 
 		mycli.Instance.DisconnectReason = evt.Reason.String()
 		mycli.Instance.Connected = false
+		mycli.Instance.AutoReconnect = false
 		// A logout (from the API or the phone) leaves no usable session, so drop
 		// the JID too; IsPaired()/GetAllPairedInstances() must stop treating the
 		// instance as paired.
 		mycli.Instance.Jid = ""
-		err := mycli.instanceRepository.UpdateConnected(mycli.Instance.Id, mycli.Instance.Connected, mycli.Instance.DisconnectReason)
+		err := mycli.instanceRepository.UpdateConnectSettings(mycli.Instance.Id, map[string]interface{}{
+			"connected":         false,
+			"disconnect_reason": mycli.Instance.DisconnectReason,
+			"auto_reconnect":    false,
+		})
 		if err != nil {
 			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Error updating instance: %s", mycli.Instance.Id, err)
 		}
@@ -3454,9 +3453,11 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 			}
 		}
 
-		// Agora dispara o kill switch DEPOIS de enviar o evento
-		mycli.kill.Fire(killswitch.Restart)
-		// Already dispatched above; the common path would send it a second time.
+		// Stop the runtime without starting a new pairing. The event above was
+		// dispatched already; StopClientRuntime uses Detach, so it does not send
+		// a second LoggedOut webhook. Run it off the dispatch goroutine so a
+		// socket teardown can never block the event handler.
+		go mycli.service.StopClientRuntime(mycli.userID)
 		return
 	case *events.ChatPresence:
 		doWebhook = true
@@ -3586,21 +3587,34 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 
 		mycli.Instance.DisconnectReason = evt.Reason.String()
 		mycli.Instance.Connected = false
-		err := mycli.instanceRepository.UpdateConnected(mycli.Instance.Id, mycli.Instance.Connected, mycli.Instance.DisconnectReason)
-		if err != nil {
-			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Error updating instance: %s", mycli.Instance.Id, err)
+		if nonRetryableCloseCode(int(evt.Reason)) {
+			mycli.blockAutomaticReconnect(evt.Reason.String(), false)
+		} else {
+			err := mycli.instanceRepository.UpdateConnected(mycli.Instance.Id, mycli.Instance.Connected, mycli.Instance.DisconnectReason)
+			if err != nil {
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Error updating instance: %s", mycli.Instance.Id, err)
+			}
+			reconnectDisconnected(mycli.userID)
+			mycli.scheduleReconnect("ConnectFailure")
 		}
 	case *events.StreamError:
 		// whatsmeow only emits this for stream errors it does not recognise
 		// (known ones are handled internally). The socket is not usable, so heal
 		// it instead of waiting for the TCP layer to notice.
+		if code, err := strconv.Atoi(evt.Code); err == nil && nonRetryableCloseCode(code) {
+			mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Stream error %s is not retryable; automatic reconnect suppressed", mycli.userID, evt.Code)
+			mycli.blockAutomaticReconnect("Stream error "+evt.Code, false)
+			break
+		}
 		mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Stream error %s; reconnecting", mycli.userID, evt.Code)
+		reconnectDisconnected(mycli.userID)
 		mycli.scheduleReconnect("StreamError")
 	case *events.KeepAliveTimeout:
 		// The keepalive ping timed out; the socket is likely dead even though the
 		// TCP connection may not have noticed. whatsmeow does not act on this
 		// itself. Wait for the second consecutive timeout so a single blip does
 		// not drop a healthy socket.
+		reconnectDisconnected(mycli.userID)
 		if evt.ErrorCount >= 2 {
 			mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Keepalive timed out %d times (last success %s); reconnecting", mycli.userID, evt.ErrorCount, evt.LastSuccess.Format(time.RFC3339))
 			mycli.scheduleReconnect("KeepAliveTimeout")
@@ -3630,6 +3644,7 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Error updating instance: %s", mycli.Instance.Id, err)
 		}
 
+		reconnectDisconnected(mycli.userID)
 		mycli.scheduleReconnect("Disconnected")
 	case *events.LabelEdit:
 		doWebhook = true
@@ -3700,6 +3715,7 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] ID 66 or 67 found, reconnecting client", mycli.userID)
 			// Off the dispatch path and through the backoff: reconnecting inline held
 			// up every event behind it, and a burst of these reconnected once each.
+			reconnectDisconnected(mycli.userID)
 			mycli.scheduleReconnect("UndecryptableMessage")
 		} else {
 			mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] ID is not 66 or 67 or view_once, skipping", mycli.userID)

@@ -380,6 +380,10 @@ func (i instances) Create(data *CreateStruct) (*instance_model.Instance, error) 
 func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instance) (*instance_model.Instance, string, string, error) {
 	i.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Processing subscribe events: %v", instance.Id, data.Subscribe)
 
+	// An explicit connect is operator intent to resume. Clear any suppressed or
+	// backoff state before starting, so a blocked session can be retried.
+	whatsmeow_service.ClearReconnectBackoff(instance.Id)
+
 	oldEvents := instance.Events
 	oldRabbitmq := instance.RabbitmqEnable
 
@@ -417,6 +421,24 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 		i.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Instance not in runtime yet, will be updated when connected", instance.Id)
 	} else {
 		i.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Instance settings updated successfully in runtime", instance.Id)
+
+		// A runtime entry can exist while its socket is down (blocked after a
+		// 440/logout, or a drop that has not reconnected). UpdateInstanceSettings
+		// only updates settings; for a paired instance, restart the socket so an
+		// explicit connect actually resumes it. An unpaired instance may be
+		// mid-QR/passkey, so never restart that one here.
+		if instance.IsPaired() {
+			client := i.clientPointer.Get(instance.Id)
+			if client == nil || !client.IsConnected() || !client.IsLoggedIn() {
+				i.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Paired instance has a down runtime client; restarting it", instance.Id)
+				go func(id string) {
+					if err := i.whatsmeowService.ReconnectClient(id); err != nil {
+						i.loggerWrapper.GetLogger(id).LogError("[%s] Failed to resume the instance: %v", id, err)
+					}
+				}(instance.Id)
+				return instance, instance.Jid, eventString, nil
+			}
+		}
 	}
 
 	// Se a instância não estiver rodando, inicia uma nova
@@ -452,7 +474,9 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 }
 
 func (i instances) Reconnect(instance *instance_model.Instance) error {
-	// Reconnect is an operator action: mark the instance to be restored on boot.
+	// An operator action: clear a suppressed/backoff state and mark the instance
+	// to be restored on boot.
+	whatsmeow_service.ClearReconnectBackoff(instance.Id)
 	instance.AutoReconnect = true
 	if err := i.instanceRepository.UpdateConnectSettings(instance.Id, map[string]interface{}{"auto_reconnect": true}); err != nil {
 		return err
@@ -1041,6 +1065,9 @@ func (i instances) ForceReconnect(instanceId string, number string) error {
 	if client := i.clientPointer.Get(instanceId); client != nil && client.IsConnected() && client.IsLoggedIn() {
 		return fmt.Errorf("client already connected")
 	}
+
+	// Force reconnect is an operator action: clear any suppressed/backoff state.
+	whatsmeow_service.ClearReconnectBackoff(instanceId)
 
 	err := i.whatsmeowService.ForceUpdateJid(instanceId, number)
 	if err != nil {

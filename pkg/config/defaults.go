@@ -79,6 +79,38 @@ func requireAPIKey(key string, err error) string {
 	return key
 }
 
+// knownWeakAPIKeys are published examples and placeholders. A deployment that
+// keeps one is trivially admin-compromised; warn loudly but do not refuse to
+// boot, because the generated key path and existing installs must keep working.
+var knownWeakAPIKeys = map[string]struct{}{
+	"your-secure-api-key-here": {},
+	"change-me":                {},
+	"changeme":                 {},
+	"password":                 {},
+	"secret":                   {},
+	"admin":                    {},
+	"test":                     {},
+	"apikey":                   {},
+	"evolution-api":            {},
+	"evolution":                {},
+}
+
+// warnIfWeakGlobalAPIKey logs a clear warning when GLOBAL_API_KEY is a known
+// example value or shorter than 32 characters. The value itself is never logged.
+func warnIfWeakGlobalAPIKey(key string) {
+	trimmed := strings.TrimSpace(key)
+	if trimmed == "" {
+		return
+	}
+	if _, weak := knownWeakAPIKeys[strings.ToLower(trimmed)]; weak {
+		applog.Logger.LogWarn("[CONFIG] GLOBAL_API_KEY is a published example/placeholder value. Set a unique random secret (e.g. openssl rand -hex 32).")
+		return
+	}
+	if len(trimmed) < 32 {
+		applog.Logger.LogWarn("[CONFIG] GLOBAL_API_KEY is shorter than 32 characters; use a longer random secret (e.g. openssl rand -hex 32).")
+	}
+}
+
 func envOr(key, fallback string) string {
 	if value := os.Getenv(key); value != "" {
 		return value

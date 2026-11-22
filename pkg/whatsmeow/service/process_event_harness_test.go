@@ -84,6 +84,7 @@ type fakeService struct {
 	webhooks     chan delivery
 	globals      chan string
 	reconnects   chan string
+	stops        chan string
 	mediaRetries chan *events.MediaRetry
 	mu           sync.Mutex
 	typebot      []typebotCall
@@ -101,6 +102,8 @@ func (f *fakeService) ReconnectClient(id string) error {
 	f.reconnects <- id
 	return nil
 }
+
+func (f *fakeService) StopClientRuntime(id string) { f.stops <- id }
 
 func (f *fakeService) HandleMediaRetry(_ string, evt *events.MediaRetry) { f.mediaRetries <- evt }
 
@@ -272,6 +275,7 @@ func newEventHarness(t *testing.T) *eventHarness {
 			webhooks:     make(chan delivery, 16),
 			globals:      make(chan string, 16),
 			reconnects:   make(chan string, 16),
+			stops:        make(chan string, 16),
 			mediaRetries: make(chan *events.MediaRetry, 4),
 			deliveryMode: "base64",
 		},

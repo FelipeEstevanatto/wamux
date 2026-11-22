@@ -142,4 +142,33 @@ const (
 	NODE_ID = "NODE_ID"
 	// OWNERSHIP_LEASE_TTL_SECONDS is the ownership lease lifetime.
 	OWNERSHIP_LEASE_TTL_SECONDS = "OWNERSHIP_LEASE_TTL_SECONDS"
+	// RECONNECT_CONFLICT_LIMIT caps consecutive 440 (session replaced) closes.
+	// 0 = unlimited.
+	RECONNECT_CONFLICT_LIMIT = "RECONNECT_CONFLICT_LIMIT"
+	// History-sync depth requested from the phone when a device links.
+	HISTORY_SYNC_DAYS        = "HISTORY_SYNC_DAYS"
+	HISTORY_SYNC_MAX_MB      = "HISTORY_SYNC_MAX_MB"
+	HISTORY_STORAGE_QUOTA_MB = "HISTORY_STORAGE_QUOTA_MB"
+	// WATCHDOG_MODE is off|report|on; WATCHDOG_MAX_REBUILDS caps consecutive
+	// rebuilds that did not produce a healthy socket.
+	WATCHDOG_MODE         = "WATCHDOG_MODE"
+	WATCHDOG_MAX_REBUILDS = "WATCHDOG_MAX_REBUILDS"
+	// INSTANCE_IDLE_EVICT_MINUTES evicts a disconnected instance's runtime
+	// client after N minutes (0 = disabled). The DB row and session are kept.
+	INSTANCE_IDLE_EVICT_MINUTES = "INSTANCE_IDLE_EVICT_MINUTES"
+	// INTEGRATIONS_ALLOW_PRIVATE permits tenant-configured webhook/Typebot/S3
+	// endpoints to resolve to private addresses. Off by default.
+	INTEGRATIONS_ALLOW_PRIVATE = "INTEGRATIONS_ALLOW_PRIVATE"
+	// S3_PUBLIC_READ grants public s3:GetObject on the global bucket. Off by
+	// default: media URLs are presigned.
+	S3_PUBLIC_READ = "S3_PUBLIC_READ"
+	// WEBHOOK_INCLUDE_TOKEN includes the instance token in event payloads.
+	// Default true for Evolution API compatibility; false omits it everywhere.
+	WEBHOOK_INCLUDE_TOKEN = "WEBHOOK_INCLUDE_TOKEN"
+	// Opt-in retention for auxiliary tables. 0 keeps rows forever.
+	SEND_OPERATION_RETENTION_DAYS  = "SEND_OPERATION_RETENTION_DAYS"
+	CHAT_READ_RETENTION_DAYS       = "CHAT_READ_RETENTION_DAYS"
+	CHAT_STATE_RETENTION_DAYS      = "CHAT_STATE_RETENTION_DAYS"
+	TYPEBOT_SESSION_RETENTION_DAYS = "TYPEBOT_SESSION_RETENTION_DAYS"
+	POLL_VOTE_RETENTION_DAYS       = "POLL_VOTE_RETENTION_DAYS"
 )

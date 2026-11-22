@@ -118,6 +118,35 @@ type Config struct {
 	// off on any host reachable from the internet.
 	PprofEnabled bool
 
+	// ReconnectConflictLimit caps consecutive 440 (session replaced) closes.
+	// 0 means unlimited; after the cap, automatic reconnect stays blocked.
+	ReconnectConflictLimit int
+	// History sync depth requested from the phone when a device links.
+	HistorySyncDays       int
+	HistorySyncMaxMB      int
+	HistoryStorageQuotaMB int
+	// WatchdogMode is off|report|on. Report mode logs what it would rebuild.
+	WatchdogMode        string
+	WatchdogMaxRebuilds int
+	// InstanceIdleEvictMinutes evicts a disconnected instance's runtime client
+	// after N minutes (0 = disabled). The DB row and session are kept.
+	InstanceIdleEvictMinutes int
+	// IntegrationsAllowPrivate permits tenant-configured webhook/Typebot/S3
+	// endpoints to resolve to private addresses. Off by default.
+	IntegrationsAllowPrivate bool
+	// S3PublicRead grants public s3:GetObject on the global bucket. Off by
+	// default: media URLs are presigned.
+	S3PublicRead bool
+	// WebhookIncludeToken includes the instance token in event payloads.
+	// Default true for compatibility.
+	WebhookIncludeToken bool
+	// Opt-in retention for auxiliary tables. 0 keeps rows forever.
+	SendOperationRetentionDays  int
+	ChatReadRetentionDays       int
+	ChatStateRetentionDays      int
+	TypebotSessionRetentionDays int
+	PollVoteRetentionDays       int
+
 	// Logger configurations
 	LogMaxSize    int
 	LogMaxBackups int
@@ -363,6 +392,7 @@ func Load() *Config {
 
 	logDirectory := logDirectoryFromEnv(os.Getenv(config_env.LOG_DIRECTORY))
 	globalApiKey := requireAPIKey(resolveGlobalAPIKey(os.Getenv(config_env.GLOBAL_API_KEY), logDirectory))
+	warnIfWeakGlobalAPIKey(globalApiKey)
 
 	clientName := envOr(config_env.CLIENT_NAME, "wamux")
 
@@ -665,87 +695,133 @@ func Load() *Config {
 	typebotSendRateLimit := envInt(config_env.TYPEBOT_SEND_RATE_LIMIT, 0)
 	typebotSendRateBurst := envInt(config_env.TYPEBOT_SEND_RATE_BURST, 20)
 
+	// Reconnect and session hygiene.
+	reconnectConflictLimit := envInt(config_env.RECONNECT_CONFLICT_LIMIT, 10)
+	historySyncDays := envInt(config_env.HISTORY_SYNC_DAYS, 3650)
+	historySyncMaxMB := envInt(config_env.HISTORY_SYNC_MAX_MB, 10240)
+	historyStorageQuotaMB := envInt(config_env.HISTORY_STORAGE_QUOTA_MB, 10240)
+	watchdogMode := strings.ToLower(strings.TrimSpace(os.Getenv(config_env.WATCHDOG_MODE)))
+	switch watchdogMode {
+	case "off", "report", "on":
+	default:
+		watchdogMode = "report"
+	}
+	watchdogMaxRebuilds := envInt(config_env.WATCHDOG_MAX_REBUILDS, 5)
+	if watchdogMaxRebuilds < 1 {
+		watchdogMaxRebuilds = 5
+	}
+	instanceIdleEvictMinutes := envInt(config_env.INSTANCE_IDLE_EVICT_MINUTES, 0)
+
+	// Tenant-configured integration endpoints are guarded unless the operator
+	// explicitly allows private destinations (an internal n8n/MinIO setup).
+	integrationsAllowPrivate := config_env.Bool(config_env.INTEGRATIONS_ALLOW_PRIVATE, false)
+	s3PublicRead := config_env.Bool(config_env.S3_PUBLIC_READ, false)
+	webhookIncludeToken := config_env.Bool(config_env.WEBHOOK_INCLUDE_TOKEN, true)
+
+	// Auxiliary-table retention. Off unless configured; send operations get a
+	// short default because an idempotency key is only useful for retries.
+	sendOperationRetentionDays := envInt(config_env.SEND_OPERATION_RETENTION_DAYS, 30)
+	chatReadRetentionDays := envInt(config_env.CHAT_READ_RETENTION_DAYS, 0)
+	chatStateRetentionDays := envInt(config_env.CHAT_STATE_RETENTION_DAYS, 0)
+	typebotSessionRetentionDays := envInt(config_env.TYPEBOT_SESSION_RETENTION_DAYS, 0)
+	pollVoteRetentionDays := envInt(config_env.POLL_VOTE_RETENTION_DAYS, 0)
+
 	config := &Config{
-		PostgresAuthDB:           postgresAuthDB,
-		postgresUsersDB:          postgresUsersDB,
-		DatabaseSaveMessages:     databaseSaveMessages,
-		DatabaseSaveHistorySync:  databaseSaveHistorySync,
-		GlobalApiKey:             globalApiKey,
-		WaDebug:                  waDebug,
-		LogType:                  logType,
-		WebhookFiles:             webhookFiles,
-		MediaLocalStore:          mediaLocalStore,
-		ConnectOnStartup:         connectOnStartup,
-		OsName:                   osName,
-		AmqpUrl:                  amqpUrl,
-		AmqpGlobalEnabled:        amqpGlobalEnabled,
-		WebhookUrl:               webhookUrl,
-		ClientName:               clientName,
-		ApiAudioConverter:        apiAudioConverter,
-		ApiAudioConverterKey:     apiAudioConverterKey,
-		PostgresHost:             postgresHost,
-		PostgresPort:             postgresPort,
-		PostgresUser:             postgresUser,
-		PostgresPassword:         postgresPassword,
-		PostgresDB:               postgresDB,
-		WhatsappVersionMajor:     major,
-		WhatsappVersionMinor:     minor,
-		WhatsappVersionPatch:     patch,
-		ProxyProtocol:            proxyProtocol,
-		ProxyHost:                proxyHost,
-		ProxyPort:                proxyPort,
-		ProxyUsername:            proxyUsername,
-		ProxyPassword:            proxyPassword,
-		EventIgnoreGroup:         eventIgnoreGroup,
-		EventIgnoreStatus:        eventIgnoreStatus,
-		QrcodeMaxCount:           qrMaxCount,
-		QrcodeTerminal:           qrcodeTerminal,
-		CheckUserExists:          checkUserExists, // Default true, set to false to disable
-		SwaggerEnabled:           swaggerEnabled,
-		MetricsAuth:              metricsAuth,
-		AvatarRateLimitPerMinute: avatarRate,
-		AvatarRateBurst:          avatarBurst,
-		PprofEnabled:             pprofEnabled,
-		TypebotContactRateLimit:  typebotContactRateLimit,
-		TypebotContactRateWindow: typebotContactRateWindow,
-		TypebotSendRateLimit:     typebotSendRateLimit,
-		TypebotSendRateBurst:     typebotSendRateBurst,
-		RerequestFromPhone:       rerequestFromPhone,
-		AmqpGlobalEvents:         amqpGlobalEvents,
-		AmqpSpecificEvents:       amqpSpecificEvents,
-		NatsUrl:                  natsUrl,
-		NatsGlobalEnabled:        natsGlobalEnabled,
-		NatsGlobalEvents:         natsGlobalEvents,
-		NatsJetStream:            natsJetStream,
-		NatsStream:               natsStream,
-		WebhookHmacGlobalKey:     webhookHmacGlobalKey,
-		WebhookHmacEncryptionKey: webhookHmacEncryptionKey,
-		DataEncryptionKey:        webhookHmacEncryptionKey,
-		WebhookErrorQueueName:    webhookErrorQueueName,
-		LogMaxSize:               logMaxSize,
-		LogMaxBackups:            logMaxBackups,
-		LogMaxAge:                logMaxAge,
-		LogDirectory:             logDirectory,
-		LogCompress:              logCompress,
-		DashboardCacheTTL:        dashboardCacheTTL,
-		MessageRetentionDays:     messageRetentionDays,
-		MediaRetentionDays:       mediaRetentionDays(messageRetentionDays),
-		WebhookBase64MaxBytes:    webhookBase64MaxBytes(),
-		MaxUploadBytes:           maxUploadBytes(),
-		HttpAccessLog:            strings.ToLower(strings.TrimSpace(os.Getenv(config_env.HTTP_ACCESS_LOG))),
-		DatabaseMaxOpenConns:     dbMaxOpen,
-		DatabaseMaxIdleConns:     dbMaxIdle,
-		DBPoolBudgetPerNode:      dbPoolBudget,
-		DBNodeCount:              nodeCount,
-		RateLimitPerMinute:       rateLimitPerMinute,
-		CorsAllowedOrigins:       corsAllowedOrigins,
-		TrustedProxies:           trustedProxies,
-		CompressionEnabled:       compressionEnabled,
-		MaxInstances:             maxInstances,
-		SendRateLimitPerMinute:   sendRateLimitPerMinute,
-		SendMaxConcurrent:        sendMaxConcurrent,
-		NodeID:                   nodeID,
-		OwnershipLeaseTTLSeconds: ownershipLeaseTTLSeconds,
+		PostgresAuthDB:              postgresAuthDB,
+		postgresUsersDB:             postgresUsersDB,
+		DatabaseSaveMessages:        databaseSaveMessages,
+		DatabaseSaveHistorySync:     databaseSaveHistorySync,
+		GlobalApiKey:                globalApiKey,
+		WaDebug:                     waDebug,
+		LogType:                     logType,
+		WebhookFiles:                webhookFiles,
+		MediaLocalStore:             mediaLocalStore,
+		ConnectOnStartup:            connectOnStartup,
+		OsName:                      osName,
+		AmqpUrl:                     amqpUrl,
+		AmqpGlobalEnabled:           amqpGlobalEnabled,
+		WebhookUrl:                  webhookUrl,
+		ClientName:                  clientName,
+		ApiAudioConverter:           apiAudioConverter,
+		ApiAudioConverterKey:        apiAudioConverterKey,
+		PostgresHost:                postgresHost,
+		PostgresPort:                postgresPort,
+		PostgresUser:                postgresUser,
+		PostgresPassword:            postgresPassword,
+		PostgresDB:                  postgresDB,
+		WhatsappVersionMajor:        major,
+		WhatsappVersionMinor:        minor,
+		WhatsappVersionPatch:        patch,
+		ProxyProtocol:               proxyProtocol,
+		ProxyHost:                   proxyHost,
+		ProxyPort:                   proxyPort,
+		ProxyUsername:               proxyUsername,
+		ProxyPassword:               proxyPassword,
+		EventIgnoreGroup:            eventIgnoreGroup,
+		EventIgnoreStatus:           eventIgnoreStatus,
+		QrcodeMaxCount:              qrMaxCount,
+		QrcodeTerminal:              qrcodeTerminal,
+		CheckUserExists:             checkUserExists, // Default true, set to false to disable
+		SwaggerEnabled:              swaggerEnabled,
+		MetricsAuth:                 metricsAuth,
+		AvatarRateLimitPerMinute:    avatarRate,
+		AvatarRateBurst:             avatarBurst,
+		PprofEnabled:                pprofEnabled,
+		TypebotContactRateLimit:     typebotContactRateLimit,
+		TypebotContactRateWindow:    typebotContactRateWindow,
+		TypebotSendRateLimit:        typebotSendRateLimit,
+		TypebotSendRateBurst:        typebotSendRateBurst,
+		ReconnectConflictLimit:      reconnectConflictLimit,
+		HistorySyncDays:             historySyncDays,
+		HistorySyncMaxMB:            historySyncMaxMB,
+		HistoryStorageQuotaMB:       historyStorageQuotaMB,
+		WatchdogMode:                watchdogMode,
+		WatchdogMaxRebuilds:         watchdogMaxRebuilds,
+		InstanceIdleEvictMinutes:    instanceIdleEvictMinutes,
+		IntegrationsAllowPrivate:    integrationsAllowPrivate,
+		S3PublicRead:                s3PublicRead,
+		WebhookIncludeToken:         webhookIncludeToken,
+		SendOperationRetentionDays:  sendOperationRetentionDays,
+		ChatReadRetentionDays:       chatReadRetentionDays,
+		ChatStateRetentionDays:      chatStateRetentionDays,
+		TypebotSessionRetentionDays: typebotSessionRetentionDays,
+		PollVoteRetentionDays:       pollVoteRetentionDays,
+		RerequestFromPhone:          rerequestFromPhone,
+		AmqpGlobalEvents:            amqpGlobalEvents,
+		AmqpSpecificEvents:          amqpSpecificEvents,
+		NatsUrl:                     natsUrl,
+		NatsGlobalEnabled:           natsGlobalEnabled,
+		NatsGlobalEvents:            natsGlobalEvents,
+		NatsJetStream:               natsJetStream,
+		NatsStream:                  natsStream,
+		WebhookHmacGlobalKey:        webhookHmacGlobalKey,
+		WebhookHmacEncryptionKey:    webhookHmacEncryptionKey,
+		DataEncryptionKey:           webhookHmacEncryptionKey,
+		WebhookErrorQueueName:       webhookErrorQueueName,
+		LogMaxSize:                  logMaxSize,
+		LogMaxBackups:               logMaxBackups,
+		LogMaxAge:                   logMaxAge,
+		LogDirectory:                logDirectory,
+		LogCompress:                 logCompress,
+		DashboardCacheTTL:           dashboardCacheTTL,
+		MessageRetentionDays:        messageRetentionDays,
+		MediaRetentionDays:          mediaRetentionDays(messageRetentionDays),
+		WebhookBase64MaxBytes:       webhookBase64MaxBytes(),
+		MaxUploadBytes:              maxUploadBytes(),
+		HttpAccessLog:               strings.ToLower(strings.TrimSpace(os.Getenv(config_env.HTTP_ACCESS_LOG))),
+		DatabaseMaxOpenConns:        dbMaxOpen,
+		DatabaseMaxIdleConns:        dbMaxIdle,
+		DBPoolBudgetPerNode:         dbPoolBudget,
+		DBNodeCount:                 nodeCount,
+		RateLimitPerMinute:          rateLimitPerMinute,
+		CorsAllowedOrigins:          corsAllowedOrigins,
+		TrustedProxies:              trustedProxies,
+		CompressionEnabled:          compressionEnabled,
+		MaxInstances:                maxInstances,
+		SendRateLimitPerMinute:      sendRateLimitPerMinute,
+		SendMaxConcurrent:           sendMaxConcurrent,
+		NodeID:                      nodeID,
+		OwnershipLeaseTTLSeconds:    ownershipLeaseTTLSeconds,
 
 		// Go runtime memory tuning (see pkg/gctune).
 		GoMemoryLimitMB:                goMemoryLimitMB,

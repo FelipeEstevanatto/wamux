@@ -181,18 +181,24 @@ func TestConnectedOpensTheInstance(t *testing.T) {
 	}
 }
 
-func TestConnectedForgetsReconnectBackoff(t *testing.T) {
+func TestConnectedDoesNotImmediatelyForgetBackoff(t *testing.T) {
 	h := newEventHarness(t)
 	reconnectMu.Lock()
-	reconnectTrack[testInstanceID] = &reconnectState{}
+	reconnectTrack[testInstanceID] = &reconnectState{restarts: reconnectFreeAttempts + 1}
 	reconnectMu.Unlock()
 
 	h.one(t, &events.Connected{})
 
+	// A 440 loop reaches Connected on every attempt. Clearing here would reset
+	// the budget each turn; only a stable connection may clear it.
 	reconnectMu.Lock()
 	defer reconnectMu.Unlock()
-	if _, tracked := reconnectTrack[testInstanceID]; tracked {
-		t.Error("backoff survived a real connection")
+	st, tracked := reconnectTrack[testInstanceID]
+	if !tracked {
+		t.Fatal("a transient Connected cleared the backoff")
+	}
+	if st.connectedAt.IsZero() {
+		t.Fatal("Connected did not record when the socket opened")
 	}
 }
 
@@ -351,8 +357,13 @@ func TestLoggedOutClosesTheInstance(t *testing.T) {
 	if _, found := h.cli.userInfoCache.Get(testToken); found {
 		t.Error("user cache not cleared")
 	}
-	if !h.cli.kill.Fired() || h.cli.kill.Mode() != killswitch.Restart {
-		t.Errorf("kill fired=%v", h.cli.kill.Fired())
+	select {
+	case id := <-h.svc.stops:
+		if id != testInstanceID {
+			t.Errorf("stopped %q", id)
+		}
+	case <-testTimeout():
+		t.Fatal("runtime was not stopped after logout")
 	}
 }
 
@@ -383,12 +394,29 @@ func TestConnectFailureMarksTheInstanceDown(t *testing.T) {
 	got := h.one(t, &events.ConnectFailure{Reason: events.ConnectFailureMainDeviceGone})
 	wantField(t, got, "ConnectFailure", "event")
 
-	want := connectedUpdate{false, events.ConnectFailureMainDeviceGone.String()}
-	if len(h.instances.connected) != 1 || h.instances.connected[0] != want {
-		t.Errorf("updates = %+v", h.instances.connected)
+	if len(h.instances.settings) != 1 {
+		t.Fatalf("settings updates = %+v", h.instances.settings)
+	}
+	settings := h.instances.settings[0]
+	if settings["connected"] != false {
+		t.Errorf("connected = %v, want false", settings["connected"])
+	}
+	if settings["auto_reconnect"] != false {
+		t.Errorf("auto_reconnect = %v, want false", settings["auto_reconnect"])
+	}
+	if settings["disconnect_reason"] != events.ConnectFailureMainDeviceGone.String() {
+		t.Errorf("reason = %v", settings["disconnect_reason"])
 	}
 	if _, found := h.cli.userInfoCache.Get(testToken); found {
 		t.Error("user cache not cleared")
+	}
+	select {
+	case id := <-h.svc.stops:
+		if id != testInstanceID {
+			t.Errorf("stopped %q", id)
+		}
+	case <-testTimeout():
+		t.Fatal("runtime was not stopped after a non-retryable connect failure")
 	}
 }
 
