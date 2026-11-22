@@ -17,10 +17,6 @@ Só a conexão com o Postgres (`POSTGRES_AUTH_DB` e `POSTGRES_USERS_DB`), e o `d
 | `DATABASE_SAVE_HISTORY_SYNC` | Salvar o histórico enviado pelo celular, até `MESSAGE_RETENTION_DAYS` | `true` |
 | `TRUSTED_PROXIES` | Quem pode informar o IP do cliente: IPs/CIDRs ou `none` | Endereços privados, então um proxy no mesmo host, rede Docker ou LAN funciona sem configurar |
 
-----------|-----------|---------|
-| `GLOBAL_API_KEY` | Chave de autenticação da API | `df16caad-d0d2-41b2-bec5-75b90048a0db` |
-| `DATABASE_SAVE_MESSAGES` | Salvar mensagens no banco | `false` |
-
 ---
 
 ## Servidor
