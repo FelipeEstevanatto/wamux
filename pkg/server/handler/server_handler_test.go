@@ -107,6 +107,9 @@ func (fakeMessageRepo) ListMessagesFiltered(string, string, message_repository.M
 func (fakeMessageRepo) SearchMessagesFiltered(string, string, string, message_repository.MessageFilter) ([]message_model.Message, error) {
 	return nil, nil
 }
+func (fakeMessageRepo) SearchMessagesInstance(string, string, message_repository.MessageFilter) ([]message_model.Message, error) {
+	return nil, nil
+}
 func (fakeMessageRepo) BeginSendOperation(context.Context, string, string, string) (*message_model.SendOperation, bool, error) {
 	return nil, false, nil
 }

@@ -29,6 +29,10 @@
   A per-instance `publicUrl` remains an explicit public-read signal.
 
 ### ✨ Features
+- **Auxiliary-table retention.** The cleanup job can now prune
+  `send_operations` (30 days by default), `chat_reads`, `chat_states`,
+  `typebot_sessions` and `poll_votes` with per-table env knobs; `0` keeps a table
+  forever. `evo_cleanup_deleted_total{table}` reports deleted rows.
 - **Global message search.** `GET /chat/history/search` now accepts `q` without
   `chat`, searching every conversation of the instance with the same filters and
   keyset pagination. A new `(instance_id, timestamp DESC)` index backs the page.

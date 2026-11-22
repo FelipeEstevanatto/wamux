@@ -100,7 +100,7 @@ func init() {
 	}
 }
 
-func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.Config, conn *amqp.Connection, exPath string, messageRepository message_repository.MessageRepository) (*gin.Engine, whatsmeow_service.WhatsmeowService, []producer_interfaces.Drainer) {
+func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.Config, conn *amqp.Connection, exPath string, messageRepository message_repository.MessageRepository) (*gin.Engine, whatsmeow_service.WhatsmeowService, []producer_interfaces.Drainer, *server_handler.Observability) {
 	killChannel := safemap.New[*killswitch.Switch]()
 	clientPointer := safemap.New[*whatsmeow.Client]()
 
@@ -498,7 +498,7 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		}
 	}
 
-	return r, whatsmeowService, drainers
+	return r, whatsmeowService, drainers, observability
 }
 
 // migrate brings the schema up to date in two phases:
@@ -742,13 +742,24 @@ func main() {
 	// server; the message cleanup prunes rows past MESSAGE_RETENTION_DAYS.
 	workersCtx, stopWorkers := context.WithCancel(context.Background())
 	defer stopWorkers()
-	message_cleanup.NewCleaner(messageRepository, cfg.MessageRetentionDays,
-		message_cleanup.WithMediaRetention(cfg.MediaRetentionDays, localmedia.RemoveOlderThan),
-	).Start(workersCtx)
 
-	r, whatsmeowService, eventDrainers := setupRouter(db, authDB, sqliteDB, cfg, conn, exPath, messageRepository)
+	r, whatsmeowService, eventDrainers, observability := setupRouter(db, authDB, sqliteDB, cfg, conn, exPath, messageRepository)
 	go whatsmeowService.StartWatchdog(workersCtx)
 	go whatsmeowService.StartIdleEviction(workersCtx)
+
+	// Retention for the auxiliary tables (0 keeps a table forever). The
+	// identifiers are constants here, never caller input.
+	tableDeleter := message_cleanup.GormTableDeleter{DB: db}
+	cleaner := message_cleanup.NewCleaner(messageRepository, cfg.MessageRetentionDays,
+		message_cleanup.WithMediaRetention(cfg.MediaRetentionDays, localmedia.RemoveOlderThan),
+		message_cleanup.WithCleanupMetrics(observability),
+		message_cleanup.WithTableRetention(tableDeleter, message_cleanup.TableRetention{Table: "send_operations", Column: "created_at", Days: cfg.SendOperationRetentionDays}),
+		message_cleanup.WithTableRetention(tableDeleter, message_cleanup.TableRetention{Table: "chat_reads", Column: "read_at", Days: cfg.ChatReadRetentionDays, TextColumn: true}),
+		message_cleanup.WithTableRetention(tableDeleter, message_cleanup.TableRetention{Table: "chat_states", Column: "updated_at", Days: cfg.ChatStateRetentionDays}),
+		message_cleanup.WithTableRetention(tableDeleter, message_cleanup.TableRetention{Table: "typebot_sessions", Column: "updated_at", Days: cfg.TypebotSessionRetentionDays}),
+		message_cleanup.WithTableRetention(tableDeleter, message_cleanup.TableRetention{Table: "poll_votes", Column: "received_at", Days: cfg.PollVoteRetentionDays}),
+	)
+	cleaner.Start(workersCtx)
 
 	srv := &http.Server{
 		Addr:    ":" + os.Getenv("SERVER_PORT"),

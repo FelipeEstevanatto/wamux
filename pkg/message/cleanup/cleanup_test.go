@@ -64,6 +64,71 @@ func TestSweepHonoursAShorterRetention(t *testing.T) {
 	}
 }
 
+type fakeTableDeleter struct {
+	calls   []tableCall
+	deleted int64
+	err     error
+}
+
+type tableCall struct {
+	table, column string
+	cutoff        time.Time
+	text          bool
+}
+
+func (f *fakeTableDeleter) DeleteOlderThan(table, column string, cutoff time.Time, textColumn bool) (int64, error) {
+	f.calls = append(f.calls, tableCall{table, column, cutoff, textColumn})
+	return f.deleted, f.err
+}
+
+type fakeMetrics struct {
+	deleted map[string]int64
+}
+
+func (f *fakeMetrics) AddCleanupDeleted(table string, n int64) {
+	if f.deleted == nil {
+		f.deleted = map[string]int64{}
+	}
+	f.deleted[table] += n
+}
+
+func TestSweepPrunesConfiguredTablesAndReportsMetrics(t *testing.T) {
+	repo := &fakeDeleter{}
+	deleter := &fakeTableDeleter{deleted: 4}
+	metrics := &fakeMetrics{}
+	c := NewCleaner(repo, 0,
+		WithTableRetention(deleter, TableRetention{Table: "send_operations", Column: "created_at", Days: 30}),
+		WithTableRetention(deleter, TableRetention{Table: "chat_reads", Column: "read_at", Days: 90, TextColumn: true}),
+		WithCleanupMetrics(metrics),
+	).(*cleaner)
+	c.now = func() time.Time { return time.Date(2026, 9, 23, 12, 0, 0, 0, time.UTC) }
+
+	c.sweep()
+
+	if len(deleter.calls) != 2 {
+		t.Fatalf("calls = %+v", deleter.calls)
+	}
+	if deleter.calls[0].table != "send_operations" || deleter.calls[0].cutoff.Format("2006-01-02") != "2026-08-24" {
+		t.Fatalf("first call = %+v", deleter.calls[0])
+	}
+	if !deleter.calls[1].text || deleter.calls[1].cutoff.Format("2006-01-02") != "2026-06-25" {
+		t.Fatalf("second call = %+v", deleter.calls[1])
+	}
+	if metrics.deleted["send_operations"] != 4 || metrics.deleted["chat_reads"] != 4 {
+		t.Fatalf("metrics = %+v", metrics.deleted)
+	}
+}
+
+func TestTableRetentionRejectsDisabledAndUnsafeRules(t *testing.T) {
+	c := NewCleaner(&fakeDeleter{}, 0,
+		WithTableRetention(&fakeTableDeleter{}, TableRetention{Table: "send_operations", Column: "created_at", Days: 0}),
+		WithTableRetention(&fakeTableDeleter{}, TableRetention{Table: "messages; DROP TABLE x", Column: "created_at", Days: 1}),
+	).(*cleaner)
+	if len(c.tableRetentions) != 0 {
+		t.Fatalf("rules = %+v, want none", c.tableRetentions)
+	}
+}
+
 // Retention of zero means "keep forever", so nothing must be scheduled.
 func TestStartDoesNothingWhenRetentionIsZero(t *testing.T) {
 	repo := &fakeDeleter{}

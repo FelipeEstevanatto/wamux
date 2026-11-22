@@ -49,6 +49,23 @@ POSTGRES_USERS_DB=postgresql://user:pass@host:5432/wamux_users?sslmode=disable
 
 ---
 
+## Retenção
+
+| Variável | Padrão | Descrição |
+|----------|--------|-----------|
+| `MESSAGE_RETENTION_DAYS` | `365` | Dias de mensagens persistidas; `0` mantém para sempre |
+| `MEDIA_RETENTION_DAYS` | = mensagens | Dias de mídia local; `0` mantém para sempre |
+| `SEND_OPERATION_RETENTION_DAYS` | `30` | Dias de operações idempotentes (`send_operations`) |
+| `CHAT_READ_RETENTION_DAYS` | `0` | Dias de posições de leitura (`chat_reads`) |
+| `CHAT_STATE_RETENTION_DAYS` | `0` | Dias de estado de chat (`chat_states`) |
+| `TYPEBOT_SESSION_RETENTION_DAYS` | `0` | Dias de sessões do Typebot |
+| `POLL_VOTE_RETENTION_DAYS` | `0` | Dias de votos de enquete |
+
+O job de limpeza roda a cada 6 horas. `evo_cleanup_deleted_total{table}` no
+`/metrics` mostra quantas linhas cada tabela perdeu.
+
+---
+
 ## Logs
 
 | Variável | Padrão | Valores | Descrição |

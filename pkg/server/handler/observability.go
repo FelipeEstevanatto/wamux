@@ -54,6 +54,8 @@ type Observability struct {
 	perInstanceHealth     *metrics.GaugeVec
 	perInstanceReconnects *metrics.GaugeVec
 	perInstanceEventAge   *metrics.GaugeVec
+	// cleanupDeleted counts rows removed by the retention job, by table.
+	cleanupDeleted *metrics.GaugeVec
 
 	startedAt atomic.Int64
 }
@@ -73,6 +75,7 @@ func NewObservability(provider MetricsProvider, webhook MetricsSource) *Observab
 		perInstanceHealth:     reg.GaugeVec("evo_instance_health", "Verdict: 0=closed, 1=ok, 2=reconnecting, 3=looping, 4=stalled, 5=unknown", "instance"),
 		perInstanceReconnects: reg.GaugeVec("evo_instance_reconnects_total", "Reconnect opens in the last 10 minutes", "instance"),
 		perInstanceEventAge:   reg.GaugeVec("evo_instance_last_event_age_seconds", "Seconds since the last event handler started", "instance"),
+		cleanupDeleted:        reg.GaugeVec("evo_cleanup_deleted_total", "Rows removed by the retention job, by table", "table"),
 	}
 	o.startedAt.Store(time.Now().Unix())
 	return o
@@ -90,6 +93,15 @@ func (o *Observability) ObserveSend(d time.Duration, err error) {
 		o.sendFailures.Inc()
 	}
 	o.sendLatencyLastMs.Set(d.Milliseconds())
+}
+
+// AddCleanupDeleted records rows removed by the retention job. Called from the
+// cleanup goroutine; the gauge vector is lock-protected and atomic.
+func (o *Observability) AddCleanupDeleted(table string, n int64) {
+	if o == nil || o.cleanupDeleted == nil || n <= 0 {
+		return
+	}
+	o.cleanupDeleted.Add(table, n)
 }
 
 // Render refreshes the live gauges and returns the Prometheus exposition text.
