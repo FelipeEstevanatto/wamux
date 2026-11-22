@@ -1,6 +1,7 @@
 package websocket_producer
 
 import (
+	"encoding/hex"
 	"strings"
 	"testing"
 	"time"
@@ -68,6 +69,45 @@ func TestTicketsDiffer(t *testing.T) {
 	b, _ := IssueTicket("key", now)
 	if a == b {
 		t.Fatal("two tickets are identical")
+	}
+}
+
+func TestInstanceTicketBindsTheScope(t *testing.T) {
+	now := time.Unix(1_000_000, 0)
+	ticket, err := IssueInstanceTicket("key", "instance-a", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	scope, ok := ParseTicket("key", ticket, now)
+	if !ok {
+		t.Fatal("instance ticket was rejected")
+	}
+	if scope.Global || scope.InstanceID != "instance-a" {
+		t.Fatalf("scope = %+v", scope)
+	}
+
+	// The scope is signed: changing the encoded instance invalidates the ticket.
+	parts := strings.Split(ticket, ".")
+	if len(parts) != 4 {
+		t.Fatalf("ticket parts = %d", len(parts))
+	}
+	parts[2] = hex.EncodeToString([]byte("instance-b"))
+	forged := strings.Join(parts, ".")
+	if _, ok := ParseTicket("key", forged, now); ok {
+		t.Fatal("accepted a ticket retargeted to another instance")
+	}
+}
+
+func TestGlobalTicketIsNotBound(t *testing.T) {
+	now := time.Unix(1_000_000, 0)
+	ticket, err := IssueTicket("key", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	scope, ok := ParseTicket("key", ticket, now)
+	if !ok || !scope.Global || scope.InstanceID != "" {
+		t.Fatalf("scope = %+v, ok = %v", scope, ok)
 	}
 }
 

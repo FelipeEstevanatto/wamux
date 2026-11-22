@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### ✨ Features
+- **Instance-scoped WebSocket tickets.** `POST /ws/ticket` now accepts an
+  instance token and signs the instance id into the ticket. `/ws` subscribes that
+  socket only to its own instance; the global key/ticket still opens any (or all)
+  instance streams. Existing `?token=<global key>` integrations keep working.
+
 ### 🐛 Fixes
 - **Reconnect backoff survives a 440 loop.** The counter was cleared on every
   `Connected` event; a replaced session opens briefly each attempt, so the

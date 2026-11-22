@@ -450,30 +450,36 @@ Envia eventos através de uma conexão WebSocket persistente. Ideal para dashboa
 
 #### 1. Conexão Específica (Por Instância)
 
-Recebe apenas eventos de uma instância:
-
-```
-ws://localhost:8081/ws?token=TOKEN_DA_INSTANCIA&instanceId=vendas
-```
-
-#### 2. Conexão Broadcast
-
-Recebe eventos de **todas as instâncias**:
-
-```
-ws://localhost:8081/ws?token=GLOBAL_API_KEY
-```
-
-Em navegadores, prefira um ticket, para que a chave global não apareça em URLs e logs de proxy. Ele vale por 30 segundos:
+Peça um ticket com o **token da instância**. O id da instância fica assinado
+dentro do ticket; mesmo que a URL peça outra instância, o servidor usa apenas a
+do ticket.
 
 ```bash
-curl -X POST http://localhost:8081/ws/ticket -H "apikey: GLOBAL_API_KEY"
-# {"ticket":"...","expiresIn":30}
+curl -X POST http://localhost:8081/ws/ticket -H "apikey: TOKEN_DA_INSTANCIA"
+# {"ticket":"...","expiresIn":30,"scope":"<instanceId>"}
 ```
 
 ```
 ws://localhost:8081/ws?ticket=TICKET
 ```
+
+#### 2. Conexão Broadcast
+
+Peça um ticket com a chave global. Ele pode escolher uma instância ou todas:
+
+```bash
+curl -X POST http://localhost:8081/ws/ticket -H "apikey: GLOBAL_API_KEY"
+# {"ticket":"...","expiresIn":30,"scope":"global"}
+```
+
+```
+ws://localhost:8081/ws?ticket=TICKET
+ws://localhost:8081/ws?ticket=TICKET&instanceId=vendas
+```
+
+O ticket vale por 30 segundos e evita colocar a chave na URL, onde proxies
+registram. `?token=GLOBAL_API_KEY` continua aceito para integrações antigas; um
+token de instância **não** é aceito diretamente na URL, apenas via ticket.
 
 ### Gerenciamento de Conexões
 
@@ -487,10 +493,13 @@ O WaMux gerencia automaticamente as conexões WebSocket:
 ### Cliente JavaScript
 
 ```javascript
-// Conectar a instância específica
-const token = 'token-da-instancia-vendas';
-const instanceId = 'vendas';
-const ws = new WebSocket(`ws://localhost:8081/ws?token=${token}&instanceId=${instanceId}`);
+// Peça o ticket no backend (não coloque o token da instância na URL)
+const res = await fetch('/ws/ticket', {
+  method: 'POST',
+  headers: { apikey: 'token-da-instancia-vendas' },
+});
+const { ticket } = await res.json();
+const ws = new WebSocket(`ws://localhost:8081/ws?ticket=${ticket}`);
 
 ws.onopen = () => {
     console.log('WebSocket conectado!');

@@ -426,25 +426,57 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		go whatsmeowService.ConnectOnStartup(config.ClientName)
 	}
 
-	r.POST("/ws/ticket", auth_middleware.RequireAdminKey(config.GlobalApiKey), func(c *gin.Context) {
-		ticket, err := websocket_producer.IssueTicket(config.GlobalApiKey, time.Now())
+	r.POST("/ws/ticket", func(c *gin.Context) {
+		token := c.GetHeader("apikey")
+		if token == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "not authorized"})
+			return
+		}
+
+		// The global key may open any instance; an instance token may open only
+		// that instance. The scope is signed into the ticket, so the query string
+		// cannot widen it later.
+		if subtle.ConstantTimeCompare([]byte(token), []byte(config.GlobalApiKey)) == 1 {
+			ticket, err := websocket_producer.IssueTicket(config.GlobalApiKey, time.Now())
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "could not issue a ticket"})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"ticket": ticket, "expiresIn": int(websocket_producer.TicketTTL.Seconds()), "scope": "global"})
+			return
+		}
+
+		instance, err := instanceService.GetInstanceByToken(token)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "not authorized"})
+			return
+		}
+		ticket, err := websocket_producer.IssueInstanceTicket(config.GlobalApiKey, instance.Id, time.Now())
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "could not issue a ticket"})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"ticket": ticket, "expiresIn": int(websocket_producer.TicketTTL.Seconds())})
+		c.JSON(http.StatusOK, gin.H{"ticket": ticket, "expiresIn": int(websocket_producer.TicketTTL.Seconds()), "scope": instance.Id})
 	})
 
 	r.GET("/ws", func(c *gin.Context) {
 		token := c.Query("token")
 		instanceId := c.Query("instanceId")
 
-		// A ticket keeps the global key out of the URL, where proxies log it. The
-		// key itself stays accepted for existing integrations. Constant-time
-		// compare so it cannot be recovered byte by byte through response-timing
-		// differences (matches AuthAdmin).
-		ticketOK := websocket_producer.ValidTicket(config.GlobalApiKey, c.Query("ticket"), time.Now())
-		if !ticketOK && subtle.ConstantTimeCompare([]byte(token), []byte(config.GlobalApiKey)) != 1 {
+		// A ticket keeps the key out of the URL, where proxies log it. An
+		// instance-scoped ticket overrides instanceId: a tenant token can never
+		// subscribe to another tenant's stream. The global key stays accepted for
+		// existing integrations. Constant-time compare so it cannot be recovered
+		// byte by byte through response-timing differences (matches AuthAdmin).
+		scope, ticketOK := websocket_producer.ParseTicket(config.GlobalApiKey, c.Query("ticket"), time.Now())
+		switch {
+		case ticketOK && !scope.Global:
+			instanceId = scope.InstanceID
+		case ticketOK && scope.Global:
+			// Global tickets may choose any instance, or none for the broadcast.
+		case subtle.ConstantTimeCompare([]byte(token), []byte(config.GlobalApiKey)) == 1:
+			// Legacy global-key query parameter.
+		default:
 			applog.Logger.LogError("WebSocket connection rejected: invalid token")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token inválido"})
 			return
