@@ -47,6 +47,11 @@ func (r *recordingRepo) SearchMessagesFiltered(instanceId, chatJid, text string,
 	return r.messages, nil
 }
 
+func (r *recordingRepo) SearchMessagesInstance(instanceId, text string, filter message_repository.MessageFilter) ([]message_model.Message, error) {
+	r.instance, r.chat, r.text, r.before, r.beforeID, r.limit = instanceId, "", text, filter.Before, filter.BeforeID, filter.Limit
+	return r.messages, nil
+}
+
 func (r *recordingRepo) ListChats(instanceId string, limit int) ([]message_repository.ChatSummary, error) {
 	r.instance, r.limit = instanceId, limit
 	return r.chats, nil
@@ -251,9 +256,17 @@ func TestSearchHistoryValidatesText(t *testing.T) {
 	}
 }
 
-func TestSearchHistoryRejectsEmptyChat(t *testing.T) {
-	svc := &messageService{messageRepository: &recordingRepo{}}
-	if _, err := svc.SearchHistory(&HistorySearchQuery{Chat: "  ", Q: "hello"}, &instance_model.Instance{Id: "i"}); err == nil {
-		t.Fatal("want an error for a blank chat")
+func TestSearchHistoryWithoutChatSearchesInstance(t *testing.T) {
+	repo := &recordingRepo{messages: []message_model.Message{{MessageID: "m1", TextContent: "hello"}}}
+	svc := &messageService{messageRepository: repo}
+	got, err := svc.SearchHistory(&HistorySearchQuery{Chat: "  ", Q: "hello"}, &instance_model.Instance{Id: "i"})
+	if err != nil {
+		t.Fatalf("SearchHistory: %v", err)
+	}
+	if len(got.Messages) != 1 {
+		t.Fatalf("messages = %+v", got.Messages)
+	}
+	if repo.chat != "" || repo.instance != "i" {
+		t.Fatalf("searched instance %q chat %q", repo.instance, repo.chat)
 	}
 }

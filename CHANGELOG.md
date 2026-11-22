@@ -29,6 +29,9 @@
   A per-instance `publicUrl` remains an explicit public-read signal.
 
 ### ✨ Features
+- **Global message search.** `GET /chat/history/search` now accepts `q` without
+  `chat`, searching every conversation of the instance with the same filters and
+  keyset pagination. A new `(instance_id, timestamp DESC)` index backs the page.
 - **Idle runtime eviction.** `INSTANCE_IDLE_EVICT_MINUTES` (default `0`, off)
   removes a disconnected instance's in-memory client after the window, bounding
   memory for fleets with many offline instances. The DB row, JID and session are

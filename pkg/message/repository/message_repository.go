@@ -63,7 +63,11 @@ type MessageRepository interface {
 	SearchMessagesPage(instanceId, chatJid, text, before, beforeID string, limit int) ([]message_model.Message, error)
 	// Filtered variants add timestamp range, message type and direction.
 	ListMessagesFiltered(instanceId, chatJid string, filter MessageFilter) ([]message_model.Message, error)
+	// SearchMessagesFiltered searches one chat with filters.
 	SearchMessagesFiltered(instanceId, chatJid, text string, filter MessageFilter) ([]message_model.Message, error)
+	// SearchMessagesInstance searches every chat of one instance. It is the
+	// global counterpart of SearchMessagesFiltered.
+	SearchMessagesInstance(instanceId, text string, filter MessageFilter) ([]message_model.Message, error)
 
 	// Send-operation records for the Idempotency-Key contract.
 	BeginSendOperation(ctx context.Context, instanceId, key, payloadHash string) (*message_model.SendOperation, bool, error)
@@ -691,6 +695,19 @@ func (m *messageRepository) SearchMessagesFiltered(instanceId, chatJid, text str
 		return m.db.Where(
 			`instance_id = ? AND chat_jid = ? AND LOWER(text_content) LIKE LOWER(?) ESCAPE '\'`,
 			instanceId, chatJid, pattern,
+		)
+	}, filter)
+}
+
+func (m *messageRepository) SearchMessagesInstance(instanceId, text string, filter MessageFilter) ([]message_model.Message, error) {
+	if instanceId == "" || text == "" {
+		return make([]message_model.Message, 0), nil
+	}
+	pattern := "%" + likeEscaper.Replace(text) + "%"
+	return m.pageMessages(func() *gorm.DB {
+		return m.db.Where(
+			`instance_id = ? AND LOWER(text_content) LIKE LOWER(?) ESCAPE '\'`,
+			instanceId, pattern,
 		)
 	}, filter)
 }

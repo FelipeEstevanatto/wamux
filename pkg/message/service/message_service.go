@@ -1068,9 +1068,14 @@ func (m *messageService) SearchHistory(data *HistorySearchQuery, instance *insta
 	if n := utf8.RuneCountInString(text); n < minHistorySearchLength || n > maxHistorySearchLength {
 		return nil, ErrInvalidHistorySearch
 	}
-	chatJid, ok := m.canonicalChat(instance.Id, data.Chat)
-	if !ok {
-		return nil, errors.New("invalid chat")
+	rawChat := strings.TrimSpace(data.Chat)
+	var chatJid string
+	if rawChat != "" {
+		var ok bool
+		chatJid, ok = m.canonicalChat(instance.Id, rawChat)
+		if !ok {
+			return nil, errors.New("invalid chat")
+		}
 	}
 
 	limit := historyLimit(data.Limit)
@@ -1088,13 +1093,23 @@ func (m *messageService) SearchHistory(data *HistorySearchQuery, instance *insta
 		FromMe: data.FromMe, Limit: fetchLimit, Exact: keyset,
 	}
 	var all []message_model.Message
-	for _, variant := range m.chatJidVariants(instance.Id, chatJid) {
-		msgs, err := m.messageRepository.SearchMessagesFiltered(instance.Id, variant, text, filter)
+	if chatJid == "" {
+		// No chat: search every conversation of this instance.
+		msgs, err := m.messageRepository.SearchMessagesInstance(instance.Id, text, filter)
 		if err != nil {
 			m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to search message history: %v", instance.Id, err)
 			return nil, err
 		}
-		all = append(all, msgs...)
+		all = msgs
+	} else {
+		for _, variant := range m.chatJidVariants(instance.Id, chatJid) {
+			msgs, err := m.messageRepository.SearchMessagesFiltered(instance.Id, variant, text, filter)
+			if err != nil {
+				m.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to search message history: %v", instance.Id, err)
+				return nil, err
+			}
+			all = append(all, msgs...)
+		}
 	}
 
 	merged := mergeMessagesByID(all)

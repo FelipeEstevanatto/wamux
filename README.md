@@ -227,7 +227,8 @@ With `DATABASE_SAVE_MESSAGES=true`, conversations can be read back over the API
 (`GET /chat/history?chat=<phone-or-JID>&limit=&before=`) instead of only through
 webhooks. Limits default to 50 and cap at 500. Filters: `after`, `until`
 (inclusive timestamps), `type` and `from_me`; `keyset=true` adds the exact
-cursor. `/chat/history/search` accepts the same filters with `q`.
+cursor. `/chat/history/search` accepts the same filters with `q`; omit `chat` to search
+across every conversation of the instance.
 
 ### Idempotent sends
 

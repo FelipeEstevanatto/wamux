@@ -539,12 +539,12 @@ func (m *messageHandler) GetHistory(ctx *gin.Context) {
 	})
 }
 
-// SearchHistory finds text in a conversation
-// @Summary Search a conversation
-// @Description Returns stored messages of one conversation whose text contains `q`, ignoring case, newest first. Requires DATABASE_SAVE_MESSAGES.
+// SearchHistory finds text in one conversation or across the instance
+// @Summary Search stored messages
+// @Description Returns stored messages whose text contains `q`, ignoring case, newest first. Omit `chat` to search every conversation of the instance. Requires DATABASE_SAVE_MESSAGES.
 // @Tags Message
 // @Produce json
-// @Param chat query string true "Phone number or JID of the conversation"
+// @Param chat query string false "Phone number or JID of one conversation; omit to search the whole instance"
 // @Param q query string true "Text to find (2 to 200 characters)"
 // @Param limit query int false "Max messages (default 50, max 500)"
 // @Param before query string false "Return messages strictly older than this timestamp (YYYY-MM-DD HH:MM:SS)"

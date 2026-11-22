@@ -266,6 +266,26 @@ func TestListMessagesScopesAndPaginates(t *testing.T) {
 	}
 }
 
+func TestSearchMessagesInstanceScopesToInstance(t *testing.T) {
+	repo, mock := newMockRepo(t)
+	mock.ExpectQuery(`SELECT \* FROM "messages" WHERE instance_id = \$1 AND LOWER\(text_content\) LIKE LOWER\(\$2\) ESCAPE '.' ORDER BY "timestamp" DESC,id DESC LIMIT \$3`).
+		WithArgs("inst-1", "%invoice%", 25).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "message_id", "text_content", "chat_jid"}).
+			AddRow("uuid-1", "msg-1", "the invoice", "a@s.whatsapp.net").
+			AddRow("uuid-2", "msg-2", "another invoice", "b@s.whatsapp.net"))
+
+	messages, err := repo.SearchMessagesInstance("inst-1", "invoice", MessageFilter{Limit: 25})
+	if err != nil {
+		t.Fatalf("SearchMessagesInstance: %v", err)
+	}
+	if len(messages) != 2 {
+		t.Fatalf("messages = %+v", messages)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
 func TestListMessagesPageUsesKeysetCursor(t *testing.T) {
 	repo, mock := newMockRepo(t)
 

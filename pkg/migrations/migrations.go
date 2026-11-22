@@ -378,6 +378,18 @@ var steps = []migration{
 			`CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs (action)`,
 		},
 	},
+	{
+		// Global per-instance search pages by timestamp without a chat filter.
+		// The existing (instance, chat, timestamp) index cannot serve that
+		// prefix, so add the (instance, timestamp) shape the query needs.
+		Name: "0017_messages_instance_timestamp_index",
+		Postgres: []string{
+			`CREATE INDEX IF NOT EXISTS idx_messages_instance_ts ON messages (instance_id, "timestamp" DESC)`,
+		},
+		SQLite: []string{
+			`CREATE INDEX IF NOT EXISTS idx_messages_instance_ts ON messages (instance_id, "timestamp" DESC)`,
+		},
+	},
 }
 
 const createMigrationsTable = `
