@@ -1,6 +1,8 @@
 # WaMux - Changelog
 
-## Unreleased
+## 1.1.0 — health, retention, and private media
+
+Upgrade notes are in `.github/release-notes/1.1.0.md`.
 
 ### ⚡ Performance
 - Audit writes are asynchronous and token reads are deduplicated per actor/target
