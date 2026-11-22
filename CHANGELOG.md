@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### 🚀 Release
+- **`main` publishes a pre-release; promotion is manual.** The version and
+  `sha-<short>` tags are pushed without moving `latest`. **Actions → Promote
+  release** retags the same digest to `latest` and `<major>.<minor>` and marks the
+  GitHub Release latest. The publish job fails on an existing tag instead of
+  overwriting it.
+
 ### 🔒 Security
 - **Instance token can be omitted from event payloads.** `WEBHOOK_INCLUDE_TOKEN=false`
   removes `instanceToken` from webhook, RabbitMQ, NATS and WebSocket deliveries;

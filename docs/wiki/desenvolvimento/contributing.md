@@ -282,6 +282,19 @@ func (h *InstanceHandler) GetInstance(c *gin.Context) {
 
 ---
 
+## Releases
+
+- Bump `VERSION` in the same PR as the user-visible change and add a
+  `CHANGELOG.md` entry.
+- Merging to `main` publishes the version and `sha-<short>` image tags and a
+  GitHub **pre-release**; it does not move `latest`.
+- After checking the pre-release, run **Actions → Promote release** with the
+  version. It retags the same digest to `latest` and `<major>.<minor>` and marks
+  the release latest.
+- The publish job fails if the tag/release already exists. Never reuse a version.
+
+---
+
 ## Recursos Úteis
 
 - **Issues**: https://github.com/FelipeEstevanatto/wamux/issues

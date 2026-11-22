@@ -1,0 +1,91 @@
+name: Promote release
+
+# Promotes a pre-release published by "Release (main)" once it has been checked
+# (for example on staging). It points `latest` and `<major>.<minor>` at the same
+# image digest, with no rebuild, and marks the GitHub Release as latest.
+#
+# It refuses a version with no release, one already promoted, or one older than
+# the current latest release.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to promote (for example 1.0.2)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  packages: write
+
+# Shared with publish-release.yml, so a promotion never races a publish.
+concurrency:
+  group: publish-prod
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    name: Promote
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check the pre-release
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          version="${INPUT_VERSION#v}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::'$INPUT_VERSION' is not a MAJOR.MINOR.PATCH version"
+            exit 1
+          fi
+          if ! prerelease=$(gh release view "$version" --repo "$REPO" --json isPrerelease -q .isPrerelease); then
+            echo "::error::There is no GitHub Release $version. Merging into main publishes it as a pre-release."
+            exit 1
+          fi
+          if [[ "$prerelease" != "true" ]]; then
+            echo "::error::$version is already promoted."
+            exit 1
+          fi
+
+          # Without a tag, `gh release view` shows the latest release. Never move
+          # `latest` back to an older version.
+          current=$(gh release view --repo "$REPO" --json tagName -q .tagName 2>/dev/null || true)
+          current="${current#v}"
+          if [[ -n "$current" && "$(printf '%s\n%s\n' "$current" "$version" | sort -V | tail -n 1)" != "$version" ]]; then
+            echo "::error::$version is older than the latest release, $current."
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "minor=${version%.*}" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${REPO,,}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Point the floating tags at the image
+        env:
+          IMAGE: ${{ steps.check.outputs.image }}
+          VERSION: ${{ steps.check.outputs.version }}
+          MINOR: ${{ steps.check.outputs.minor }}
+        run: |
+          set -euo pipefail
+          docker buildx imagetools inspect "$IMAGE:$VERSION"
+          docker buildx imagetools create --tag "$IMAGE:$MINOR" --tag "$IMAGE:latest" "$IMAGE:$VERSION"
+          docker buildx imagetools inspect "$IMAGE:latest"
+
+      - name: Mark the GitHub Release as latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          VERSION: ${{ steps.check.outputs.version }}
+        run: gh release edit "$VERSION" --repo "$REPO" --prerelease=false --latest

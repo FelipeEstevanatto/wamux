@@ -81,6 +81,15 @@ WAMUX_VERSION=local docker compose -f docker/examples/docker-compose.yml up -d
 > the default on current releases). It uses Go build-cache mounts, so a source
 > change rebuilds in seconds.
 
+### Releasing
+
+`VERSION` is the source of truth. A merge to `main` publishes the immutable
+`<version>` and `sha-<short>` tags and creates a GitHub **pre-release**; it does
+**not** move `latest`. After the pre-release has been checked, run
+**Actions → Promote release** with its version. That points `latest` and
+`<major>.<minor>` at the same image digest, with no rebuild, and marks the
+release as latest. The publish job fails instead of overwriting an existing tag.
+
 ## Local development (no Docker for the app)
 
 ```bash

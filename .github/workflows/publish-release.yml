@@ -1,8 +1,9 @@
 name: Release (main)
 
-# A push to `main` publishes the versioned image (tag = VERSION) plus `latest`,
-# and creates the matching GitHub Release. The VERSION file is the source of
-# truth; bump it before merging to main.
+# A push to `main` publishes the versioned image (tag = VERSION) and a sha tag,
+# and creates the matching GitHub Release as a **pre-release**. `latest` and the
+# `<major>.<minor>` tag are moved only by the manual "Promote release" workflow.
+# The VERSION file is the source of truth; bump it before merging to main.
 on:
   push:
     branches:
@@ -13,9 +14,13 @@ permissions:
   contents: write
   packages: write
 
+concurrency:
+  group: publish-prod
+  cancel-in-progress: false
+
 jobs:
   release:
-    name: Build, push and release
+    name: Build, push and pre-release
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
@@ -23,18 +28,36 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Read version
+      - name: Read version and refuse an existing tag
         id: version
-        run: echo "version=$(cat VERSION | tr -d '[:space:]')" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          version="$(tr -d '[:space:]' < VERSION)"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::VERSION '$version' is not MAJOR.MINOR.PATCH"
+            exit 1
+          fi
+          if git rev-parse "refs/tags/$version" >/dev/null 2>&1; then
+            echo "::error::tag $version already exists; bump VERSION before merging"
+            exit 1
+          fi
+          if gh release view "$version" >/dev/null 2>&1; then
+            echo "::error::release $version already exists; bump VERSION before merging"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v6
         with:
           images: ghcr.io/felipeestevanatto/wamux
+          # Only immutable tags here. Floating `latest`/minor tags are promotion.
           tags: |
             type=raw,value=${{ steps.version.outputs.version }}
-            type=raw,value=latest
+            type=sha
           labels: |
             org.opencontainers.image.title=WaMux (community fork)
             org.opencontainers.image.description=Unofficial community build of WaMux. Not affiliated with, endorsed by, or an official release of Evolution Foundation.
@@ -65,22 +88,18 @@ jobs:
           build-args: |
             VERSION=${{ steps.version.outputs.version }}
 
-      - name: Create GitHub Release
+      - name: Create pre-release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          if gh release view "$VERSION" >/dev/null 2>&1; then
-            echo "Release $VERSION already exists — leaving it untouched."
-            exit 0
-          fi
           NOTES=".github/release-notes/${VERSION}.md"
           TITLE="${VERSION} — WaMux"
           if [ -f "$NOTES" ]; then
-            gh release create "$VERSION" --target "$GITHUB_SHA" --title "$TITLE" --notes-file "$NOTES"
+            gh release create "$VERSION" --target "$GITHUB_SHA" --title "$TITLE" --notes-file "$NOTES" --prerelease
           else
-            gh release create "$VERSION" --target "$GITHUB_SHA" --title "$TITLE" --generate-notes
+            gh release create "$VERSION" --target "$GITHUB_SHA" --title "$TITLE" --generate-notes --prerelease
           fi
 
       - name: Image digest
