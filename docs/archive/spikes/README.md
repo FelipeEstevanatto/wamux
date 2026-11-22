@@ -8,7 +8,7 @@ are production code.
 | [`durable-events.md`](./durable-events.md) | Prototype a Postgres inbox behind a flag; keep NATS/Redis as optional backends |
 | [`generic-chatbot.md`](./generic-chatbot.md) | One HTTP chatbot adapter; do not port six providers |
 | [`kafka.md`](./kafka.md) | Defer until a deployment asks; build in a separate module/build tag |
-| [`waba-cloud-api.md`](./waba-cloud-api.md) | 6–8 week Cloud API plan; start with signed webhook + text/media/templates |
+| [`waba-cloud-api.md`](./waba-cloud-api.md) | Design rationale; execution plan is [`../plans/waba-cloud-api.md`](../plans/waba-cloud-api.md) |
 | [`cloud-api-mysql.md`](./cloud-api-mysql.md) | Do not pursue either without a concrete paid requirement |
 
 ## Deferred manager work (Workstream E)

@@ -1,9 +1,15 @@
-# WABA / WhatsApp Cloud API — implementation plan
+# WABA / WhatsApp Cloud API — architecture note
 
-**Status:** design proposal, not implemented.
+**Status:** design rationale, superseded for execution by
+[`../plans/waba-cloud-api.md`](../plans/waba-cloud-api.md).
 **Date:** 2026-11-22
-**Current WaMux:** `1.0.1` + 28 commits (`9fb919b`)
+**Current WaMux:** `1.0.1` + 29 commits
 **Reference:** Reforged `3.3.0` (`8c223ce`), `src/api/integrations/channel/meta/`
+
+> **Correction:** Meta's webhook verify token is configured **per Meta app**, not
+> per WABA or instance. The detailed plan stores app secrets and verify-token
+> hashes in `cloud_apps`; per-instance credentials hold the WABA, phone number
+> and access token. The snippets below predate that correction.
 
 ---
 
@@ -87,7 +93,7 @@ it does **not** meet the production requirements in this plan:
 | `WHATSAPP-BUSINESS` channel selector | ✅ | ✅ |
 | Per-instance WABA / phone number / token fields | ⚠️ uses `number`, `businessId`, instance `token` | same |
 | Dedicated encrypted Meta access token | ❌ (reuses instance token) | ❌ |
-| Per-instance webhook verify token | ❌ (one global `WA_BUSINESS_TOKEN_WEBHOOK`) | ❌ |
+| Per-app webhook verify token | ❌ (one global `WA_BUSINESS_TOKEN_WEBHOOK`) | ❌ |
 | `X-Hub-Signature-256` verification | ❌ | ❌ |
 | Route webhook by `phone_number_id` | ✅ | ✅ |
 | Webhook idempotency/replay protection | ❌ | ❌ |
@@ -170,16 +176,15 @@ This refactor can be staged: first make `SendText`, `SendMedia` and
 Add a separate table rather than 15 nullable columns on `instances`:
 
 ```sql
+-- Superseded by the detailed plan: app secrets and verify-token hashes live in
+-- cloud_apps; this table holds only the per-instance WABA/phone/token.
 CREATE TABLE cloud_api_credentials (
   instance_id     uuid PRIMARY KEY REFERENCES instances(id) ON DELETE CASCADE,
+  app_id          text NOT NULL REFERENCES cloud_apps(app_id),
   waba_id         text NOT NULL,          -- WhatsApp Business Account id
   phone_number_id text NOT NULL,          -- used in Graph URL and webhook routing
   business_id     text,
   access_token_enc text NOT NULL,          -- AES-256-GCM, never serialized
-  app_id          text,
-  app_secret_enc  text,                    -- optional per-app secret
-  verify_token    text NOT NULL,           -- webhook GET verification
-  graph_version   text NOT NULL DEFAULT 'v23.0',
   created_at      timestamptz NOT NULL DEFAULT NOW(),
   updated_at      timestamptz NOT NULL DEFAULT NOW(),
   UNIQUE (phone_number_id)
@@ -188,8 +193,7 @@ CREATE TABLE cloud_api_credentials (
 
 Also add `instances.integration` (`WHATSAPP-BAILEYS` default, so existing rows and
 all current behavior are untouched). Store the Meta access token with the
-existing `pkg/webhooksign`/AES-GCM helper or a new `pkg/secrets` wrapper, not the
-instance `Token` column.
+existing `tokencrypt`/AES-GCM helper, not the instance `Token` column.
 
 A Cloud instance is always “connected” from WaMux’s point of view once
 credentials exist; `Start` verifies the token with a lightweight Graph call
@@ -208,9 +212,11 @@ POST /webhook/cloud   -> message/status events
 `GET`:
 
 - `hub.mode == subscribe`
-- `hub.verify_token` matches a configured global token **or** a per-instance
-  verify token; respond with `hub.challenge`.
+- `hub.verify_token` matches a configured **per-Meta-app** verify-token hash;
+  respond with `hub.challenge`.
 - Deliberately do not reveal whether a token exists (constant-time compare).
+- Meta's verify token is app-level; it cannot be unique per WABA/instance under
+  one app. The POST signature is the actual authentication.
 
 `POST`:
 
@@ -478,8 +484,8 @@ webhook correctness, credentials, media, templates, and error handling.
 2. Start with **Phase 1–2**: text, media, templates, signed webhooks, statuses.
    That covers most business messaging and is enough to validate demand.
 3. Do **not** copy Reforged’s webhook security or global verify token. Use
-   per-instance credentials, `X-Hub-Signature-256`, encrypted secrets and the
-   existing audit log.
+   per-app credentials/verify-token hashes, per-instance Meta tokens,
+   `X-Hub-Signature-256`, encrypted secrets and the existing audit log.
 4. Add a `channel_capabilities` response so clients know that groups, albums,
    polls, newsletters and presence are unavailable on Cloud.
 5. Keep the Baileys path untouched; `integration` defaults to it, and the channel

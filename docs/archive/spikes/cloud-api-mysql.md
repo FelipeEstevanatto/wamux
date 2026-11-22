@@ -38,9 +38,9 @@ WhatsApp Web. Reforged supports it as an instance integration.
 
 **Do not pursue unless a paying deployment requires official Meta messaging.**
 If it becomes required, the concrete plan is in
-[`waba-cloud-api.md`](./waba-cloud-api.md): a separate channel adapter, signed
-webhooks, encrypted credentials, text/media/templates first, then interactive
-messages and Embedded Signup.
+[`../plans/waba-cloud-api.md`](../plans/waba-cloud-api.md): a separate channel
+adapter, signed webhooks, encrypted credentials, text/media/templates first,
+then interactive messages and Embedded Signup.
 
 ## 2. MySQL
 
