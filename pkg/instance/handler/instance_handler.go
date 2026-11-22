@@ -451,6 +451,15 @@ func (i *instanceHandler) Inventory(ctx *gin.Context) {
 		if instance.Connected {
 			status = "connected"
 		}
+		var health *whatsmeow_service.InstanceHealth
+		if instance.Connected {
+			health = i.instanceService.InstanceHealth(instance.Id)
+		}
+		// Do not inflate the fleet inventory with a health object for instances
+		// that have never run in this process. Running instances still carry it.
+		if health != nil && len(health.Reasons) == 1 && health.Reasons[0] == "no_health_data" {
+			health = nil
+		}
 		items = append(items, inventoryItem{
 			InstanceID:       instance.Id,
 			InstanceName:     instance.Name,
@@ -459,7 +468,7 @@ func (i *instanceHandler) Inventory(ctx *gin.Context) {
 			AutoReconnect:    instance.AutoReconnect,
 			OwnerFingerprint: fingerprint,
 			CreatedAt:        instance.CreatedAt,
-			Health:           i.instanceService.InstanceHealth(instance.Id),
+			Health:           health,
 		})
 	}
 	sort.Slice(items, func(a, b int) bool { return items[a].InstanceName < items[b].InstanceName })

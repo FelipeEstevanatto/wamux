@@ -112,6 +112,28 @@ func TestLoggerCloseFlushes(t *testing.T) {
 
 // Manager.Flush for an instance that never logged must not create a logger or
 // panic.
+func TestLoggerManagerRemoveLoggerReleasesIt(t *testing.T) {
+	dir := t.TempDir()
+	lm := NewLoggerManager(&config.Config{LogDirectory: dir, LogMaxSize: 100, LogMaxBackups: 1, LogMaxAge: 1})
+	l := lm.GetLogger("removed")
+	l.LogInfo("hello")
+	l.Flush()
+
+	lm.RemoveLogger("removed")
+	if !l.closed.Load() {
+		t.Fatal("RemoveLogger left the writer open")
+	}
+	if got := lm.GetLogger("removed"); got != discardLogger {
+		t.Fatal("a deleted instance recreated a logger")
+	}
+	lm.AllowLogger("removed")
+	fresh := lm.GetLogger("removed")
+	t.Cleanup(func() { _ = fresh.Close() })
+	if fresh == l || fresh == discardLogger {
+		t.Fatal("AllowLogger did not permit a new writer")
+	}
+}
+
 func TestLoggerManagerFlushUnknownInstance(t *testing.T) {
 	lm := NewLoggerManager(&config.Config{LogDirectory: t.TempDir()})
 	lm.Flush("does-not-exist")

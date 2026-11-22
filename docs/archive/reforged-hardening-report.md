@@ -131,6 +131,48 @@ amd64 Ryzen 7 5700X. Numbers are noisy, so read the range.
 The history insert path did not regress; the single-insert improvement is likely
 run variance/cache state, not a code change.
 
+## Live deployment benchmark (2026-11-22)
+
+Built and started the local Compose stack, then compared it with a clean image
+built from `da268e8` on a separate Postgres, both holding 101 instances,
+`RATE_LIMIT_PER_MINUTE=0`, `CONNECT_ON_STARTUP=false`.
+
+### Found and fixed
+
+1. **`/instance/all` regression from synchronous audit.** Every token read did a
+   DB insert. 1,000 requests at c=20: current 624 req/s (p50 23.2 ms), baseline
+   1,164 req/s (p50 11.7 ms). Audit is now asynchronous and token reads are
+   deduplicated for one minute. Re-run: **1,277 req/s, p50 10.2 ms**. 1,000
+   requests produced **1** audit row, not 1,000.
+2. **Per-instance logger memory.** Every logger reserved an 8,192-line channel
+   and a 256 KB batch buffer (~450 KB/instance). The writer now starts at a 4 KB
+   buffer and a 4,096-line queue (~100 KB/instance), and deletion closes the
+   writer with a tombstone against late recreation. Under the same 101-instance
+   load: heap **76 MB → 38 MB**, RSS **137 MB → 104 MB** after GC.
+3. **Token backfill on every boot.** `EncryptExistingTokens` treated hydrated
+   rows as legacy and rewrote/encrypted every instance on every boot, creating a
+   logger per instance. It now skips rows with `TokenEnc` set. Startup goroutines
+   dropped from ~276 to ~86 in a 101-instance database.
+4. **Inventory response inflation.** `health` was emitted for all 101 never-run
+   instances, doubling the response. It is now omitted for `no_health_data`;
+   response size returned to baseline (22.7 KB) and throughput to parity
+   (1,166 vs 1,185 req/s after warm-up).
+
+### Other live results
+
+| Endpoint | Baseline | Current |
+|---|---|---|
+| `/server/ok` | 29,849 req/s | 26,099 req/s |
+| `/server/health` | 24,482 req/s | 24,919 req/s |
+| `/metrics` | 3,208 req/s | 3,028 req/s |
+| `/instance/status` | 14,171 req/s | 13,493 req/s |
+| `/instance/all` (after fix) | 1,164 req/s | 1,277 req/s |
+| `/instance/inventory` (after fix) | 1,185 req/s | 1,166 req/s |
+
+These are single-host, 1,000-request runs with some variance; no material
+regression remains. The local stack was rebuilt with the final image and left
+running with the original single instance.
+
 ## Remaining risks / deferred
 
 1. **Durable inbound events are still not implemented.** Graceful drain covers

@@ -64,3 +64,22 @@ func TestRecordIgnoresEmptyAction(t *testing.T) {
 		t.Fatalf("an empty action must not write: %v", err)
 	}
 }
+
+func TestTokenReadsAreDedupedPerMinute(t *testing.T) {
+	now := time.Unix(1_700_000_000, 0)
+	log := &Logger{recent: map[string]time.Time{}, now: func() time.Time { return now }}
+
+	if log.duplicateRead("admin", "all") {
+		t.Fatal("first read must be recorded")
+	}
+	if !log.duplicateRead("admin", "all") {
+		t.Fatal("a second read inside the window must be deduped")
+	}
+	if log.duplicateRead("admin", "inst-1") {
+		t.Fatal("a different target must be recorded")
+	}
+	now = now.Add(readDedupeTTL)
+	if log.duplicateRead("admin", "all") {
+		t.Fatal("a read after the window must be recorded")
+	}
+}

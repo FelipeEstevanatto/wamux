@@ -24,6 +24,11 @@ estruturada `[AUDIT]` no log normal.
 Cada linha tem `actor` (`admin` ou o id da instância), `action`, `target`,
 `detail` (JSON pequeno, sem segredos) e `created_at`.
 
+As escritas são assíncronas (fila de 1024; uma falha não bloqueia a requisição) e
+leituras de token iguais do mesmo ator/alvo são agrupadas por 1 minuto, para que
+um manager que consulta `/instance/all` não crie uma linha por poll. A consulta
+`/server/audit` pode levar até um instante para mostrar a última ação.
+
 ## Consultar
 
 ```bash

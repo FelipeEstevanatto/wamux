@@ -17,19 +17,29 @@ import (
 const (
 	// logQueueSize bounds how many formatted lines may wait for the writer.
 	// Producers never block on a full queue: they fall back to a direct write,
-	// so a line is never dropped because the disk is slow.
-	logQueueSize = 8192
+	// so a line is never dropped because the disk is slow. 4096 keeps the
+	// async path for bursts while reserving ~96 KB per instance, not 192 KB.
+	logQueueSize = 4096
 
 	// maxBatchBytes caps one buffered write. The writer goroutine keeps
 	// appending queued lines until the queue is momentarily empty or this many
 	// bytes accumulate, which turns a burst of lines into a handful of writes
-	// instead of one syscall each.
+	// instead of one syscall each. The buffer starts small (initialBatchBytes)
+	// and grows only for a logger that actually produces a burst.
 	maxBatchBytes = 256 * 1024
+
+	// initialBatchBytes is the buffer a writer starts with. It grows on demand
+	// up to maxBatchBytes, so a quiet instance keeps only a few KB.
+	initialBatchBytes = 4 * 1024
 )
 
 type LoggerManager struct {
 	config  *config.Config
 	loggers map[string]*Logger
+	// removed remembers deleted instances so a late background log cannot
+	// recreate a writer goroutine after RemoveLogger. AllowLogger clears it when
+	// an instance with the same id is created again.
+	removed map[string]struct{}
 	mu      sync.RWMutex
 }
 
@@ -59,6 +69,7 @@ type Logger struct {
 	done      chan struct{}
 	closeOnce sync.Once
 	closed    atomic.Bool
+	discard   bool
 	wg        sync.WaitGroup
 }
 
@@ -79,16 +90,21 @@ func NewLoggerManager(config *config.Config) *LoggerManager {
 	return &LoggerManager{
 		config:  config,
 		loggers: make(map[string]*Logger),
+		removed: make(map[string]struct{}),
 	}
 }
 
 func (lm *LoggerManager) GetLogger(instanceId string) *Logger {
 	lm.mu.RLock()
 	logger, exists := lm.loggers[instanceId]
+	_, removed := lm.removed[instanceId]
 	lm.mu.RUnlock()
 
 	if exists {
 		return logger
+	}
+	if removed {
+		return discardLogger
 	}
 
 	lm.mu.Lock()
@@ -98,11 +114,41 @@ func (lm *LoggerManager) GetLogger(instanceId string) *Logger {
 	if logger, exists = lm.loggers[instanceId]; exists {
 		return logger
 	}
+	if _, removed = lm.removed[instanceId]; removed {
+		return discardLogger
+	}
 
 	// Criar novo logger para a instância
 	logger = newLogger(instanceId, lm.config)
 	lm.loggers[instanceId] = logger
 	return logger
+}
+
+// discardLogger is returned for an instance that was deleted. A background
+// goroutine that logs after deletion must not start another writer.
+var discardLogger = &Logger{discard: true}
+
+// AllowLogger clears the deleted marker when an instance id is created again.
+func (lm *LoggerManager) AllowLogger(instanceId string) {
+	lm.mu.Lock()
+	delete(lm.removed, instanceId)
+	lm.mu.Unlock()
+}
+
+// RemoveLogger closes and forgets an instance's logger. Without it, deleting an
+// instance left its writer goroutine and buffers alive for the process lifetime.
+func (lm *LoggerManager) RemoveLogger(instanceId string) {
+	lm.mu.Lock()
+	logger := lm.loggers[instanceId]
+	delete(lm.loggers, instanceId)
+	if lm.removed == nil {
+		lm.removed = make(map[string]struct{})
+	}
+	lm.removed[instanceId] = struct{}{}
+	lm.mu.Unlock()
+	if logger != nil {
+		_ = logger.Close()
+	}
 }
 
 // Flush drains the instance's pending log lines, if a logger exists for it. It
@@ -172,6 +218,9 @@ func (l *Logger) LogDebug(format string, args ...interface{}) {
 // and JSON encoding) run outside any lock; the queue send is non-blocking with
 // a direct-write fallback, so logging never waits on a full buffer.
 func (l *Logger) log(level string, format string, args ...interface{}) {
+	if l == nil || l.discard {
+		return
+	}
 	entry := LogEntry{
 		Timestamp:  time.Now(),
 		Level:      level,
@@ -212,7 +261,7 @@ func (l *Logger) writeDirect(line []byte) {
 func (l *Logger) run() {
 	defer l.wg.Done()
 
-	buf := make([]byte, 0, maxBatchBytes)
+	buf := make([]byte, 0, initialBatchBytes)
 
 	flush := func() {
 		if len(buf) == 0 {
@@ -263,7 +312,7 @@ func (l *Logger) run() {
 
 // Flush blocks until every line queued before the call has been written.
 func (l *Logger) Flush() {
-	if l.closed.Load() {
+	if l == nil || l.discard || l.closed.Load() {
 		return
 	}
 	ack := make(chan struct{})
@@ -277,6 +326,9 @@ func (l *Logger) Flush() {
 // Close flushes pending lines and closes the underlying writer. It is safe to
 // call more than once.
 func (l *Logger) Close() error {
+	if l == nil || l.discard {
+		return nil
+	}
 	var err error
 	l.closeOnce.Do(func() {
 		l.closed.Store(true)

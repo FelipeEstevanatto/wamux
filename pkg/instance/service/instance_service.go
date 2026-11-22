@@ -371,6 +371,9 @@ func (i instances) Create(data *CreateStruct) (*instance_model.Instance, error) 
 	if err != nil {
 		return nil, err
 	}
+	if createdInstance != nil {
+		i.loggerWrapper.AllowLogger(createdInstance.Id)
+	}
 
 	i.invalidateAuthCache()
 	// The plaintext token was never persisted; put it back on the returned object
@@ -831,6 +834,10 @@ func (i instances) Delete(id string) error {
 		i.clientPointer.Get(instance.Id).Disconnect()
 	}
 
+	// Once deletion starts, stop writing this instance's log and prevent cleanup
+	// steps below from creating a fresh writer for a row that is going away.
+	i.loggerWrapper.RemoveLogger(instance.Id)
+
 	// Limpar todos os recursos da instância antes de deletar
 	i.clientPointer.Delete(instance.Id)
 	i.killChannel.Get(instance.Id).Fire(killswitch.Detach)
@@ -855,11 +862,15 @@ func (i instances) Delete(id string) error {
 
 	err = i.instanceRepository.Delete(id)
 	if err != nil {
+		// The instance still exists; let its logs continue.
+		i.loggerWrapper.AllowLogger(instance.Id)
 		return err
 	}
 
 	// The token must stop authenticating immediately, not after authCacheTTL.
 	i.invalidateAuthCache()
+	// Release the per-instance log writer and its buffers as well.
+	i.loggerWrapper.RemoveLogger(instance.Id)
 	return nil
 }
 
@@ -1216,6 +1227,12 @@ func (i instances) backfillToken(instance *instance_model.Instance, plaintext st
 	if i.tokenCodec == nil || instance == nil || plaintext == "" {
 		return nil
 	}
+	// Already encrypted at rest: a read hydrates Token from TokenEnc, so the
+	// plaintext field alone cannot distinguish a legacy row. Re-encrypting on
+	// every boot rewrote every row and created a logger per instance.
+	if instance.TokenEnc != "" {
+		return nil
+	}
 	hash := i.tokenCodec.Hash(plaintext)
 	enc, err := i.tokenCodec.Encrypt(plaintext)
 	if err != nil {
@@ -1247,7 +1264,7 @@ func (i instances) EncryptExistingTokens() {
 	}
 	migrated := 0
 	for _, inst := range all {
-		if inst == nil || inst.Token == "" {
+		if inst == nil || inst.Token == "" || inst.TokenEnc != "" {
 			continue // already encrypted (plaintext cleared) or nothing to do
 		}
 		if err := i.backfillToken(inst, inst.Token); err != nil {

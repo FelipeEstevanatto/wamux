@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### ⚡ Performance
+- Audit writes are asynchronous and token reads are deduplicated per actor/target
+  for one minute, so `/instance/all` no longer pays a DB insert per request. In a
+  live 1,000-request benchmark it went from ~624 to ~1,277 req/s (baseline ~1,164).
+- Per-instance log writers start with a 4 KB batch buffer and a 4,096-line queue
+  instead of reserving ~450 KB each. Deleting an instance closes its writer and
+  leaves a tombstone so a late background log cannot recreate it. Heap under a
+  101-instance load dropped from ~76 MB to ~38 MB.
+- `EncryptExistingTokens` no longer re-encrypts already-encrypted rows on every
+  boot (reads hydrate the plaintext field). This removes one DB write and one log
+  writer per instance at startup.
+- `/instance/inventory` omits `health` for instances that never ran in this
+  process, keeping the fleet response at its previous size.
+
 ### 📚 Docs
 - Corrected the Evolution API comparison (Baileys, not whatsmeow), the WebSocket
   examples (instance tickets), the webhook retry description (exponential 2–60 s),

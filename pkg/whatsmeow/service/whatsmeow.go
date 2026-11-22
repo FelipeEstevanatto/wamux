@@ -4739,12 +4739,20 @@ func (w whatsmeowService) InstanceHealth(instanceId string) *InstanceHealth {
 	if w.health != nil {
 		t, _ = w.health.Lookup(instanceId)
 	}
-	live := false
+	var client *whatsmeow.Client
 	if w.clientPointer != nil {
-		if c := w.clientPointer.Get(instanceId); c != nil {
-			live = c.IsConnected()
+		client = w.clientPointer.Get(instanceId)
+	}
+	// The common inventory case is an instance that has never run in this
+	// process: no tracker and no client. Skip the reconnect locks entirely.
+	if t == nil && client == nil {
+		return &InstanceHealth{
+			InstanceID: instanceId,
+			Verdict:    "closed",
+			Reasons:    []string{"no_health_data"},
 		}
 	}
+	live := client != nil && client.IsConnected()
 	reconnecting := reconnectPending(instanceId)
 	blockedReason := reconnectBlockedReason(instanceId)
 	blocked := blockedReason != ""
