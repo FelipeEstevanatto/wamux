@@ -87,8 +87,8 @@ Envia eventos via HTTP POST para uma URL que você configurar. É o método mais
 
 ### Características
 
-- **Retry automático**: 5 tentativas com intervalo de 30 segundos entre cada tentativa
-- **Timeout**: Configurável
+- **Retry automático**: 5 tentativas com backoff exponencial de 2 s a 60 s (com jitter), por endpoint
+- **Timeout**: 30 segundos por tentativa
 - **Content-Type**: `application/json`
 - **Método**: HTTP POST
 
@@ -123,7 +123,8 @@ Quando um evento ocorre no WhatsApp:
 1. **Webhook Global**: Se configurado via `WEBHOOK_URL`, todos os eventos são enviados para esta URL
 2. **Webhook por Instância**: Se configurado no `POST /instance/connect`, eventos daquela instância vão para a URL específica
 3. **Retry Automático**: Se a requisição falhar, o WaMux tenta novamente até 5 vezes
-4. **Intervalo**: 30 segundos entre cada tentativa
+4. **Intervalo**: backoff exponencial de 2 s a 60 s (com jitter). 5xx, 408 e 429
+   são repetidos; 4xx não transitórios vão direto para a DLQ quando configurada.
 
 ### Requisição HTTP
 
@@ -538,7 +539,9 @@ import websockets
 import json
 
 async def listen_events():
-    uri = "ws://localhost:8081/ws?token=TOKEN&instanceId=vendas"
+    # Peça o ticket no backend e use só ele na URL.
+    # POST /ws/ticket com header apikey: TOKEN-DA-INSTANCIA
+    uri = "ws://localhost:8081/ws?ticket=TICKET"
     
     async with websockets.connect(uri) as websocket:
         print("WebSocket conectado!")
@@ -897,7 +900,8 @@ python rabbitmq-consumer.py
     <div id="messages"></div>
 
     <script>
-        const ws = new WebSocket('ws://localhost:8081/ws?token=GLOBAL_API_KEY');
+        // Peça um ticket com a chave global; ele pode receber todas as instâncias.
+        const ws = new WebSocket('ws://localhost:8081/ws?ticket=TICKET');
         
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);

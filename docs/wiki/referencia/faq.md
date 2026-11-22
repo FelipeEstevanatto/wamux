@@ -10,10 +10,11 @@ Gateway de API WhatsApp construído em Go que fornece interface RESTful para com
 
 ### Diferença entre WaMux e Evolution API (Node.js)?
 
-- **WaMux**: Implementação em Go, foco em performance e baixo consumo de recursos
-- **Evolution API V2**: Implementação em Node.js/TypeScript, maior maturidade e conjunto de features
+- **WaMux**: Implementação em Go sobre `whatsmeow`, foco em performance e baixo consumo de recursos
+- **Evolution API V2**: Implementação em Node.js/TypeScript sobre `Baileys`, maior maturidade e conjunto de features
 
-Ambos utilizam a biblioteca whatsmeow para conexão com WhatsApp.
+São bibliotecas diferentes (whatsmeow × Baileys), então os recursos e o formato
+de alguns eventos não são idênticos.
 
 ### Suporte a múltiplas instâncias?
 

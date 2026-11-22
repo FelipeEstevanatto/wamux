@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### 📚 Docs
+- Corrected the Evolution API comparison (Baileys, not whatsmeow), the WebSocket
+  examples (instance tickets), the webhook retry description (exponential 2–60 s),
+  the passkey CORS requirement (`CORS_ALLOWED_ORIGINS`) and the defaults for
+  `WEBHOOK_FILES`/`MEDIA_LOCAL_STORE`.
+
 ### 🚀 Release
 - **`main` publishes a pre-release; promotion is manual.** The version and
   `sha-<short>` tags are pushed without moving `latest`. **Actions → Promote

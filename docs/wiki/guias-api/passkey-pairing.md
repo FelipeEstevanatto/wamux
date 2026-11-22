@@ -61,7 +61,9 @@ API do WaMux, que a repassa ao WhatsApp via whatsmeow.
 │         │                            ▲                                          │
 │         ▼                            │                                          │
 │  SendPasskeyResponse   ◄──── API pública /passkey-ceremony/{token}              │
-│  SendPasskeyConfirmation      (CORS libera https://web.whatsapp.com)            │
+│  SendPasskeyConfirmation      (a extensão usa host_permissions; se o navegador
+│                                aplicar CORS, inclua https://web.whatsapp.com em
+│                                CORS_ALLOWED_ORIGINS)                          │
 └─────────────────────────────────────────────────────────────────────────────────┘
               ▲                                          │
               │ POST assertion / confirm                 │ GET desafio
@@ -164,9 +166,18 @@ pacote** → selecionar a pasta `passkey-helper`.
 
 ### CORS
 
-O backend já libera a origem `https://web.whatsapp.com` (o CORS atual usa `*`,
-que cobre chamadas não-credenciadas da extensão). As rotas `/passkey-ceremony/*`
-também estão isentas do gate de licença.
+A extensão roda em `web.whatsapp.com` e usa `host_permissions` para chamar a API;
+nesse caso o navegador não aplica a checagem CORS comum. Se o seu build da
+extensão não tiver a permissão, ou se você testar a cerimônia fora da extensão,
+inclua a origem no allowlist:
+
+```env
+CORS_ALLOWED_ORIGINS=https://web.whatsapp.com
+```
+
+O padrão de `CORS_ALLOWED_ORIGINS` é vazio (same-origin). As rotas
+`/passkey-ceremony/*` são públicas e isentas de chave, mas continuam limitadas ao
+token efêmero da cerimônia.
 
 ---
 
