@@ -1131,3 +1131,19 @@ func publicError(err error) string {
 	}
 	return err.Error()
 }
+
+// RunCleanup periodically removes old webhook/status/account/media rows.
+func (s *Service) RunCleanup(ctx context.Context) {
+	ticker := time.NewTicker(24 * time.Hour)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case now := <-ticker.C:
+			if _, err := s.repo.Cleanup(now, 30, 90, 90, 30); err != nil && s.logger != nil {
+				s.logger.GetLogger("cloud").LogWarn("[cloud] retention cleanup failed: %v", err)
+			}
+		}
+	}
+}

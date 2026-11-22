@@ -777,6 +777,7 @@ func main() {
 	go whatsmeowService.StartWatchdog(workersCtx)
 	go whatsmeowService.StartIdleEviction(workersCtx)
 	go cloudService.RunMediaWorker(workersCtx)
+	go cloudService.RunCleanup(workersCtx)
 
 	// Retention for the auxiliary tables (0 keeps a table forever). The
 	// identifiers are constants here, never caller input.

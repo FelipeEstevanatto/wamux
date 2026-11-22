@@ -311,3 +311,42 @@ func (r *Repository) DeleteInstanceData(instanceID string) error {
 		return nil
 	})
 }
+
+// Cleanup removes old Cloud event/status/account rows. It is called by the
+// in-process retention worker; no external scheduler is required.
+func (r *Repository) Cleanup(now time.Time, webhookDays, statusDays, accountDays, mediaDays int) (int64, error) {
+	var total int64
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		if webhookDays > 0 {
+			res := tx.Where("received_at < ?", now.AddDate(0, 0, -webhookDays)).Delete(&cloud_model.WebhookEvent{})
+			if res.Error != nil {
+				return res.Error
+			}
+			total += res.RowsAffected
+		}
+		if statusDays > 0 {
+			res := tx.Where("occurred_at < ?", now.AddDate(0, 0, -statusDays)).Delete(&cloud_model.StatusEvent{})
+			if res.Error != nil {
+				return res.Error
+			}
+			total += res.RowsAffected
+		}
+		if accountDays > 0 {
+			res := tx.Where("received_at < ?", now.AddDate(0, 0, -accountDays)).Delete(&cloud_model.AccountEvent{})
+			if res.Error != nil {
+				return res.Error
+			}
+			total += res.RowsAffected
+		}
+		if mediaDays > 0 {
+			res := tx.Where("status IN ? AND updated_at < ?", []string{"failed", "stored"}, now.AddDate(0, 0, -mediaDays)).
+				Delete(&cloud_model.MediaJob{})
+			if res.Error != nil {
+				return res.Error
+			}
+			total += res.RowsAffected
+		}
+		return nil
+	})
+	return total, err
+}
