@@ -19,6 +19,7 @@ import (
 	instance_service "github.com/felipeestevanatto/wamux/pkg/instance/service"
 	"github.com/felipeestevanatto/wamux/pkg/utils"
 	"github.com/felipeestevanatto/wamux/pkg/webhooksign"
+	whatsmeow_service "github.com/felipeestevanatto/wamux/pkg/whatsmeow/service"
 )
 
 // InventoryContractVersion changes only when the inventory shape changes.
@@ -29,14 +30,14 @@ const InventoryContractVersion = "2026-11-22"
 var inventoryRuntimeID = uuid.New().String()
 
 type inventoryItem struct {
-	InstanceID       string    `json:"instanceId"`
-	InstanceName     string    `json:"instanceName"`
-	Connected        bool      `json:"connected"`
-	ConnectionStatus string    `json:"connectionStatus"`
-	AutoReconnect    bool      `json:"autoReconnect"`
-	OwnerFingerprint string    `json:"ownerFingerprint"`
-	CreatedAt        time.Time `json:"createdAt"`
-	Health           any       `json:"health,omitempty"`
+	InstanceID       string                            `json:"instanceId"`
+	InstanceName     string                            `json:"instanceName"`
+	Connected        bool                              `json:"connected"`
+	ConnectionStatus string                            `json:"connectionStatus"`
+	AutoReconnect    bool                              `json:"autoReconnect"`
+	OwnerFingerprint string                            `json:"ownerFingerprint"`
+	CreatedAt        time.Time                         `json:"createdAt"`
+	Health           *whatsmeow_service.InstanceHealth `json:"health,omitempty"`
 }
 
 type inventory struct {

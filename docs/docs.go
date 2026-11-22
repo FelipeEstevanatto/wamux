@@ -10812,6 +10812,77 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_felipeestevanatto_wamux_pkg_whatsmeow_service.InstanceHealth": {
+            "type": "object",
+            "properties": {
+                "blockedReason": {
+                    "type": "string"
+                },
+                "conflicts": {
+                    "type": "integer"
+                },
+                "connected": {
+                    "type": "boolean"
+                },
+                "eventRunningAgeMs": {
+                    "type": "integer"
+                },
+                "eventType": {
+                    "type": "string"
+                },
+                "instanceId": {
+                    "type": "string"
+                },
+                "lastAckAt": {
+                    "type": "string"
+                },
+                "lastDisconnectAt": {
+                    "type": "string"
+                },
+                "lastDisconnectReason": {
+                    "type": "string"
+                },
+                "lastEventAt": {
+                    "type": "string"
+                },
+                "lastFrameAt": {
+                    "type": "string"
+                },
+                "lastInboundAt": {
+                    "type": "string"
+                },
+                "lastKeepAliveRestoredAt": {
+                    "type": "string"
+                },
+                "lastKeepAliveTimeoutAt": {
+                    "type": "string"
+                },
+                "observedSince": {
+                    "type": "string"
+                },
+                "openedAt": {
+                    "type": "string"
+                },
+                "reasons": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "reconnectDrops": {
+                    "type": "integer"
+                },
+                "reconnectOpens": {
+                    "type": "integer"
+                },
+                "reconnecting": {
+                    "type": "boolean"
+                },
+                "verdict": {
+                    "type": "string"
+                }
+            }
+        },
         "pkg_instance_handler.HmacKeyRequest": {
             "type": "object",
             "properties": {
@@ -10876,7 +10947,9 @@ const docTemplate = `{
                 "createdAt": {
                     "type": "string"
                 },
-                "health": {},
+                "health": {
+                    "$ref": "#/definitions/github_com_felipeestevanatto_wamux_pkg_whatsmeow_service.InstanceHealth"
+                },
                 "instanceId": {
                     "type": "string"
                 },
