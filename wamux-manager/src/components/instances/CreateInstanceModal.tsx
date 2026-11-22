@@ -89,6 +89,10 @@ export default function CreateInstanceModal({
       proxyPassword: '',
     },
   });
+  // React Hook Form's watch is intentionally used until the modal is split into
+  // smaller form sections; it is safe here because the value only controls
+  // conditional fields.
+  // eslint-disable-next-line react-hooks/incompatible-library
   const integration = watch('integration');
 
   const onSubmit = async (data: CreateInstanceFormData) => {

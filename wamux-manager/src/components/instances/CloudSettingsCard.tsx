@@ -49,6 +49,8 @@ export default function CloudSettingsCard({ instance }: Props) {
     }
   }, [token]);
 
+  // The loading function owns the network fetch and its resulting state.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load(); }, [load]);
 
   const set = (key: keyof typeof form) => (e: ChangeEvent<HTMLInputElement>) =>

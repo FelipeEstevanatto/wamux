@@ -241,7 +241,7 @@ export default function Instances() {
         );
       }
     },
-    [t]
+    [t, fetchInstances]
   );
 
   // The card's button only opens the confirmation; the actual logout runs from
