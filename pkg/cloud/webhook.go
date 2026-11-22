@@ -645,8 +645,11 @@ func sourceFor(phone, contactID string) string {
 }
 
 func mapStatus(status inboundStatus) (apiStatus, code, title, message string) {
-	apiStatus = strings.Title(strings.ToLower(status.Status))
-	switch strings.ToLower(status.Status) {
+	normalized := strings.ToLower(strings.TrimSpace(status.Status))
+	if normalized != "" {
+		apiStatus = strings.ToUpper(normalized[:1]) + normalized[1:]
+	}
+	switch normalized {
 	case "sent":
 		apiStatus = "Sent"
 	case "delivered":

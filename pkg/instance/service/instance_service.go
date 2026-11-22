@@ -337,7 +337,7 @@ func (i instances) Create(data *CreateStruct) (*instance_model.Instance, error) 
 
 	integration := channel.Normalize(data.Integration)
 	if integration == channel.KindCloud && (i.config == nil || !i.config.CloudAPIEnabled) {
-		return nil, errors.New("Cloud API is disabled on this deployment")
+		return nil, errors.New("cloud API is disabled on this deployment")
 	}
 	instance := instance_model.Instance{
 		Id:            data.InstanceId,

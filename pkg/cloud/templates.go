@@ -3,7 +3,6 @@ package cloud
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -147,5 +146,3 @@ func firstNonEmpty(v ...string) string {
 	}
 	return ""
 }
-
-var errNoTemplate = errors.New("template not found")
