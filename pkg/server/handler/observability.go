@@ -49,6 +49,11 @@ type Observability struct {
 	// perInstanceConnected is 1/0 per instance id, so a scrape shows WHICH
 	// instance is down, not just how many.
 	perInstanceConnected *metrics.GaugeVec
+	// Per-instance health: numeric verdict, reconnect count in the window, and
+	// age of the last event. The verdict mapping is documented in Render.
+	perInstanceHealth     *metrics.GaugeVec
+	perInstanceReconnects *metrics.GaugeVec
+	perInstanceEventAge   *metrics.GaugeVec
 
 	startedAt atomic.Int64
 }
@@ -58,13 +63,16 @@ type Observability struct {
 func NewObservability(provider MetricsProvider, webhook MetricsSource) *Observability {
 	reg := metrics.NewRegistry()
 	o := &Observability{
-		registry:             reg,
-		provider:             provider,
-		webhook:              webhook,
-		sendsTotal:           reg.Counter("evo_sends_total", "Messages accepted for sending"),
-		sendFailures:         reg.Counter("evo_send_failures_total", "Send attempts that returned an error"),
-		sendLatencyLastMs:    reg.Gauge("evo_send_latency_last_ms", "Duration of the most recent send, in milliseconds"),
-		perInstanceConnected: reg.GaugeVec("evo_instance_connected", "Whether an instance is connected (1) or not (0)", "instance"),
+		registry:              reg,
+		provider:              provider,
+		webhook:               webhook,
+		sendsTotal:            reg.Counter("evo_sends_total", "Messages accepted for sending"),
+		sendFailures:          reg.Counter("evo_send_failures_total", "Send attempts that returned an error"),
+		sendLatencyLastMs:     reg.Gauge("evo_send_latency_last_ms", "Duration of the most recent send, in milliseconds"),
+		perInstanceConnected:  reg.GaugeVec("evo_instance_connected", "Whether an instance is connected (1) or not (0)", "instance"),
+		perInstanceHealth:     reg.GaugeVec("evo_instance_health", "Verdict: 0=closed, 1=ok, 2=reconnecting, 3=looping, 4=stalled, 5=unknown", "instance"),
+		perInstanceReconnects: reg.GaugeVec("evo_instance_reconnects_total", "Reconnect opens in the last 10 minutes", "instance"),
+		perInstanceEventAge:   reg.GaugeVec("evo_instance_last_event_age_seconds", "Seconds since the last event handler started", "instance"),
 	}
 	o.startedAt.Store(time.Now().Unix())
 	return o
@@ -102,15 +110,31 @@ func (o *Observability) Render() string {
 		// Per-instance series. Emit the current set and delete stale ones (an
 		// instance that was removed) so the series do not grow forever.
 		seen := make(map[string]struct{}, len(s.Instances))
+		now := time.Now()
 		for _, inst := range s.Instances {
 			v := int64(0)
 			if inst.Connected {
 				v = 1
 			}
 			o.perInstanceConnected.Set(inst.InstanceID, v)
+			o.perInstanceHealth.Set(inst.InstanceID, healthVerdictValue(inst.Verdict))
+			o.perInstanceReconnects.Set(inst.InstanceID, int64(inst.ReconnectOpens))
+			age := int64(0)
+			if inst.LastEventAt != "" {
+				if at, err := time.Parse(time.RFC3339, inst.LastEventAt); err == nil {
+					age = int64(now.Sub(at).Seconds())
+					if age < 0 {
+						age = 0
+					}
+				}
+			}
+			o.perInstanceEventAge.Set(inst.InstanceID, age)
 			seen[inst.InstanceID] = struct{}{}
 		}
 		o.perInstanceConnected.DeleteMissing(seen)
+		o.perInstanceHealth.DeleteMissing(seen)
+		o.perInstanceReconnects.DeleteMissing(seen)
+		o.perInstanceEventAge.DeleteMissing(seen)
 	}
 
 	if o.webhook != nil {
@@ -142,6 +166,24 @@ func (o *Observability) Render() string {
 	setGauge(o.registry, "evo_process_start_timestamp", "Unix time this process started", o.startedAt.Load())
 
 	return o.registry.Render()
+}
+
+// healthVerdictValue maps a verdict to a stable numeric Prometheus value.
+func healthVerdictValue(verdict string) int64 {
+	switch verdict {
+	case "ok":
+		return 1
+	case "reconnecting":
+		return 2
+	case "looping":
+		return 3
+	case "stalled":
+		return 4
+	case "closed":
+		return 0
+	default:
+		return 5
+	}
 }
 
 // setGauge registers a gauge on first use and sets it. Registering lazily keeps

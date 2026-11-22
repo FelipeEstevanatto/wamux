@@ -44,6 +44,8 @@ type InstanceService interface {
 	Disconnect(instance *instance_model.Instance) (*instance_model.Instance, error)
 	Logout(instance *instance_model.Instance) (*instance_model.Instance, error)
 	Status(instance *instance_model.Instance) (*StatusStruct, error)
+	// InstanceHealth returns the in-memory connection verdict for one instance.
+	InstanceHealth(instanceId string) *whatsmeow_service.InstanceHealth
 	GetQr(instance *instance_model.Instance) (*QrcodeStruct, error)
 	Pair(data *PairStruct, instance *instance_model.Instance) (*PairReturnStruct, error)
 	GetAll() ([]*instance_model.Instance, error)
@@ -204,6 +206,7 @@ type StatusStruct struct {
 	LoggedIn  bool
 	myJid     *types.JID
 	Name      string
+	Health    *whatsmeow_service.InstanceHealth `json:"health,omitempty"`
 }
 
 type QrcodeStruct struct {
@@ -572,6 +575,7 @@ func (i instances) Status(instance *instance_model.Instance) (*StatusStruct, err
 		return &StatusStruct{
 			Connected: false,
 			LoggedIn:  false,
+			Health:    i.whatsmeowService.InstanceHealth(instance.Id),
 		}, nil
 	}
 
@@ -590,7 +594,13 @@ func (i instances) Status(instance *instance_model.Instance) (*StatusStruct, err
 		LoggedIn:  isLoggedIn,
 		myJid:     myJid,
 		Name:      name,
+		Health:    i.whatsmeowService.InstanceHealth(instance.Id),
 	}, nil
+}
+
+// InstanceHealth delegates to the runtime service; it is memory-only.
+func (i instances) InstanceHealth(instanceId string) *whatsmeow_service.InstanceHealth {
+	return i.whatsmeowService.InstanceHealth(instanceId)
 }
 
 func (i instances) GetQr(instance *instance_model.Instance) (*QrcodeStruct, error) {

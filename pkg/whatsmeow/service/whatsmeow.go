@@ -149,6 +149,8 @@ type WhatsmeowService interface {
 	// RuntimeStats reports connection and work-pool counters for /metrics and
 	// the per-instance health view.
 	RuntimeStats() RuntimeStats
+	// InstanceHealth returns the in-memory verdict for one instance.
+	InstanceHealth(instanceId string) *InstanceHealth
 
 	// StopPersistence drains the message-persistence pool. Call it during
 	// shutdown so messages still in the batching window are written.
@@ -159,10 +161,30 @@ type WhatsmeowService interface {
 }
 
 // InstanceHealth is one instance's live connection state, for the health view.
+// It is built from memory only and carries times/counts, never message content.
 type InstanceHealth struct {
-	InstanceID   string `json:"instanceId"`
-	Connected    bool   `json:"connected"`
-	Reconnecting bool   `json:"reconnecting"`
+	InstanceID    string   `json:"instanceId"`
+	Connected     bool     `json:"connected"`
+	Reconnecting  bool     `json:"reconnecting"`
+	Verdict       string   `json:"verdict"`
+	Reasons       []string `json:"reasons"`
+	ObservedSince string   `json:"observedSince,omitempty"`
+
+	OpenedAt                string `json:"openedAt,omitempty"`
+	LastFrameAt             string `json:"lastFrameAt,omitempty"`
+	LastEventAt             string `json:"lastEventAt,omitempty"`
+	LastInboundAt           string `json:"lastInboundAt,omitempty"`
+	LastAckAt               string `json:"lastAckAt,omitempty"`
+	LastDisconnectAt        string `json:"lastDisconnectAt,omitempty"`
+	LastDisconnectReason    string `json:"lastDisconnectReason,omitempty"`
+	LastKeepAliveTimeoutAt  string `json:"lastKeepAliveTimeoutAt,omitempty"`
+	LastKeepAliveRestoredAt string `json:"lastKeepAliveRestoredAt,omitempty"`
+	EventType               string `json:"eventType,omitempty"`
+	EventRunningAgeMs       int64  `json:"eventRunningAgeMs,omitempty"`
+	ReconnectOpens          int    `json:"reconnectOpens"`
+	ReconnectDrops          int    `json:"reconnectDrops"`
+	Conflicts               int    `json:"conflicts"`
+	BlockedReason           string `json:"blockedReason,omitempty"`
 }
 
 // RuntimeStats is the process-level snapshot behind /metrics.
@@ -260,6 +282,8 @@ type whatsmeowService struct {
 	instanceS3Storage *safemap.Map[instanceS3Entry]
 	// authStore is heap-allocated so sync.Once works with value-receiver methods like StartClient.
 	authStore *sharedSQLStore
+	// health is per-instance in-memory connection facts. Never persisted.
+	health *safemap.Map[*instanceHealthTracker]
 }
 
 // sharedSQLStore holds the process-wide whatsmeow sqlstore.Container for PostgresAuthDB
@@ -313,6 +337,7 @@ type MyClient struct {
 	persistPool     *persistPool
 	// events counts in-flight event handlers so shutdown can wait for them.
 	events *eventTracker
+	health *instanceHealthTracker
 	// bgPool bounds the fire-and-forget event work (poll votes, limit refresh,
 	// auto-read, …) so a burst cannot spawn unbounded goroutines.
 	bgPool *bgpool.Pool
@@ -1419,6 +1444,7 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 	// Re-request messages that fail to decrypt from the phone instead of dropping them.
 	client.AutomaticMessageRerequestFromPhone = w.config.RerequestFromPhone
 
+	health := w.healthTracker(cd.Instance.Id)
 	mycli := &MyClient{
 		service:            &w,
 		Instance:           cd.Instance,
@@ -1453,6 +1479,7 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		passkeyCeremony:    w.passkeyCeremony,
 		persistPool:        w.persistPool,
 		events:             newEventTracker(),
+		health:             health,
 		bgPool:             w.bgPool,
 		mediaPool:          w.mediaPool,
 		largeMediaPool:     w.largeMediaPool,
@@ -2018,7 +2045,9 @@ func nonRetryableCloseCode(code int) bool {
 // myEventHandler is what whatsmeow calls for every event.
 func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	mycli.events.begin()
+	mycli.health.markEventStart(time.Now(), fmt.Sprintf("%T", rawEvt))
 	mycli.routeEvent(rawEvt, func(evt interface{}) {
+		defer mycli.health.markEventEnd()
 		defer mycli.events.end()
 		mycli.processEvent(evt)
 	})
@@ -2161,6 +2190,7 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 		// after the connection stays open for the stable window; a 440 loop
 		// reaches Connected briefly on every attempt and must not reset it.
 		reconnectConnected(mycli.userID)
+		mycli.health.markOpened(time.Now())
 		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] events.Connected to Whatsapp for user '%s'", mycli.userID, mycli.WAClient.Store.PushName)
 		// Refresh the account-level limits cache (new-chat quota / reachout
 		// timelock) in the background so /instance/limits does not have to pay
@@ -2400,6 +2430,7 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 		// keep the session for a manual connect. After RECONNECT_CONFLICT_LIMIT
 		// consecutive replacements, stop reconnecting even across a restart.
 		count, capped := reconnectRecordConflict(mycli.userID, mycli.config.ReconnectConflictLimit)
+		mycli.health.markConflict(time.Now())
 		limit := mycli.config.ReconnectConflictLimit
 		limitText := "unlimited"
 		if limit > 0 {
@@ -2410,6 +2441,7 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 		if capped {
 			reason = fmt.Sprintf("Session replaced (440): conflict limit reached (%d); reconnect manually", count)
 		}
+		mycli.health.markDisconnected(time.Now(), reason)
 		if mycli.passkeyCeremony.Clear(mycli.userID) {
 			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Cleared in-flight passkey ceremony after stream replacement (issue #107)", mycli.userID)
 		}
@@ -2424,6 +2456,7 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 
 		// A temporary ban (402) cannot be fixed by reconnecting. Keep the
 		// session and let the operator resume after the ban expires.
+		mycli.health.markDisconnected(time.Now(), fmt.Sprintf("Temporarily banned: %s", evt.Code.String()))
 		mycli.blockAutomaticReconnect(fmt.Sprintf("Temporarily banned: %s (expires in %s)", evt.Code.String(), evt.Expire), false)
 
 		if !mycli.normalizeEventData(postMap) {
@@ -2440,6 +2473,9 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 		if !mycli.firstDelivery(evt) {
 			mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Message %s already handled, ignoring the repeat", mycli.userID, evt.Info.ID)
 			return
+		}
+		if !evt.Info.IsFromMe {
+			mycli.health.markInbound(time.Now())
 		}
 
 		doWebhook = true
@@ -3252,6 +3288,11 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 			return
 		}
 
+		switch evt.Type {
+		case types.ReceiptTypeDelivered, types.ReceiptTypeRead, types.ReceiptTypePlayed:
+			mycli.health.markAck(time.Now())
+		}
+
 		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Receipt received with ID: %s from %s with type %s", mycli.userID, evt.MessageIDs[0], evt.SourceString(), evt.Type)
 
 		if evt.Type == types.ReceiptTypeRead || evt.Type == types.ReceiptTypeReadSelf {
@@ -3399,6 +3440,7 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 		// QR that nobody scans. Block the loop and keep the event flow intact;
 		// the operator pairs again with POST /instance/connect.
 		reconnectBlock(mycli.userID, "Logged out: "+evt.Reason.String())
+		mycli.health.markDisconnected(time.Now(), evt.Reason.String())
 
 		// Limpar cache de userInfo para esta instância
 		mycli.userInfoCache.Delete(mycli.Instance.Token)
@@ -3588,6 +3630,7 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 
 		mycli.Instance.DisconnectReason = evt.Reason.String()
 		mycli.Instance.Connected = false
+		mycli.health.markDisconnected(time.Now(), evt.Reason.String())
 		if nonRetryableCloseCode(int(evt.Reason)) {
 			mycli.blockAutomaticReconnect(evt.Reason.String(), false)
 		} else {
@@ -3604,6 +3647,7 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 		// it instead of waiting for the TCP layer to notice.
 		if code, err := strconv.Atoi(evt.Code); err == nil && nonRetryableCloseCode(code) {
 			mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Stream error %s is not retryable; automatic reconnect suppressed", mycli.userID, evt.Code)
+			mycli.health.markDisconnected(time.Now(), "Stream error "+evt.Code)
 			mycli.blockAutomaticReconnect("Stream error "+evt.Code, false)
 			break
 		}
@@ -3615,6 +3659,7 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 		// TCP connection may not have noticed. whatsmeow does not act on this
 		// itself. Wait for the second consecutive timeout so a single blip does
 		// not drop a healthy socket.
+		mycli.health.markKeepAliveTimeout(time.Now())
 		reconnectDisconnected(mycli.userID)
 		if evt.ErrorCount >= 2 {
 			mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Keepalive timed out %d times (last success %s); reconnecting", mycli.userID, evt.ErrorCount, evt.LastSuccess.Format(time.RFC3339))
@@ -3622,6 +3667,8 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 		} else {
 			mycli.loggerWrapper.GetLogger(mycli.userID).LogWarn("[%s] Keepalive timeout (attempt %d); waiting for the next one", mycli.userID, evt.ErrorCount)
 		}
+	case *events.KeepAliveRestored:
+		mycli.health.markKeepAliveRestored(time.Now())
 	case *events.Disconnected:
 		doWebhook = true
 		postMap["event"] = "Disconnected"
@@ -3646,6 +3693,7 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 		}
 
 		reconnectDisconnected(mycli.userID)
+		mycli.health.markDisconnected(time.Now(), mycli.Instance.DisconnectReason)
 		mycli.scheduleReconnect("Disconnected")
 	case *events.LabelEdit:
 		doWebhook = true
@@ -4637,6 +4685,37 @@ func (w whatsmeowService) WhatsAppWebVersion() string {
 	return fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Patch)
 }
 
+// healthTracker returns the per-instance tracker, creating it on first use.
+func (w *whatsmeowService) healthTracker(instanceID string) *instanceHealthTracker {
+	if w.health == nil {
+		w.health = safemap.New[*instanceHealthTracker]()
+	}
+	if t, ok := w.health.Lookup(instanceID); ok && t != nil {
+		return t
+	}
+	t := newInstanceHealthTracker(time.Now())
+	w.health.Set(instanceID, t)
+	return t
+}
+
+// InstanceHealth returns the current verdict from memory. It does no DB/Redis
+// I/O and holds no message content.
+func (w whatsmeowService) InstanceHealth(instanceId string) *InstanceHealth {
+	var t *instanceHealthTracker
+	if w.health != nil {
+		t, _ = w.health.Lookup(instanceId)
+	}
+	live := false
+	if c := w.clientPointer.Get(instanceId); c != nil {
+		live = c.IsConnected()
+	}
+	reconnecting := reconnectPending(instanceId)
+	blockedReason := reconnectBlockedReason(instanceId)
+	blocked := blockedReason != ""
+	out := t.snapshot(instanceId, time.Now(), live, reconnecting, blocked, blockedReason)
+	return &out
+}
+
 // RuntimeStats counts live connections and work-pool saturation.
 func (w whatsmeowService) RuntimeStats() RuntimeStats {
 	stats := RuntimeStats{}
@@ -4650,7 +4729,13 @@ func (w whatsmeowService) RuntimeStats() RuntimeStats {
 			if connected {
 				stats.InstancesConnected++
 			}
-			stats.Instances = append(stats.Instances, InstanceHealth{InstanceID: id, Connected: connected})
+			h := w.InstanceHealth(id)
+			if h != nil {
+				h.Connected = connected
+				stats.Instances = append(stats.Instances, *h)
+			} else {
+				stats.Instances = append(stats.Instances, InstanceHealth{InstanceID: id, Connected: connected, Verdict: "closed", Reasons: []string{}})
+			}
 		}
 	}
 
@@ -4944,6 +5029,7 @@ func NewWhatsmeowService(
 		webhookHmacKeys:    safemap.New[string](),
 		instanceS3Storage:  safemap.New[instanceS3Entry](),
 		authStore:          &sharedSQLStore{},
+		health:             safemap.New[*instanceHealthTracker](),
 		persistPool:        newPersistPool(persistWorkers, persistQueueSize),
 		bgPool:             bgpool.New(bgpool.DefaultWorkers, bgpool.DefaultQueue),
 		mediaPool:          bgpool.New(mediaWorkers, mediaQueueSize),

@@ -16,6 +16,11 @@
   A per-instance `publicUrl` remains an explicit public-read signal.
 
 ### ✨ Features
+- **Per-instance health verdict.** `/instance/status`, `/instance/inventory` and
+  `/metrics` expose the last event/inbound/ack, reconnect opens/drops in a
+  10-minute window, conflicts, event-handler age and a verdict
+  (`ok`, `reconnecting`, `looping`, `stalled`, `closed`) with reasons. Memory
+  only, no DB/Redis I/O and no message content.
 - **Local audit log.** Instance create/delete/rename, proxy/S3/HMAC changes,
   advanced settings and token reads are recorded in `audit_logs` with actor,
   action, target and a secret-free detail object. `GET /server/audit` (admin key)

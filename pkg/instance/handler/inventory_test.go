@@ -10,6 +10,7 @@ import (
 
 	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
 	instance_service "github.com/felipeestevanatto/wamux/pkg/instance/service"
+	whatsmeow_service "github.com/felipeestevanatto/wamux/pkg/whatsmeow/service"
 	"github.com/gin-gonic/gin"
 )
 
@@ -19,6 +20,10 @@ type inventoryService struct {
 }
 
 func (s inventoryService) GetAll() ([]*instance_model.Instance, error) { return s.list, nil }
+
+func (s inventoryService) InstanceHealth(string) *whatsmeow_service.InstanceHealth {
+	return nil
+}
 
 func TestInventoryDoesNotExposeSecrets(t *testing.T) {
 	gin.SetMode(gin.TestMode)

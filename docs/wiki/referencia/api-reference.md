@@ -30,7 +30,7 @@ http://localhost:8081
 
 **Operações (requer token da instância):**
 - `POST /instance/connect` - Iniciar conexão
-- `GET /instance/status` - Status de conexão
+- `GET /instance/status` - Status de conexão, incluindo `health` (verdict, motivos, últimos eventos/acks, reconexões)
 - `GET /instance/qr` - Obter QR Code
 - `POST /instance/pair` - Parear com código
 - `POST /instance/disconnect` - Desconectar

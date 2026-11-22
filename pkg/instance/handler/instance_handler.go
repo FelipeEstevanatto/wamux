@@ -22,7 +22,7 @@ import (
 )
 
 // InventoryContractVersion changes only when the inventory shape changes.
-const InventoryContractVersion = "2026-11-14"
+const InventoryContractVersion = "2026-11-22"
 
 // inventoryRuntimeID identifies this process without exposing any instance
 // secret. It changes on restart.
@@ -36,6 +36,7 @@ type inventoryItem struct {
 	AutoReconnect    bool      `json:"autoReconnect"`
 	OwnerFingerprint string    `json:"ownerFingerprint"`
 	CreatedAt        time.Time `json:"createdAt"`
+	Health           any       `json:"health,omitempty"`
 }
 
 type inventory struct {
@@ -457,6 +458,7 @@ func (i *instanceHandler) Inventory(ctx *gin.Context) {
 			AutoReconnect:    instance.AutoReconnect,
 			OwnerFingerprint: fingerprint,
 			CreatedAt:        instance.CreatedAt,
+			Health:           i.instanceService.InstanceHealth(instance.Id),
 		})
 	}
 	sort.Slice(items, func(a, b int) bool { return items[a].InstanceName < items[b].InstanceName })
