@@ -262,6 +262,23 @@ func (m *MinioMediaStorage) StoreReader(ctx context.Context, r io.Reader, size i
 	return presignedURL.String(), nil
 }
 
+// DeleteURL removes the object a public/presigned URL points at. It accepts a
+// URL with or without the bucket prefix and refuses anything outside the
+// wamux-medias/ folder this store writes, so a malformed/foreign URL cannot
+// delete another object.
+func (m *MinioMediaStorage) DeleteURL(ctx context.Context, rawURL string) error {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return fmt.Errorf("invalid media URL")
+	}
+	path := strings.TrimPrefix(u.Path, "/")
+	idx := strings.Index(path, "wamux-medias/")
+	if idx < 0 {
+		return fmt.Errorf("refusing to delete an object outside wamux-medias: %q", u.Path)
+	}
+	return m.Delete(ctx, path[idx:])
+}
+
 func (m *MinioMediaStorage) Delete(ctx context.Context, fileName string) error {
 	// Resolve the full path for the file
 	filePath, err := m.resolveFilePath(ctx, fileName)

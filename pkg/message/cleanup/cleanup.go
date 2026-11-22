@@ -51,6 +51,25 @@ type Cleaner interface {
 // is the real one.
 type MediaPruner func(cutoff time.Time) (int, error)
 
+// MediaURLDeleter removes one stored object by its public/presigned URL.
+type MediaURLDeleter interface {
+	DeleteURL(ctx context.Context, rawURL string) error
+}
+
+// MediaReferenceRepo finds media URLs on rows about to expire and counts how many
+// rows still reference a URL. Implemented by the message repository; optional so
+// the cleaner stays usable with smaller fakes.
+type MediaReferenceRepo interface {
+	ListMediaURLsOlderThan(cutoff string) ([]string, error)
+	CountMessagesByMediaURL(rawURL string) (int64, error)
+}
+
+// WithS3Cleanup deletes objects whose rows expired and which no remaining
+// message references. It only runs when MESSAGE_RETENTION_DAYS > 0.
+func WithS3Cleanup(deleter MediaURLDeleter) Option {
+	return func(c *cleaner) { c.mediaURLDeleter = deleter }
+}
+
 // TableRetention prunes one auxiliary table. Table and column are compile-time
 // constants from the caller, never user input; the deleter still guards them.
 type TableRetention struct {
@@ -139,6 +158,7 @@ type cleaner struct {
 	pruneMedia         MediaPruner
 	tableRetentions    []tableRetention
 	metrics            MetricsSink
+	mediaURLDeleter    MediaURLDeleter
 
 	// Overridable in tests so they do not have to wait hours.
 	runInterval time.Duration
@@ -258,6 +278,20 @@ func (c *cleaner) sweepMedia() {
 func (c *cleaner) sweepMessages() {
 	cutoff := c.now().AddDate(0, 0, -c.retentionDays).Format(timeLayout)
 
+	// Collect the media URLs before deleting their rows. Objects are removed only
+	// after the rows are gone and only when no remaining message references them.
+	var mediaURLs []string
+	if c.mediaURLDeleter != nil {
+		if ref, ok := c.repo.(MediaReferenceRepo); ok {
+			var err error
+			mediaURLs, err = ref.ListMediaURLsOlderThan(cutoff)
+			if err != nil {
+				applog.Logger.LogWarn("[cleanup] could not list expired media URLs; keeping objects: %v", err)
+				mediaURLs = nil
+			}
+		}
+	}
+
 	start := time.Now()
 	deleted, err := c.repo.DeleteMessagesOlderThan(cutoff)
 	if err != nil {
@@ -268,7 +302,51 @@ func (c *cleaner) sweepMessages() {
 	if deleted > 0 {
 		applog.Logger.LogInfo("[cleanup] deleted %d message(s) older than %s in %s",
 			deleted, cutoff, time.Since(start).Round(time.Millisecond))
+	} else {
+		applog.Logger.LogDebug("[cleanup] no messages older than %s", cutoff)
+	}
+	c.sweepMediaURLs(mediaURLs)
+}
+
+// sweepMediaURLs removes an object only when its message rows are gone and no
+// other row still points at it. A revoked/shared attachment is therefore kept.
+func (c *cleaner) sweepMediaURLs(urls []string) {
+	if c.mediaURLDeleter == nil || len(urls) == 0 {
 		return
 	}
-	applog.Logger.LogDebug("[cleanup] no messages older than %s", cutoff)
+	ref, ok := c.repo.(MediaReferenceRepo)
+	if !ok {
+		return
+	}
+	seen := make(map[string]struct{}, len(urls))
+	removed := 0
+	for _, rawURL := range urls {
+		if rawURL == "" {
+			continue
+		}
+		if _, dup := seen[rawURL]; dup {
+			continue
+		}
+		seen[rawURL] = struct{}{}
+
+		remaining, err := ref.CountMessagesByMediaURL(rawURL)
+		if err != nil {
+			applog.Logger.LogWarn("[cleanup] could not check references for an expired object; keeping it: %v", err)
+			continue
+		}
+		if remaining > 0 {
+			continue
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		err = c.mediaURLDeleter.DeleteURL(ctx, rawURL)
+		cancel()
+		if err != nil {
+			applog.Logger.LogWarn("[cleanup] could not delete expired object: %v", err)
+			continue
+		}
+		removed++
+	}
+	if removed > 0 {
+		applog.Logger.LogInfo("[cleanup] deleted %d expired media object(s)", removed)
+	}
 }

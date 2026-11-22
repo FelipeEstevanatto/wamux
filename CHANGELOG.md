@@ -29,6 +29,10 @@
   A per-instance `publicUrl` remains an explicit public-read signal.
 
 ### ✨ Features
+- **S3 cleanup for expired media.** When message retention deletes rows, objects
+  in the global MinIO/S3 bucket are removed only if no remaining message still
+  references their URL. Per-instance S3 buckets are not pruned yet (they need a
+  per-instance object tracker); this is called out as a remaining limitation.
 - **Auxiliary-table retention.** The cleanup job can now prune
   `send_operations` (30 days by default), `chat_reads`, `chat_states`,
   `typebot_sessions` and `poll_votes` with per-table env knobs; `0` keeps a table

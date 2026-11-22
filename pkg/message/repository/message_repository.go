@@ -604,6 +604,27 @@ func (m *messageRepository) InsertHistoryMessages(messages []message_model.Messa
 	return report, nil
 }
 
+// ListMediaURLsOlderThan returns the distinct media URLs of rows that the
+// retention job is about to delete. Used by the S3 cleanup; the cleaner then
+// re-checks references after the rows are gone.
+func (m *messageRepository) ListMediaURLsOlderThan(cutoff string) ([]string, error) {
+	var urls []string
+	err := m.db.Raw(
+		`SELECT DISTINCT media_url FROM messages
+		 WHERE "timestamp" < ? AND COALESCE(media_url, '') <> ''`, cutoff,
+	).Scan(&urls).Error
+	return urls, err
+}
+
+// CountMessagesByMediaURL reports how many rows still reference rawURL. The S3
+// cleanup deletes an object only when this is zero, so a shared attachment is
+// never removed while a live message points at it.
+func (m *messageRepository) CountMessagesByMediaURL(rawURL string) (int64, error) {
+	var count int64
+	err := m.db.Model(&message_model.Message{}).Where("media_url = ?", rawURL).Count(&count).Error
+	return count, err
+}
+
 func (m *messageRepository) GetMessageByID(messageID string) (*message_model.Message, error) {
 	var message message_model.Message
 	err := m.db.Where("message_id = ?", messageID).First(&message).Error

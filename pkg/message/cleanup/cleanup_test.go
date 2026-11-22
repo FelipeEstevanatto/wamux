@@ -2,6 +2,7 @@ package message_cleanup
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -90,6 +91,54 @@ func (f *fakeMetrics) AddCleanupDeleted(table string, n int64) {
 		f.deleted = map[string]int64{}
 	}
 	f.deleted[table] += n
+}
+
+type fakeURLDeleter struct {
+	deleted []string
+	err     error
+}
+
+func (f *fakeURLDeleter) DeleteURL(_ context.Context, rawURL string) error {
+	f.deleted = append(f.deleted, rawURL)
+	return f.err
+}
+
+type fakeMediaRepo struct {
+	*fakeDeleter
+	urls []string
+	refs map[string]int64
+}
+
+func (f *fakeMediaRepo) ListMediaURLsOlderThan(string) ([]string, error) { return f.urls, nil }
+func (f *fakeMediaRepo) CountMessagesByMediaURL(rawURL string) (int64, error) {
+	return f.refs[rawURL], nil
+}
+
+func TestS3CleanupDeletesOnlyUnreferencedObjects(t *testing.T) {
+	base := &fakeDeleter{deleted: 2}
+	repo := &fakeMediaRepo{fakeDeleter: base, urls: []string{"https://s3/a", "https://s3/b"}, refs: map[string]int64{"https://s3/a": 0, "https://s3/b": 1}}
+	deleter := &fakeURLDeleter{}
+	c := NewCleaner(repo, 30, WithS3Cleanup(deleter)).(*cleaner)
+	c.now = func() time.Time { return time.Date(2026, 9, 23, 12, 0, 0, 0, time.UTC) }
+
+	c.sweep()
+
+	if len(deleter.deleted) != 1 || deleter.deleted[0] != "https://s3/a" {
+		t.Fatalf("deleted = %v, want only the unreferenced object", deleter.deleted)
+	}
+}
+
+func TestS3CleanupKeepsObjectsWhenRowDeleteFails(t *testing.T) {
+	base := &fakeDeleter{err: errors.New("database down")}
+	repo := &fakeMediaRepo{fakeDeleter: base, urls: []string{"https://s3/a"}}
+	deleter := &fakeURLDeleter{}
+	c := NewCleaner(repo, 30, WithS3Cleanup(deleter)).(*cleaner)
+
+	c.sweep()
+
+	if len(deleter.deleted) != 0 {
+		t.Fatalf("deleted = %v, want none when the row delete failed", deleter.deleted)
+	}
 }
 
 func TestSweepPrunesConfiguredTablesAndReportsMetrics(t *testing.T) {

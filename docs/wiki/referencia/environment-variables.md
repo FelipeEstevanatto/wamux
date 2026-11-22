@@ -54,7 +54,7 @@ POSTGRES_USERS_DB=postgresql://user:pass@host:5432/wamux_users?sslmode=disable
 | Variável | Padrão | Descrição |
 |----------|--------|-----------|
 | `MESSAGE_RETENTION_DAYS` | `365` | Dias de mensagens persistidas; `0` mantém para sempre |
-| `MEDIA_RETENTION_DAYS` | = mensagens | Dias de mídia local; `0` mantém para sempre |
+| `MEDIA_RETENTION_DAYS` | = mensagens | Dias de mídia local; `0` mantém para sempre. Com retenção de mensagens, objetos do MinIO/S3 global são removidos quando nenhuma mensagem ainda referencia a URL |
 | `SEND_OPERATION_RETENTION_DAYS` | `30` | Dias de operações idempotentes (`send_operations`) |
 | `CHAT_READ_RETENTION_DAYS` | `0` | Dias de posições de leitura (`chat_reads`) |
 | `CHAT_STATE_RETENTION_DAYS` | `0` | Dias de estado de chat (`chat_states`) |
