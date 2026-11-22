@@ -129,16 +129,44 @@ func ForgetSentMessage(client *whatsmeow.Client, id types.MessageID, chats ...ty
 // not fetched: the row keeps the name, size and preview, as WhatsApp sent them.
 func (mycli *MyClient) storeHistorySync(data *waHistorySync.HistorySync) {
 	mycli.storeHistoryChatStates(data)
-	rows := mycli.historyRows(data)
+	rows, skipped := mycli.historyRows(data)
 	if len(rows) == 0 {
+		mycli.logHistoryBatch(data, skipped, message_repository.HistoryInsertReport{})
 		return
 	}
-	if err := mycli.messageRepository.InsertHistoryMessages(rows); err != nil {
+	report, err := mycli.messageRepository.InsertHistoryMessages(rows)
+	if err != nil {
 		mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to store history sync: %v", mycli.userID, err)
+		mycli.logHistoryBatch(data, skipped, report)
 		return
 	}
-	mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Stored %d messages from history sync", mycli.userID, len(rows))
+	mycli.logHistoryBatch(data, skipped, report)
 	mycli.markHistoryRead(rows)
+}
+
+// logHistoryBatch emits counts only: never message content or JIDs. It is the one
+// line an operator needs to see how far an import got and why rows were skipped.
+func (mycli *MyClient) logHistoryBatch(data *waHistorySync.HistorySync, skipped historySkipStats, report message_repository.HistoryInsertReport) {
+	progress := data.GetProgress()
+	mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo(
+		"[%s] history batch: type=%s chunk=%d progress=%d is_latest=%t conversations=%d msgs=%d inserted=%d skipped_existing=%d duplicates=%d failed=%d skipped_no_content=%d skipped_parse=%d skipped_old=%d skipped_album=%d skipped_invalid_chat=%d",
+		mycli.userID,
+		data.GetSyncType().String(),
+		data.GetChunkOrder(),
+		progress,
+		progress >= 100,
+		len(data.GetConversations()),
+		report.Total,
+		report.Inserted,
+		report.SkippedExisting,
+		report.Duplicates,
+		report.Failed,
+		skipped.NoContent,
+		skipped.Parse,
+		skipped.Old,
+		skipped.Album,
+		skipped.InvalidChat,
+	)
 }
 
 // storeHistoryChatStates imports archived/pinned/muted/marked-unread state that
@@ -216,34 +244,56 @@ func (mycli *MyClient) chatReadElsewhere(evt *events.MarkChatAsRead) {
 	}
 }
 
-func (mycli *MyClient) historyRows(data *waHistorySync.HistorySync) []message_model.Message {
+type historySkipStats struct {
+	NoContent   int
+	Parse       int
+	Old         int
+	Album       int
+	InvalidChat int
+}
+
+func (mycli *MyClient) historyRows(data *waHistorySync.HistorySync) ([]message_model.Message, historySkipStats) {
 	ctx := context.Background()
 	oldest := mycli.historyCutoff()
 	var rows []message_model.Message
+	var skipped historySkipStats
 	for _, conversation := range data.GetConversations() {
 		rawChat, err := types.ParseJID(conversation.GetID())
 		if err != nil || rawChat == types.StatusBroadcastJID {
-			continue // Status posts expire in a day, so they are not history.
+			// Status posts expire in a day, so they are not history. A JID that
+			// cannot be parsed is malformed input; count both as invalid chats.
+			skipped.InvalidChat++
+			continue
 		}
 		chat := CanonicalChatJID(ctx, mycli.WAClient, rawChat)
 		for _, item := range conversation.GetMessages() {
 			web := item.GetMessage()
 			if web.GetMessage() == nil {
-				continue // System notices and already revoked messages have no content.
+				skipped.NoContent++ // System notices and already revoked messages have no content.
+				continue
 			}
 			evt, err := mycli.WAClient.ParseWebMessage(rawChat, web)
 			if err != nil {
+				skipped.Parse++
 				continue
 			}
 			kind := utils.GetMessageType(evt.Message)
 			// Album containers are metadata; their items are separate rows.
-			if kind == "ignore" || kind == "revoke" || kind == "edit" || kind == "album" || evt.Info.Timestamp.Before(oldest) {
+			switch {
+			case kind == "album":
+				skipped.Album++
+				continue
+			case kind == "ignore" || kind == "revoke" || kind == "edit":
+				skipped.NoContent++
+				continue
+			case evt.Info.Timestamp.Before(oldest):
+				skipped.Old++
 				continue
 			}
 			rows = append(rows, historyRow(ctx, mycli, chat, evt, web))
 		}
 	}
-	return rows
+	return rows, skipped
 }
 
 // historyCutoff is the oldest message worth storing: the retention job would delete

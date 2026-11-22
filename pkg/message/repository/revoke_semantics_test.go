@@ -92,7 +92,7 @@ func TestLateOriginalDoesNotUndoARevoke(t *testing.T) {
 	if err := repo.InsertMessages([]message_model.Message{richRow("sem-late")}); err != nil {
 		t.Fatal(err)
 	}
-	if err := repo.InsertHistoryMessages([]message_model.Message{richRow("sem-late")}); err != nil {
+	if _, err := repo.InsertHistoryMessages([]message_model.Message{richRow("sem-late")}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -188,7 +188,7 @@ func TestHistoryNeverChangesARowItFinds(t *testing.T) {
 	}
 
 	older := contentRow("sem-hist", "from history")
-	if err := repo.InsertHistoryMessages([]message_model.Message{older, contentRow("sem-hist-new", "recovered")}); err != nil {
+	if _, err := repo.InsertHistoryMessages([]message_model.Message{older, contentRow("sem-hist-new", "recovered")}); err != nil {
 		t.Fatal(err)
 	}
 

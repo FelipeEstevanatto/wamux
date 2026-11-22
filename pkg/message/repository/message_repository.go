@@ -26,8 +26,9 @@ type MessageRepository interface {
 	// upsert semantics of InsertMessage are preserved.
 	InsertMessages(messages []message_model.Message) error
 	// InsertHistoryMessages stores rows recovered from a history sync. A row that
-	// already exists is left as it is.
-	InsertHistoryMessages(messages []message_model.Message) error
+	// already exists is left as it is. A failed chunk is retried once and then
+	// written row by row, so one poison row cannot drop the rest of the batch.
+	InsertHistoryMessages(messages []message_model.Message) (HistoryInsertReport, error)
 	// MarkMessageDeleted turns a revoked message into a tombstone. See the method.
 	MarkMessageDeleted(row message_model.Message, chats []string, direct bool) (bool, error)
 	// LIDJids lists the LID-addressed chats and senders still stored.
@@ -535,21 +536,66 @@ func (m *messageRepository) MarkChatsRead(instanceId string, chats []string, at 
 	}).Create(&rows).Error
 }
 
+// HistoryInsertReport is the outcome of one history batch. Total counts the input
+// rows; Duplicates were collapsed before writing; SkippedExisting are rows the
+// database already had (ON CONFLICT DO NOTHING); Failed are rows that could not be
+// written even one by one.
+type HistoryInsertReport struct {
+	Total           int `json:"total"`
+	Inserted        int `json:"inserted"`
+	SkippedExisting int `json:"skippedExisting"`
+	Duplicates      int `json:"duplicates"`
+	Failed          int `json:"failed"`
+}
+
 // InsertHistoryMessages never updates: what a history sync says about a message is
 // older than what was recorded live, whether that is its status, its stored media
 // or the fact that it was revoked.
-func (m *messageRepository) InsertHistoryMessages(messages []message_model.Message) error {
+//
+// A batch is written in chunks. If a chunk fails (a malformed row, a constraint
+// the import cannot satisfy), it is retried once and then every row is written
+// alone, so one poison row does not discard hundreds of good ones. The caller
+// logs the report and keeps the failed rows out of the "already stored" set.
+func (m *messageRepository) InsertHistoryMessages(messages []message_model.Message) (HistoryInsertReport, error) {
+	report := HistoryInsertReport{Total: len(messages)}
 	rows := collapseDuplicates(messages)
+	report.Duplicates = len(messages) - len(rows)
 	sortForCounterLocks(rows)
+
 	for start := 0; start < len(rows); start += batchInsertChunk {
 		end := min(start+batchInsertChunk, len(rows))
 		chunk := rows[start:end]
-		err := m.writer().Clauses(clause.OnConflict{Columns: messageConflictColumns, DoNothing: true}).Create(&chunk).Error
-		if err != nil {
-			return err
+		res := m.writer().Clauses(clause.OnConflict{Columns: messageConflictColumns, DoNothing: true}).Create(&chunk)
+		if res.Error == nil {
+			report.Inserted += int(res.RowsAffected)
+			report.SkippedExisting += len(chunk) - int(res.RowsAffected)
+			continue
+		}
+
+		// The whole statement is atomic, so a failed chunk inserted nothing.
+		// Retry once for a transient error, then fall back row by row.
+		res = m.writer().Clauses(clause.OnConflict{Columns: messageConflictColumns, DoNothing: true}).Create(&chunk)
+		if res.Error == nil {
+			report.Inserted += int(res.RowsAffected)
+			report.SkippedExisting += len(chunk) - int(res.RowsAffected)
+			continue
+		}
+		for i := range chunk {
+			row := chunk[i]
+			one := m.writer().Clauses(clause.OnConflict{Columns: messageConflictColumns, DoNothing: true}).Create(&row)
+			if one.Error != nil {
+				report.Failed++
+				continue
+			}
+			report.Inserted += int(one.RowsAffected)
+			report.SkippedExisting += 1 - int(one.RowsAffected)
 		}
 	}
-	return nil
+
+	if report.Failed > 0 && report.Inserted == 0 && report.SkippedExisting == 0 {
+		return report, fmt.Errorf("history batch: all %d row(s) failed", report.Failed)
+	}
+	return report, nil
 }
 
 func (m *messageRepository) GetMessageByID(messageID string) (*message_model.Message, error) {

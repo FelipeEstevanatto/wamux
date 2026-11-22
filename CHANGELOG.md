@@ -1,5 +1,25 @@
 # WaMux - Changelog
 
+## Unreleased
+
+### 🐛 Fixes
+- **Reconnect backoff survives a 440 loop.** The counter was cleared on every
+  `Connected` event; a replaced session opens briefly each attempt, so the
+  budget reset forever. It is now cleared only after 60 s of continuous
+  connection.
+- **Non-retryable closes stop the loop.** Logged out, banned, primary-device-gone
+  and replaced sessions persist a clear disconnect reason and suppress automatic
+  reconnect; the session is kept for a manual connect. `RECONNECT_CONFLICT_LIMIT`
+  (default 10, `0` = unlimited) caps consecutive 440s.
+- **One bad row no longer drops a history batch.** A failed chunk is retried and
+  then written row by row; the log reports inserted/skipped/duplicate/failed and
+  why rows were skipped.
+- **History depth is configurable.** `HISTORY_SYNC_DAYS`, `HISTORY_SYNC_MAX_MB`
+  and `HISTORY_STORAGE_QUOTA_MB` replace the fixed 3650 d / 2 GB values
+  (defaults: 3650 d / 10 GB / 10 GB).
+- **Weak API keys are flagged.** A published example or a key shorter than 32
+  characters logs a warning; the generated-key path is unchanged.
+
 ## 1.0.1 — albums, idempotent sends, and a clearer manager
 
 Upgrade notes are in `.github/release-notes/1.0.1.md`.

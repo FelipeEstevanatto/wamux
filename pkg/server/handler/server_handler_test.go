@@ -55,12 +55,14 @@ type fakeMessageRepo struct {
 	dbMessages int64
 }
 
-func (fakeMessageRepo) InsertMessage(message_model.Message) error           { return nil }
-func (fakeMessageRepo) InsertMessages([]message_model.Message) error        { return nil }
-func (fakeMessageRepo) InsertHistoryMessages([]message_model.Message) error { return nil }
-func (fakeMessageRepo) MarkChatsRead(string, []string, string) error        { return nil }
-func (fakeMessageRepo) LIDJids() ([]string, error)                          { return nil, nil }
-func (fakeMessageRepo) RewriteJid(string, string, string) (int64, error)    { return 0, nil }
+func (fakeMessageRepo) InsertMessage(message_model.Message) error    { return nil }
+func (fakeMessageRepo) InsertMessages([]message_model.Message) error { return nil }
+func (fakeMessageRepo) InsertHistoryMessages([]message_model.Message) (message_repository.HistoryInsertReport, error) {
+	return message_repository.HistoryInsertReport{}, nil
+}
+func (fakeMessageRepo) MarkChatsRead(string, []string, string) error     { return nil }
+func (fakeMessageRepo) LIDJids() ([]string, error)                       { return nil, nil }
+func (fakeMessageRepo) RewriteJid(string, string, string) (int64, error) { return 0, nil }
 func (fakeMessageRepo) MarkMessageDeleted(message_model.Message, []string, bool) (bool, error) {
 	return true, nil
 }

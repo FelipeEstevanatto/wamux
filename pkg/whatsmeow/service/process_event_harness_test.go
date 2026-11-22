@@ -200,11 +200,11 @@ func (r *fakeMessageRepo) InsertMessage(m message_model.Message) error {
 	return nil
 }
 
-func (r *fakeMessageRepo) InsertHistoryMessages(rows []message_model.Message) error {
+func (r *fakeMessageRepo) InsertHistoryMessages(rows []message_model.Message) (message_repository.HistoryInsertReport, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.history = append(r.history, rows...)
-	return nil
+	return message_repository.HistoryInsertReport{Total: len(rows), Inserted: len(rows)}, nil
 }
 
 func (r *fakeMessageRepo) MarkMessageDeleted(row message_model.Message, chats []string, direct bool) (bool, error) {
