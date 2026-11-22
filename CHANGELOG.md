@@ -3,6 +3,10 @@
 ## Unreleased
 
 ### 🔒 Security
+- **Instance token can be omitted from event payloads.** `WEBHOOK_INCLUDE_TOKEN=false`
+  removes `instanceToken` from webhook, RabbitMQ, NATS and WebSocket deliveries;
+  `instanceId` and `instanceName` remain for routing. The default stays `true` for
+  compatibility.
 - **Tenant-configured endpoints are SSRF-guarded.** Webhook URLs, Typebot URLs
   and per-instance S3 endpoints now use the DNS-pinned guard. Loopback, RFC1918,
   link-local/metadata and CGNAT destinations require the explicit

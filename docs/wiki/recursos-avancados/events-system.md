@@ -748,6 +748,13 @@ O WaMux usa dois níveis de classificação de eventos:
 }
 ```
 
+Cada entrega também traz `instanceId` e `instanceName`. Por compatibilidade, o
+payload inclui `instanceToken` (a credencial da instância) porque muitos
+consumidores antigos a usam para chamar a API de volta. Se os seus consumidores
+não precisam dela, defina `WEBHOOK_INCLUDE_TOKEN=false`: o token é removido de
+todos os destinos (webhook, RabbitMQ, NATS e WebSocket). Nunca aponte um webhook
+para um serviço de terceiros mantendo o token no payload.
+
 ### Exemplo: Mensagem Recebida
 
 ```json

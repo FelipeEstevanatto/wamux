@@ -297,7 +297,7 @@ func newEventHarness(t *testing.T) *eventHarness {
 		userInfoCache:      cache.New(time.Minute, time.Minute),
 		groupInfoCache:     cache.New(time.Minute, time.Minute),
 		processedMessages:  cache.New(time.Minute, time.Minute),
-		config:             &config.Config{DatabaseSaveMessages: true, WebhookBase64MaxBytes: 5 << 20},
+		config:             &config.Config{DatabaseSaveMessages: true, WebhookBase64MaxBytes: 5 << 20, WebhookIncludeToken: true},
 		loggerWrapper:      logs,
 		passkeyCeremony:    ceremony.NewStore(),
 		bgPool:             pool,

@@ -353,6 +353,18 @@ func appStateName(evt *events.AppState) string {
 	return evt.Index[0]
 }
 
+// addInstanceIdentity attaches the instance identity to an event payload. The
+// token is optional: WEBHOOK_INCLUDE_TOKEN=false omits it from every sink
+// (webhook, RabbitMQ, NATS, WebSocket), while the non-secret id and name stay so
+// consumers can still route the event.
+func (mycli *MyClient) addInstanceIdentity(postMap map[string]interface{}) {
+	if mycli.config == nil || mycli.config.WebhookIncludeToken {
+		postMap["instanceToken"] = mycli.token
+	}
+	postMap["instanceId"] = mycli.userID
+	postMap["instanceName"] = mycli.Instance.Name
+}
+
 // normalizeEventData turns postMap["data"], a typed whatsmeow event, into the plain map
 // handlers add fields to. It reports whether the event can still be delivered.
 func (mycli *MyClient) normalizeEventData(postMap map[string]interface{}) bool {

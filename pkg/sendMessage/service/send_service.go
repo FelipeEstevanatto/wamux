@@ -3089,9 +3089,7 @@ func (s *sendService) SendMessage(instance *instance_model.Instance, msg *waE2E.
 		}
 	}
 
-	postMap["instanceToken"] = instance.Token
-	postMap["instanceId"] = instance.Id
-	postMap["instanceName"] = instance.Name
+	s.addInstanceIdentity(postMap, instance)
 
 	var queueName string
 
@@ -3627,6 +3625,17 @@ func (s *sendService) sendStatusMedia(client *whatsmeow.Client, data *StatusMedi
 	return messageSent, nil
 }
 
+// addInstanceIdentity attaches the routing fields every event carries. The token
+// is omitted when WEBHOOK_INCLUDE_TOKEN=false; the id and name are not secrets
+// and are always present.
+func (s *sendService) addInstanceIdentity(postMap map[string]interface{}, instance *instance_model.Instance) {
+	if s.config == nil || s.config.WebhookIncludeToken {
+		postMap["instanceToken"] = instance.Token
+	}
+	postMap["instanceId"] = instance.Id
+	postMap["instanceName"] = instance.Name
+}
+
 func (s *sendService) sendStatusWebhook(messageSent *MessageSendStruct, instance *instance_model.Instance, messageType string) {
 	postMap := make(map[string]interface{})
 	postMap["event"] = "SendStatus"
@@ -3645,9 +3654,7 @@ func (s *sendService) sendStatusWebhook(messageSent *MessageSendStruct, instance
 	messageData["Message"] = msgMap
 	messageData["MessageContextInfo"] = messageSent.MessageContextInfo
 	postMap["data"] = messageData
-	postMap["instanceToken"] = instance.Token
-	postMap["instanceId"] = instance.Id
-	postMap["instanceName"] = instance.Name
+	s.addInstanceIdentity(postMap, instance)
 
 	values, err := json.Marshal(postMap)
 	if err != nil {

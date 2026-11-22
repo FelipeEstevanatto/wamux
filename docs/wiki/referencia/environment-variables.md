@@ -86,6 +86,7 @@ POSTGRES_USERS_DB=postgresql://user:pass@host:5432/wamux_users?sslmode=disable
 | `EVENT_IGNORE_GROUP` | `false` | Ignorar eventos de grupos |
 | `EVENT_IGNORE_STATUS` | `true` | Ignorar eventos de status/stories |
 | `WEBHOOK_URL` | - | URL para callbacks HTTP |
+| `WEBHOOK_INCLUDE_TOKEN` | `true` | Inclui o token da instância no payload de eventos. `false` remove o token de webhooks, RabbitMQ, NATS e WebSocket; `instanceId`/`instanceName` continuam |
 
 ---
 

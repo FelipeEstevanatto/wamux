@@ -1567,12 +1567,10 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 	}
 
 	postMap := map[string]interface{}{
-		"event":         "LoggedOut",
-		"data":          map[string]interface{}{"reason": "Logged out"},
-		"instanceToken": mycli.token,
-		"instanceId":    mycli.userID,
-		"instanceName":  cd.Instance.Name,
+		"event": "LoggedOut",
+		"data":  map[string]interface{}{"reason": "Logged out"},
 	}
+	mycli.addInstanceIdentity(postMap)
 	queueName := strings.ToLower(fmt.Sprintf("%s.%s", cd.Instance.Id, "LoggedOut"))
 
 	values, err := json.Marshal(postMap)
@@ -1749,10 +1747,8 @@ func (mycli *MyClient) handleQRCodes(codes []string) {
 					"count":    mycli.qrcodeCount,
 					"maxCount": mycli.config.QrcodeMaxCount,
 				},
-				"instanceToken": mycli.token,
-				"instanceId":    instanceID,
-				"instanceName":  mycli.Instance.Name,
 			}
+			mycli.addInstanceIdentity(postMap)
 			queueName := strings.ToLower(fmt.Sprintf("%s.%s", instanceID, "QRCode"))
 			if values, err := json.Marshal(postMap); err == nil {
 				go mycli.service.CallWebhook(mycli.Instance, queueName, values)
@@ -1806,12 +1802,10 @@ func (mycli *MyClient) teardownQR(reason string, forceLogout bool, mode killswit
 		data["forceLogout"] = forceLogout
 	}
 	postMap := map[string]interface{}{
-		"event":         "QRTimeout",
-		"data":          data,
-		"instanceToken": mycli.token,
-		"instanceId":    instanceID,
-		"instanceName":  mycli.Instance.Name,
+		"event": "QRTimeout",
+		"data":  data,
 	}
+	mycli.addInstanceIdentity(postMap)
 	queueName := strings.ToLower(fmt.Sprintf("%s.%s", instanceID, "QRTimeout"))
 	if values, err := json.Marshal(postMap); err == nil {
 		go mycli.service.CallWebhook(mycli.Instance, queueName, values)
@@ -3223,10 +3217,8 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 					"timestamp":  evt.Info.Timestamp.Unix(),
 					"extraData":  buttonClickData,
 				},
-				"instanceToken": mycli.token,
-				"instanceId":    mycli.userID,
-				"instanceName":  mycli.Instance.Name,
 			}
+			mycli.addInstanceIdentity(buttonClickMap)
 
 			buttonClickJSON, err := json.Marshal(buttonClickMap)
 			if err == nil {
@@ -3440,9 +3432,7 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 		dataMap["reason"] = evt.Reason.String()
 
 		// Enviar evento LoggedOut para webhook/RabbitMQ ANTES de matar o canal
-		postMap["instanceToken"] = mycli.Instance.Token
-		postMap["instanceId"] = mycli.userID
-		postMap["instanceName"] = mycli.Instance.Name
+		mycli.addInstanceIdentity(postMap)
 
 		values, err := json.Marshal(postMap)
 		if err != nil {
@@ -3737,9 +3727,7 @@ func (mycli *MyClient) processEvent(rawEvt interface{}) {
 	}
 
 	if doWebhook {
-		postMap["instanceToken"] = mycli.token
-		postMap["instanceId"] = mycli.userID
-		postMap["instanceName"] = mycli.Instance.Name
+		mycli.addInstanceIdentity(postMap)
 
 		values, err := json.Marshal(postMap)
 		if err != nil {
@@ -4013,11 +4001,13 @@ func (w *whatsmeowService) SendOperationalEvent(instance *instance_model.Instanc
 	}
 
 	payload := map[string]any{
-		"event":         event,
-		"instanceId":    instance.Id,
-		"instanceName":  instance.Name,
-		"instanceToken": instance.Token,
-		"data":          data,
+		"event":        event,
+		"instanceId":   instance.Id,
+		"instanceName": instance.Name,
+		"data":         data,
+	}
+	if w.config == nil || w.config.WebhookIncludeToken {
+		payload["instanceToken"] = instance.Token
 	}
 
 	values, err := json.Marshal(payload)
