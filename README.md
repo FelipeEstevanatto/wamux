@@ -171,6 +171,11 @@ Two credentials, both sent in the `apikey` header:
 
 - **Instances** — create, connect, pair (QR / pairing code), proxy, per-instance
   overview (profile picture, platform, contact/chat/message counts).
+- **Official WhatsApp Cloud API (WABA)** — opt-in second channel with encrypted
+  Meta credentials, BSUID/phone recipients, signed webhooks, phone registration,
+  text/media/templates/interactive messages and diagnostics. Enable with
+  `CLOUD_API_ENABLED=true`; see
+  [`docs/wiki/guias-api/api-cloud.md`](./docs/wiki/guias-api/api-cloud.md).
 - **Messaging** — text, media, location, contact, polls, stickers, buttons,
   lists, carousels, events and product cards; reactions, edits, deletes, presence.
 - **Events** — per-instance webhooks (with HMAC signing), RabbitMQ, NATS and a
@@ -200,7 +205,12 @@ The full endpoint list is in the
 | `POST` | `/instance/hmac` | instance | Configure webhook HMAC signing |
 | `POST` | `/instance/s3` | instance | Per-instance S3 media storage |
 | `POST` | `/send/*` | instance | Send text, media, albums, buttons, lists, carousels, events, products |
+| `POST` | `/send/template` | instance | Send an approved Cloud API template |
 | `GET` | `/send/operations` · `/send/operations/:id` | instance | Idempotent send state (pending / sent / failed) |
+| `GET/POST` | `/webhook/cloud` · `/webhook/cloud/:appId` | — | Meta Cloud API callback (signature verified) |
+| `GET/PUT` | `/cloud/credentials` | instance | Read (safe summary) or update encrypted Meta credentials |
+| `POST` | `/cloud/verify` · `/cloud/register` · `/cloud/read` | instance | Verify/subscribe, register the phone, mark read |
+| `GET` | `/cloud/diagnostics` · `/cloud/templates` | instance | Cloud health and cached templates |
 
 Full list: `GET /swagger/doc.json`.
 

@@ -261,3 +261,40 @@ MINIO_USE_SSL=false
 ---
 
 **Documentação WaMux v1.0**
+
+---
+
+## WhatsApp Cloud API (WABA)
+
+O canal oficial da Meta é opcional e desabilitado por padrão. O `DATA_ENCRYPTION_KEY`
+(ou a chave derivada de `GLOBAL_ENCRYPTION_KEY`/`GLOBAL_API_KEY`) é obrigatório
+para armazenar o token de acesso criptografado.
+
+| Variável | Padrão | Descrição |
+|----------|--------|-----------|
+| `CLOUD_API_ENABLED` | `false` | Habilita criação de instâncias e as rotas do Cloud API |
+| `CLOUD_API_GRAPH_BASE_URL` | `https://graph.facebook.com` | Base do Graph; use um servidor de teste apenas em desenvolvimento |
+| `CLOUD_API_GRAPH_VERSION` | `v27.0` | Versão do Graph; confirme a versão suportada no deploy |
+| `CLOUD_API_APP_ID` | vazio | App Meta inicial (seed de `cloud_apps`) |
+| `CLOUD_API_APP_SECRET` | vazio | App secret inicial; criptografado no banco |
+| `CLOUD_API_VERIFY_TOKEN` | vazio | Verify token inicial; o valor é salvo como hash |
+| `CLOUD_API_HTTP_TIMEOUT_SECONDS` | `30` | Timeout de requisições JSON |
+| `CLOUD_API_RESPONSE_HEADER_TIMEOUT_SECONDS` | `60` | Timeout para o primeiro header |
+| `CLOUD_API_MEDIA_TIMEOUT_SECONDS` | `120` | Timeout de transferência de mídia |
+| `CLOUD_API_MAX_WEBHOOK_BYTES` | `4194304` | Limite do corpo do webhook (a Meta documenta 3 MB) |
+| `CLOUD_API_MAX_RESPONSE_BYTES` | `10485760` | Limite de resposta JSON do Graph |
+| `CLOUD_API_MAX_RESPONSE_HEADER_BYTES` | `1048576` | Limite de headers de resposta |
+| `CLOUD_API_MAX_MEDIA_BYTES` | `104857600` | Limite de mídia de entrada |
+| `CLOUD_API_MEDIA_WORKERS` | `2` | Workers de download de mídia |
+| `CLOUD_API_WINDOW_HOURS` | `24` | Janela de atendimento |
+| `CLOUD_API_ENFORCE_WINDOW` | `true` | Bloqueia mensagens livres fora da janela |
+| `CLOUD_API_RPS` | `8` | Piso do limitador adaptativo |
+| `CLOUD_API_RETRY_MAX` | `3` | Tentativas para requisições idempotentes |
+
+> Envios `POST /messages` nunca são repetidos automaticamente. Um timeout é
+> reportado como resultado incerto; o chamador deve consultar a operação em vez
+> de reenviar às cegas.
+
+O webhook público é `GET/POST /webhook/cloud` (ou `/webhook/cloud/:appId` para
+múltiplos apps) e exige `X-Hub-Signature-256`. O callback precisa ser HTTPS e
+público; `localhost` não é acessível pela Meta.

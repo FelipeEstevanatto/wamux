@@ -263,6 +263,26 @@ Logs incluem:
 
 ---
 
+## WhatsApp Cloud API
+
+| Código WaMux | HTTP | Ação |
+|---|---:|---|
+| `unsupported_on_channel` | 422 | O recurso não existe no Cloud API |
+| `not_implemented_on_channel` | 501 | O Cloud API existe, mas o WaMux ainda não implementou |
+| `cloud_window_expired` | 422 | A janela de 24h fechou; envie um template aprovado |
+| `cloud_template_error` | 422 | Template ausente, rejeitado ou com parâmetros inválidos |
+| `cloud_phone_not_registered` | 424 | Registre o número com o PIN de seis dígitos |
+| `cloud_bsuid_unsupported` | 422 | Esse tipo de mensagem exige um número de telefone |
+| `cloud_recipient_not_allowed` | 422 | Adicione o destinatário à allowlist do número de teste |
+| `cloud_rate_limited` | 429 | Respeite `Retry-After`; o limitador adaptativo reduz a taxa |
+| `cloud_send_outcome_unknown` | 202 | O resultado é incerto; não reenvie às cegas |
+| `cloud_auth_failed` | 502 | Renove o access token da Meta |
+
+Envie `X-Hub-Signature-256` nos webhooks da Meta. O WaMux responde `401` para
+assinatura ausente/inválida e `413` para corpo acima do limite.
+
+---
+
 ## Recursos Adicionais
 
 - **[Debugging](../desenvolvimento/debugging.md)** - Guia completo de debugging

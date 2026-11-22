@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### 🚀 Features
+- **WhatsApp Cloud API (WABA) channel.** Instances can select
+  `WHATSAPP-BUSINESS` with encrypted Meta credentials, BSUID/phone identity,
+  signed webhooks, phone registration, text/media/template/interactive sends,
+  the 24-hour window, template/account events and diagnostics. Disabled by
+  default with `CLOUD_API_ENABLED=false`.
+- Cloud sends never auto-retry a `POST /messages` after an ambiguous timeout;
+  the operation is surfaced as `cloud_send_outcome_unknown`.
+
 ### 🔧 CI
 - The archive comparison's "S3/HMAC/health" feature list is allowlisted, so gitleaks no longer treats it as a generic API key.
 - A push to `main` that leaves `VERSION` on an already published release skips publish instead of failing.
