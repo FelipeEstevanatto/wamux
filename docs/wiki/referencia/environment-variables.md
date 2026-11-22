@@ -135,6 +135,8 @@ NATS_GLOBAL_EVENTS=messages.upsert,connection.update
 | `MINIO_BUCKET` | Nome do bucket |
 | `MINIO_USE_SSL` | Utilizar HTTPS |
 | `MINIO_REGION` | Região do bucket (AWS) |
+| `S3_PUBLIC_READ` | Concede leitura pública (`s3:GetObject`) no bucket global. Padrão `false`: as URLs são presignadas e expiram |
+| `INTEGRATIONS_ALLOW_PRIVATE` | Permite que webhooks, Typebot e S3 por instância alcancem endereços privados/loopback/metadata. Padrão `false`; habilite apenas para um n8n/MinIO interno |
 
 **Exemplo:**
 ```env

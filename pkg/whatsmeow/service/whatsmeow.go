@@ -58,6 +58,7 @@ import (
 	"github.com/felipeestevanatto/wamux/pkg/ownership"
 	"github.com/felipeestevanatto/wamux/pkg/passkey/ceremony"
 	poll_service "github.com/felipeestevanatto/wamux/pkg/poll/service"
+	"github.com/felipeestevanatto/wamux/pkg/ssrf"
 	storage_interfaces "github.com/felipeestevanatto/wamux/pkg/storage/interfaces"
 	minio_storage "github.com/felipeestevanatto/wamux/pkg/storage/minio"
 	"github.com/felipeestevanatto/wamux/pkg/utils"
@@ -4169,7 +4170,9 @@ func (w *whatsmeowService) MediaStorageFor(instance *instance_model.Instance) (s
 				UseSSL:           useSSL,
 				PathStyle:        instance.S3PathStyle,
 				PublicURL:        instance.S3PublicURL,
-				SkipBucketPolicy: instance.S3PublicURL != "",
+				PublicRead:       instance.S3PublicURL != "",
+				SkipBucketPolicy: false,
+				SSRFGuard:        ssrf.Integrations(),
 			})
 			if berr != nil {
 				w.loggerWrapper.GetLogger(instance.Id).LogError("[%s] Failed to build per-instance S3 storage: %v", instance.Id, berr)

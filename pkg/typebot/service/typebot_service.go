@@ -10,6 +10,7 @@ import (
 	instance_repository "github.com/felipeestevanatto/wamux/pkg/instance/repository"
 	logger_wrapper "github.com/felipeestevanatto/wamux/pkg/logger"
 	send_service "github.com/felipeestevanatto/wamux/pkg/sendMessage/service"
+	"github.com/felipeestevanatto/wamux/pkg/ssrf"
 	typebot_model "github.com/felipeestevanatto/wamux/pkg/typebot/model"
 	typebot_repository "github.com/felipeestevanatto/wamux/pkg/typebot/repository"
 )
@@ -51,7 +52,7 @@ func NewTypebotService(
 		sendService:       sendService,
 		config:            config,
 		loggerWrapper:     loggerWrapper,
-		httpClient:        &http.Client{Timeout: typebotHTTPTimeout},
+		httpClient:        ssrf.Integrations().Client(typebotHTTPTimeout),
 
 		selfJids: newSelfJidCache(instanceRepository),
 		buckets:  newBucketRegistry(config.TypebotSendRateLimit, config.TypebotSendRateBurst),

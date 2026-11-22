@@ -185,3 +185,26 @@ func TestConfiguredHonoursSSRFProtection(t *testing.T) {
 		t.Fatal("SSRF_PROTECTION=true must block loopback")
 	}
 }
+
+func TestIntegrationsRequireExplicitPrivateOptIn(t *testing.T) {
+	t.Setenv("INTEGRATIONS_ALLOW_PRIVATE", "")
+	for _, target := range []string{
+		"http://127.0.0.1/",
+		"http://10.0.0.1/",
+		"http://169.254.169.254/",
+		"http://100.64.0.1/",
+		"http://192.168.1.1/",
+	} {
+		if err := Integrations().ValidateURL(target); err == nil {
+			t.Errorf("Integrations accepted %s without the opt-in", target)
+		}
+	}
+	if err := Integrations().ValidateURL("http://93.184.216.34/"); err != nil {
+		t.Errorf("Integrations rejected a public IP: %v", err)
+	}
+
+	t.Setenv("INTEGRATIONS_ALLOW_PRIVATE", "true")
+	if err := Integrations().ValidateURL("http://127.0.0.1/"); err != nil {
+		t.Errorf("Integrations rejected loopback with the opt-in: %v", err)
+	}
+}

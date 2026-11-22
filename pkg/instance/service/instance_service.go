@@ -22,6 +22,7 @@ import (
 	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
 	instance_repository "github.com/felipeestevanatto/wamux/pkg/instance/repository"
 	logger_wrapper "github.com/felipeestevanatto/wamux/pkg/logger"
+	"github.com/felipeestevanatto/wamux/pkg/ssrf"
 	minio_storage "github.com/felipeestevanatto/wamux/pkg/storage/minio"
 	"github.com/felipeestevanatto/wamux/pkg/utils"
 	"github.com/felipeestevanatto/wamux/pkg/walimits"
@@ -1677,6 +1678,7 @@ func (i instances) TestS3Connection(instanceId string, data *S3ConfigStruct) (*S
 		Region:    region,
 		UseSSL:    useSSL,
 		PathStyle: data.PathStyle,
+		SSRFGuard: ssrf.Integrations(),
 	}); err != nil {
 		return nil, err
 	}

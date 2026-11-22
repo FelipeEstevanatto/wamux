@@ -14,8 +14,11 @@ const (
 	WA_DEBUG                   = "DEBUG_ENABLED"
 	// SSRF_PROTECTION, when true, refuses outbound fetches to private/loopback hosts.
 	SSRF_PROTECTION = "SSRF_PROTECTION"
-	LOGTYPE         = "LOG_TYPE"
-	WEBHOOKFILES    = "WEBHOOK_FILES"
+	// INTEGRATIONS_ALLOW_PRIVATE lets tenant-configured webhook/Typebot/S3
+	// destinations reach private addresses. Off by default.
+	INTEGRATIONS_ALLOW_PRIVATE = "INTEGRATIONS_ALLOW_PRIVATE"
+	LOGTYPE                    = "LOG_TYPE"
+	WEBHOOKFILES               = "WEBHOOK_FILES"
 	// WEBHOOK_BASE64_MAX_BYTES is the largest file embedded as base64 in an event.
 	// Larger files are streamed to storage and the event carries mediaUrl instead.
 	// 0 never embeds. Defaults to 5 MiB.
@@ -156,9 +159,6 @@ const (
 	// INSTANCE_IDLE_EVICT_MINUTES evicts a disconnected instance's runtime
 	// client after N minutes (0 = disabled). The DB row and session are kept.
 	INSTANCE_IDLE_EVICT_MINUTES = "INSTANCE_IDLE_EVICT_MINUTES"
-	// INTEGRATIONS_ALLOW_PRIVATE permits tenant-configured webhook/Typebot/S3
-	// endpoints to resolve to private addresses. Off by default.
-	INTEGRATIONS_ALLOW_PRIVATE = "INTEGRATIONS_ALLOW_PRIVATE"
 	// S3_PUBLIC_READ grants public s3:GetObject on the global bucket. Off by
 	// default: media URLs are presigned.
 	S3_PUBLIC_READ = "S3_PUBLIC_READ"

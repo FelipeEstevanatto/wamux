@@ -88,6 +88,17 @@ func Configured() *Guard {
 	return New(WithAllowPrivateNetworks(!enabled))
 }
 
+// Integrations returns the guard for tenant-configured integration endpoints
+// (webhook URLs, Typebot URLs, per-instance S3). Those destinations are chosen
+// by an instance token, so they are as untrusted as a caller-supplied URL.
+// Private destinations require an explicit opt-in:
+// INTEGRATIONS_ALLOW_PRIVATE=true. This is deliberately separate from
+// SSRF_PROTECTION, which keeps its historical meaning for operator-configured
+// services.
+func Integrations() *Guard {
+	return New(WithAllowPrivateNetworks(config_env.Bool(config_env.INTEGRATIONS_ALLOW_PRIVATE, false)))
+}
+
 // DefaultClient returns an *http.Client that enforces the process-wide guard.
 func DefaultClient(timeout time.Duration) *http.Client {
 	return Default().Client(timeout)

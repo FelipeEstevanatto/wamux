@@ -5,10 +5,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
+	"github.com/felipeestevanatto/wamux/pkg/ssrf"
 	storage_interfaces "github.com/felipeestevanatto/wamux/pkg/storage/interfaces"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -33,9 +35,24 @@ type Options struct {
 	UseSSL    bool
 	PathStyle bool
 	PublicURL string
-	// SkipBucketPolicy leaves the bucket policy untouched (useful for
-	// providers that reject SetBucketPolicy, or when using presigned URLs).
+	// PublicRead grants public s3:GetObject on the bucket. Off by default: media
+	// URLs are presigned and expire. Only enable it (or configure PublicURL) when
+	// a CDN or public bucket is intended.
+	PublicRead bool
+	// SkipBucketPolicy leaves the bucket policy untouched (useful for providers
+	// that reject SetBucketPolicy). PublicRead is ignored when this is set.
 	SkipBucketPolicy bool
+	// SSRFGuard, when set, validates the endpoint on every dial. Per-instance S3
+	// endpoints are tenant-configured, so the caller passes ssrf.Integrations()
+	// there. The global operator-configured MinIO leaves it nil.
+	SSRFGuard *ssrf.Guard
+}
+
+// appliesPublicPolicy reports whether the constructor may grant public read.
+// Presigned URLs are the default; a public policy is an explicit opt-in and can
+// still be suppressed with SkipBucketPolicy.
+func appliesPublicPolicy(o Options) bool {
+	return o.PublicRead && !o.SkipBucketPolicy
 }
 
 func setBucketPolicy(client *minio.Client, bucketName string) error {
@@ -80,11 +97,16 @@ func NewMinioMediaStorageWithOptions(o Options) (storage_interfaces.MediaStorage
 		return nil, fmt.Errorf("S3 endpoint and bucket are required")
 	}
 
+	var transport http.RoundTripper
+	if o.SSRFGuard != nil {
+		transport = o.SSRFGuard.Transport()
+	}
 	client, err := minio.New(o.Endpoint, &minio.Options{
 		Creds:        credentials.NewStaticV4(o.AccessKey, o.SecretKey, ""),
 		Secure:       o.UseSSL,
 		Region:       o.Region,
 		BucketLookup: bucketLookup(o.PathStyle),
+		Transport:    transport,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create MinIO client: %w", err)
@@ -96,7 +118,7 @@ func NewMinioMediaStorageWithOptions(o Options) (storage_interfaces.MediaStorage
 		fmt.Printf("Warning: could not confirm the bucket exists: %v\n", err)
 	}
 
-	if !o.SkipBucketPolicy {
+	if appliesPublicPolicy(o) {
 		if err := setBucketPolicy(client, o.Bucket); err != nil {
 			// Some providers (like Backblaze B2) don't support SetBucketPolicy.
 			// Files can still be served via presigned or public URLs.
@@ -176,11 +198,16 @@ func TestConnection(o Options) error {
 	if o.Endpoint == "" || o.Bucket == "" {
 		return fmt.Errorf("S3 endpoint and bucket are required")
 	}
+	var transport http.RoundTripper
+	if o.SSRFGuard != nil {
+		transport = o.SSRFGuard.Transport()
+	}
 	client, err := minio.New(o.Endpoint, &minio.Options{
 		Creds:        credentials.NewStaticV4(o.AccessKey, o.SecretKey, ""),
 		Secure:       o.UseSSL,
 		Region:       o.Region,
 		BucketLookup: bucketLookup(o.PathStyle),
+		Transport:    transport,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create MinIO client: %w", err)

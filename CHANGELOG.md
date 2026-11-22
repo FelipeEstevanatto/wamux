@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### 🔒 Security
+- **Tenant-configured endpoints are SSRF-guarded.** Webhook URLs, Typebot URLs
+  and per-instance S3 endpoints now use the DNS-pinned guard. Loopback, RFC1918,
+  link-local/metadata and CGNAT destinations require the explicit
+  `INTEGRATIONS_ALLOW_PRIVATE=true` opt-in.
+- **S3 is private by default.** The global bucket no longer receives a public
+  `s3:GetObject` policy unless `S3_PUBLIC_READ=true`; media URLs are presigned.
+  A per-instance `publicUrl` remains an explicit public-read signal.
+
 ### ✨ Features
 - **Instance-scoped WebSocket tickets.** `POST /ws/ticket` now accepts an
   instance token and signs the instance id into the ticket. `/ws` subscribes that

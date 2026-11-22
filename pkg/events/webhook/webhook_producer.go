@@ -15,6 +15,7 @@ import (
 
 	producer_interfaces "github.com/felipeestevanatto/wamux/pkg/events/interfaces"
 	logger_wrapper "github.com/felipeestevanatto/wamux/pkg/logger"
+	"github.com/felipeestevanatto/wamux/pkg/ssrf"
 	"github.com/felipeestevanatto/wamux/pkg/webhooksign"
 )
 
@@ -76,6 +77,7 @@ type endpoint struct {
 type webhookProducer struct {
 	url           string
 	client        *http.Client
+	guard         *ssrf.Guard
 	loggerWrapper *logger_wrapper.LoggerManager
 
 	mu        sync.Mutex
@@ -103,6 +105,17 @@ type webhookProducer struct {
 // Option configures a webhookProducer.
 type Option func(*webhookProducer)
 
+// WithGuard overrides the SSRF guard. The default is ssrf.Integrations(), which
+// blocks private destinations unless INTEGRATIONS_ALLOW_PRIVATE=true. Tests use
+// this to reach an httptest server on loopback.
+func WithGuard(g *ssrf.Guard) Option {
+	return func(p *webhookProducer) {
+		if g != nil {
+			p.guard = g
+		}
+	}
+}
+
 // WithDeadLetterQueue routes permanently failed deliveries to publisher under
 // queueName. It is normally wired only when RabbitMQ is configured.
 func WithDeadLetterQueue(publisher producer_interfaces.Producer, queueName string) Option {
@@ -117,23 +130,25 @@ func NewWebhookProducer(
 	loggerWrapper *logger_wrapper.LoggerManager,
 	opts ...Option,
 ) producer_interfaces.Producer {
-	transport := (http.DefaultTransport.(*http.Transport)).Clone()
-	// Webhooks are usually a handful of endpoints receiving many events, so keep
-	// connections warm instead of paying a TLS handshake per delivery.
-	transport.MaxIdleConnsPerHost = 16
-
+	guard := ssrf.Integrations()
 	p := &webhookProducer{
 		url:           url,
-		client:        &http.Client{Transport: transport, Timeout: deliveryTimeout},
+		guard:         guard,
 		endpoints:     make(map[string]*endpoint),
 		loggerWrapper: loggerWrapper,
 		maxAttempts:   maxDeliveryAttempts,
 		baseDelay:     retryBaseDelay,
 		maxDelay:      retryMaxDelay,
 	}
+	// Apply the guard option before building the client.
 	for _, opt := range opts {
 		opt(p)
 	}
+	transport := p.guard.Transport()
+	// Webhooks are usually a handful of endpoints receiving many events, so keep
+	// connections warm instead of paying a TLS handshake per delivery.
+	transport.MaxIdleConnsPerHost = 16
+	p.client = &http.Client{Transport: transport, Timeout: deliveryTimeout}
 	return p
 }
 

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -16,8 +17,20 @@ import (
 	"github.com/felipeestevanatto/wamux/pkg/config"
 	producer_interfaces "github.com/felipeestevanatto/wamux/pkg/events/interfaces"
 	logger_wrapper "github.com/felipeestevanatto/wamux/pkg/logger"
+	"github.com/felipeestevanatto/wamux/pkg/ssrf"
 	"github.com/felipeestevanatto/wamux/pkg/webhooksign"
 )
+
+func TestWebhookGuardBlocksPrivateByDefault(t *testing.T) {
+	t.Setenv("INTEGRATIONS_ALLOW_PRIVATE", "")
+	p := NewWebhookProducer("", nil).(*webhookProducer)
+	if !p.guard.BlockedIP(net.ParseIP("127.0.0.1")) {
+		t.Fatal("webhook guard allowed loopback without the opt-in")
+	}
+	if p.guard.BlockedIP(net.ParseIP("93.184.216.34")) {
+		t.Fatal("webhook guard blocked a public address")
+	}
+}
 
 // newTestProducer builds a producer with waits short enough to test a real
 // backoff without sleeping through it.
@@ -25,7 +38,7 @@ func newTestProducer(t *testing.T, globalURL string) *webhookProducer {
 	t.Helper()
 
 	logs := logger_wrapper.NewLoggerManager(&config.Config{LogDirectory: t.TempDir()})
-	p := NewWebhookProducer(globalURL, logs).(*webhookProducer)
+	p := NewWebhookProducer(globalURL, logs, WithGuard(ssrf.New(ssrf.WithAllowPrivateNetworks(true)))).(*webhookProducer)
 	p.maxAttempts = 3
 	p.baseDelay = time.Millisecond
 	p.maxDelay = 2 * time.Millisecond

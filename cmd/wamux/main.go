@@ -178,14 +178,15 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	var mediaStorage storage_interfaces.MediaStorage
 	var err error
 	if config.MinioEnabled {
-		mediaStorage, err = minio_storage.NewMinioMediaStorage(
-			config.MinioEndpoint,
-			config.MinioAccessKey,
-			config.MinioSecretKey,
-			config.MinioBucket,
-			config.MinioRegion,
-			config.MinioUseSSL,
-		)
+		mediaStorage, err = minio_storage.NewMinioMediaStorageWithOptions(minio_storage.Options{
+			Endpoint:   config.MinioEndpoint,
+			AccessKey:  config.MinioAccessKey,
+			SecretKey:  config.MinioSecretKey,
+			Bucket:     config.MinioBucket,
+			Region:     config.MinioRegion,
+			UseSSL:     config.MinioUseSSL,
+			PublicRead: config.S3PublicRead,
+		})
 		if err != nil {
 			log.Fatal(err)
 		}
