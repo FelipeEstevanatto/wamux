@@ -152,6 +152,9 @@ type WhatsmeowService interface {
 	// StopPersistence drains the message-persistence pool. Call it during
 	// shutdown so messages still in the batching window are written.
 	StopPersistence()
+	// Shutdown stops accepting events (disconnects clients), waits for in-flight
+	// handlers up to the context deadline, and releases ownership.
+	Shutdown(ctx context.Context)
 }
 
 // InstanceHealth is one instance's live connection state, for the health view.
@@ -307,6 +310,8 @@ type MyClient struct {
 	qrLifetime      time.Duration
 	passkeyCeremony *ceremony.Store
 	persistPool     *persistPool
+	// events counts in-flight event handlers so shutdown can wait for them.
+	events *eventTracker
 	// bgPool bounds the fire-and-forget event work (poll votes, limit refresh,
 	// auto-read, …) so a burst cannot spawn unbounded goroutines.
 	bgPool *bgpool.Pool
@@ -1446,6 +1451,7 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		qrcodeCount:        cd.QRCount,
 		passkeyCeremony:    w.passkeyCeremony,
 		persistPool:        w.persistPool,
+		events:             newEventTracker(),
 		bgPool:             w.bgPool,
 		mediaPool:          w.mediaPool,
 		largeMediaPool:     w.largeMediaPool,
@@ -2016,7 +2022,11 @@ func nonRetryableCloseCode(code int) bool {
 
 // myEventHandler is what whatsmeow calls for every event.
 func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
-	mycli.routeEvent(rawEvt, mycli.processEvent)
+	mycli.events.begin()
+	mycli.routeEvent(rawEvt, func(evt interface{}) {
+		defer mycli.events.end()
+		mycli.processEvent(evt)
+	})
 }
 
 // routeEvent keeps slow work off whatsmeow's dispatch. An instance's events are
@@ -4662,6 +4672,43 @@ func (w whatsmeowService) RuntimeStats() RuntimeStats {
 	}
 
 	return stats
+}
+
+// Shutdown stops new events and waits for the handlers already running.
+//
+// Disconnecting first is what stops the source: whatsmeow dispatches no further
+// events once the socket is closed. The tracker then drains the handlers that
+// were already inside processEvent (or queued on mediaPool). The deadline is
+// deliberate: a stuck handler must not keep the process alive forever; the
+// timeout is logged and shutdown continues.
+func (w whatsmeowService) Shutdown(ctx context.Context) {
+	clients := w.myClientPointer.Snapshot()
+
+	for id, c := range clients {
+		if c == nil || c.WAClient == nil {
+			continue
+		}
+		go func(id string, c *MyClient) {
+			c.WAClient.Disconnect()
+			w.loggerWrapper.GetLogger(id).LogInfo("[%s] Client disconnected for shutdown", id)
+		}(id, c)
+	}
+
+	for id, c := range clients {
+		if c == nil || c.events == nil {
+			continue
+		}
+		start := time.Now()
+		if err := c.events.drain(ctx); err != nil {
+			w.loggerWrapper.GetLogger(id).LogWarn("[%s] Event drain did not finish within the deadline (%s): %v", id, time.Since(start).Round(time.Millisecond), err)
+		} else {
+			w.loggerWrapper.GetLogger(id).LogInfo("[%s] Event handlers drained in %s", id, time.Since(start).Round(time.Millisecond))
+		}
+	}
+
+	for id := range clients {
+		w.releaseOwnership(id)
+	}
 }
 
 // StopPersistence flushes and stops the message-persistence pool.

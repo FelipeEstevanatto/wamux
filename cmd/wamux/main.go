@@ -749,7 +749,14 @@ func main() {
 	// Drain the message-persistence pool: messages still in the batching window
 	// (up to 20ms) would otherwise be lost on a clean shutdown. Event handlers
 	// may still submit while this runs; those fall back to an inline write.
+	//
+	// Stop the socket and wait for in-flight handlers first: a handler that is
+	// still downloading media or writing a history batch must finish before the
+	// persistence pool is closed, otherwise its work dies with the process.
 	if whatsmeowService != nil {
+		eventCtx, eventCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		whatsmeowService.Shutdown(eventCtx)
+		eventCancel()
 		whatsmeowService.StopPersistence()
 		applog.Logger.LogInfo("[SHUTDOWN] Persistence queue drained")
 	}
