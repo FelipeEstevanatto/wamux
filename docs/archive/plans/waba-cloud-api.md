@@ -1,6 +1,6 @@
 # WABA / WhatsApp Cloud API — implementation plan
 
-**Status:** proposed, Revision 2; no implementation started.
+**Status:** Phases 1–3 implemented on `develop`; Phases 4–5 deferred.
 **Target:** WaMux `1.1.0` (or the next minor release).
 **Companion design:** [`../spikes/waba-cloud-api.md`](../spikes/waba-cloud-api.md).
 **Baseline:** WaMux `1.0.1` + 29 commits, latest migration `0017`.
@@ -16,6 +16,13 @@ references, not dependencies; none is Meta-endorsed.
 > adaptive rate limiting and richer error handling are in scope. See
 > [Sources](#sources) for the official and reference material behind these
 > changes.
+
+**Implementation note:** the repository now has the channel boundary, encrypted
+credentials, signed webhook, BSUID identity, phone registration, text/media/
+template/interactive sends, the 24-hour window, account/template events, media
+jobs, diagnostics, manager onboarding and Cloud API tests. Embedded Signup
+(Phase 4), Groups/Calling/Flows (Phase 5) and the full metrics/account-event UI
+remain deferred.
 
 ---
 
