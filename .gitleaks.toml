@@ -19,3 +19,10 @@ paths = [
   '''^wiki/.*\.md$''',
   '''(^|/)\.env\.example$''',
 ]
+# generic-api-key treats a comma as an assignment. In
+# docs/archive/comparison-evolution-api-reforged.md the line break after
+# "API tester," makes the next line's feature list, "S3/HMAC/health", look
+# like a captured key. The phrase is prose, and it stays in that commit.
+regexes = [
+  '''^S3/HMAC/health$''',
+]

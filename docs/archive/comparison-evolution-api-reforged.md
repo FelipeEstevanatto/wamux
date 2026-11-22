@@ -216,8 +216,8 @@ journal.
 
 ### 4.6 Manager/docs/tests
 
-- In-repo React 19 manager: dashboard, instances, messages, events, API tester,
-  S3/HMAC/health settings.
+- In-repo React 19 manager: dashboard, instances, messages, events, and the API tester.
+- Storage, HMAC, and health settings.
 - 36 wiki pages plus the API reference, audit, spike and archive docs.
 - **881 tests**, 8 fuzzers, 75 benchmarks; race/shuffle, CodeQL, govulncheck,
   gitleaks, Trivy, image smoke.

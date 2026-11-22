@@ -1,9 +1,11 @@
 name: Release (main)
 
-# A push to `main` publishes the versioned image (tag = VERSION) and a sha tag,
-# and creates the matching GitHub Release as a **pre-release**. `latest` and the
-# `<major>.<minor>` tag are moved only by the manual "Promote release" workflow.
-# The VERSION file is the source of truth; bump it before merging to main.
+# A push to `main` whose VERSION is not already published builds the versioned
+# image (tag = VERSION) and a sha tag, and creates the matching GitHub Release
+# as a **pre-release**. A push that leaves VERSION on an already published
+# release does not publish again. `latest` and the `<major>.<minor>` tag are
+# moved only by the manual "Promote release" workflow. The VERSION file is the
+# source of truth; bump it before merging to main.
 on:
   push:
     branches:
@@ -39,18 +41,23 @@ jobs:
             echo "::error::VERSION '$version' is not MAJOR.MINOR.PATCH"
             exit 1
           fi
-          if git rev-parse "refs/tags/$version" >/dev/null 2>&1; then
+          if git rev-parse "refs/tags/$version" >/dev/null 2>&1 || gh release view "$version" >/dev/null 2>&1; then
+            tagged="$(git show "refs/tags/$version:VERSION" 2>/dev/null | tr -d '[:space:]' || true)"
+            if [[ "$tagged" == "$version" ]]; then
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo "version=$version" >> "$GITHUB_OUTPUT"
+              echo "::notice::VERSION $version is already published; not publishing again."
+              exit 0
+            fi
             echo "::error::tag $version already exists; bump VERSION before merging"
             exit 1
           fi
-          if gh release view "$version" >/dev/null 2>&1; then
-            echo "::error::release $version already exists; bump VERSION before merging"
-            exit 1
-          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Docker meta
         id: meta
+        if: steps.version.outputs.skip != 'true'
         uses: docker/metadata-action@v6
         with:
           images: ghcr.io/felipeestevanatto/wamux
@@ -65,9 +72,11 @@ jobs:
             org.opencontainers.image.vendor=FelipeEstevanatto (community fork, not Evolution Foundation)
 
       - name: Set up Docker Buildx
+        if: steps.version.outputs.skip != 'true'
         uses: docker/setup-buildx-action@v4
 
       - name: Log in to GitHub Container Registry
+        if: steps.version.outputs.skip != 'true'
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -76,6 +85,7 @@ jobs:
 
       - name: Build and push
         id: docker_build
+        if: steps.version.outputs.skip != 'true'
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -89,6 +99,7 @@ jobs:
             VERSION=${{ steps.version.outputs.version }}
 
       - name: Create pre-release
+        if: steps.version.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.version.outputs.version }}
@@ -103,4 +114,5 @@ jobs:
           fi
 
       - name: Image digest
+        if: steps.version.outputs.skip != 'true'
         run: echo "${{ steps.docker_build.outputs.digest }}"

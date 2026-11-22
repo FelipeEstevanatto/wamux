@@ -1,5 +1,11 @@
 # WaMux - Changelog
 
+## Unreleased
+
+### 🔧 CI
+- The archive comparison's "S3/HMAC/health" feature list is allowlisted, so gitleaks no longer treats it as a generic API key.
+- A push to `main` that leaves `VERSION` on an already published release skips publish instead of failing.
+
 ## 1.1.0 — health, retention, and private media
 
 Upgrade notes are in `.github/release-notes/1.1.0.md`.
