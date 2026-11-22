@@ -14,6 +14,10 @@ import type {
   CreateInstancePayload,
   ConnectionState,
   InstanceStatus,
+  S3Config,
+  HmacStatus,
+  HmacResponse,
+  InstanceHealth,
 } from '@/types/instance';
 import type { LogEntry } from '@/utils/instanceLogs';
 
@@ -361,6 +365,81 @@ export const reconnectProxy = async (instanceId: string): Promise<void> => {
 
 export const deleteProxy = async (instanceId: string): Promise<void> => {
   await apiClient.delete(`/instance/proxy/${instanceId}`);
+};
+
+// Per-instance S3. Uses the instance token: the endpoint is scoped by the
+// authenticated instance, not by the id in the path.
+export const getS3Config = async (instanceToken: string): Promise<S3Config> => {
+  const response = await apiClient.get<{ message: string; data: S3Config }>(
+    '/instance/s3',
+    { headers: { apikey: instanceToken } }
+  );
+  return response.data.data;
+};
+
+export const setS3Config = async (
+  instanceToken: string,
+  config: S3Config
+): Promise<S3Config> => {
+  const response = await apiClient.post<{ message: string; data: S3Config }>(
+    '/instance/s3',
+    config,
+    { headers: { apikey: instanceToken } }
+  );
+  return response.data.data;
+};
+
+export const testS3Config = async (
+  instanceToken: string,
+  config: S3Config
+): Promise<{ bucket: string; region?: string }> => {
+  const response = await apiClient.post<{ bucket: string; region?: string }>(
+    '/instance/s3/test',
+    config,
+    { headers: { apikey: instanceToken } }
+  );
+  return response.data;
+};
+
+export const deleteS3Config = async (instanceToken: string): Promise<void> => {
+  await apiClient.delete('/instance/s3', { headers: { apikey: instanceToken } });
+};
+
+// Per-instance webhook HMAC. The endpoint is scoped by the instance token.
+export const getHmacStatus = async (instanceToken: string): Promise<HmacStatus> => {
+  const response = await apiClient.get<{ message: string; data: HmacStatus }>(
+    '/instance/hmac',
+    { headers: { apikey: instanceToken } }
+  );
+  return response.data.data;
+};
+
+export const setHmacKey = async (
+  instanceToken: string,
+  hmacKey?: string,
+  generate = false
+): Promise<HmacResponse> => {
+  const response = await apiClient.post<{ message: string; data: HmacResponse }>(
+    '/instance/hmac',
+    { hmacKey, generate },
+    { headers: { apikey: instanceToken } }
+  );
+  return response.data.data;
+};
+
+export const deleteHmacKey = async (instanceToken: string): Promise<void> => {
+  await apiClient.delete('/instance/hmac', { headers: { apikey: instanceToken } });
+};
+
+/** Health verdict returned next to the status. */
+export const getInstanceHealth = async (
+  instanceToken: string
+): Promise<InstanceHealth | undefined> => {
+  const response = await apiClient.get<{
+    message: string;
+    data: { health?: InstanceHealth };
+  }>('/instance/status', { headers: { apikey: instanceToken } });
+  return response.data.data?.health;
 };
 
 /**

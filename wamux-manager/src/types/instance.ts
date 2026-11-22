@@ -139,3 +139,50 @@ export interface ProxyTestResult {
   protocol?: string;
   error?: string;
 }
+
+// Per-instance S3 config (GET/POST/DELETE /instance/s3). The secret is never
+// returned; `secretKeySet` says whether one is stored.
+export interface S3Config {
+  enabled: boolean;
+  endpoint: string;
+  region?: string;
+  bucket: string;
+  accessKey: string;
+  secretKey?: string;
+  secretKeySet?: boolean;
+  pathStyle?: boolean;
+  publicUrl?: string;
+  mediaDelivery?: 'base64' | 's3' | 'both';
+}
+
+// HMAC configuration status (GET/POST/DELETE /instance/hmac). The key itself is
+// returned only once, when generated.
+export interface HmacStatus {
+  configured: boolean;
+  globalFallback: boolean;
+}
+
+export interface HmacResponse extends HmacStatus {
+  generatedKey?: string;
+}
+
+// In-memory verdict from GET /instance/status (health) and inventory.
+export interface InstanceHealth {
+  instanceId: string;
+  connected: boolean;
+  reconnecting: boolean;
+  verdict: 'ok' | 'reconnecting' | 'looping' | 'stalled' | 'closed' | string;
+  reasons: string[];
+  observedSince?: string;
+  lastEventAt?: string;
+  lastInboundAt?: string;
+  lastAckAt?: string;
+  lastDisconnectAt?: string;
+  lastDisconnectReason?: string;
+  eventType?: string;
+  eventRunningAgeMs?: number;
+  reconnectOpens?: number;
+  reconnectDrops?: number;
+  conflicts?: number;
+  blockedReason?: string;
+}

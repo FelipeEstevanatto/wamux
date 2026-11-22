@@ -8,7 +8,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import * as instancesApi from "@/services/api/instances";
-import type { Instance, InstanceOverview, ProxyConfig, ProxyTestResult } from "@/types/instance";
+import type { Instance, InstanceOverview, ProxyConfig, ProxyTestResult, S3Config, HmacStatus, InstanceHealth } from "@/types/instance";
 import { deviceLabel } from "@/utils/device";
 import { cn } from "@/utils/cn";
 import { proxyFormDirty, sameMembers } from "@/utils/settingsDirty";
@@ -34,6 +34,18 @@ const advancedSchema = z.object({
 type WebhookFormData = z.infer<typeof webhookSchema>;
 type AdvancedFormData = z.infer<typeof advancedSchema>;
 
+const EMPTY_S3_CONFIG: S3Config = {
+  enabled: false,
+  endpoint: "",
+  region: "",
+  bucket: "",
+  accessKey: "",
+  secretKey: "",
+  pathStyle: false,
+  publicUrl: "",
+  mediaDelivery: "base64",
+};
+
 // Parse the events string ("MESSAGE,QRCODE,CONNECTION") into an array. Declared
 // outside the component so the parse is a pure function of the string.
 function parseEvents(events: string): string[] {
@@ -48,6 +60,8 @@ const SECTIONS = [
   { id: "webhooks", labelKey: "instanceSettings.nav.webhooks" },
   { id: "events", labelKey: "instanceSettings.nav.events" },
   { id: "proxy", labelKey: "instanceSettings.nav.proxy" },
+  { id: "storage", labelKey: "instanceSettings.nav.storage" },
+  { id: "security", labelKey: "instanceSettings.nav.security" },
   { id: "behavior", labelKey: "instanceSettings.nav.behavior" },
   { id: "danger", labelKey: "instanceSettings.nav.danger" },
 ] as const;
@@ -110,6 +124,15 @@ export default function InstanceSettings() {
   const [proxyTest, setProxyTest] = useState<ProxyTestResult | null>(null);
   const [proxyBusy, setProxyBusy] = useState<null | "save" | "test" | "reconnect" | "delete">(null);
 
+  // Per-instance S3 and webhook HMAC (instance-token routes).
+  const [s3Form, setS3Form] = useState<S3Config>(EMPTY_S3_CONFIG);
+  const [s3Busy, setS3Busy] = useState<null | "save" | "test" | "delete">(null);
+  const [hmac, setHmac] = useState<HmacStatus | null>(null);
+  const [hmacKey, setHmacKey] = useState("");
+  const [hmacGenerated, setHmacGenerated] = useState<string | null>(null);
+  const [hmacBusy, setHmacBusy] = useState<null | "save" | "generate" | "delete">(null);
+  const [health, setHealth] = useState<InstanceHealth | null>(null);
+
   // Phone pairing is a one-off connection action, not a persisted setting.
   const [pairPhone, setPairPhone] = useState("");
   const [pairingCode, setPairingCode] = useState<string | null>(null);
@@ -164,6 +187,20 @@ export default function InstanceSettings() {
             password: proxyData.password || "",
           });
         }
+
+        // Instance-token routes. Failures are non-fatal: the section still works.
+        instancesApi
+          .getS3Config(instanceData.apikey || "")
+          .then((config) => setS3Form({ ...EMPTY_S3_CONFIG, ...config, secretKey: "" }))
+          .catch(() => {});
+        instancesApi
+          .getHmacStatus(instanceData.apikey || "")
+          .then(setHmac)
+          .catch(() => {});
+        instancesApi
+          .getInstanceHealth(instanceData.apikey || "")
+          .then((h) => setHealth(h || null))
+          .catch(() => {});
       } catch (error) {
         console.error("Erro ao buscar instância:", error);
         toast.error(t('instanceSettings.toast.loadError'));
@@ -566,6 +603,97 @@ export default function InstanceSettings() {
       toast.error(proxyErrorMessage(e, t('instanceSettings.toast.proxyRemoveError')));
     } finally {
       setProxyBusy(null);
+    }
+  };
+
+  const handleSaveS3 = async () => {
+    if (!instance) return;
+    setS3Busy("save");
+    try {
+      const status = await instancesApi.setS3Config(instance.apikey || "", {
+        ...s3Form,
+        // Empty means "keep the stored secret" on the backend.
+        secretKey: s3Form.secretKey || undefined,
+      });
+      setS3Form((form) => ({ ...form, ...status, secretKey: "" }));
+      toast.success(t('instanceSettings.toast.s3Saved'));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('instanceSettings.toast.s3SaveError'));
+    } finally {
+      setS3Busy(null);
+    }
+  };
+
+  const handleTestS3 = async () => {
+    if (!instance) return;
+    setS3Busy("test");
+    try {
+      const result = await instancesApi.testS3Config(instance.apikey || "", s3Form);
+      toast.success(t('instanceSettings.toast.s3TestOk', { bucket: result.bucket }));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('instanceSettings.toast.s3TestError'));
+    } finally {
+      setS3Busy(null);
+    }
+  };
+
+  const handleDeleteS3 = async () => {
+    if (!instance) return;
+    setS3Busy("delete");
+    try {
+      await instancesApi.deleteS3Config(instance.apikey || "");
+      setS3Form(EMPTY_S3_CONFIG);
+      toast.success(t('instanceSettings.toast.s3Removed'));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('instanceSettings.toast.s3RemoveError'));
+    } finally {
+      setS3Busy(null);
+    }
+  };
+
+  const handleSaveHmac = async () => {
+    if (!instance) return;
+    setHmacBusy("save");
+    try {
+      const status = await instancesApi.setHmacKey(instance.apikey || "", hmacKey.trim());
+      setHmac(status);
+      setHmacKey("");
+      setHmacGenerated(null);
+      toast.success(t('instanceSettings.toast.hmacSaved'));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('instanceSettings.toast.hmacSaveError'));
+    } finally {
+      setHmacBusy(null);
+    }
+  };
+
+  const handleGenerateHmac = async () => {
+    if (!instance) return;
+    setHmacBusy("generate");
+    try {
+      const result = await instancesApi.setHmacKey(instance.apikey || "", undefined, true);
+      setHmac(result);
+      setHmacGenerated(result.generatedKey || null);
+      toast.success(t('instanceSettings.toast.hmacGenerated'));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('instanceSettings.toast.hmacSaveError'));
+    } finally {
+      setHmacBusy(null);
+    }
+  };
+
+  const handleDeleteHmac = async () => {
+    if (!instance) return;
+    setHmacBusy("delete");
+    try {
+      await instancesApi.deleteHmacKey(instance.apikey || "");
+      setHmac((s) => (s ? { ...s, configured: false } : s));
+      setHmacGenerated(null);
+      toast.success(t('instanceSettings.toast.hmacRemoved'));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('instanceSettings.toast.hmacRemoveError'));
+    } finally {
+      setHmacBusy(null);
     }
   };
 
@@ -1282,6 +1410,177 @@ export default function InstanceSettings() {
                   {proxyBusy === "save" ? t('instanceSettings.action.saving') : t('instanceSettings.proxy.save')}
                 </Button>
               </div>
+            </div>
+          </section>
+
+          {/* Per-instance S3 */}
+          <section id="storage" className={sectionClass(false)}>
+            <h2 className="mb-1 text-lg font-semibold text-foreground">
+              {t('instanceSettings.nav.storage')}
+            </h2>
+            <p className="mb-4 text-sm text-muted-foreground">
+              {t('instanceSettings.s3.description')}
+            </p>
+            <div className="space-y-4">
+              <label className="flex items-center gap-2 text-sm text-foreground">
+                <input
+                  type="checkbox"
+                  checked={s3Form.enabled}
+                  onChange={(e) => setS3Form({ ...s3Form, enabled: e.target.checked })}
+                />
+                {t('instanceSettings.s3.enabled')}
+              </label>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <label className="text-sm">
+                  <span className="font-medium">{t('instanceSettings.s3.endpoint')}</span>
+                  <input
+                    className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={s3Form.endpoint}
+                    onChange={(e) => setS3Form({ ...s3Form, endpoint: e.target.value })}
+                    placeholder="s3.amazonaws.com"
+                  />
+                </label>
+                <label className="text-sm">
+                  <span className="font-medium">{t('instanceSettings.s3.bucket')}</span>
+                  <input
+                    className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={s3Form.bucket}
+                    onChange={(e) => setS3Form({ ...s3Form, bucket: e.target.value })}
+                  />
+                </label>
+                <label className="text-sm">
+                  <span className="font-medium">{t('instanceSettings.s3.region')}</span>
+                  <input
+                    className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={s3Form.region || ""}
+                    onChange={(e) => setS3Form({ ...s3Form, region: e.target.value })}
+                  />
+                </label>
+                <label className="text-sm">
+                  <span className="font-medium">{t('instanceSettings.s3.accessKey')}</span>
+                  <input
+                    className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={s3Form.accessKey}
+                    onChange={(e) => setS3Form({ ...s3Form, accessKey: e.target.value })}
+                  />
+                </label>
+                <label className="text-sm">
+                  <span className="font-medium">{t('instanceSettings.s3.secretKey')}</span>
+                  <input
+                    type="password"
+                    className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={s3Form.secretKey || ""}
+                    onChange={(e) => setS3Form({ ...s3Form, secretKey: e.target.value })}
+                    placeholder={s3Form.secretKeySet ? t('instanceSettings.s3.secretStored') : ''}
+                  />
+                </label>
+                <label className="text-sm">
+                  <span className="font-medium">{t('instanceSettings.s3.delivery')}</span>
+                  <select
+                    className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={s3Form.mediaDelivery || "base64"}
+                    onChange={(e) =>
+                      setS3Form({ ...s3Form, mediaDelivery: e.target.value as S3Config['mediaDelivery'] })
+                    }
+                  >
+                    <option value="base64">base64</option>
+                    <option value="s3">s3</option>
+                    <option value="both">both</option>
+                  </select>
+                </label>
+                <label className="text-sm">
+                  <span className="font-medium">{t('instanceSettings.s3.publicUrl')}</span>
+                  <input
+                    className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={s3Form.publicUrl || ""}
+                    onChange={(e) => setS3Form({ ...s3Form, publicUrl: e.target.value })}
+                  />
+                </label>
+                <label className="flex items-center gap-2 self-end text-sm text-foreground">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(s3Form.pathStyle)}
+                    onChange={(e) => setS3Form({ ...s3Form, pathStyle: e.target.checked })}
+                  />
+                  {t('instanceSettings.s3.pathStyle')}
+                </label>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" onClick={handleTestS3} disabled={s3Busy !== null}>
+                  {s3Busy === "test" ? t('instanceSettings.s3.testing') : t('instanceSettings.s3.test')}
+                </Button>
+                <Button type="button" onClick={handleSaveS3} disabled={s3Busy !== null}>
+                  {s3Busy === "save" ? t('instanceSettings.action.saving') : t('instanceSettings.s3.save')}
+                </Button>
+                <Button type="button" variant="ghost" onClick={handleDeleteS3} disabled={s3Busy !== null}>
+                  {t('instanceSettings.s3.remove')}
+                </Button>
+              </div>
+            </div>
+          </section>
+
+          {/* Webhook HMAC + health */}
+          <section id="security" className={sectionClass(false)}>
+            <h2 className="mb-1 text-lg font-semibold text-foreground">
+              {t('instanceSettings.nav.security')}
+            </h2>
+            <p className="mb-4 text-sm text-muted-foreground">{t('instanceSettings.hmac.description')}</p>
+            <div className="space-y-4">
+              <p className="text-sm">
+                {t('instanceSettings.hmac.status')}:{' '}
+                <strong>
+                  {hmac?.configured
+                    ? t('instanceSettings.hmac.configured')
+                    : t('instanceSettings.hmac.notConfigured')}
+                </strong>
+                {hmac?.globalFallback ? ` (${t('instanceSettings.hmac.globalFallback')})` : ''}
+              </p>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <input
+                  type="password"
+                  className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={hmacKey}
+                  onChange={(e) => setHmacKey(e.target.value)}
+                  placeholder={t('instanceSettings.hmac.keyPlaceholder')}
+                />
+                <Button
+                  type="button"
+                  onClick={handleSaveHmac}
+                  disabled={hmacBusy !== null || hmacKey.trim().length < 32}
+                >
+                  {hmacBusy === "save" ? t('instanceSettings.action.saving') : t('instanceSettings.hmac.save')}
+                </Button>
+                <Button type="button" variant="outline" onClick={handleGenerateHmac} disabled={hmacBusy !== null}>
+                  {hmacBusy === "generate" ? t('instanceSettings.action.saving') : t('instanceSettings.hmac.generate')}
+                </Button>
+                <Button type="button" variant="ghost" onClick={handleDeleteHmac} disabled={hmacBusy !== null}>
+                  {t('instanceSettings.hmac.remove')}
+                </Button>
+              </div>
+              {hmacGenerated && (
+                <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+                  <p className="mb-1 font-medium">{t('instanceSettings.hmac.generatedOnce')}</p>
+                  <code className="break-all">{hmacGenerated}</code>
+                </div>
+              )}
+              {health && (
+                <div className="rounded-md border border-sidebar-border p-3 text-sm">
+                  <p className="font-medium">
+                    {t('instanceSettings.health.title')}: {health.verdict}
+                  </p>
+                  {health.reasons?.length > 0 && (
+                    <p className="text-muted-foreground">{health.reasons.join(', ')}</p>
+                  )}
+                  {health.lastEventAt && (
+                    <p className="text-muted-foreground">
+                      {t('instanceSettings.health.lastEvent')}: {health.lastEventAt}
+                    </p>
+                  )}
+                  {health.lastDisconnectReason && (
+                    <p className="text-muted-foreground">{health.lastDisconnectReason}</p>
+                  )}
+                </div>
+              )}
             </div>
           </section>
 
