@@ -4740,12 +4740,17 @@ func (w whatsmeowService) InstanceHealth(instanceId string) *InstanceHealth {
 		t, _ = w.health.Lookup(instanceId)
 	}
 	live := false
-	if c := w.clientPointer.Get(instanceId); c != nil {
-		live = c.IsConnected()
+	if w.clientPointer != nil {
+		if c := w.clientPointer.Get(instanceId); c != nil {
+			live = c.IsConnected()
+		}
 	}
 	reconnecting := reconnectPending(instanceId)
 	blockedReason := reconnectBlockedReason(instanceId)
 	blocked := blockedReason != ""
+	if blocked {
+		reconnecting = false
+	}
 	out := t.snapshot(instanceId, time.Now(), live, reconnecting, blocked, blockedReason)
 	return &out
 }

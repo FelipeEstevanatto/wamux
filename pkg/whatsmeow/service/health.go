@@ -55,7 +55,7 @@ func (h *instanceHealthTracker) markOpened(now time.Time) {
 	h.mu.Lock()
 	h.openedAt = now
 	h.connected = true
-	h.opens = append(h.opens, now)
+	h.opens = append(inWindow(h.opens, now), now)
 	h.mu.Unlock()
 }
 
@@ -69,7 +69,7 @@ func (h *instanceHealthTracker) markDisconnected(now time.Time, reason string) {
 	if reason != "" {
 		h.lastDisconnectReason = reason
 	}
-	h.drops = append(h.drops, now)
+	h.drops = append(inWindow(h.drops, now), now)
 	h.mu.Unlock()
 }
 
@@ -78,7 +78,7 @@ func (h *instanceHealthTracker) markConflict(now time.Time) {
 		return
 	}
 	h.mu.Lock()
-	h.conflicts = append(h.conflicts, now)
+	h.conflicts = append(inWindow(h.conflicts, now), now)
 	h.mu.Unlock()
 }
 
@@ -154,21 +154,24 @@ func inWindow(times []time.Time, now time.Time) []time.Time {
 // storedConnected is what the tracker last observed. A disagreement is a stall.
 func (h *instanceHealthTracker) snapshot(instanceID string, now time.Time, liveConnected, reconnecting, blocked bool, blockedReason string) InstanceHealth {
 	out := InstanceHealth{
-		InstanceID:    instanceID,
-		Connected:     liveConnected,
-		Reconnecting:  reconnecting,
-		ObservedSince: h.observedSince.Format(time.RFC3339),
+		InstanceID:   instanceID,
+		Connected:    liveConnected,
+		Reconnecting: reconnecting,
 	}
 	if h == nil {
 		out.Verdict = "closed"
 		out.Reasons = []string{"no_health_data"}
 		return out
 	}
+	out.ObservedSince = h.observedSince.Format(time.RFC3339)
 
 	h.mu.Lock()
-	opens := inWindow(append([]time.Time(nil), h.opens...), now)
-	drops := inWindow(append([]time.Time(nil), h.drops...), now)
-	conflicts := inWindow(append([]time.Time(nil), h.conflicts...), now)
+	h.opens = inWindow(h.opens, now)
+	h.drops = inWindow(h.drops, now)
+	h.conflicts = inWindow(h.conflicts, now)
+	opens := append([]time.Time(nil), h.opens...)
+	drops := append([]time.Time(nil), h.drops...)
+	conflicts := append([]time.Time(nil), h.conflicts...)
 	out.OpenedAt = formatTime(h.openedAt)
 	out.LastFrameAt = formatTime(h.lastFrame)
 	out.LastEventAt = formatTime(h.lastEvent)

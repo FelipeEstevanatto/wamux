@@ -89,6 +89,14 @@ func TestHealthVerdicts(t *testing.T) {
 			t.Fatalf("verdict = %q", got.Verdict)
 		}
 	})
+
+	t.Run("missing tracker", func(t *testing.T) {
+		var h *instanceHealthTracker
+		got := h.snapshot("i", now, false, false, false, "")
+		if got.Verdict != "closed" || len(got.Reasons) != 1 || got.Reasons[0] != "no_health_data" {
+			t.Fatalf("health = %+v", got)
+		}
+	})
 }
 
 func TestHealthWindowPrunesOldCounts(t *testing.T) {
