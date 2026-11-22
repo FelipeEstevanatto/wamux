@@ -10,6 +10,9 @@ import (
 type Instance struct {
 	Id   string `json:"id" gorm:"type:uuid;primaryKey"`
 	Name string `json:"name"`
+	// Integration selects the transport: WHATSAPP-BAILEYS (default) or
+	// WHATSAPP-BUSINESS (Meta Cloud API). Existing rows default to Baileys.
+	Integration string `json:"integration" gorm:"column:integration;not null;default:WHATSAPP-BAILEYS;index"`
 	// Token is the legacy plaintext credential. Uniqueness for rows that still
 	// carry one is enforced by the partial unique index created in migration
 	// 0006; encrypted rows leave it blank and authenticate via TokenHash, so a

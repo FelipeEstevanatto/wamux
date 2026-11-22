@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/chai2010/webp"
+	"github.com/felipeestevanatto/wamux/pkg/channel"
 	config "github.com/felipeestevanatto/wamux/pkg/config"
 	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
 	logger_wrapper "github.com/felipeestevanatto/wamux/pkg/logger"
@@ -64,6 +65,20 @@ type SendService interface {
 	SendStatusText(data *StatusTextStruct, instance *instance_model.Instance) (*MessageSendStruct, error)
 	SendStatusMediaUrl(data *StatusMediaStruct, instance *instance_model.Instance) (*MessageSendStruct, error)
 	SendStatusMediaFile(data *StatusMediaStruct, fileData []byte, instance *instance_model.Instance) (*MessageSendStruct, error)
+	SendTemplate(data *TemplateStruct, instance *instance_model.Instance) (*MessageSendStruct, error)
+}
+
+// TemplateStruct is the body for POST /send/template. The Cloud adapter sends
+// the components through to Graph; Baileys reports the operation as
+// unsupported_on_channel.
+type TemplateStruct struct {
+	Number        string `json:"number" example:"5511999999999"`
+	Recipient     string `json:"recipient,omitempty" example:"US.13491208655302741918"`
+	RecipientType string `json:"recipientType,omitempty" example:"individual"`
+	Name          string `json:"name" example:"order_update"`
+	Language      string `json:"language" example:"en_US"`
+	Components    any    `json:"components,omitempty"`
+	Id            string `json:"id,omitempty"`
 }
 
 type sendService struct {
@@ -234,6 +249,8 @@ func lookPathOrEmpty(name string) string {
 
 type TextStruct struct {
 	Number          string       `json:"number" example:"5511999999999"`
+	Recipient       string       `json:"recipient,omitempty" example:"US.13491208655302741918"`
+	RecipientType   string       `json:"recipientType,omitempty" example:"individual"`
 	Text            string       `json:"text" example:"Ola, tudo bem?"`
 	Id              string       `json:"id" example:"3EB0A1B2C3D4E5F6A7B8C9"`
 	Delay           int32        `json:"delay" example:"1200"`
@@ -245,22 +262,26 @@ type TextStruct struct {
 }
 
 type LinkStruct struct {
-	Number       string       `json:"number" example:"5511999999999"`
-	Text         string       `json:"text" example:"Confira nossa loja: https://example.com"`
-	Title        string       `json:"title" example:"Promocao da semana"`
-	Url          string       `json:"url" example:"https://example.com/promocao"`
-	Description  string       `json:"description" example:"Aproveite os descontos desta semana"`
-	ImgUrl       string       `json:"imgUrl" example:"https://example.com/preview.jpg"`
-	Id           string       `json:"id" example:"3EB0A1B2C3D4E5F6A7B8C9"`
-	Delay        int32        `json:"delay" example:"1200"`
-	MentionedJID []string     `json:"mentionedJid" example:"5511999999999@s.whatsapp.net"`
-	MentionAll   bool         `json:"mentionAll" example:"false"`
-	FormatJid    *bool        `json:"formatJid,omitempty" example:"true"`
-	Quoted       QuotedStruct `json:"quoted"`
+	Number        string       `json:"number" example:"5511999999999"`
+	Recipient     string       `json:"recipient,omitempty" example:"US.13491208655302741918"`
+	RecipientType string       `json:"recipientType,omitempty" example:"individual"`
+	Text          string       `json:"text" example:"Confira nossa loja: https://example.com"`
+	Title         string       `json:"title" example:"Promocao da semana"`
+	Url           string       `json:"url" example:"https://example.com/promocao"`
+	Description   string       `json:"description" example:"Aproveite os descontos desta semana"`
+	ImgUrl        string       `json:"imgUrl" example:"https://example.com/preview.jpg"`
+	Id            string       `json:"id" example:"3EB0A1B2C3D4E5F6A7B8C9"`
+	Delay         int32        `json:"delay" example:"1200"`
+	MentionedJID  []string     `json:"mentionedJid" example:"5511999999999@s.whatsapp.net"`
+	MentionAll    bool         `json:"mentionAll" example:"false"`
+	FormatJid     *bool        `json:"formatJid,omitempty" example:"true"`
+	Quoted        QuotedStruct `json:"quoted"`
 }
 
 type MediaStruct struct {
 	Number          string       `json:"number" example:"5511999999999"`
+	Recipient       string       `json:"recipient,omitempty" example:"US.13491208655302741918"`
+	RecipientType   string       `json:"recipientType,omitempty" example:"individual"`
 	Url             string       `json:"url" example:"https://example.com/imagem.jpg"`
 	Type            string       `json:"type" example:"image"`
 	Caption         string       `json:"caption" example:"Veja esta foto"`
@@ -309,28 +330,32 @@ type StickerStruct struct {
 }
 
 type LocationStruct struct {
-	Number       string       `json:"number" example:"5511999999999"`
-	Id           string       `json:"id" example:"3EB0A1B2C3D4E5F6A7B8C9"`
-	Name         string       `json:"name" example:"Escritorio Central"`
-	Latitude     float64      `json:"latitude" example:"-16.6869"`
-	Longitude    float64      `json:"longitude" example:"-49.2648"`
-	Address      string       `json:"address" example:"Av. Paulista, 1000 - Sao Paulo"`
-	Delay        int32        `json:"delay" example:"1200"`
-	MentionedJID []string     `json:"mentionedJid" example:"5511999999999@s.whatsapp.net"`
-	MentionAll   bool         `json:"mentionAll" example:"false"`
-	FormatJid    *bool        `json:"formatJid,omitempty" example:"true"`
-	Quoted       QuotedStruct `json:"quoted"`
+	Number        string       `json:"number" example:"5511999999999"`
+	Recipient     string       `json:"recipient,omitempty" example:"US.13491208655302741918"`
+	RecipientType string       `json:"recipientType,omitempty" example:"individual"`
+	Id            string       `json:"id" example:"3EB0A1B2C3D4E5F6A7B8C9"`
+	Name          string       `json:"name" example:"Escritorio Central"`
+	Latitude      float64      `json:"latitude" example:"-16.6869"`
+	Longitude     float64      `json:"longitude" example:"-49.2648"`
+	Address       string       `json:"address" example:"Av. Paulista, 1000 - Sao Paulo"`
+	Delay         int32        `json:"delay" example:"1200"`
+	MentionedJID  []string     `json:"mentionedJid" example:"5511999999999@s.whatsapp.net"`
+	MentionAll    bool         `json:"mentionAll" example:"false"`
+	FormatJid     *bool        `json:"formatJid,omitempty" example:"true"`
+	Quoted        QuotedStruct `json:"quoted"`
 }
 
 type ContactStruct struct {
-	Number       string            `json:"number" example:"5511999999999"`
-	Id           string            `json:"id" example:"3EB0A1B2C3D4E5F6A7B8C9"`
-	Vcard        utils.VCardStruct `json:"vcard"`
-	Delay        int32             `json:"delay" example:"1200"`
-	MentionedJID []string          `json:"mentionedJid" example:"5511999999999@s.whatsapp.net"`
-	MentionAll   bool              `json:"mentionAll" example:"false"`
-	FormatJid    *bool             `json:"formatJid,omitempty" example:"true"`
-	Quoted       QuotedStruct      `json:"quoted"`
+	Number        string            `json:"number" example:"5511999999999"`
+	Recipient     string            `json:"recipient,omitempty" example:"US.13491208655302741918"`
+	RecipientType string            `json:"recipientType,omitempty" example:"individual"`
+	Id            string            `json:"id" example:"3EB0A1B2C3D4E5F6A7B8C9"`
+	Vcard         utils.VCardStruct `json:"vcard"`
+	Delay         int32             `json:"delay" example:"1200"`
+	MentionedJID  []string          `json:"mentionedJid" example:"5511999999999@s.whatsapp.net"`
+	MentionAll    bool              `json:"mentionAll" example:"false"`
+	FormatJid     *bool             `json:"formatJid,omitempty" example:"true"`
+	Quoted        QuotedStruct      `json:"quoted"`
 }
 
 // Button represents a single interactive button for /send/button.
@@ -375,7 +400,9 @@ type Button struct {
 //   - safe combinations: only-reply (up to 3) OR grouped CTAs (copy + url + call).
 type ButtonStruct struct {
 	// Destination phone number.
-	Number string `json:"number" example:"5582900000001"`
+	Number        string `json:"number" example:"5582900000001"`
+	Recipient     string `json:"recipient,omitempty" example:"US.13491208655302741918"`
+	RecipientType string `json:"recipientType,omitempty" example:"individual"`
 	// Optional WhatsApp message id. Idempotency-Key fills this so a retry is the same message.
 	Id string `json:"id,omitempty" example:"3EB0A1B2C3D4E5F6A7B8C9"`
 	// Header title (required).
@@ -425,7 +452,9 @@ type Section struct {
 // Renders as a single-select menu (legacy ListMessage format — compatible with iOS, Android and WhatsApp Web).
 type ListStruct struct {
 	// Destination phone number.
-	Number string `json:"number" example:"5582900000001"`
+	Number        string `json:"number" example:"5582900000001"`
+	Recipient     string `json:"recipient,omitempty" example:"US.13491208655302741918"`
+	RecipientType string `json:"recipientType,omitempty" example:"individual"`
 	// Optional WhatsApp message id. Idempotency-Key fills this so a retry is the same message.
 	Id string `json:"id,omitempty" example:"3EB0A1B2C3D4E5F6A7B8C9"`
 	// Header title (required).
@@ -555,6 +584,17 @@ type MessageSendStruct struct {
 	MediaFile string `json:"-"`
 	// MediaMimetype is the stored attachment's content type. Not serialized.
 	MediaMimetype string `json:"-"`
+	// Channel is additive: "baileys" or "cloud".
+	Channel string `json:"channel,omitempty"`
+	// Cloud carries the Graph message id and BSUID/phone actually used.
+	Cloud *CloudSendInfo `json:"cloud,omitempty"`
+}
+
+// CloudSendInfo is the non-secret Cloud-specific send result.
+type CloudSendInfo struct {
+	WAMID     string `json:"wamid,omitempty"`
+	Recipient string `json:"recipient,omitempty"`
+	WAID      string `json:"waId,omitempty"`
 }
 
 func (s *sendService) ensureClientConnected(instanceId string) (*whatsmeow.Client, error) {
@@ -3801,4 +3841,14 @@ func detectMessageMimetype(msg *waE2E.Message) string {
 		return msg.GetStickerMessage().GetMimetype()
 	}
 	return ""
+}
+
+// SendTemplate is only implemented by the Cloud channel. The Baileys adapter
+// returns a typed unsupported error so handlers can map it consistently.
+func (s *sendService) SendTemplate(_ *TemplateStruct, instance *instance_model.Instance) (*MessageSendStruct, error) {
+	kind := channel.KindWhatsAppWeb
+	if instance != nil && instance.Integration == string(channel.KindCloud) {
+		kind = channel.KindCloud
+	}
+	return nil, &channel.UnsupportedError{Channel: kind, Op: "send/template"}
 }

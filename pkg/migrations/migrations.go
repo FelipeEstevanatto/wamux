@@ -390,6 +390,370 @@ var steps = []migration{
 			`CREATE INDEX IF NOT EXISTS idx_messages_instance_ts ON messages (instance_id, "timestamp" DESC)`,
 		},
 	},
+	{
+		Name: "0018_instances_integration",
+		Postgres: []string{
+			`ALTER TABLE instances ADD COLUMN IF NOT EXISTS integration TEXT NOT NULL DEFAULT 'WHATSAPP-BAILEYS'`,
+			`UPDATE instances SET integration = 'WHATSAPP-BAILEYS' WHERE integration IS NULL OR integration = ''`,
+			`CREATE INDEX IF NOT EXISTS idx_instances_integration ON instances (integration)`,
+		},
+		SQLite: []string{
+			`CREATE INDEX IF NOT EXISTS idx_instances_integration ON instances (integration)`,
+		},
+	},
+	{
+		Name: "0019_cloud_apps",
+		Postgres: []string{
+			`CREATE TABLE IF NOT EXISTS cloud_apps (
+				app_id TEXT PRIMARY KEY,
+				app_secret_enc TEXT NOT NULL,
+				verify_token_hash TEXT NOT NULL,
+				graph_version TEXT NOT NULL DEFAULT 'v27.0',
+				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			)`,
+			`CREATE UNIQUE INDEX IF NOT EXISTS idx_cloud_apps_verify_token ON cloud_apps (verify_token_hash)`,
+		},
+		SQLite: []string{
+			`CREATE TABLE IF NOT EXISTS cloud_apps (
+				app_id TEXT PRIMARY KEY,
+				app_secret_enc TEXT NOT NULL,
+				verify_token_hash TEXT NOT NULL,
+				graph_version TEXT NOT NULL DEFAULT 'v27.0',
+				created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+			)`,
+			`CREATE UNIQUE INDEX IF NOT EXISTS idx_cloud_apps_verify_token ON cloud_apps (verify_token_hash)`,
+		},
+	},
+	{
+		Name: "0020_cloud_api_credentials",
+		Postgres: []string{
+			`CREATE TABLE IF NOT EXISTS cloud_api_credentials (
+				instance_id UUID PRIMARY KEY REFERENCES instances(id) ON DELETE CASCADE,
+				app_id TEXT NOT NULL REFERENCES cloud_apps(app_id),
+				waba_id TEXT NOT NULL,
+				phone_number_id TEXT NOT NULL,
+				business_id TEXT,
+				display_phone_number TEXT,
+				verified_name TEXT,
+				access_token_enc TEXT NOT NULL,
+				token_expires_at TIMESTAMPTZ,
+				last_verified_at TIMESTAMPTZ,
+				last_verify_error TEXT,
+				registered BOOLEAN NOT NULL DEFAULT FALSE,
+				registered_at TIMESTAMPTZ,
+				registration_status TEXT,
+				last_registration_error TEXT,
+				quality_rating TEXT,
+				messaging_limit TEXT,
+				enforce_window BOOLEAN NOT NULL DEFAULT TRUE,
+				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			)`,
+			`CREATE UNIQUE INDEX IF NOT EXISTS idx_cloud_credentials_phone ON cloud_api_credentials (phone_number_id)`,
+			`CREATE INDEX IF NOT EXISTS idx_cloud_credentials_waba ON cloud_api_credentials (waba_id)`,
+		},
+		SQLite: []string{
+			`CREATE TABLE IF NOT EXISTS cloud_api_credentials (
+				instance_id TEXT PRIMARY KEY,
+				app_id TEXT NOT NULL,
+				waba_id TEXT NOT NULL,
+				phone_number_id TEXT NOT NULL,
+				business_id TEXT,
+				display_phone_number TEXT,
+				verified_name TEXT,
+				access_token_enc TEXT NOT NULL,
+				token_expires_at TIMESTAMP,
+				last_verified_at TIMESTAMP,
+				last_verify_error TEXT,
+				registered INTEGER NOT NULL DEFAULT 0,
+				registered_at TIMESTAMP,
+				registration_status TEXT,
+				last_registration_error TEXT,
+				quality_rating TEXT,
+				messaging_limit TEXT,
+				enforce_window INTEGER NOT NULL DEFAULT 1,
+				created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+			)`,
+			`CREATE UNIQUE INDEX IF NOT EXISTS idx_cloud_credentials_phone ON cloud_api_credentials (phone_number_id)`,
+			`CREATE INDEX IF NOT EXISTS idx_cloud_credentials_waba ON cloud_api_credentials (waba_id)`,
+		},
+	},
+	{
+		Name: "0021_cloud_contacts",
+		Postgres: []string{
+			`CREATE TABLE IF NOT EXISTS cloud_contacts (
+				instance_id UUID NOT NULL REFERENCES instances(id) ON DELETE CASCADE,
+				contact_id TEXT NOT NULL,
+				bsuid TEXT,
+				parent_bsuid TEXT,
+				wa_id TEXT,
+				username TEXT,
+				display_name TEXT,
+				first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				PRIMARY KEY (instance_id, contact_id)
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_cloud_contacts_bsuid ON cloud_contacts (instance_id, bsuid)`,
+			`CREATE INDEX IF NOT EXISTS idx_cloud_contacts_wa_id ON cloud_contacts (instance_id, wa_id)`,
+		},
+		SQLite: []string{
+			`CREATE TABLE IF NOT EXISTS cloud_contacts (
+				instance_id TEXT NOT NULL,
+				contact_id TEXT NOT NULL,
+				bsuid TEXT,
+				parent_bsuid TEXT,
+				wa_id TEXT,
+				username TEXT,
+				display_name TEXT,
+				first_seen_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				last_seen_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				PRIMARY KEY (instance_id, contact_id)
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_cloud_contacts_bsuid ON cloud_contacts (instance_id, bsuid)`,
+			`CREATE INDEX IF NOT EXISTS idx_cloud_contacts_wa_id ON cloud_contacts (instance_id, wa_id)`,
+		},
+	},
+	{
+		Name: "0022_cloud_templates",
+		Postgres: []string{
+			`CREATE TABLE IF NOT EXISTS cloud_templates (
+				id UUID PRIMARY KEY,
+				instance_id UUID NOT NULL REFERENCES instances(id) ON DELETE CASCADE,
+				template_id TEXT,
+				name TEXT NOT NULL,
+				language TEXT NOT NULL,
+				category TEXT,
+				status TEXT,
+				components JSONB NOT NULL DEFAULT '[]'::jsonb,
+				rejected_reason TEXT,
+				quality_score TEXT,
+				last_synced_at TIMESTAMPTZ,
+				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				UNIQUE (instance_id, name, language)
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_cloud_templates_instance ON cloud_templates (instance_id, status)`,
+		},
+		SQLite: []string{
+			`CREATE TABLE IF NOT EXISTS cloud_templates (
+				id TEXT PRIMARY KEY,
+				instance_id TEXT NOT NULL,
+				template_id TEXT,
+				name TEXT NOT NULL,
+				language TEXT NOT NULL,
+				category TEXT,
+				status TEXT,
+				components TEXT NOT NULL DEFAULT '[]',
+				rejected_reason TEXT,
+				quality_score TEXT,
+				last_synced_at TIMESTAMP,
+				created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				UNIQUE (instance_id, name, language)
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_cloud_templates_instance ON cloud_templates (instance_id, status)`,
+		},
+	},
+	{
+		Name: "0023_cloud_chat_windows",
+		Postgres: []string{
+			`CREATE TABLE IF NOT EXISTS cloud_chat_windows (
+				instance_id UUID NOT NULL REFERENCES instances(id) ON DELETE CASCADE,
+				contact_id TEXT NOT NULL,
+				chat_jid TEXT,
+				last_inbound_at TIMESTAMPTZ NOT NULL,
+				expires_at TIMESTAMPTZ NOT NULL,
+				last_message_id TEXT,
+				PRIMARY KEY (instance_id, contact_id)
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_cloud_windows_expiry ON cloud_chat_windows (expires_at)`,
+		},
+		SQLite: []string{
+			`CREATE TABLE IF NOT EXISTS cloud_chat_windows (
+				instance_id TEXT NOT NULL,
+				contact_id TEXT NOT NULL,
+				chat_jid TEXT,
+				last_inbound_at TIMESTAMP NOT NULL,
+				expires_at TIMESTAMP NOT NULL,
+				last_message_id TEXT,
+				PRIMARY KEY (instance_id, contact_id)
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_cloud_windows_expiry ON cloud_chat_windows (expires_at)`,
+		},
+	},
+	{
+		Name: "0024_cloud_webhook_events",
+		Postgres: []string{
+			`CREATE TABLE IF NOT EXISTS cloud_webhook_events (
+				event_key TEXT PRIMARY KEY,
+				instance_id UUID,
+				event_type TEXT NOT NULL,
+				received_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				processed_at TIMESTAMPTZ,
+				attempts INTEGER NOT NULL DEFAULT 0,
+				last_error TEXT
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_cloud_webhook_events_pending ON cloud_webhook_events (processed_at, received_at)`,
+		},
+		SQLite: []string{
+			`CREATE TABLE IF NOT EXISTS cloud_webhook_events (
+				event_key TEXT PRIMARY KEY,
+				instance_id TEXT,
+				event_type TEXT NOT NULL,
+				received_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				processed_at TIMESTAMP,
+				attempts INTEGER NOT NULL DEFAULT 0,
+				last_error TEXT
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_cloud_webhook_events_pending ON cloud_webhook_events (processed_at, received_at)`,
+		},
+	},
+	{
+		Name: "0025_cloud_media_jobs",
+		Postgres: []string{
+			`CREATE TABLE IF NOT EXISTS cloud_media_jobs (
+				id UUID PRIMARY KEY,
+				instance_id UUID NOT NULL REFERENCES instances(id) ON DELETE CASCADE,
+				message_id TEXT NOT NULL,
+				media_id TEXT NOT NULL,
+				mime_type TEXT,
+				filename TEXT,
+				declared_size BIGINT,
+				status TEXT NOT NULL DEFAULT 'pending',
+				attempts INTEGER NOT NULL DEFAULT 0,
+				next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				last_error TEXT,
+				completed_at TIMESTAMPTZ,
+				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				UNIQUE (instance_id, message_id)
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_cloud_media_jobs_ready ON cloud_media_jobs (status, next_attempt_at)`,
+		},
+		SQLite: []string{
+			`CREATE TABLE IF NOT EXISTS cloud_media_jobs (
+				id TEXT PRIMARY KEY,
+				instance_id TEXT NOT NULL,
+				message_id TEXT NOT NULL,
+				media_id TEXT NOT NULL,
+				mime_type TEXT,
+				filename TEXT,
+				declared_size INTEGER,
+				status TEXT NOT NULL DEFAULT 'pending',
+				attempts INTEGER NOT NULL DEFAULT 0,
+				next_attempt_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				last_error TEXT,
+				completed_at TIMESTAMP,
+				created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				UNIQUE (instance_id, message_id)
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_cloud_media_jobs_ready ON cloud_media_jobs (status, next_attempt_at)`,
+		},
+	},
+	{
+		Name: "0026_messages_cloud_identity",
+		Postgres: []string{
+			`ALTER TABLE messages ADD COLUMN IF NOT EXISTS channel TEXT NOT NULL DEFAULT 'baileys'`,
+			`ALTER TABLE messages ADD COLUMN IF NOT EXISTS contact_id TEXT`,
+			`ALTER TABLE messages ADD COLUMN IF NOT EXISTS sender_user_id TEXT`,
+			`ALTER TABLE messages ADD COLUMN IF NOT EXISTS recipient_user_id TEXT`,
+			`CREATE INDEX IF NOT EXISTS idx_messages_instance_channel ON messages (instance_id, channel)`,
+			`CREATE INDEX IF NOT EXISTS idx_messages_instance_contact ON messages (instance_id, contact_id, "timestamp" DESC)`,
+		},
+		SQLite: []string{
+			`CREATE INDEX IF NOT EXISTS idx_messages_instance_channel ON messages (instance_id, channel)`,
+			`CREATE INDEX IF NOT EXISTS idx_messages_instance_contact ON messages (instance_id, contact_id, "timestamp" DESC)`,
+		},
+	},
+	{
+		Name: "0027_cloud_status_events",
+		Postgres: []string{
+			`CREATE TABLE IF NOT EXISTS cloud_status_events (
+				id UUID PRIMARY KEY,
+				instance_id UUID NOT NULL REFERENCES instances(id) ON DELETE CASCADE,
+				message_id TEXT NOT NULL,
+				status TEXT NOT NULL,
+				recipient_user_id TEXT,
+				recipient_id TEXT,
+				error_code TEXT,
+				error_title TEXT,
+				error_message TEXT,
+				occurred_at TIMESTAMPTZ NOT NULL,
+				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				UNIQUE (instance_id, message_id, status, occurred_at)
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_cloud_status_message ON cloud_status_events (instance_id, message_id, occurred_at DESC)`,
+		},
+		SQLite: []string{
+			`CREATE TABLE IF NOT EXISTS cloud_status_events (
+				id TEXT PRIMARY KEY,
+				instance_id TEXT NOT NULL,
+				message_id TEXT NOT NULL,
+				status TEXT NOT NULL,
+				recipient_user_id TEXT,
+				recipient_id TEXT,
+				error_code TEXT,
+				error_title TEXT,
+				error_message TEXT,
+				occurred_at TIMESTAMP NOT NULL,
+				created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				UNIQUE (instance_id, message_id, status, occurred_at)
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_cloud_status_message ON cloud_status_events (instance_id, message_id, occurred_at DESC)`,
+		},
+	},
+	{
+		Name: "0028_cloud_account_events",
+		Postgres: []string{
+			`CREATE TABLE IF NOT EXISTS cloud_account_events (
+				id UUID PRIMARY KEY,
+				instance_id UUID NOT NULL REFERENCES instances(id) ON DELETE CASCADE,
+				field TEXT NOT NULL,
+				event_type TEXT,
+				payload JSONB NOT NULL,
+				received_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_cloud_account_events_instance ON cloud_account_events (instance_id, received_at DESC)`,
+		},
+		SQLite: []string{
+			`CREATE TABLE IF NOT EXISTS cloud_account_events (
+				id TEXT PRIMARY KEY,
+				instance_id TEXT NOT NULL,
+				field TEXT NOT NULL,
+				event_type TEXT,
+				payload TEXT NOT NULL,
+				received_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_cloud_account_events_instance ON cloud_account_events (instance_id, received_at DESC)`,
+		},
+	},
+	{
+		Name: "0029_cloud_user_preferences",
+		Postgres: []string{
+			`CREATE TABLE IF NOT EXISTS cloud_user_preferences (
+				instance_id UUID NOT NULL REFERENCES instances(id) ON DELETE CASCADE,
+				contact_id TEXT NOT NULL,
+				marketing_opt_out BOOLEAN NOT NULL DEFAULT FALSE,
+				source_event_at TIMESTAMPTZ,
+				updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				PRIMARY KEY (instance_id, contact_id)
+			)`,
+		},
+		SQLite: []string{
+			`CREATE TABLE IF NOT EXISTS cloud_user_preferences (
+				instance_id TEXT NOT NULL,
+				contact_id TEXT NOT NULL,
+				marketing_opt_out INTEGER NOT NULL DEFAULT 0,
+				source_event_at TIMESTAMP,
+				updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				PRIMARY KEY (instance_id, contact_id)
+			)`,
+		},
+	},
 }
 
 const createMigrationsTable = `

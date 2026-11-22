@@ -34,6 +34,13 @@ type Message struct {
 	Status    string          `json:"status"`
 	Source    string          `json:"source"`
 	Referral  json.RawMessage `json:"referral,omitempty" gorm:"type:jsonb"`
+	// Channel is "baileys" for the existing WhatsApp Web path and "cloud" for
+	// the official Cloud API. Existing rows default to baileys.
+	Channel string `json:"channel" gorm:"column:channel;not null;default:baileys;index"`
+	// ContactID is the Cloud BSUID-first identity key. It is empty for Baileys.
+	ContactID       string `json:"contact_id,omitempty" gorm:"column:contact_id;index"`
+	SenderUserID    string `json:"sender_user_id,omitempty" gorm:"column:sender_user_id"`
+	RecipientUserID string `json:"recipient_user_id,omitempty" gorm:"column:recipient_user_id"`
 
 	// ChatJid is the conversation (peer for a direct chat, the group JID for a
 	// group). SenderJid is the author of the message. Both are canonical,

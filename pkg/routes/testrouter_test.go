@@ -3,6 +3,7 @@ package routes
 import (
 	call_handler "github.com/felipeestevanatto/wamux/pkg/call/handler"
 	chat_handler "github.com/felipeestevanatto/wamux/pkg/chat/handler"
+	cloud_handler "github.com/felipeestevanatto/wamux/pkg/cloud/handler"
 	community_handler "github.com/felipeestevanatto/wamux/pkg/community/handler"
 	config "github.com/felipeestevanatto/wamux/pkg/config"
 	group_handler "github.com/felipeestevanatto/wamux/pkg/group/handler"
@@ -82,6 +83,7 @@ func NewTestRouter(cfg *config.Config, authMiddleware auth_middleware.Middleware
 		pollHandler:    &poll_handler.PollHandler{},
 		serverHandler:  noopServerHandler{},
 		typebotHandler: noopTypebotHandler{},
+		cloudHandler:   cloud_handler.New(nil, cfg),
 		sendGuard:      httpguard.NewSendGuard(cfg.SendRateLimitPerMinute, cfg.SendMaxConcurrent),
 	}
 

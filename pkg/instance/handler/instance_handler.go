@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -13,6 +14,8 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/felipeestevanatto/wamux/pkg/audit"
+	"github.com/felipeestevanatto/wamux/pkg/channel"
+	cloud_service "github.com/felipeestevanatto/wamux/pkg/cloud"
 	config "github.com/felipeestevanatto/wamux/pkg/config"
 	docmodels "github.com/felipeestevanatto/wamux/pkg/docmodels"
 	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
@@ -118,6 +121,19 @@ func (i *instanceHandler) Create(ctx *gin.Context) {
 		return
 	}
 
+	if data.Integration != "" {
+		switch channel.Kind(data.Integration) {
+		case channel.KindWhatsAppWeb, channel.KindCloud:
+		default:
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "integration must be WHATSAPP-BAILEYS or WHATSAPP-BUSINESS"})
+			return
+		}
+	}
+	if channel.Normalize(data.Integration) == channel.KindCloud && i.config != nil && !i.config.CloudAPIEnabled {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "Cloud API is disabled on this deployment"})
+		return
+	}
+
 	// The id column is a UUID. Reject a caller-supplied id that cannot be
 	// stored instead of letting the driver return a 500.
 	if data.InstanceId != "" {
@@ -202,7 +218,7 @@ func (i *instanceHandler) Connect(ctx *gin.Context) {
 
 	instance, jid, eventString, err := i.instanceService.Connect(data, instance)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		writeInstanceError(ctx, err)
 		return
 	}
 
@@ -226,6 +242,33 @@ func (i *instanceHandler) Connect(ctx *gin.Context) {
 // @Success 200 {object} docmodels.Envelope "Instance reconnected successfully"
 // @Failure 500 {object} docmodels.ErrorResponse "Internal server error"
 // @Router /instance/reconnect [post]
+func writeInstanceError(ctx *gin.Context, err error) {
+	var apiErr *cloud_service.APIError
+	if errors.As(err, &apiErr) {
+		status := apiErr.Status
+		if status == 0 {
+			status = http.StatusInternalServerError
+		}
+		body := gin.H{"error": apiErr.Code, "message": apiErr.Message}
+		if len(apiErr.Details) > 0 {
+			body["details"] = apiErr.Details
+		}
+		if apiErr.RetryAfter > 0 {
+			ctx.Header("Retry-After", strconv.Itoa(apiErr.RetryAfter))
+		}
+		ctx.JSON(status, body)
+		return
+	}
+	switch {
+	case errors.Is(err, channel.ErrUnsupported):
+		ctx.JSON(http.StatusUnprocessableEntity, gin.H{"error": "unsupported_on_channel", "message": err.Error()})
+	case errors.Is(err, channel.ErrNotImplemented):
+		ctx.JSON(http.StatusNotImplemented, gin.H{"error": "not_implemented_on_channel", "message": err.Error()})
+	default:
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	}
+}
+
 func (i *instanceHandler) Reconnect(ctx *gin.Context) {
 	getInstance := ctx.MustGet("instance")
 
@@ -237,7 +280,7 @@ func (i *instanceHandler) Reconnect(ctx *gin.Context) {
 
 	err := i.instanceService.Reconnect(instance)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		writeInstanceError(ctx, err)
 		return
 	}
 
@@ -301,7 +344,7 @@ func (i *instanceHandler) Logout(ctx *gin.Context) {
 			ctx.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 			return
 		}
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeInstanceError(ctx, err)
 		return
 	}
 
@@ -357,7 +400,7 @@ func (i *instanceHandler) Qr(ctx *gin.Context) {
 
 	qrcode, err := i.instanceService.GetQr(instance)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeInstanceError(ctx, err)
 		return
 	}
 
@@ -398,7 +441,7 @@ func (i *instanceHandler) Pair(ctx *gin.Context) {
 
 	pairingCode, err := i.instanceService.Pair(data, instance)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		writeInstanceError(ctx, err)
 		return
 	}
 
@@ -853,7 +896,7 @@ func (i *instanceHandler) ForceReconnect(ctx *gin.Context) {
 
 	err = i.instanceService.ForceReconnect(instanceId, number)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		writeInstanceError(ctx, err)
 		return
 	}
 

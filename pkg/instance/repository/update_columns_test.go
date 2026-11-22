@@ -58,7 +58,7 @@ func TestUpdateRemainsFullRow(t *testing.T) {
 	// Match the whole column list to document that Update is a full-row Save,
 	// except the plaintext token: that field is the decrypted credential and
 	// must not be written back. token_hash follows name once token is omitted.
-	mock.ExpectExec(`UPDATE "instances" SET "name"=\$1,"token_hash"=\$2,"token_enc"=\$3,.*"s3_media_delivery"=\$\d+ WHERE "id" = \$\d+`).
+	mock.ExpectExec(`UPDATE "instances" SET "name"=\$1,"integration"=\$2,"token_hash"=\$3,"token_enc"=\$4,.*"s3_media_delivery"=\$\d+ WHERE "id" = \$\d+`).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	inst := &instance_model.Instance{Id: "11111111-1111-1111-1111-111111111111", Name: "n", Token: "t"}

@@ -229,7 +229,7 @@ func messageUpdateColumns(message message_model.Message) []string {
 
 // statusRankSQL ranks a delivery state. Anything else, including Sent and Received,
 // is the starting point.
-const statusRankSQL = `COALESCE(array_position(ARRAY['Delivered','Read','Played']::text[], %s::text), 0)`
+const statusRankSQL = `COALESCE(array_position(ARRAY['Failed','Delivered','Read','Played']::text[], %s::text), 0)`
 
 // keepHighestStatus is the status assignment of every upsert. Delivery state only
 // moves forward: receipts can arrive out of order, and a send can record "Sent"
@@ -244,10 +244,12 @@ var keepHighestStatus = clause.Assignment{
 func statusRank(status string) int {
 	switch status {
 	case "Played":
-		return 3
+		return 4
 	case "Read":
-		return 2
+		return 3
 	case "Delivered":
+		return 2
+	case "Failed":
 		return 1
 	}
 	return 0

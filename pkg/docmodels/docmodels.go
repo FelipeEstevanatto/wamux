@@ -43,6 +43,15 @@ type NotFoundResponse struct {
 type MessageSend struct {
 	Info    MessageInfo `json:"Info"`
 	Message MessageBody `json:"Message"`
+	Channel string      `json:"channel,omitempty" example:"cloud"`
+	Cloud   *CloudSend  `json:"cloud,omitempty"`
+}
+
+// CloudSend carries the non-secret Cloud API result fields.
+type CloudSend struct {
+	WAMID     string `json:"wamid,omitempty" example:"wamid.HBgM..."`
+	Recipient string `json:"recipient,omitempty" example:"US.13491208655302741918"`
+	WAID      string `json:"waId,omitempty" example:"5511999999999"`
 }
 
 // MessageInfo is the subset of WhatsApp message metadata clients consume.
@@ -64,6 +73,7 @@ type MessageBody struct {
 type Instance struct {
 	ID               string `json:"id" example:"11111111-2222-3333-4444-555555555555"`
 	Name             string `json:"name" example:"Minha Instancia"`
+	Integration      string `json:"integration" example:"WHATSAPP-BAILEYS"`
 	Token            string `json:"token" example:"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"`
 	Webhook          string `json:"webhook" example:"https://webhook.example.com/wamux"`
 	RabbitmqEnable   string `json:"rabbitmqEnable" example:""`
@@ -92,6 +102,7 @@ type ConnectionStatus struct {
 	Connected bool   `json:"Connected" example:"true"`
 	LoggedIn  bool   `json:"LoggedIn" example:"true"`
 	Name      string `json:"Name" example:"Minha Instancia"`
+	Channel   string `json:"channel,omitempty" example:"WHATSAPP-BUSINESS"`
 }
 
 // QRCode is the /instance/qr payload (a fresh pairing code).

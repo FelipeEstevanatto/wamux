@@ -19,6 +19,8 @@ const (
 	PICTURE       = "PICTURE"
 	USER_ABOUT    = "USER_ABOUT"
 	PASSKEY       = "PASSKEY"
+	TEMPLATE      = "TEMPLATE"
+	CLOUD_ACCOUNT = "CLOUD_ACCOUNT"
 )
 
 var AllEventTypes = []string{
@@ -39,6 +41,8 @@ var AllEventTypes = []string{
 	PICTURE,
 	USER_ABOUT,
 	PASSKEY,
+	TEMPLATE,
+	CLOUD_ACCOUNT,
 }
 
 var validEventTypes = map[string]bool{
@@ -60,6 +64,8 @@ var validEventTypes = map[string]bool{
 	PICTURE:       true,
 	USER_ABOUT:    true,
 	PASSKEY:       true,
+	TEMPLATE:      true,
+	CLOUD_ACCOUNT: true,
 }
 
 func IsEventType(eventType string) bool {

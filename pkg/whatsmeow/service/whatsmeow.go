@@ -4028,6 +4028,11 @@ func (w *whatsmeowService) CallWebhook(instance *instance_model.Instance, queueN
 			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
 			w.sendToQueueOrWebhook(instance, queueName, jsonData)
 		}
+	case "Template", "CloudAccountEvent":
+		if contains(subscriptions, "TEMPLATE") || contains(subscriptions, "CLOUD_ACCOUNT") || contains(subscriptions, "ALL") {
+			w.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Event received of type %s", instance.Id, eventType)
+			w.sendToQueueOrWebhook(instance, queueName, jsonData)
+		}
 
 	default:
 		return

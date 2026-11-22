@@ -18,6 +18,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/felipeestevanatto/wamux/pkg/channel"
+	cloud_service "github.com/felipeestevanatto/wamux/pkg/cloud"
 	"github.com/felipeestevanatto/wamux/pkg/config"
 	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
 	instance_repository "github.com/felipeestevanatto/wamux/pkg/instance/repository"
@@ -35,6 +37,8 @@ import (
 )
 
 type InstanceService interface {
+	// SetCloudService wires the optional WhatsApp Cloud API adapter.
+	SetCloudService(cloud *cloud_service.Service)
 	Create(data *CreateStruct) (*instance_model.Instance, error)
 	// EncryptExistingTokens backfills any instance still storing its token in
 	// plaintext (called once at startup after an upgrade).
@@ -83,6 +87,10 @@ type InstanceService interface {
 // when there is no live, logged-in WhatsApp session to act on. Handlers map it
 // to 409 Conflict instead of reporting a phantom success for a no-op.
 var ErrNotConnected = errors.New("instance is not connected")
+
+// SetCloudService wires the Cloud adapter after construction so existing
+// tests that build an InstanceService keep working.
+func (i *instances) SetCloudService(cloud *cloud_service.Service) { i.cloud = cloud }
 
 // S3ConfigStruct is the request body for the per-instance S3 endpoints.
 type S3ConfigStruct struct {
@@ -133,6 +141,7 @@ type instances struct {
 	clientPointer      *safemap.Map[*whatsmeow.Client]
 	whatsmeowService   whatsmeow_service.WhatsmeowService
 	loggerWrapper      *logger_wrapper.LoggerManager
+	cloud              *cloud_service.Service
 
 	// authCache memoizes token -> instance for the auth middleware, which runs
 	// on every authenticated request. The lookup is indexed and cheap, but it is
@@ -185,6 +194,8 @@ type CreateStruct struct {
 	InstanceId       string                           `json:"instanceId"`
 	Name             string                           `json:"name"`
 	Token            string                           `json:"token"`
+	Integration      string                           `json:"integration,omitempty"`
+	Cloud            *cloud_service.CredentialsInput  `json:"cloud,omitempty"`
 	Proxy            *ProxyConfig                     `json:"proxy"`
 	AdvancedSettings *instance_model.AdvancedSettings `json:"advancedSettings"`
 	// WebSocketEnable publishes the instance's events to /ws: "enabled" or "disabled".
@@ -207,6 +218,8 @@ type StatusStruct struct {
 	myJid     *types.JID
 	Name      string
 	Health    *whatsmeow_service.InstanceHealth `json:"health,omitempty"`
+	Channel   string                            `json:"channel,omitempty"`
+	Cloud     *cloud_service.CloudStatus        `json:"cloud,omitempty"`
 }
 
 type QrcodeStruct struct {
@@ -322,14 +335,19 @@ func (i instances) Create(data *CreateStruct) (*instance_model.Instance, error) 
 		}
 	}
 
+	integration := channel.Normalize(data.Integration)
+	if integration == channel.KindCloud && (i.config == nil || !i.config.CloudAPIEnabled) {
+		return nil, errors.New("Cloud API is disabled on this deployment")
+	}
 	instance := instance_model.Instance{
 		Id:            data.InstanceId,
 		Name:          data.Name,
 		Token:         data.Token,
+		Integration:   string(integration),
 		OsName:        i.config.OsName,
 		Proxy:         string(proxyJson),
 		Connected:     false,
-		AutoReconnect: true,
+		AutoReconnect: integration != channel.KindCloud,
 		ClientName:    i.config.ClientName,
 
 		WebSocketEnable: data.WebSocketEnable,
@@ -371,6 +389,16 @@ func (i instances) Create(data *CreateStruct) (*instance_model.Instance, error) 
 	if err != nil {
 		return nil, err
 	}
+	if integration == channel.KindCloud && data.Cloud != nil {
+		if i.cloud == nil {
+			_ = i.instanceRepository.Delete(createdInstance.Id)
+			return nil, errors.New("cloud API is not configured")
+		}
+		if err := i.cloud.SaveCredentials(createdInstance.Id, *data.Cloud); err != nil {
+			_ = i.instanceRepository.Delete(createdInstance.Id)
+			return nil, err
+		}
+	}
 	if createdInstance != nil {
 		i.loggerWrapper.AllowLogger(createdInstance.Id)
 	}
@@ -385,6 +413,20 @@ func (i instances) Create(data *CreateStruct) (*instance_model.Instance, error) 
 }
 
 func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instance) (*instance_model.Instance, string, string, error) {
+	if channel.Normalize(instance.Integration) == channel.KindCloud {
+		if i.cloud == nil {
+			return nil, "", "", errors.New("cloud API is not configured")
+		}
+		status, err := i.cloud.Connect(instance)
+		if err != nil {
+			return nil, "", "", err
+		}
+		instance.Connected = status.Subscribed
+		instance.AutoReconnect = true
+		_ = i.instanceRepository.Update(instance)
+		i.invalidateAuthCache()
+		return instance, "", instance.Events, nil
+	}
 	i.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Processing subscribe events: %v", instance.Id, data.Subscribe)
 
 	// An explicit connect is operator intent to resume. Clear any suppressed or
@@ -481,6 +523,13 @@ func (i instances) Connect(data *ConnectStruct, instance *instance_model.Instanc
 }
 
 func (i instances) Reconnect(instance *instance_model.Instance) error {
+	if channel.Normalize(instance.Integration) == channel.KindCloud {
+		if i.cloud == nil {
+			return errors.New("cloud API is not configured")
+		}
+		_, err := i.cloud.Connect(instance)
+		return err
+	}
 	// An operator action: clear a suppressed/backoff state and mark the instance
 	// to be restored on boot.
 	whatsmeow_service.ClearReconnectBackoff(instance.Id)
@@ -498,6 +547,15 @@ func (i instances) Reconnect(instance *instance_model.Instance) error {
 }
 
 func (i instances) Disconnect(instance *instance_model.Instance) (*instance_model.Instance, error) {
+	if channel.Normalize(instance.Integration) == channel.KindCloud {
+		instance.Connected = false
+		instance.AutoReconnect = false
+		if err := i.instanceRepository.Update(instance); err != nil {
+			return nil, err
+		}
+		i.invalidateAuthCache()
+		return instance, nil
+	}
 	// Never start a client just to disconnect it: an unpaired/offline instance
 	// has no session to drop, and dialing would block the request. Report the
 	// real state instead of returning a phantom 200.
@@ -532,6 +590,9 @@ func (i instances) Disconnect(instance *instance_model.Instance) (*instance_mode
 }
 
 func (i instances) Logout(instance *instance_model.Instance) (*instance_model.Instance, error) {
+	if channel.Normalize(instance.Integration) == channel.KindCloud {
+		return nil, &channel.UnsupportedError{Channel: channel.KindCloud, Op: "logout"}
+	}
 	// Like Disconnect, logout must not spin up a client. Require a live,
 	// logged-in session; otherwise report the state (409 at the handler).
 	client := i.clientPointer.Get(instance.Id)
@@ -572,6 +633,18 @@ func (i instances) finishLogout(instance *instance_model.Instance) {
 }
 
 func (i instances) Status(instance *instance_model.Instance) (*StatusStruct, error) {
+	if channel.Normalize(instance.Integration) == channel.KindCloud {
+		out := &StatusStruct{Channel: string(channel.KindCloud)}
+		if i.cloud != nil {
+			if st, err := i.cloud.Status(instance); err == nil {
+				out.Cloud = st
+				out.Connected = st.Subscribed
+				out.LoggedIn = st.Subscribed
+				out.Name = st.VerifiedName
+			}
+		}
+		return out, nil
+	}
 	client := i.clientPointer.Get(instance.Id)
 
 	if client == nil {
@@ -607,6 +680,9 @@ func (i instances) InstanceHealth(instanceId string) *whatsmeow_service.Instance
 }
 
 func (i instances) GetQr(instance *instance_model.Instance) (*QrcodeStruct, error) {
+	if channel.Normalize(instance.Integration) == channel.KindCloud {
+		return nil, &channel.UnsupportedError{Channel: channel.KindCloud, Op: "qr"}
+	}
 	logger := i.loggerWrapper.GetLogger(instance.Id)
 	client := i.clientPointer.Get(instance.Id)
 
@@ -715,6 +791,9 @@ func buildPasskeyOpenURL(token string) string {
 }
 
 func (i instances) Pair(data *PairStruct, instance *instance_model.Instance) (*PairReturnStruct, error) {
+	if channel.Normalize(instance.Integration) == channel.KindCloud {
+		return nil, &channel.UnsupportedError{Channel: channel.KindCloud, Op: "pair"}
+	}
 	logger := i.loggerWrapper.GetLogger(instance.Id)
 	client := i.clientPointer.Get(instance.Id)
 
@@ -823,6 +902,25 @@ func (i instances) Delete(id string) error {
 	instance, err := i.instanceRepository.GetInstanceByID(id)
 	if err != nil {
 		return err
+	}
+
+	if channel.Normalize(instance.Integration) == channel.KindCloud {
+		i.loggerWrapper.RemoveLogger(instance.Id)
+		if i.cloud != nil {
+			if err := i.cloud.Delete(instance.Id); err != nil {
+				return err
+			}
+		}
+		if err := localmedia.RemoveInstance(instance.Id); err != nil {
+			i.loggerWrapper.GetLogger(instance.Id).LogWarn("[%s] Failed to remove stored media: %v", instance.Id, err)
+		}
+		if err := i.instanceRepository.Delete(id); err != nil {
+			i.loggerWrapper.AllowLogger(instance.Id)
+			return err
+		}
+		i.invalidateAuthCache()
+		i.loggerWrapper.RemoveLogger(instance.Id)
+		return nil
 	}
 
 	if i.clientPointer.Get(instance.Id) != nil && i.clientPointer.Get(instance.Id).IsConnected() {
@@ -1082,6 +1180,14 @@ func (i instances) RemoveProxy(id string) error {
 }
 
 func (i instances) ForceReconnect(instanceId string, number string) error {
+	inst, err := i.instanceRepository.GetInstanceByID(instanceId)
+	if err == nil && channel.Normalize(inst.Integration) == channel.KindCloud {
+		if i.cloud == nil {
+			return errors.New("cloud API is not configured")
+		}
+		_, err := i.cloud.Connect(inst)
+		return err
+	}
 	// The client is often absent here (that is the state this endpoint exists to
 	// recover from), so Get may return nil — never dereference it blindly.
 	if client := i.clientPointer.Get(instanceId); client != nil && client.IsConnected() && client.IsLoggedIn() {
@@ -1091,7 +1197,7 @@ func (i instances) ForceReconnect(instanceId string, number string) error {
 	// Force reconnect is an operator action: clear any suppressed/backoff state.
 	whatsmeow_service.ClearReconnectBackoff(instanceId)
 
-	err := i.whatsmeowService.ForceUpdateJid(instanceId, number)
+	err = i.whatsmeowService.ForceUpdateJid(instanceId, number)
 	if err != nil {
 		return err
 	}

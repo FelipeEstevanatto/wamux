@@ -170,6 +170,26 @@ type Config struct {
 	WebhookBase64MaxBytes int64
 	// MaxUploadBytes is the largest file /send/media accepts.
 	MaxUploadBytes int64
+
+	// WhatsApp Cloud API (official WABA transport).
+	CloudAPIEnabled          bool
+	CloudAPIGraphBaseURL     string
+	CloudAPIGraphVersion     string
+	CloudAPIAppID            string
+	CloudAPIAppSecret        string
+	CloudAPIVerifyToken      string
+	CloudAPIHTTPTimeout      time.Duration
+	CloudAPIHeaderTimeout    time.Duration
+	CloudAPIMediaTimeout     time.Duration
+	CloudAPIMaxWebhookBytes  int64
+	CloudAPIMaxResponseBytes int64
+	CloudAPIMaxHeaderBytes   int64
+	CloudAPIMaxMediaBytes    int64
+	CloudAPIMediaWorkers     int
+	CloudAPIWindowHours      int
+	CloudAPIEnforceWindow    bool
+	CloudAPIRPS              float64
+	CloudAPIRetryMax         int
 	// HttpAccessLog selects the request log: "errors", "all" or "off".
 	HttpAccessLog string
 
@@ -718,6 +738,37 @@ func Load() *Config {
 	s3PublicRead := config_env.Bool(config_env.S3_PUBLIC_READ, false)
 	webhookIncludeToken := config_env.Bool(config_env.WEBHOOK_INCLUDE_TOKEN, true)
 
+	// WhatsApp Cloud API. Disabled by default so upgrading an existing
+	// deployment does not register public webhook routes until the operator
+	// opts in.
+	cloudAPIEnabled := config_env.Bool("CLOUD_API_ENABLED", false)
+	cloudGraphBase := strings.TrimSpace(os.Getenv("CLOUD_API_GRAPH_BASE_URL"))
+	if cloudGraphBase == "" {
+		cloudGraphBase = "https://graph.facebook.com"
+	}
+	cloudGraphVersion := strings.TrimSpace(os.Getenv("CLOUD_API_GRAPH_VERSION"))
+	if cloudGraphVersion == "" {
+		cloudGraphVersion = "v27.0"
+	}
+	cloudAPITimeout := envInt("CLOUD_API_HTTP_TIMEOUT_SECONDS", 30)
+	cloudAPIHeaderTimeout := envInt("CLOUD_API_RESPONSE_HEADER_TIMEOUT_SECONDS", 60)
+	cloudAPIMediaTimeout := envInt("CLOUD_API_MEDIA_TIMEOUT_SECONDS", 120)
+	cloudAPIMaxWebhookBytes := int64(envInt("CLOUD_API_MAX_WEBHOOK_BYTES", 4<<20))
+	cloudAPIMaxResponseBytes := int64(envInt("CLOUD_API_MAX_RESPONSE_BYTES", 10<<20))
+	cloudAPIMaxHeaderBytes := int64(envInt("CLOUD_API_MAX_RESPONSE_HEADER_BYTES", 1<<20))
+	cloudAPIMaxMediaBytes := int64(envInt("CLOUD_API_MAX_MEDIA_BYTES", 100<<20))
+	cloudAPIMediaWorkers := envInt("CLOUD_API_MEDIA_WORKERS", 2)
+	cloudAPIWindowHours := envInt("CLOUD_API_WINDOW_HOURS", 24)
+	cloudAPIEnforceWindow := config_env.Bool("CLOUD_API_ENFORCE_WINDOW", true)
+	cloudAPIRPS, _ := strconv.ParseFloat(strings.TrimSpace(os.Getenv("CLOUD_API_RPS")), 64)
+	if cloudAPIRPS <= 0 {
+		cloudAPIRPS = 8
+	}
+	cloudAPIRetryMax := envInt("CLOUD_API_RETRY_MAX", 3)
+	if cloudAPIRetryMax < 1 {
+		cloudAPIRetryMax = 3
+	}
+
 	// Auxiliary-table retention. Off unless configured; send operations get a
 	// short default because an idempotency key is only useful for retries.
 	sendOperationRetentionDays := envInt(config_env.SEND_OPERATION_RETENTION_DAYS, 30)
@@ -808,6 +859,24 @@ func Load() *Config {
 		MediaRetentionDays:          mediaRetentionDays(messageRetentionDays),
 		WebhookBase64MaxBytes:       webhookBase64MaxBytes(),
 		MaxUploadBytes:              maxUploadBytes(),
+		CloudAPIEnabled:             cloudAPIEnabled,
+		CloudAPIGraphBaseURL:        cloudGraphBase,
+		CloudAPIGraphVersion:        cloudGraphVersion,
+		CloudAPIAppID:               strings.TrimSpace(os.Getenv("CLOUD_API_APP_ID")),
+		CloudAPIAppSecret:           os.Getenv("CLOUD_API_APP_SECRET"),
+		CloudAPIVerifyToken:         os.Getenv("CLOUD_API_VERIFY_TOKEN"),
+		CloudAPIHTTPTimeout:         time.Duration(cloudAPITimeout) * time.Second,
+		CloudAPIHeaderTimeout:       time.Duration(cloudAPIHeaderTimeout) * time.Second,
+		CloudAPIMediaTimeout:        time.Duration(cloudAPIMediaTimeout) * time.Second,
+		CloudAPIMaxWebhookBytes:     cloudAPIMaxWebhookBytes,
+		CloudAPIMaxResponseBytes:    cloudAPIMaxResponseBytes,
+		CloudAPIMaxHeaderBytes:      cloudAPIMaxHeaderBytes,
+		CloudAPIMaxMediaBytes:       cloudAPIMaxMediaBytes,
+		CloudAPIMediaWorkers:        cloudAPIMediaWorkers,
+		CloudAPIWindowHours:         cloudAPIWindowHours,
+		CloudAPIEnforceWindow:       cloudAPIEnforceWindow,
+		CloudAPIRPS:                 cloudAPIRPS,
+		CloudAPIRetryMax:            cloudAPIRetryMax,
 		HttpAccessLog:               strings.ToLower(strings.TrimSpace(os.Getenv(config_env.HTTP_ACCESS_LOG))),
 		DatabaseMaxOpenConns:        dbMaxOpen,
 		DatabaseMaxIdleConns:        dbMaxIdle,

@@ -8,7 +8,11 @@ import (
 )
 
 func TestStatusRankOrder(t *testing.T) {
-	if !(statusRank("Sent") == statusRank("Received") && statusRank("Sent") < statusRank("Delivered") && statusRank("Delivered") < statusRank("Read") && statusRank("Read") < statusRank("Played")) {
+	if !(statusRank("Sent") == statusRank("Received") &&
+		statusRank("Sent") < statusRank("Failed") &&
+		statusRank("Failed") < statusRank("Delivered") &&
+		statusRank("Delivered") < statusRank("Read") &&
+		statusRank("Read") < statusRank("Played")) {
 		t.Fatal("delivery states are out of order")
 	}
 }

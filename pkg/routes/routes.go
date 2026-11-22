@@ -12,6 +12,7 @@ import (
 	_ "github.com/felipeestevanatto/wamux/docs"
 	call_handler "github.com/felipeestevanatto/wamux/pkg/call/handler"
 	chat_handler "github.com/felipeestevanatto/wamux/pkg/chat/handler"
+	cloud_handler "github.com/felipeestevanatto/wamux/pkg/cloud/handler"
 	community_handler "github.com/felipeestevanatto/wamux/pkg/community/handler"
 	config "github.com/felipeestevanatto/wamux/pkg/config"
 	group_handler "github.com/felipeestevanatto/wamux/pkg/group/handler"
@@ -66,6 +67,7 @@ type Routes struct {
 	typebotHandler          typebot_handler.TypebotHandler
 	sendGuard               *httpguard.SendGuard
 	idempotency             *idempotency.Handler
+	cloudHandler            *cloud_handler.Handler
 }
 
 // SetIdempotency installs the Idempotency-Key middleware and the operation
@@ -127,6 +129,15 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 	// Public: the signed link is the credential, because a browser download cannot
 	// send an API key.
 	eng.GET("/download/:messageId", r.messageHandler.DownloadStoredMedia)
+
+	// Meta's Cloud API webhook is public by design. POST is authenticated by
+	// X-Hub-Signature-256, not by a WaMux API key.
+	if r.cloudHandler != nil {
+		eng.GET("/webhook/cloud", r.cloudHandler.WebhookVerify)
+		eng.POST("/webhook/cloud", r.cloudHandler.WebhookReceive)
+		eng.GET("/webhook/cloud/:appId", r.cloudHandler.WebhookVerify)
+		eng.POST("/webhook/cloud/:appId", r.cloudHandler.WebhookReceive)
+	}
 
 	eng.GET("/", r.serverHandler.Root)
 	eng.GET("/server/ok", r.serverHandler.ServerOk)
@@ -191,6 +202,20 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.DELETE("/logout", r.instanceHandler.Logout)
 			routes.GET("/:instanceId/advanced-settings", r.instanceHandler.GetAdvancedSettings)
 			routes.PUT("/:instanceId/advanced-settings", r.instanceHandler.UpdateAdvancedSettings)
+			if r.cloudHandler != nil {
+				// Plan-compatible aliases; the token identifies the instance.
+				routes.GET("/cloud/credentials", r.cloudHandler.GetCredentials)
+				routes.PUT("/cloud/credentials", r.cloudHandler.SetCredentials)
+				routes.POST("/cloud/verify", r.cloudHandler.Verify)
+				routes.POST("/cloud/register", r.cloudHandler.Register)
+				routes.POST("/cloud/read", r.cloudHandler.MarkRead)
+				routes.GET("/cloud/diagnostics", r.cloudHandler.Diagnostics)
+				routes.GET("/cloud/templates", r.cloudHandler.ListTemplates)
+				routes.POST("/cloud/templates/sync", r.cloudHandler.SyncTemplates)
+				routes.POST("/cloud/templates", r.cloudHandler.CreateTemplate)
+				routes.PUT("/cloud/templates/:name/:language", r.cloudHandler.UpdateTemplate)
+				routes.DELETE("/cloud/templates/:name/:language", r.cloudHandler.DeleteTemplate)
+			}
 			// Per-instance webhook HMAC signing. The authenticated instance is
 			// implied by the token, so no instance id is in the path.
 			routes.POST("/hmac", r.instanceHandler.SetHmac)
@@ -201,6 +226,41 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.GET("/s3", r.instanceHandler.GetS3)
 			routes.DELETE("/s3", r.instanceHandler.DeleteS3)
 			routes.POST("/s3/test", r.instanceHandler.TestS3)
+		}
+	}
+
+	if r.cloudHandler != nil {
+		apps := eng.Group("/cloud")
+		{
+			apps.Use(r.authMiddleware.AuthAdmin)
+			apps.GET("/apps", r.cloudHandler.ListApps)
+			apps.POST("/apps", r.cloudHandler.SaveApp)
+			apps.PUT("/apps/:appId", r.cloudHandler.SaveApp)
+			apps.DELETE("/apps/:appId", r.cloudHandler.DeleteApp)
+		}
+		cloudRoutes := eng.Group("/cloud")
+		{
+			cloudRoutes.Use(r.authMiddleware.Auth)
+			cloudRoutes.GET("/credentials", r.cloudHandler.GetCredentials)
+			cloudRoutes.PUT("/credentials", r.cloudHandler.SetCredentials)
+			cloudRoutes.POST("/verify", r.cloudHandler.Verify)
+			cloudRoutes.POST("/register", r.cloudHandler.Register)
+			cloudRoutes.POST("/read", r.cloudHandler.MarkRead)
+			cloudRoutes.GET("/diagnostics", r.cloudHandler.Diagnostics)
+			cloudRoutes.GET("/templates", r.cloudHandler.ListTemplates)
+			cloudRoutes.POST("/templates/sync", r.cloudHandler.SyncTemplates)
+			cloudRoutes.POST("/templates", r.cloudHandler.CreateTemplate)
+			cloudRoutes.PUT("/templates/:name/:language", r.cloudHandler.UpdateTemplate)
+			cloudRoutes.DELETE("/templates/:name/:language", r.cloudHandler.DeleteTemplate)
+		}
+		templates := eng.Group("/template")
+		{
+			templates.Use(r.authMiddleware.Auth)
+			templates.GET("", r.cloudHandler.ListTemplates)
+			templates.POST("", r.cloudHandler.CreateTemplate)
+			templates.POST("/sync", r.cloudHandler.SyncTemplates)
+			templates.PUT("/:name/:language", r.cloudHandler.UpdateTemplate)
+			templates.DELETE("/:name/:language", r.cloudHandler.DeleteTemplate)
 		}
 	}
 
@@ -224,6 +284,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			// the header. Multipart uploads are rejected by the middleware itself.
 			routes.POST("/text", r.withIdempotency(r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendText)...)
 			routes.POST("/link", r.withIdempotency(r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendLink)...)
+			routes.POST("/template", r.withIdempotency(r.jidValidationMiddleware.ValidateNumberField(), r.sendHandler.SendTemplate)...)
 			routes.POST("/media", r.withIdempotency(r.uploadGuard(), r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendMedia)...)
 			routes.POST("/album", r.uploadGuard(), r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendAlbum)
 			routes.POST("/poll", r.withIdempotency(r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendPoll)...)
@@ -441,6 +502,7 @@ func NewRouter(
 	pollHandler *poll_handler.PollHandler,
 	serverHandler server_handler.ServerHandler,
 	typebotHandler typebot_handler.TypebotHandler,
+	cloudHandler *cloud_handler.Handler,
 ) *Routes {
 	return &Routes{
 		config:                  config,
@@ -459,6 +521,7 @@ func NewRouter(
 		pollHandler:             pollHandler,
 		serverHandler:           serverHandler,
 		typebotHandler:          typebotHandler,
+		cloudHandler:            cloudHandler,
 		sendGuard:               httpguard.NewSendGuard(config.SendRateLimitPerMinute, config.SendMaxConcurrent),
 	}
 }

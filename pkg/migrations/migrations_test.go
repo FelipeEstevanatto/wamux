@@ -24,7 +24,9 @@ func newSQLite(t *testing.T) *sql.DB {
 		message_id TEXT UNIQUE,
 		instance_id TEXT,
 		chat_jid TEXT,
-		"timestamp" TEXT
+		"timestamp" TEXT,
+		channel TEXT NOT NULL DEFAULT 'baileys',
+		contact_id TEXT
 	)`)
 	if err != nil {
 		t.Fatalf("create messages: %v", err)
@@ -35,7 +37,8 @@ func newSQLite(t *testing.T) *sql.DB {
 		name TEXT,
 		token TEXT,
 		disconnect_reason TEXT,
-		auto_reconnect BOOLEAN NOT NULL DEFAULT 1
+		auto_reconnect BOOLEAN NOT NULL DEFAULT 1,
+		integration TEXT NOT NULL DEFAULT 'WHATSAPP-BAILEYS'
 	)`)
 	if err != nil {
 		t.Fatalf("create instances: %v", err)

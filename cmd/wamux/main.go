@@ -31,6 +31,9 @@ import (
 	call_service "github.com/felipeestevanatto/wamux/pkg/call/service"
 	chat_handler "github.com/felipeestevanatto/wamux/pkg/chat/handler"
 	chat_service "github.com/felipeestevanatto/wamux/pkg/chat/service"
+	cloud_service "github.com/felipeestevanatto/wamux/pkg/cloud"
+	cloud_handler "github.com/felipeestevanatto/wamux/pkg/cloud/handler"
+	cloud_model "github.com/felipeestevanatto/wamux/pkg/cloud/model"
 	community_handler "github.com/felipeestevanatto/wamux/pkg/community/handler"
 	community_service "github.com/felipeestevanatto/wamux/pkg/community/service"
 	config "github.com/felipeestevanatto/wamux/pkg/config"
@@ -69,6 +72,7 @@ import (
 	poll_handler "github.com/felipeestevanatto/wamux/pkg/poll/handler"
 	routes "github.com/felipeestevanatto/wamux/pkg/routes"
 	send_handler "github.com/felipeestevanatto/wamux/pkg/sendMessage/handler"
+	send_router "github.com/felipeestevanatto/wamux/pkg/sendMessage/router"
 	send_service "github.com/felipeestevanatto/wamux/pkg/sendMessage/service"
 	server_handler "github.com/felipeestevanatto/wamux/pkg/server/handler"
 	storage_interfaces "github.com/felipeestevanatto/wamux/pkg/storage/interfaces"
@@ -100,7 +104,7 @@ func init() {
 	}
 }
 
-func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.Config, conn *amqp.Connection, exPath string, messageRepository message_repository.MessageRepository) (*gin.Engine, whatsmeow_service.WhatsmeowService, []producer_interfaces.Drainer, *server_handler.Observability, storage_interfaces.MediaStorage) {
+func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.Config, conn *amqp.Connection, exPath string, messageRepository message_repository.MessageRepository) (*gin.Engine, whatsmeow_service.WhatsmeowService, []producer_interfaces.Drainer, *server_handler.Observability, storage_interfaces.MediaStorage, *cloud_service.Service) {
 	killChannel := safemap.New[*killswitch.Switch]()
 	clientPointer := safemap.New[*whatsmeow.Client]()
 
@@ -273,7 +277,16 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	}
 	observability := server_handler.NewObservability(whatsmeowService, webhookDepth)
 
-	sendMessageService := send_service.NewSendService(clientPointer, whatsmeowService, config, loggerWrapper, messageRepository, observability)
+	baileysSendService := send_service.NewSendService(clientPointer, whatsmeowService, config, loggerWrapper, messageRepository, observability)
+	cloudRepo := cloud_service.NewRepository(db)
+	cloudClient := cloud_service.NewClient(config, loggerWrapper)
+	cloudService := cloud_service.NewService(cloudRepo, cloudClient, config, loggerWrapper, messageRepository, whatsmeowService, whatsmeowService, nil)
+	cloudService.SetInstanceLookup(instanceRepository)
+	if err := cloudService.SeedConfigApp(); err != nil {
+		applog.Logger.LogWarn("[CLOUD] could not seed Meta app from environment: %v", err)
+	}
+	instanceService.SetCloudService(cloudService)
+	sendMessageService := send_router.New(baileysSendService, cloudService)
 	userService := user_service.NewUserService(clientPointer, whatsmeowService, loggerWrapper)
 	messageService := message_service.NewMessageService(clientPointer, messageRepository, whatsmeowService, loggerWrapper)
 	chatService := chat_service.NewChatService(clientPointer, whatsmeowService, messageRepository, loggerWrapper)
@@ -295,6 +308,7 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		loggerWrapper,
 	)
 	whatsmeowService.SetTypebotService(typebotService)
+	cloudService.SetTypebotSink(typebotService)
 
 	// NOVO: PollHandler usando PollService já inicializado no whatsmeowService (evita dupla inicialização)
 	pollHandler := poll_handler.NewPollHandler(whatsmeowService.GetPollService(), loggerWrapper)
@@ -402,6 +416,11 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	// covers non-fatal misconfiguration the service still starts with.
 	configError := ""
 
+	var cloudHandler *cloud_handler.Handler
+	if config.CloudAPIEnabled {
+		cloudHandler = cloud_handler.New(cloudService, config)
+	}
+
 	router := routes.NewRouter(
 		config,
 		auth_middleware.NewMiddleware(config, instanceService),
@@ -418,6 +437,7 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		pollHandler,
 		server_handler.NewServerHandler(messageRepository, version, whatsmeowService, dataDir, mediaBackend, config.DatabaseSaveMessages, config.MediaLocalStore, config.WebhookFiles, config.ClientName, configError, observability, config.MaxUploadBytes),
 		typebot_handler.NewTypebotHandler(typebotRepository, loggerWrapper),
+		cloudHandler,
 	)
 	router.SetIdempotency(idempotency.New(messageRepository, loggerWrapper))
 	router.AssignRoutes(r)
@@ -498,7 +518,7 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 		}
 	}
 
-	return r, whatsmeowService, drainers, observability, mediaStorage
+	return r, whatsmeowService, drainers, observability, mediaStorage, cloudService
 }
 
 // migrate brings the schema up to date in two phases:
@@ -538,6 +558,16 @@ func migrate(db *gorm.DB) {
 		&message_model.ChatRead{},
 		&message_model.ChatState{},
 		&message_model.SendOperation{},
+		&cloud_model.App{},
+		&cloud_model.Credentials{},
+		&cloud_model.Contact{},
+		&cloud_model.Template{},
+		&cloud_model.ChatWindow{},
+		&cloud_model.WebhookEvent{},
+		&cloud_model.MediaJob{},
+		&cloud_model.StatusEvent{},
+		&cloud_model.AccountEvent{},
+		&cloud_model.UserPreference{},
 		&label_model.Label{},
 		&typebot_model.Typebot{},
 		&typebot_model.TypebotSession{},
@@ -743,9 +773,10 @@ func main() {
 	workersCtx, stopWorkers := context.WithCancel(context.Background())
 	defer stopWorkers()
 
-	r, whatsmeowService, eventDrainers, observability, mediaStorage := setupRouter(db, authDB, sqliteDB, cfg, conn, exPath, messageRepository)
+	r, whatsmeowService, eventDrainers, observability, mediaStorage, cloudService := setupRouter(db, authDB, sqliteDB, cfg, conn, exPath, messageRepository)
 	go whatsmeowService.StartWatchdog(workersCtx)
 	go whatsmeowService.StartIdleEviction(workersCtx)
+	go cloudService.RunMediaWorker(workersCtx)
 
 	// Retention for the auxiliary tables (0 keeps a table forever). The
 	// identifiers are constants here, never caller input.

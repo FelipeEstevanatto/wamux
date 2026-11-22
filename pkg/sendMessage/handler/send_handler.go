@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/felipeestevanatto/wamux/pkg/channel"
+	cloud_service "github.com/felipeestevanatto/wamux/pkg/cloud"
 	docmodels "github.com/felipeestevanatto/wamux/pkg/docmodels"
 	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
 	send_service "github.com/felipeestevanatto/wamux/pkg/sendMessage/service"
@@ -35,6 +37,7 @@ type SendHandler interface {
 	SendProduct(ctx *gin.Context)
 	SendStatusText(ctx *gin.Context)
 	SendStatusMedia(ctx *gin.Context)
+	SendTemplate(ctx *gin.Context)
 }
 
 type sendHandler struct {
@@ -55,6 +58,11 @@ func readUpload(r io.Reader) ([]byte, error) {
 
 // writeMediaError answers with the real reason a file was refused.
 func writeMediaError(ctx *gin.Context, err error) {
+	var apiErr *cloud_service.APIError
+	if errors.As(err, &apiErr) {
+		writeSendError(ctx, err)
+		return
+	}
 	status := http.StatusInternalServerError
 	if errors.Is(err, send_service.ErrMediaTooLarge) || errors.Is(err, send_service.ErrLargeMediaType) {
 		status = http.StatusRequestEntityTooLarge
@@ -89,8 +97,8 @@ func (s *sendHandler) SendText(ctx *gin.Context) {
 		return
 	}
 
-	if data.Number == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
+	if data.Number == "" && data.Recipient == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number or recipient is required"})
 		return
 	}
 
@@ -101,7 +109,7 @@ func (s *sendHandler) SendText(ctx *gin.Context) {
 
 	message, err := s.sendMessageService.SendText(data, instance)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		writeSendError(ctx, err)
 		return
 	}
 
@@ -135,8 +143,8 @@ func (s *sendHandler) SendLink(ctx *gin.Context) {
 		return
 	}
 
-	if data.Number == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
+	if data.Number == "" && data.Recipient == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number or recipient is required"})
 		return
 	}
 
@@ -147,7 +155,7 @@ func (s *sendHandler) SendLink(ctx *gin.Context) {
 
 	message, err := s.sendMessageService.SendLink(data, instance)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		writeSendError(ctx, err)
 		return
 	}
 
@@ -183,8 +191,9 @@ func (s *sendHandler) SendMedia(ctx *gin.Context) {
 	if strings.HasPrefix(contentType, "multipart/form-data") {
 		// Handle form-data
 		number := ctx.PostForm("number")
-		if number == "" {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
+		recipient := ctx.PostForm("recipient")
+		if number == "" && recipient == "" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number or recipient is required"})
 			return
 		}
 
@@ -243,6 +252,7 @@ func (s *sendHandler) SendMedia(ctx *gin.Context) {
 		// Create MediaStruct
 		data = &send_service.MediaStruct{
 			Number:       number,
+			Recipient:    recipient,
 			Type:         mediaType,
 			Caption:      caption,
 			Filename:     filename,
@@ -287,8 +297,8 @@ func (s *sendHandler) SendMedia(ctx *gin.Context) {
 			return
 		}
 
-		if data.Number == "" {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
+		if data.Number == "" && data.Recipient == "" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number or recipient is required"})
 			return
 		}
 
@@ -313,7 +323,7 @@ func (s *sendHandler) SendMedia(ctx *gin.Context) {
 			}
 			message, err = s.sendMessageService.SendMediaFile(data, fileBytes, instance)
 			if err != nil {
-				ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				writeSendError(ctx, err)
 				return
 			}
 		} else {
@@ -432,7 +442,7 @@ func (s *sendHandler) SendPoll(ctx *gin.Context) {
 
 	message, err := s.sendMessageService.SendPoll(data, instance)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		writeSendError(ctx, err)
 		return
 	}
 
@@ -478,7 +488,7 @@ func (s *sendHandler) SendSticker(ctx *gin.Context) {
 
 	message, err := s.sendMessageService.SendSticker(data, instance)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		writeSendError(ctx, err)
 		return
 	}
 
@@ -539,7 +549,7 @@ func (s *sendHandler) SendLocation(ctx *gin.Context) {
 
 	message, err := s.sendMessageService.SendLocation(data, instance)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		writeSendError(ctx, err)
 		return
 	}
 
@@ -590,7 +600,7 @@ func (s *sendHandler) SendContact(ctx *gin.Context) {
 
 	message, err := s.sendMessageService.SendContact(data, instance)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		writeSendError(ctx, err)
 		return
 	}
 
@@ -635,8 +645,8 @@ func (s *sendHandler) SendButton(ctx *gin.Context) {
 		return
 	}
 
-	if data.Number == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
+	if data.Number == "" && data.Recipient == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number or recipient is required"})
 		return
 	}
 
@@ -657,7 +667,7 @@ func (s *sendHandler) SendButton(ctx *gin.Context) {
 
 	message, err := s.sendMessageService.SendButton(data, instance)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		writeSendError(ctx, err)
 		return
 	}
 
@@ -697,8 +707,8 @@ func (s *sendHandler) SendList(ctx *gin.Context) {
 		return
 	}
 
-	if data.Number == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
+	if data.Number == "" && data.Recipient == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number or recipient is required"})
 		return
 	}
 
@@ -724,7 +734,7 @@ func (s *sendHandler) SendList(ctx *gin.Context) {
 
 	message, err := s.sendMessageService.SendList(data, instance)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		writeSendError(ctx, err)
 		return
 	}
 
@@ -785,7 +795,7 @@ func (s *sendHandler) SendCarousel(ctx *gin.Context) {
 
 	message, err := s.sendMessageService.SendCarousel(data, instance)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		writeSendError(ctx, err)
 		return
 	}
 
@@ -826,7 +836,7 @@ func (s *sendHandler) SendStatusText(ctx *gin.Context) {
 
 	message, err := s.sendMessageService.SendStatusText(data, instance)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		writeSendError(ctx, err)
 		return
 	}
 
@@ -902,7 +912,7 @@ func (s *sendHandler) SendStatusMedia(ctx *gin.Context) {
 
 		message, err := s.sendMessageService.SendStatusMediaFile(data, fileBytes, instance)
 		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			writeSendError(ctx, err)
 			return
 		}
 
@@ -928,7 +938,7 @@ func (s *sendHandler) SendStatusMedia(ctx *gin.Context) {
 
 	message, err := s.sendMessageService.SendStatusMediaUrl(data, instance)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		writeSendError(ctx, err)
 		return
 	}
 
@@ -940,5 +950,76 @@ func NewSendHandler(
 ) SendHandler {
 	return &sendHandler{
 		sendMessageService: sendMessageService,
+	}
+}
+
+// Send a Cloud API template message.
+// @Summary Send a template message
+// @Description Send an approved WhatsApp Cloud API template. This route is
+// @Description unsupported on Baileys instances.
+// @Tags Send Message
+// @Accept json
+// @Produce json
+// @Param message body send_service.TemplateStruct true "Template message data"
+// @Success 200 {object} docmodels.Envelope{data=docmodels.MessageSend} "success"
+// @Failure 400 {object} docmodels.ErrorResponse "Error on validation"
+// @Failure 422 {object} docmodels.ErrorResponse "Unsupported on this channel"
+// @Router /send/template [post]
+func (s *sendHandler) SendTemplate(ctx *gin.Context) {
+	instance, ok := ctx.MustGet("instance").(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+	data := &send_service.TemplateStruct{}
+	if err := ctx.ShouldBindJSON(data); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if data.Name == "" || data.Language == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "template name and language are required"})
+		return
+	}
+	message, err := s.sendMessageService.SendTemplate(data, instance)
+	if err != nil {
+		writeSendError(ctx, err)
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": message})
+}
+
+func writeSendError(ctx *gin.Context, err error) {
+	var windowErr *cloud_service.WindowExpiredError
+	if errors.As(err, &windowErr) {
+		ctx.JSON(http.StatusUnprocessableEntity, gin.H{
+			"error": "cloud_window_expired", "message": windowErr.Error(),
+			"details": gin.H{"contactId": windowErr.ContactID, "templateRequired": true,
+				"expiresAt": windowErr.ExpiresAt},
+		})
+		return
+	}
+	var apiErr *cloud_service.APIError
+	if errors.As(err, &apiErr) {
+		status := apiErr.Status
+		if status == 0 {
+			status = http.StatusInternalServerError
+		}
+		body := gin.H{"error": apiErr.Code, "message": apiErr.Message}
+		if len(apiErr.Details) > 0 {
+			body["details"] = apiErr.Details
+		}
+		if apiErr.RetryAfter > 0 {
+			ctx.Header("Retry-After", strconv.Itoa(apiErr.RetryAfter))
+		}
+		ctx.JSON(status, body)
+		return
+	}
+	switch {
+	case errors.Is(err, channel.ErrUnsupported):
+		ctx.JSON(http.StatusUnprocessableEntity, gin.H{"error": "unsupported_on_channel", "message": err.Error()})
+	case errors.Is(err, channel.ErrNotImplemented):
+		ctx.JSON(http.StatusNotImplemented, gin.H{"error": "not_implemented_on_channel", "message": err.Error()})
+	default:
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 	}
 }
