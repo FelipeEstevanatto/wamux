@@ -84,6 +84,9 @@ func (s *Service) publishAccount(inst *instance_model.Instance, field string, va
 }
 
 func (s *Service) emit(inst *instance_model.Instance, queueSuffix string, payload map[string]any) {
+	if inst != nil && (s.cfg == nil || s.cfg.WebhookIncludeToken) {
+		payload["instanceToken"] = inst.Token
+	}
 	data, err := json.Marshal(payload)
 	if err != nil {
 		return

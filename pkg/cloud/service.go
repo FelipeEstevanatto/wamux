@@ -906,8 +906,12 @@ func (s *Service) recordOutbound(instance *instance_model.Instance, c *cloud_mod
 				"messageType": msgType, "text": text,
 			},
 		}
+		if s.cfg == nil || s.cfg.WebhookIncludeToken {
+			post["instanceToken"] = instance.Token
+		}
 		if data, err := json.Marshal(post); err == nil {
 			go s.events.CallWebhook(instance, strings.ToLower(instance.Id+".sendmessage"), data)
+			go s.events.SendToGlobalQueues("SendMessage", data, instance.Id)
 		}
 	}
 	return result, nil
