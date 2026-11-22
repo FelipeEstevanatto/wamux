@@ -28,6 +28,7 @@ type ServerHandler interface {
 	InstanceOverview(ctx *gin.Context)
 	MetricsHandler(ctx *gin.Context)
 	HealthHandler(ctx *gin.Context)
+	Audit(ctx *gin.Context)
 }
 
 // OverviewProvider is the slice of the whatsmeow service the dashboard needs to

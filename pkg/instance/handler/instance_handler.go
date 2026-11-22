@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"github.com/felipeestevanatto/wamux/pkg/audit"
 	config "github.com/felipeestevanatto/wamux/pkg/config"
 	docmodels "github.com/felipeestevanatto/wamux/pkg/docmodels"
 	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
@@ -166,6 +167,7 @@ func (i *instanceHandler) Create(ctx *gin.Context) {
 		return
 	}
 
+	audit.Record("admin", "instance.create", createdInstance.Id, map[string]any{"name": createdInstance.Name})
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": createdInstance})
 }
 
@@ -417,6 +419,7 @@ func (i *instanceHandler) All(ctx *gin.Context) {
 		return
 	}
 
+	audit.Record("admin", "instance.token.read", "all", map[string]any{"count": len(instances)})
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": instances})
 }
 
@@ -494,6 +497,7 @@ func (i *instanceHandler) Info(ctx *gin.Context) {
 		return
 	}
 
+	audit.Record("admin", "instance.token.read", instanceId, nil)
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": instance})
 }
 
@@ -536,6 +540,7 @@ func (i *instanceHandler) Rename(ctx *gin.Context) {
 		return
 	}
 
+	audit.Record("admin", "instance.rename", instanceId, map[string]any{"name": name})
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": instance})
 }
 
@@ -564,6 +569,7 @@ func (i *instanceHandler) Delete(ctx *gin.Context) {
 		return
 	}
 
+	audit.Record("admin", "instance.delete", instanceId, nil)
 	ctx.JSON(http.StatusOK, gin.H{"message": "success"})
 }
 
@@ -618,6 +624,10 @@ func (i *instanceHandler) SetProxy(ctx *gin.Context) {
 		"hasAuth":  data.Username != "" && data.Password != "",
 	}
 
+	audit.Record("admin", "instance.proxy.update", instanceId, map[string]any{
+		"protocol": responseData["protocol"], "host": data.Host, "port": data.Port,
+		"hasAuth": data.Username != "" && data.Password != "",
+	})
 	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": responseData})
 }
 
@@ -790,6 +800,7 @@ func (i *instanceHandler) DeleteProxy(ctx *gin.Context) {
 		return
 	}
 
+	audit.Record("admin", "instance.proxy.delete", instanceId, nil)
 	ctx.JSON(http.StatusOK, gin.H{"message": "success"})
 }
 
@@ -979,6 +990,7 @@ func (h *instanceHandler) UpdateAdvancedSettings(c *gin.Context) {
 		return
 	}
 
+	audit.Record(auditActor(c), "instance.settings.update", instanceId, nil)
 	// Return persisted settings (full row) so partial PUT responses stay consistent.
 	persisted, err := h.instanceService.GetAdvancedSettings(instanceId)
 	if err != nil {
@@ -1068,6 +1080,7 @@ func (h *instanceHandler) SetHmac(c *gin.Context) {
 		response.GeneratedKey = key
 	}
 
+	audit.Record(auditActor(c), "instance.hmac.update", instance.Id, map[string]any{"generated": data.Generate})
 	c.JSON(http.StatusOK, gin.H{"message": "success", "data": response})
 }
 
@@ -1113,6 +1126,7 @@ func (h *instanceHandler) DeleteHmac(c *gin.Context) {
 		return
 	}
 
+	audit.Record(auditActor(c), "instance.hmac.delete", instance.Id, nil)
 	c.JSON(http.StatusOK, gin.H{"message": "success"})
 }
 
@@ -1157,6 +1171,10 @@ func (h *instanceHandler) SetS3(c *gin.Context) {
 		return
 	}
 
+	audit.Record(auditActor(c), "instance.s3.update", instance.Id, map[string]any{
+		"enabled": status.Enabled, "endpoint": status.Endpoint, "bucket": status.Bucket,
+		"delivery": status.MediaDelivery,
+	})
 	c.JSON(http.StatusOK, gin.H{"message": "success", "data": status})
 }
 
@@ -1202,6 +1220,7 @@ func (h *instanceHandler) DeleteS3(c *gin.Context) {
 		return
 	}
 
+	audit.Record(auditActor(c), "instance.s3.delete", instance.Id, nil)
 	c.JSON(http.StatusOK, gin.H{"message": "success"})
 }
 

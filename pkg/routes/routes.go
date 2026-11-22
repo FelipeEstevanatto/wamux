@@ -153,6 +153,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 	})
 	// The system/message metrics the dashboard reads. Auth: Global API Key.
 	eng.GET("/server/stats", r.authMiddleware.AuthAdmin, r.serverHandler.Stats)
+	eng.GET("/server/audit", r.authMiddleware.AuthAdmin, r.serverHandler.Audit)
 
 	routes := eng.Group("/instance")
 	{

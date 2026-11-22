@@ -124,6 +124,7 @@ Consulta rápida para desenvolvedores.
 |-----------|-----------|
 | [**API Reference**](./referencia/api-reference.md) | Todos os 79 endpoints em uma página |
 | [**Environment Variables**](./referencia/environment-variables.md) | Lista completa de variáveis de ambiente |
+| [**Audit Log**](./referencia/audit-log.md) | Ações administrativas registradas localmente |
 | [**Error Codes**](./referencia/error-codes.md) | Códigos HTTP e erros da aplicação |
 | [**FAQ**](./referencia/faq.md) | Perguntas frequentes e soluções |
 

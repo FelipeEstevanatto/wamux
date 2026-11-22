@@ -16,6 +16,10 @@
   A per-instance `publicUrl` remains an explicit public-read signal.
 
 ### ✨ Features
+- **Local audit log.** Instance create/delete/rename, proxy/S3/HMAC changes,
+  advanced settings and token reads are recorded in `audit_logs` with actor,
+  action, target and a secret-free detail object. `GET /server/audit` (admin key)
+  returns the newest entries. No external call.
 - **Instance-scoped WebSocket tickets.** `POST /ws/ticket` now accepts an
   instance token and signs the instance id into the ticket. `/ws` subscribes that
   socket only to its own instance; the global key/ticket still opens any (or all)

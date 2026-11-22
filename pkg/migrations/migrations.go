@@ -349,6 +349,35 @@ var steps = []migration{
 			)`,
 		},
 	},
+	{
+		// Append-only administrative audit. Local only: no external call and no
+		// secret values (detail is a small JSON object chosen by the caller).
+		Name: "0016_audit_logs",
+		Postgres: []string{
+			`CREATE TABLE IF NOT EXISTS audit_logs (
+				id text PRIMARY KEY,
+				actor text NOT NULL,
+				action text NOT NULL,
+				target text NOT NULL,
+				detail text,
+				created_at timestamptz NOT NULL DEFAULT NOW()
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs (created_at DESC)`,
+			`CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs (action)`,
+		},
+		SQLite: []string{
+			`CREATE TABLE IF NOT EXISTS audit_logs (
+				id text PRIMARY KEY,
+				actor text NOT NULL,
+				action text NOT NULL,
+				target text NOT NULL,
+				detail text,
+				created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs (created_at DESC)`,
+			`CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs (action)`,
+		},
+	},
 }
 
 const createMigrationsTable = `

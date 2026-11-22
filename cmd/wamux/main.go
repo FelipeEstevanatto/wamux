@@ -17,6 +17,7 @@ import (
 	"time"
 
 	applog "github.com/felipeestevanatto/wamux/pkg/applog"
+	"github.com/felipeestevanatto/wamux/pkg/audit"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"go.mau.fi/whatsmeow"
@@ -694,6 +695,7 @@ func main() {
 	}
 
 	migrate(db)
+	audit.Configure(db)
 
 	var conn *amqp.Connection
 
