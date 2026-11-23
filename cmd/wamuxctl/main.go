@@ -334,6 +334,8 @@ func (c *cli) cloud(inv invocation) int {
 		return c.groups(inv, args)
 	case "flows":
 		return c.flows(inv, args)
+	case "calling":
+		return c.calling(inv, args)
 	case "api":
 		return c.rawAPI(inv, args)
 	case "coverage":
@@ -511,6 +513,37 @@ func (c *cli) templates(inv invocation, args []string) int {
 			return 2
 		}
 		return c.request(inv, http.MethodDelete, "/cloud/templates/"+args[1]+"/"+args[2], nil, "")
+	default:
+		return c.usage()
+	}
+}
+
+func (c *cli) calling(inv invocation, args []string) int {
+	if len(args) == 0 {
+		return c.usage()
+	}
+	switch args[0] {
+	case "start":
+		payload := map[string]any{"to": c.value(inv, "to", "", ""), "action": c.value(inv, "action", "", "connect")}
+		body, ct := jsonBody(payload)
+		return c.request(inv, http.MethodPost, "/cloud/calling/calls", body, ct)
+	case "get":
+		if len(args) < 2 {
+			return c.usage()
+		}
+		return c.request(inv, http.MethodGet, "/cloud/calling/calls/"+url.PathEscape(args[1]), nil, "")
+	case "action":
+		if len(args) < 2 {
+			return c.usage()
+		}
+		body, ct := jsonBody(map[string]string{"action": c.value(inv, "action", "", "")})
+		return c.request(inv, http.MethodPost, "/cloud/calling/calls/"+url.PathEscape(args[1])+"/actions", body, ct)
+	case "permissions":
+		return c.request(inv, http.MethodGet, "/cloud/calling/permissions", nil, "")
+	case "settings":
+		return c.request(inv, http.MethodGet, "/cloud/calling/settings", nil, "")
+	case "events":
+		return c.request(inv, http.MethodGet, "/cloud/calling/events"+query(inv, "callId"), nil, "")
 	default:
 		return c.usage()
 	}
@@ -808,6 +841,7 @@ Usage:
   wamuxctl cloud business phone-numbers|waba|wabas|analytics|catalogs|products
   wamuxctl cloud groups list|get|create|delete|send|invite|events
   wamuxctl cloud flows list|get|create|publish|send|events
+  wamuxctl cloud calling start|get|action|permissions|settings|events
   wamuxctl cloud contacts get|identities CONTACT_ID
   wamuxctl cloud api METHOD PATH [--body FILE]
   wamuxctl cloud coverage

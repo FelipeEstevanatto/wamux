@@ -264,6 +264,23 @@ GET      /cloud/flows/events
 POST     /webhook/cloud/flows/:instanceId   (signed)
 ```
 
+### Calling (`CLOUD_CALLING=true`)
+
+```text
+POST     /cloud/calling/calls
+GET      /cloud/calling/calls/:id
+POST     /cloud/calling/calls/:id/actions
+POST     /cloud/calling/calls/:id/media       (explicit 501)
+GET/POST /cloud/calling/permissions
+GET/POST /cloud/calling/settings
+GET      /cloud/calling/events
+```
+
+The control plane starts, accepts, rejects and terminates Meta calls. It does
+**not** terminate WebRTC/SIP media; a deployment must provide TURN/SFU and call
+media handling separately. Media actions return `501 not_implemented_on_channel`
+rather than silently failing.
+
 ### Groups (`CLOUD_GROUPS=true`)
 
 ```text
