@@ -175,8 +175,10 @@ Two credentials, both sent in the `apikey` header:
   Meta credentials, BSUID identity continuity, signed/typed webhooks, phone
   registration, per-phone rate limiting, metrics, templates, interactive/product
   payloads, Business Management queries, Embedded Signup and opt-in Groups,
-  Calling (control plane) and Flows programs. Enable with
-  `CLOUD_API_ENABLED=true`; see
+  Calling (control plane) and Flows programs. Calling media/TURN work is
+  tracked in
+  [`docs/archive/plans/cloud-calling-media.md`](./docs/archive/plans/cloud-calling-media.md).
+  Enable with `CLOUD_API_ENABLED=true`; see
   [`docs/wiki/guias-api/api-cloud.md`](./docs/wiki/guias-api/api-cloud.md).
 - **Messaging** — text, media, location, contact, polls, stickers, buttons,
   lists, carousels, events and product cards; reactions, edits, deletes, presence.

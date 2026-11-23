@@ -87,7 +87,8 @@ func (h *Handler) Action(c *gin.Context) {
 }
 
 // MediaUnsupported is intentionally explicit: accepting a WebRTC SDP/offer
-// without a TURN/SFU service would be a silent failure.
+// without a TURN/SFU service would be a silent failure. The media TODO lives in
+// docs/archive/plans/cloud-calling-media.md.
 func (h *Handler) MediaUnsupported(c *gin.Context) {
 	c.JSON(http.StatusNotImplemented, gin.H{
 		"error":   "not_implemented_on_channel",

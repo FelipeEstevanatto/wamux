@@ -1,6 +1,9 @@
 # Cloud Calling API — separate program
 
-Status: **control plane implemented opt-in**; media plane remains external. Flag: `CLOUD_CALLING=false` by default.
+Status: **control plane implemented opt-in**; media plane remains external.
+Flag: `CLOUD_CALLING=false` by default.
+
+Media/deployment TODO: [`cloud-calling-media.md`](./cloud-calling-media.md).
 
 ## Scope
 
