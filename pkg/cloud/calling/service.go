@@ -173,7 +173,7 @@ func (s *Service) HandleCloudChange(instanceID, field string, raw []byte) {
 	}
 	_ = s.db.Create(&CallEvent{
 		InstanceID: instanceID, CallID: callID, Event: first(v.Event, field),
-		Status: v.Status, Direction: v.Direction, Payload: string(raw),
+		Status: v.Status, Direction: v.Direction, Payload: string(validJSON(raw)),
 	}).Error
 }
 
@@ -184,4 +184,11 @@ func first(values ...string) string {
 		}
 	}
 	return "call_event"
+}
+
+func validJSON(raw []byte) []byte {
+	if len(raw) == 0 || !json.Valid(raw) {
+		return []byte("{}")
+	}
+	return raw
 }

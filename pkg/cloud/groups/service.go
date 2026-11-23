@@ -264,7 +264,7 @@ func (s *Service) HandleCloudChange(instanceID, field string, raw []byte) {
 		}
 	}
 	_ = s.db.Create(&GroupEvent{
-		InstanceID: instanceID, GroupID: groupID, EventType: field, Payload: string(raw),
+		InstanceID: instanceID, GroupID: groupID, EventType: field, Payload: string(validJSON(raw)),
 	}).Error
 }
 
@@ -281,4 +281,11 @@ func cloneMap(in map[string]any) map[string]any {
 		out[k] = v
 	}
 	return out
+}
+
+func validJSON(raw []byte) []byte {
+	if len(raw) == 0 || !json.Valid(raw) {
+		return []byte("{}")
+	}
+	return raw
 }

@@ -206,7 +206,7 @@ func (s *Service) HandleCloudChange(instanceID, field string, raw []byte) {
 	}
 	_ = s.db.Create(&FlowEvent{
 		InstanceID: instanceID, FlowID: flowID, EventType: field,
-		Payload: string(raw), SignatureOK: true,
+		Payload: string(validJSON(raw)), SignatureOK: true,
 	}).Error
 }
 
@@ -216,7 +216,7 @@ func (s *Service) RecordEndpointEvent(instanceID, flowID, eventType string, raw 
 	}
 	return s.db.Create(&FlowEvent{
 		InstanceID: instanceID, FlowID: flowID, EventType: eventType,
-		Payload: string(raw), SignatureOK: true,
+		Payload: string(validJSON(raw)), SignatureOK: true,
 	}).Error
 }
 
@@ -244,4 +244,11 @@ func (s *Service) Send(ctx context.Context, instance *instance_model.Instance, f
 		msg.FlowID = flowID
 	}
 	return s.cloud.SendFlow(ctx, instance, msg)
+}
+
+func validJSON(raw []byte) []byte {
+	if len(raw) == 0 || !json.Valid(raw) {
+		return []byte("{}")
+	}
+	return raw
 }
