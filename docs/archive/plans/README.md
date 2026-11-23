@@ -6,4 +6,5 @@ implemented.
 
 | Document | Status |
 |---|---|
-| [`waba-cloud-api.md`](./waba-cloud-api.md) | Revision 2; 8–10 engineer-weeks for production Phases 1–3 |
+| [`waba-cloud-api.md`](./waba-cloud-api.md) | Phase 1–3 implemented on `develop` |
+| [`waba-cloud-api-next.md`](./waba-cloud-api-next.md) | Proposed next 11–15 engineer-weeks: identity, metrics, CLI, UI, business API, payloads; Embedded Signup and separate products |

@@ -22,7 +22,8 @@ credentials, signed webhook, BSUID identity, phone registration, text/media/
 template/interactive sends, the 24-hour window, account/template events, media
 jobs, diagnostics, manager onboarding and Cloud API tests. Embedded Signup
 (Phase 4), Groups/Calling/Flows (Phase 5) and the full metrics/account-event UI
-remain deferred.
+remain deferred. The dependency-ordered follow-up plan is
+[`waba-cloud-api-next.md`](./waba-cloud-api-next.md).
 
 ---
 
