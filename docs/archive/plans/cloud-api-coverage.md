@@ -16,9 +16,9 @@ The machine-readable copy is [`cloud-api-coverage.json`](cloud-api-coverage.json
 | Analytics | implemented | Short-lived in-process cache; no raw analytics persisted |
 | Catalogs/products | implemented | Live Graph calls; product pagination is cursor-based |
 | Embedded Signup | implemented | State is server-side and short-lived; token never enters a URL |
-| Groups | separate | `pkg/cloud/groups` design, OBA-only |
-| Calling | separate | WebRTC/SIP infrastructure is out of the core send path |
-| Flows | separate | Flow JSON and endpoint callbacks are a separate package |
+| Groups | implemented opt-in | `pkg/cloud/groups`, OBA-only, `CLOUD_GROUPS` |
+| Calling | implemented opt-in | Control plane in `pkg/cloud/calling`; media needs TURN/SFU |
+| Flows | implemented opt-in | `pkg/cloud/flows`, signed callbacks, `CLOUD_FLOWS` |
 
 Unknown webhook fields are stored in `cloud_account_events` with
 `event_type=unknown`; they must never make Meta retry with a 5xx.

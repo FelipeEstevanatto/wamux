@@ -82,7 +82,7 @@ func TestCoverageJSON(t *testing.T) {
 	if code := run([]string{"cloud", "coverage", "--json"}, &out, &errOut); code != 0 {
 		t.Fatalf("code=%d err=%s", code, errOut.String())
 	}
-	if !strings.Contains(out.String(), `"operation":"send text"`) || !strings.Contains(out.String(), `"status":"separate"`) {
+	if !strings.Contains(out.String(), `"operation":"send text"`) || !strings.Contains(out.String(), `"status":"implemented"`) {
 		t.Fatalf("output = %s", out.String())
 	}
 }

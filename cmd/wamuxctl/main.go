@@ -812,9 +812,9 @@ func (c *cli) coverage(inv invocation) int {
 		{"analytics", "GET /{waba-id}/analytics", "implemented"},
 		{"catalogs", "GET/POST /{business-id}/owned_product_catalogs", "implemented"},
 		{"embedded signup", "POST /cloud/embedded/start", "implemented"},
-		{"groups", "POST /{phone-number-id}/groups", "separate"},
-		{"calling", "POST /{phone-number-id}/calls", "separate"},
-		{"flows", "POST /{phone-number-id}/flows", "separate"},
+		{"groups", "POST /{phone-number-id}/groups", "implemented"},
+		{"calling", "POST /{phone-number-id}/calls", "implemented"},
+		{"flows", "POST /{phone-number-id}/flows", "implemented"},
 	}
 	sort.Slice(ops, func(i, j int) bool { return ops[i].Operation < ops[j].Operation })
 	if inv.flags["json"] {

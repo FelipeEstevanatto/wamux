@@ -159,24 +159,27 @@
       "method": "POST",
       "endpoint": "POST /{phone-number-id}/groups",
       "permission": "whatsapp_business_management",
-      "status": "separate",
-      "tests": "\u2014"
+      "status": "implemented",
+      "tests": "\u2014",
+      "boundary": "separate opt-in program"
     },
     {
       "operation": "calling",
       "method": "POST",
       "endpoint": "POST /{phone-number-id}/calls",
       "permission": "whatsapp_business_messaging",
-      "status": "separate",
-      "tests": "\u2014"
+      "status": "implemented",
+      "tests": "\u2014",
+      "boundary": "separate opt-in program"
     },
     {
       "operation": "flows",
       "method": "POST",
       "endpoint": "POST /{phone-number-id}/flows",
       "permission": "whatsapp_business_management",
-      "status": "separate",
-      "tests": "\u2014"
+      "status": "implemented",
+      "tests": "\u2014",
+      "boundary": "separate opt-in program"
     },
     {
       "operation": "templates",
