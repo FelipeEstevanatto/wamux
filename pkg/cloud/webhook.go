@@ -392,6 +392,7 @@ func (s *Service) processAccountChange(entry webhookEntry, change webhookChange)
 		Payload: payload,
 	}
 	_ = s.repo.AddAccountEvent(event)
+	s.callWebhookHook(inst.Id, change.Field, change.Value)
 	if strings.HasPrefix(change.Field, "message_template") || change.Field == "template_category_update" {
 		s.applyTemplateUpdate(inst.Id, change.Value)
 	}
@@ -418,6 +419,7 @@ func (s *Service) processUnknownChange(entry webhookEntry, change webhookChange)
 		InstanceID: creds.InstanceID, Field: change.Field,
 		EventType: "unknown", Payload: string(change.Value),
 	})
+	s.callWebhookHook(creds.InstanceID, change.Field, change.Value)
 	s.markWebhook(creds.InstanceID)
 }
 
@@ -720,4 +722,10 @@ func safeMediaFilename(name, messageID string) string {
 		return messageID
 	}
 	return name
+}
+
+// VerifyWebhookSignature is the exported HMAC check for feature-specific
+// callbacks that use Meta's X-Hub-Signature-256 convention.
+func VerifyWebhookSignature(secret string, body []byte, header string) bool {
+	return verifyHMAC(secret, body, header)
 }

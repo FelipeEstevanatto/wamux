@@ -138,6 +138,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 		eng.GET("/webhook/cloud/:appId", r.cloudHandler.WebhookVerify)
 		eng.POST("/webhook/cloud/:appId", r.cloudHandler.WebhookReceive)
 		eng.GET("/cloud/embedded/callback", r.cloudHandler.EmbeddedCallback)
+		r.cloudHandler.RegisterPublicFeatureRoutes(eng)
 	}
 
 	if r.cloudHandler != nil {
@@ -246,6 +247,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 				routes.POST("/cloud/templates", r.cloudHandler.CreateTemplate)
 				routes.PUT("/cloud/templates/:name/:language", r.cloudHandler.UpdateTemplate)
 				routes.DELETE("/cloud/templates/:name/:language", r.cloudHandler.DeleteTemplate)
+				r.cloudHandler.RegisterFeatureRoutes(routes.Group("/cloud"))
 			}
 			// Per-instance webhook HMAC signing. The authenticated instance is
 			// implied by the token, so no instance id is in the path.
@@ -307,6 +309,7 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			cloudRoutes.POST("/templates", r.cloudHandler.CreateTemplate)
 			cloudRoutes.PUT("/templates/:name/:language", r.cloudHandler.UpdateTemplate)
 			cloudRoutes.DELETE("/templates/:name/:language", r.cloudHandler.DeleteTemplate)
+			r.cloudHandler.RegisterFeatureRoutes(cloudRoutes)
 		}
 		templates := eng.Group("/template")
 		{

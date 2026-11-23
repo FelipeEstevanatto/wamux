@@ -76,6 +76,8 @@ type Service struct {
 	lastWebhook   map[string]time.Time
 	observer      Observer
 	phoneLimiter  PhoneLimiter
+	webhookHookMu sync.RWMutex
+	webhookHooks  []WebhookHook
 
 	businessMu    sync.Mutex
 	businessCache map[string]analyticsCacheEntry
@@ -1695,4 +1697,128 @@ func (s *Service) ResolveInstance(instanceID string) (*instance_model.Instance, 
 		return nil, ErrNotFound
 	}
 	return inst, nil
+}
+
+// GraphRequest is the narrow Graph boundary used by separate feature programs.
+// It keeps token decryption inside this package and maps Graph errors to the
+// public Cloud error shape.
+func (s *Service) GraphRequest(ctx context.Context, instanceID, method, path string, payload any) (json.RawMessage, error) {
+	_, token, err := s.credentialsToken(instanceID)
+	if err != nil {
+		return nil, err
+	}
+	raw, err := s.client.Request(ctx, token, method, path, payload)
+	if err != nil {
+		return nil, mapGraphErr(err)
+	}
+	return raw, nil
+}
+
+// AppSecretForInstance returns the decrypted app secret for a signed feature
+// webhook. Callers must not log or return it.
+func (s *Service) AppSecretForInstance(instanceID string) (string, error) {
+	c, err := s.repo.GetCredentials(instanceID)
+	if err != nil {
+		return "", ErrNotFound
+	}
+	return s.appSecret(c.AppID)
+}
+
+// WebhookHook receives raw account changes after signature verification. It is
+// used by the separate Groups/Calling/Flows programs; errors stay asynchronous
+// and never make Meta retry a webhook.
+type WebhookHook func(instanceID, field string, raw []byte)
+
+func (s *Service) SetWebhookHook(h WebhookHook) {
+	s.webhookHookMu.Lock()
+	defer s.webhookHookMu.Unlock()
+	if h == nil {
+		s.webhookHooks = nil
+		return
+	}
+	s.webhookHooks = []WebhookHook{h}
+}
+
+func (s *Service) AddWebhookHook(h WebhookHook) {
+	if h == nil {
+		return
+	}
+	s.webhookHookMu.Lock()
+	s.webhookHooks = append(s.webhookHooks, h)
+	s.webhookHookMu.Unlock()
+}
+
+func (s *Service) callWebhookHook(instanceID, field string, raw []byte) {
+	if instanceID == "" {
+		return
+	}
+	s.webhookHookMu.RLock()
+	hooks := append([]WebhookHook(nil), s.webhookHooks...)
+	s.webhookHookMu.RUnlock()
+	if len(hooks) == 0 {
+		return
+	}
+	cp := append([]byte(nil), raw...)
+	for _, hook := range hooks {
+		h := hook
+		go h(instanceID, field, cp)
+	}
+}
+
+// SendFlow sends an interactive Flow entry point. Flow JSON management lives in
+// the separate pkg/cloud/flows program; this method keeps window/rate/metrics
+// behavior identical to other free-form interactive sends.
+func (s *Service) SendFlow(ctx context.Context, instance *instance_model.Instance, msg channel.FlowMessage) (result channel.Result, err error) {
+	defer func() { s.observeSend("flow", err) }()
+	if strings.TrimSpace(msg.FlowID) == "" {
+		return channel.Result{}, &APIError{Status: http.StatusBadRequest, Code: "invalid_request", Message: "flow id is required"}
+	}
+	c, token, err := s.credentialsToken(instance.Id)
+	if err != nil {
+		return channel.Result{}, err
+	}
+	to, recipient, err := target(msg.To, msg.Recipient)
+	if err != nil {
+		return channel.Result{}, err
+	}
+	if err := s.ensureWindow(instance, c, msg.Recipient, msg.To, false); err != nil {
+		return channel.Result{}, err
+	}
+	params := map[string]any{
+		"flow_message_version": firstNonEmpty(msg.FlowMessageVersion, "3"),
+		"flow_id":              msg.FlowID,
+		"flow_cta":             firstNonEmpty(msg.FlowCTA, "Open"),
+		"flow_action":          firstNonEmpty(msg.FlowAction, "navigate"),
+	}
+	if msg.FlowToken != "" {
+		params["flow_token"] = msg.FlowToken
+	}
+	if msg.FlowActionPayload != nil {
+		params["flow_action_payload"] = msg.FlowActionPayload
+	}
+	interactive := map[string]any{
+		"type": "flow",
+		"body": map[string]any{"text": msg.Body},
+		"action": map[string]any{
+			"name": "flow", "parameters": params,
+		},
+	}
+	if msg.Header != "" {
+		interactive["header"] = map[string]any{"type": "text", "text": msg.Header}
+	}
+	if msg.Footer != "" {
+		interactive["footer"] = map[string]any{"text": msg.Footer}
+	}
+	payload := map[string]any{
+		"messaging_product": "whatsapp", "recipient_type": recipientType(msg.RecipientType),
+		"type": "interactive", "interactive": interactive,
+	}
+	addTarget(payload, to, recipient)
+	addReply(payload, msg.ReplyTo)
+	addOperation(payload, msg.OperationID)
+	resp, err := s.sendPayload(ctx, token, c.PhoneNumberID, payload)
+	if err != nil {
+		return channel.Result{}, s.sendError(err)
+	}
+	return s.recordOutbound(instance, c, resp, to, recipient, "interactive", "flow", "", "", "", msg.OperationID)
 }

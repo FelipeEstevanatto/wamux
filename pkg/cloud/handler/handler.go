@@ -12,18 +12,48 @@ import (
 
 	"github.com/felipeestevanatto/wamux/pkg/audit"
 	cloud_service "github.com/felipeestevanatto/wamux/pkg/cloud"
+	cloud_flows "github.com/felipeestevanatto/wamux/pkg/cloud/flows"
 	"github.com/felipeestevanatto/wamux/pkg/config"
 	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
 	"github.com/gin-gonic/gin"
 )
 
 type Handler struct {
-	svc *cloud_service.Service
-	cfg *config.Config
+	svc   *cloud_service.Service
+	cfg   *config.Config
+	flows *cloud_flows.Handler
 }
 
 func New(svc *cloud_service.Service, cfg *config.Config) *Handler {
-	return &Handler{svc: svc, cfg: cfg}
+	h := &Handler{svc: svc, cfg: cfg}
+	if cfg != nil && cfg.CloudFlowsEnabled && svc != nil {
+		flowSvc := cloud_flows.New(svc)
+		svc.AddWebhookHook(flowSvc.HandleCloudChange)
+		h.flows = cloud_flows.NewHandler(flowSvc)
+	}
+	return h
+}
+
+// RegisterFeatureRoutes mounts the separate opt-in programs on an already
+// authenticated Cloud router group.
+func (h *Handler) RegisterFeatureRoutes(r *gin.RouterGroup) {
+	if h == nil {
+		return
+	}
+	if h.flows != nil {
+		h.flows.RegisterRoutes(r.Group("/flows"))
+	}
+}
+
+// RegisterPublicFeatureRoutes mounts signed feature callbacks. Each callback
+// verifies Meta's signature itself.
+func (h *Handler) RegisterPublicFeatureRoutes(eng *gin.Engine) {
+	if h == nil {
+		return
+	}
+	if h.flows != nil {
+		h.flows.RegisterPublicRoutes(eng)
+	}
 }
 
 func (h *Handler) WebhookVerify(c *gin.Context) {

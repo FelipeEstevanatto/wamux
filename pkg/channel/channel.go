@@ -328,3 +328,21 @@ type ContactRequestMessage struct {
 	ReplyTo       string
 	OperationID   string
 }
+
+// FlowMessage opens a WhatsApp Flow from an interactive message.
+type FlowMessage struct {
+	To                 string
+	Recipient          string
+	RecipientType      string
+	Header             string
+	Body               string
+	Footer             string
+	FlowID             string
+	FlowToken          string
+	FlowCTA            string
+	FlowAction         string
+	FlowActionPayload  any
+	FlowMessageVersion string
+	ReplyTo            string
+	OperationID        string
+}

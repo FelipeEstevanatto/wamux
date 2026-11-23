@@ -619,3 +619,23 @@ func graphOperation(path string) string {
 		return "graph"
 	}
 }
+
+// Request performs one generic Graph call with an explicit token. It exists for
+// the separate feature programs (Flows, Groups, Calling) that own their paths
+// but must reuse the same HTTP, limiter and observability boundary. The path
+// must be relative; callers must never pass an absolute URL.
+func (c *Client) Request(ctx context.Context, token, method, path string, payload any) (json.RawMessage, error) {
+	if strings.TrimSpace(path) == "" {
+		return nil, fmt.Errorf("graph path is required")
+	}
+	u, err := url.Parse(path)
+	if err != nil || u.IsAbs() || strings.HasPrefix(path, "//") {
+		return nil, fmt.Errorf("graph path must be relative")
+	}
+	var out json.RawMessage
+	idempotent := method == http.MethodGet || method == http.MethodDelete
+	if err := c.doJSON(ctx, token, method, path, payload, &out, idempotent); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
