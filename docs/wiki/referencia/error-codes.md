@@ -277,6 +277,8 @@ Logs incluem:
 | `cloud_rate_limited` | 429 | Respeite `Retry-After`; o limitador adaptativo reduz a taxa |
 | `cloud_send_outcome_unknown` | 202 | O resultado é incerto; não reenvie às cegas |
 | `cloud_auth_failed` | 502 | Renove o access token da Meta |
+| `cloud_embedded_not_configured` | 503 | Configure `CLOUD_API_EMBEDDED_CONFIG_ID` e o redirect URI |
+| `cloud_embedded_state_invalid` | 400 | Reinicie o Embedded Signup; o state expirou ou já foi usado |
 
 Envie `X-Hub-Signature-256` nos webhooks da Meta. O WaMux responde `401` para
 assinatura ausente/inválida e `413` para corpo acima do limite.

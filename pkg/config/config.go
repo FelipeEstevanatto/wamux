@@ -172,24 +172,31 @@ type Config struct {
 	MaxUploadBytes int64
 
 	// WhatsApp Cloud API (official WABA transport).
-	CloudAPIEnabled          bool
-	CloudAPIGraphBaseURL     string
-	CloudAPIGraphVersion     string
-	CloudAPIAppID            string
-	CloudAPIAppSecret        string
-	CloudAPIVerifyToken      string
-	CloudAPIHTTPTimeout      time.Duration
-	CloudAPIHeaderTimeout    time.Duration
-	CloudAPIMediaTimeout     time.Duration
-	CloudAPIMaxWebhookBytes  int64
-	CloudAPIMaxResponseBytes int64
-	CloudAPIMaxHeaderBytes   int64
-	CloudAPIMaxMediaBytes    int64
-	CloudAPIMediaWorkers     int
-	CloudAPIWindowHours      int
-	CloudAPIEnforceWindow    bool
-	CloudAPIRPS              float64
-	CloudAPIRetryMax         int
+	CloudAPIEnabled             bool
+	CloudAPIGraphBaseURL        string
+	CloudAPIGraphVersion        string
+	CloudAPIAppID               string
+	CloudAPIAppSecret           string
+	CloudAPIVerifyToken         string
+	CloudAPIHTTPTimeout         time.Duration
+	CloudAPIHeaderTimeout       time.Duration
+	CloudAPIMediaTimeout        time.Duration
+	CloudAPIMaxWebhookBytes     int64
+	CloudAPIMaxResponseBytes    int64
+	CloudAPIMaxHeaderBytes      int64
+	CloudAPIMaxMediaBytes       int64
+	CloudAPIMediaWorkers        int
+	CloudAPIWindowHours         int
+	CloudAPIEnforceWindow       bool
+	CloudAPIRPS                 float64
+	CloudAPIRetryMax            int
+	CloudAPIEmbeddedConfigID    string
+	CloudAPIEmbeddedRedirectURI string
+	// Separate programs. Parsed and documented now so a deployment can reserve
+	// operational policy, but none is enabled by the core send path.
+	CloudGroupsEnabled  bool
+	CloudCallingEnabled bool
+	CloudFlowsEnabled   bool
 	// HttpAccessLog selects the request log: "errors", "all" or "off".
 	HttpAccessLog string
 
@@ -877,6 +884,11 @@ func Load() *Config {
 		CloudAPIEnforceWindow:       cloudAPIEnforceWindow,
 		CloudAPIRPS:                 cloudAPIRPS,
 		CloudAPIRetryMax:            cloudAPIRetryMax,
+		CloudAPIEmbeddedConfigID:    strings.TrimSpace(os.Getenv("CLOUD_API_EMBEDDED_CONFIG_ID")),
+		CloudAPIEmbeddedRedirectURI: strings.TrimSpace(os.Getenv("CLOUD_API_EMBEDDED_REDIRECT_URI")),
+		CloudGroupsEnabled:          config_env.Bool("CLOUD_GROUPS", false),
+		CloudCallingEnabled:         config_env.Bool("CLOUD_CALLING", false),
+		CloudFlowsEnabled:           config_env.Bool("CLOUD_FLOWS", false),
 		HttpAccessLog:               strings.ToLower(strings.TrimSpace(os.Getenv(config_env.HTTP_ACCESS_LOG))),
 		DatabaseMaxOpenConns:        dbMaxOpen,
 		DatabaseMaxIdleConns:        dbMaxIdle,

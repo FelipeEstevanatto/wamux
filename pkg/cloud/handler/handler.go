@@ -309,3 +309,381 @@ func writeError(c *gin.Context, err error) {
 	}
 	c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 }
+
+func (h *Handler) GetContact(c *gin.Context) {
+	inst, ok := c.MustGet("instance").(*instance_model.Instance)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+	detail, err := h.svc.ContactDetail(inst.Id, c.Param("contactId"))
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": detail})
+}
+
+func (h *Handler) ListIdentityEvents(c *gin.Context) {
+	inst, ok := c.MustGet("instance").(*instance_model.Instance)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "100"))
+	events, err := h.svc.ListIdentityEvents(inst.Id, limit)
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": events})
+}
+
+func (h *Handler) ReconcileContact(c *gin.Context) {
+	inst, ok := c.MustGet("instance").(*instance_model.Instance)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+	var in struct {
+		WaID     string `json:"waId"`
+		OldBSUID string `json:"oldBsuid"`
+		NewBSUID string `json:"newBsuid"`
+		Parent   string `json:"parentBsuid"`
+	}
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := h.svc.ApplyIdentityUpdate(inst.Id, cloud_service.IdentityUpdate{
+		WAID: in.WaID, OldBSUID: in.OldBSUID, NewBSUID: in.NewBSUID,
+		ParentBSUID: in.Parent, EventType: "manual_reconcile",
+	}); err != nil {
+		writeError(c, err)
+		return
+	}
+	audit.Record("instance", "cloud.contact.reconcile", inst.Id, map[string]any{"waId": in.WaID})
+	c.JSON(http.StatusOK, gin.H{"message": "success"})
+}
+
+func (h *Handler) ListAccountEvents(c *gin.Context) {
+	inst, ok := c.MustGet("instance").(*instance_model.Instance)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "100"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	events, err := h.svc.ListAccountEvents(inst.Id, c.Query("field"), limit, offset)
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": events})
+}
+
+func (h *Handler) GetAccountEvent(c *gin.Context) {
+	inst, ok := c.MustGet("instance").(*instance_model.Instance)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+	event, err := h.svc.GetAccountEvent(inst.Id, c.Param("id"))
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": event})
+}
+
+func (h *Handler) GetTemplate(c *gin.Context) {
+	inst, ok := c.MustGet("instance").(*instance_model.Instance)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+	item, err := h.svc.GetTemplate(inst, c.Param("name"), c.Param("language"))
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": item})
+}
+
+// --- Business Management ----------------------------------------------------
+
+func (h *Handler) ListBusinessPhoneNumbers(c *gin.Context) {
+	inst, ok := c.MustGet("instance").(*instance_model.Instance)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+	items, err := h.svc.ListBusinessPhoneNumbers(inst)
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": items})
+}
+
+func (h *Handler) GetBusinessPhone(c *gin.Context) {
+	inst, ok := c.MustGet("instance").(*instance_model.Instance)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+	item, err := h.svc.GetBusinessPhone(inst, c.Param("id"))
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": item})
+}
+
+func (h *Handler) RegisterBusinessPhone(c *gin.Context) {
+	inst, ok := c.MustGet("instance").(*instance_model.Instance)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+	var in struct {
+		PIN string `json:"pin"`
+	}
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := h.svc.RegisterBusinessPhone(inst, c.Param("id"), in.PIN); err != nil {
+		writeError(c, err)
+		return
+	}
+	audit.Record("instance", "cloud.business.phone.register", inst.Id, map[string]any{"phoneNumberId": c.Param("id")})
+	c.JSON(http.StatusOK, gin.H{"message": "success"})
+}
+
+func (h *Handler) DeregisterBusinessPhone(c *gin.Context) {
+	inst, ok := c.MustGet("instance").(*instance_model.Instance)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+	if err := h.svc.DeregisterBusinessPhone(inst, c.Param("id")); err != nil {
+		writeError(c, err)
+		return
+	}
+	audit.Record("instance", "cloud.business.phone.deregister", inst.Id, map[string]any{"phoneNumberId": c.Param("id")})
+	c.JSON(http.StatusOK, gin.H{"message": "success"})
+}
+
+func (h *Handler) RequestBusinessCode(c *gin.Context) {
+	inst, ok := c.MustGet("instance").(*instance_model.Instance)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+	var in struct {
+		Method   string `json:"method"`
+		Language string `json:"language"`
+	}
+	_ = c.ShouldBindJSON(&in)
+	if err := h.svc.RequestBusinessCode(inst, c.Param("id"), in.Method, in.Language); err != nil {
+		writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "success"})
+}
+
+func (h *Handler) VerifyBusinessCode(c *gin.Context) {
+	inst, ok := c.MustGet("instance").(*instance_model.Instance)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+	var in struct {
+		Code string `json:"code"`
+	}
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := h.svc.VerifyBusinessCode(inst, c.Param("id"), in.Code); err != nil {
+		writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "success"})
+}
+
+func (h *Handler) GetBusinessWABA(c *gin.Context) {
+	inst, ok := c.MustGet("instance").(*instance_model.Instance)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+	item, err := h.svc.GetBusinessWABA(inst)
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": item})
+}
+
+func (h *Handler) GetBusinessAnalytics(c *gin.Context) {
+	inst, ok := c.MustGet("instance").(*instance_model.Instance)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+	raw, err := h.svc.GetBusinessAnalytics(inst, c.Query("start"), c.Query("end"), c.Query("granularity"), c.Query("phoneNumbers"))
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+	c.Data(http.StatusOK, "application/json", raw)
+}
+
+func (h *Handler) ListBusinessCatalogs(c *gin.Context) {
+	inst, ok := c.MustGet("instance").(*instance_model.Instance)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+	items, err := h.svc.ListBusinessCatalogs(inst)
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": items})
+}
+
+func (h *Handler) CreateBusinessCatalog(c *gin.Context) {
+	inst, ok := c.MustGet("instance").(*instance_model.Instance)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+	var in struct {
+		Name string `json:"name"`
+	}
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	item, err := h.svc.CreateBusinessCatalog(inst, in.Name)
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+	audit.Record("instance", "cloud.business.catalog.create", inst.Id, map[string]any{"name": in.Name})
+	c.JSON(http.StatusOK, gin.H{"data": item})
+}
+
+func (h *Handler) ListBusinessProducts(c *gin.Context) {
+	inst, ok := c.MustGet("instance").(*instance_model.Instance)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+	items, err := h.svc.ListBusinessProducts(inst, c.Param("id"))
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": items})
+}
+
+func (h *Handler) CreateBusinessProduct(c *gin.Context) {
+	inst, ok := c.MustGet("instance").(*instance_model.Instance)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+	var in map[string]any
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	item, err := h.svc.CreateBusinessProduct(inst, c.Param("id"), in)
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+	audit.Record("instance", "cloud.business.product.create", inst.Id, map[string]any{"catalogId": c.Param("id")})
+	c.JSON(http.StatusOK, gin.H{"data": item})
+}
+
+func (h *Handler) Deregister(c *gin.Context) {
+	inst, ok := c.MustGet("instance").(*instance_model.Instance)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+	status, err := h.svc.Deregister(inst)
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+	audit.Record("instance", "cloud.phone.deregister", inst.Id, nil)
+	c.JSON(http.StatusOK, gin.H{"data": status})
+}
+
+// --- Embedded Signup --------------------------------------------------------
+
+func (h *Handler) StartEmbeddedSignup(c *gin.Context) {
+	inst, ok := c.MustGet("instance").(*instance_model.Instance)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+	start, err := h.svc.StartEmbeddedSignup(inst)
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": start})
+}
+
+// EmbeddedCallback is public because Meta redirects the browser here. The
+// one-time state binds the result to the instance that started the flow.
+func (h *Handler) EmbeddedCallback(c *gin.Context) {
+	assets, err := h.svc.CompleteEmbeddedSignup(c.Query("code"), c.Query("state"))
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": gin.H{"state": c.Query("state"), "assets": assets}})
+}
+
+func (h *Handler) EmbeddedAssets(c *gin.Context) {
+	assets, err := h.svc.EmbeddedAssets(c.Query("state"))
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": assets})
+}
+
+func (h *Handler) SelectEmbeddedAsset(c *gin.Context) {
+	inst, ok := c.MustGet("instance").(*instance_model.Instance)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+	var in struct {
+		State         string `json:"state"`
+		WABAID        string `json:"wabaId"`
+		PhoneNumberID string `json:"phoneNumberId"`
+	}
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	status, err := h.svc.SelectEmbeddedAsset(inst, in.State, in.WABAID, in.PhoneNumberID)
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+	audit.Record("instance", "cloud.embedded.select", inst.Id, map[string]any{
+		"wabaId": in.WABAID, "phoneNumberId": in.PhoneNumberID,
+	})
+	c.JSON(http.StatusOK, gin.H{"data": status})
+}

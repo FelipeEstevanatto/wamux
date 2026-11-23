@@ -65,6 +65,66 @@ type Contact struct {
 
 func (Contact) TableName() string { return "cloud_contacts" }
 
+// ContactIdentity is the current and historical identity mapping for one
+// contact. BSUID continuity is scoped to an instance/WABA.
+type ContactIdentity struct {
+	ID            string     `json:"id" gorm:"column:id;type:uuid;primaryKey"`
+	InstanceID    string     `json:"instanceId" gorm:"column:instance_id;type:uuid;not null;index"`
+	ContactID     string     `json:"contactId" gorm:"column:contact_id;not null;index"`
+	IdentityType  string     `json:"identityType" gorm:"column:identity_type;not null"`
+	IdentityValue string     `json:"identityValue" gorm:"column:identity_value;not null"`
+	ValidFrom     time.Time  `json:"validFrom" gorm:"column:valid_from;not null"`
+	ValidTo       *time.Time `json:"validTo,omitempty" gorm:"column:valid_to"`
+	SourceEventID string     `json:"sourceEventId,omitempty" gorm:"column:source_event_id"`
+}
+
+func (ContactIdentity) TableName() string { return "cloud_contact_identities" }
+
+func (c *ContactIdentity) BeforeCreate(_ *gorm.DB) error {
+	if c.ID == "" {
+		c.ID = uuid.New().String()
+	}
+	return nil
+}
+
+// IdentityEvent stores the raw Meta identity transition even when it cannot be
+// applied (for example an unknown WABA/contact).
+type IdentityEvent struct {
+	ID          string     `json:"id" gorm:"column:id;type:uuid;primaryKey"`
+	InstanceID  string     `json:"instanceId" gorm:"column:instance_id;type:uuid;not null;index"`
+	EventType   string     `json:"eventType" gorm:"column:event_type;not null"`
+	WaID        string     `json:"waId,omitempty" gorm:"column:wa_id"`
+	OldBSUID    string     `json:"oldBsuid,omitempty" gorm:"column:old_bsuid"`
+	NewBSUID    string     `json:"newBsuid,omitempty" gorm:"column:new_bsuid"`
+	ParentBSUID string     `json:"parentBsuid,omitempty" gorm:"column:parent_bsuid"`
+	EventTime   time.Time  `json:"eventTime" gorm:"column:event_time"`
+	ReceivedAt  time.Time  `json:"receivedAt" gorm:"column:received_at;autoCreateTime"`
+	Payload     string     `json:"payload" gorm:"column:payload;type:jsonb;not null"`
+	AppliedAt   *time.Time `json:"appliedAt,omitempty" gorm:"column:applied_at"`
+	Error       string     `json:"error,omitempty" gorm:"column:error;type:text"`
+}
+
+func (IdentityEvent) TableName() string { return "cloud_identity_events" }
+
+func (i *IdentityEvent) BeforeCreate(_ *gorm.DB) error {
+	if i.ID == "" {
+		i.ID = uuid.New().String()
+	}
+	return nil
+}
+
+// RateBucket is the per-phone-number token bucket used by the shared limiter.
+type RateBucket struct {
+	PhoneNumberID string     `json:"phoneNumberId" gorm:"column:phone_number_id;primaryKey"`
+	Tokens        float64    `json:"tokens" gorm:"column:tokens;not null"`
+	EffectiveRPS  float64    `json:"effectiveRps" gorm:"column:effective_rps;not null"`
+	UpdatedAt     time.Time  `json:"updatedAt" gorm:"column:updated_at;not null"`
+	Last429At     *time.Time `json:"last429At,omitempty" gorm:"column:last_429_at"`
+	PausedUntil   *time.Time `json:"pausedUntil,omitempty" gorm:"column:paused_until"`
+}
+
+func (RateBucket) TableName() string { return "cloud_rate_buckets" }
+
 // Template is the local cache of a Meta message template.
 type Template struct {
 	ID             string     `json:"id" gorm:"column:id;type:uuid;primaryKey"`

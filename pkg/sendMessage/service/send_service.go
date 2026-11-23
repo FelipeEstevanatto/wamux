@@ -3852,3 +3852,25 @@ func (s *sendService) SendTemplate(_ *TemplateStruct, instance *instance_model.I
 	}
 	return nil, &channel.UnsupportedError{Channel: kind, Op: "send/template"}
 }
+
+// CatalogStruct is the body for POST /send/catalog.
+type CatalogStruct struct {
+	Number                     string       `json:"number" example:"5511999999999"`
+	Recipient                  string       `json:"recipient,omitempty" example:"US.13491208655302741918"`
+	RecipientType              string       `json:"recipientType,omitempty" example:"individual"`
+	Id                         string       `json:"id,omitempty" example:"3EB0A1B2C3D4E5F6A7B8C9"`
+	Body                       string       `json:"body,omitempty" example:"Confira nosso catalogo"`
+	Footer                     string       `json:"footer,omitempty" example:"WaMux"`
+	ThumbnailProductRetailerId string       `json:"thumbnailProductRetailerId,omitempty" example:"SKU-001"`
+	Quoted                     QuotedStruct `json:"quoted,omitempty"`
+}
+
+// ContactRequestStruct is the body for POST /send/contact-request.
+type ContactRequestStruct struct {
+	Number        string       `json:"number" example:"5511999999999"`
+	Recipient     string       `json:"recipient,omitempty" example:"US.13491208655302741918"`
+	RecipientType string       `json:"recipientType,omitempty" example:"individual"`
+	Id            string       `json:"id,omitempty" example:"3EB0A1B2C3D4E5F6A7B8C9"`
+	Body          string       `json:"body,omitempty" example:"Compartilhe um contato"`
+	Quoted        QuotedStruct `json:"quoted,omitempty"`
+}

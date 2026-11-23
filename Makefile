@@ -1,4 +1,4 @@
-.PHONY: help dev run build test clean swagger deps docker-build docker-run install setup migrate-up migrate-down logs manager-install manager-build test-manager fuzz lint docs-check smoke hooks
+.PHONY: help dev run build build-cli test clean swagger deps docker-build docker-run install setup migrate-up migrate-down logs manager-install manager-build test-manager fuzz lint docs-check smoke hooks
 
 # Configurações
 APP_NAME=wamux
@@ -65,7 +65,12 @@ build-windows: ## Compila para Windows
 	GOOS=windows GOARCH=amd64 $(GO) build $(GOFLAGS) $(LDFLAGS) -o $(BUILD_DIR)/$(APP_NAME)-windows-amd64.exe $(MAIN_PATH)
 	@echo "$(GREEN)✅ Build Windows completo$(NC)"
 
-build-all: build build-linux build-windows ## Compila para todas as plataformas
+build-cli: ## Compila o CLI wamuxctl separado do servidor
+	@mkdir -p $(BUILD_DIR)
+	$(GO) build $(GOFLAGS) $(LDFLAGS) -o $(BUILD_DIR)/wamuxctl ./cmd/wamuxctl
+	@echo "$(GREEN)✅ Build completo: $(BUILD_DIR)/wamuxctl$(NC)"
+
+build-all: build build-cli build-linux build-windows ## Compila para todas as plataformas
 	@echo "$(GREEN)✅ Todos os builds completos$(NC)"
 
 ##@ Manager (frontend React)

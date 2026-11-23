@@ -109,6 +109,33 @@ curl -X POST "$WAMUX/send/template" \
   }'
 ```
 
+## Identity continuity and contacts
+
+Meta is migrating from phone-only identities to BSUIDs. WaMux keeps a
+`cloud_contact_identities` history and merges an old BSUID/new BSUID transition
+into one canonical contact in a single transaction. Messages keep their original
+`message_id` and are only re-pointed at the canonical `contact_id`; the 24-hour
+window keeps the latest expiry.
+
+```text
+GET  /cloud/contacts/:contactId
+GET  /cloud/identity-events
+POST /cloud/contacts/:contactId/reconcile
+```
+
+The reconcile endpoint accepts `waId`, `oldBsuid`, `newBsuid` and `parentBsuid`
+for operator repair. `user_id_update` webhooks are applied idempotently.
+
+Account/template webhooks are available for the manager:
+
+```text
+GET /cloud/account-events?field=&limit=&offset=
+GET /cloud/account-events/:id
+```
+
+Unknown webhook fields return `200`, are stored with `event_type=unknown`, and
+never make Meta retry forever.
+
 ## 24-hour window
 
 A user message opens a 24-hour customer-service window. Free-form messages
@@ -121,6 +148,98 @@ Meta now sends BSUIDs (`user_id`, `from_user_id`, `recipient_user_id`) and may
 omit phone numbers. WaMux stores a contact identity table and accepts BSUID
 recipients. Some authentication templates still require a phone number; Meta
 returns `131062` when a BSUID is not allowed.
+
+## Interactive and catalog payloads
+
+Cloud supports the same neutral send routes where the payload exists:
+
+| Route | Cloud payload |
+|---|---|
+| `POST /send/button` with one URL button | `interactive.type=cta_url` |
+| `POST /send/product` | `interactive.type=product` |
+| `POST /send/catalog` | `interactive.type=catalog_message` |
+| `POST /send/contact-request` | `interactive.type=request_contact_info` |
+
+Product routes need the catalog id and a product retailer id. Product-list
+payloads use catalog sections; the Cloud adapter never fabricates a template or
+catalog. Free-form interactive/product messages obey the 24-hour window; approved
+templates are required outside it.
+
+## Business Management
+
+Instance-scoped routes use the instance's own WABA/phone and never expose the
+access token:
+
+```text
+GET  /cloud/business/phone-numbers
+GET  /cloud/business/phone-numbers/:id
+POST /cloud/business/phone-numbers/:id/register
+POST /cloud/business/phone-numbers/:id/deregister
+POST /cloud/business/phone-numbers/:id/request-code
+POST /cloud/business/phone-numbers/:id/verify-code
+GET  /cloud/business/waba
+GET  /cloud/business/analytics?start=&end=&granularity=DAY
+GET  /cloud/business/catalogs
+POST /cloud/business/catalogs
+GET  /cloud/business/catalogs/:id/products
+POST /cloud/business/catalogs/:id/products
+```
+
+Analytics responses are cached for two minutes in-process and are not persisted.
+Pagination follows opaque Graph cursors only.
+
+## Embedded Signup
+
+Set `CLOUD_API_EMBEDDED_CONFIG_ID` and `CLOUD_API_EMBEDDED_REDIRECT_URI`, then use
+the manager's **Connect with Meta** action or:
+
+```text
+POST /cloud/embedded/start
+GET  /cloud/embedded/callback?code=...&state=...
+GET  /cloud/embedded/assets?state=...
+POST /cloud/embedded/select
+```
+
+The state is random, instance-scoped and expires after ten minutes. The callback
+exchanges the code server-side, discovers WABAs/phone numbers, and stores the
+token encrypted only when the operator selects an asset. Tokens never enter a URL
+or logs.
+
+## CLI
+
+Build the separate operator binary:
+
+```bash
+go build ./cmd/wamuxctl
+```
+
+It talks only to the HTTP API and reads `WAMUX_URL`, `WAMUX_API_KEY` and
+`WAMUX_INSTANCE_TOKEN` (flags win):
+
+```bash
+wamuxctl cloud doctor --instance-token "$INSTANCE_TOKEN"
+wamuxctl cloud send text --instance-token "$INSTANCE_TOKEN" --to 5511999999999 --text "Hello"
+wamuxctl cloud send template --instance-token "$INSTANCE_TOKEN" --to 5511999999999 --name order_update --lang en_US --dry-run
+wamuxctl cloud account-events list --instance-token "$INSTANCE_TOKEN"
+wamuxctl cloud coverage --json
+```
+
+`--dry-run` prints the method, URL, body and a redacted token and makes no HTTP
+request. Destructive commands require `--yes`.
+
+## Observability and limits
+
+`/metrics` adds Cloud series for Graph request count/last latency, send
+results, webhook results, signature failures, window expiries, media backlog and
+unknown outcomes. Labels never contain phone numbers or contact ids.
+
+`GET /server/health` includes Cloud credential/registration/template counts and
+the last webhook age. `GET /cloud/diagnostics` remains the per-instance view.
+
+Sends are paced per phone number. Postgres uses `cloud_rate_buckets` with a row
+lock so replicas share a budget; SQLite and tests fall back to a process-local
+bucket. A 429 halves only the affected phone's rate; POSTs are never retried
+automatically.
 
 ## Templates
 
@@ -137,10 +256,11 @@ caches them for the manager and does not bypass Meta approval.
 
 ## Unsupported / deferred
 
-- Groups, Calling, Flows and product/catalog interactions are Cloud-supported
-  but not implemented in this release.
-- Albums, polls, carousels, status/stories, communities, newsletters and full
-  presence do not have a Cloud equivalent.
+- Groups, Calling and Flows are separate programs with their own flags and
+  operational estimates; they are not core channel features.
+- Albums, polls, carousels (unless passed as approved template components),
+  status/stories, communities, newsletters and full presence do not have a
+  Cloud equivalent.
 - Cloud has no general chat-history or contact-list API.
 
 ## Safe send semantics
@@ -160,4 +280,5 @@ Check the operation instead of re-sending blindly.
 | `131062` | Use a phone number for this message type |
 | `132000`/`132001` | Check template parameters/language/approval |
 | `190` | Rotate the Meta access token |
-| `80007`/`130429` | Back off; the adaptive limiter will slow down |
+| `80007`/`130429` | Back off; the per-phone limiter will slow down |
+| `cloud_embedded_state_invalid` | Restart Embedded Signup; the state expired or was reused |

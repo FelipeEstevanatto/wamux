@@ -140,6 +140,9 @@ func (s *Service) VerifyToken(token string) bool {
 // ReceiveWebhook verifies the raw signature and processes a webhook payload.
 func (s *Service) ReceiveWebhook(raw []byte, signature, appID string) error {
 	if err := s.verifyWebhookSignature(raw, signature, appID); err != nil {
+		if s.observer != nil {
+			s.observer.ObserveCloudWebhookSignatureFailure()
+		}
 		return err
 	}
 	var env webhookEnvelope
@@ -166,7 +169,8 @@ func (s *Service) ReceiveWebhook(raw []byte, signature, appID string) error {
 
 var errSkipChange = errors.New("cloud: skip webhook change")
 
-func (s *Service) processChange(entry webhookEntry, change webhookChange) error {
+func (s *Service) processChange(entry webhookEntry, change webhookChange) (err error) {
+	defer func() { s.observeWebhook(change.Field, err) }()
 	switch change.Field {
 	case "messages":
 		var value messageValue
@@ -198,14 +202,20 @@ func (s *Service) processChange(entry webhookEntry, change webhookChange) error 
 			}
 		}
 		return nil
+	case "user_id_update", "customer_identity_changed", "customer_number_changed":
+		return s.processIdentityChange(entry, change)
 	case "message_template_status_update", "message_template_quality_update",
 		"template_category_update", "message_template_components_update",
 		"phone_number_quality_update", "account_alerts", "account_review_update",
 		"business_capability_update", "security", "business_username_updates",
-		"user_preferences":
+		"user_preferences", "payment_configuration_update", "partner_solutions",
+		"history", "smb_message_echoes", "calls":
 		return s.processAccountChange(entry, change)
 	default:
-		// Unknown fields are acknowledged, not retried forever.
+		// Unknown fields are acknowledged, never retried forever. Persist the
+		// raw value when it belongs to a WABA we know so operators can inspect
+		// new Meta fields without a redeploy.
+		s.processUnknownChange(entry, change)
 		return nil
 	}
 }
@@ -344,6 +354,28 @@ func (s *Service) processStatus(inst *instance_model.Instance, creds *cloud_mode
 	return nil
 }
 
+func (s *Service) processIdentityChange(entry webhookEntry, change webhookChange) error {
+	var v UserIDUpdateValue
+	if err := json.Unmarshal(change.Value, &v); err != nil {
+		return fmt.Errorf("%w: %v", errSkipChange, err)
+	}
+	creds, err := s.repo.GetCredentialsByWABA(entry.ID)
+	if err != nil {
+		return fmt.Errorf("%w: unknown WABA", errSkipChange)
+	}
+	eventTime := parseCloudTimestamp(strconv.FormatInt(v.Timestamp, 10))
+	if v.Timestamp == 0 {
+		eventTime = time.Now()
+	}
+	return s.ApplyIdentityUpdate(creds.InstanceID, IdentityUpdate{
+		WAID: v.WAID, OldBSUID: v.OldUserID,
+		NewBSUID: firstNonEmpty(v.NewUserID, v.UserID),
+		UserID:   v.UserID, ParentBSUID: v.ParentUserID,
+		EventType: change.Field, EventTime: eventTime,
+		RawPayload: change.Value,
+	})
+}
+
 func (s *Service) processAccountChange(entry webhookEntry, change webhookChange) error {
 	creds, err := s.repo.GetCredentialsByWABA(entry.ID)
 	if err != nil {
@@ -370,16 +402,23 @@ func (s *Service) processAccountChange(entry webhookEntry, change webhookChange)
 	return nil
 }
 
-func (s *Service) applyTemplateUpdate(instanceID string, raw json.RawMessage) {
-	var v struct {
-		MessageTemplateID       string `json:"message_template_id"`
-		MessageTemplateName     string `json:"message_template_name"`
-		MessageTemplateLanguage string `json:"message_template_language"`
-		Event                   string `json:"event"`
-		Reason                  string `json:"reason"`
-		Category                string `json:"category"`
-		QualityScore            any    `json:"quality_score"`
+func (s *Service) processUnknownChange(entry webhookEntry, change webhookChange) {
+	creds, err := s.repo.GetCredentialsByWABA(entry.ID)
+	if err != nil {
+		return
 	}
+	if s.observer != nil {
+		s.observer.ObserveCloudUnknownField(change.Field)
+	}
+	_ = s.repo.AddAccountEvent(&cloud_model.AccountEvent{
+		InstanceID: creds.InstanceID, Field: change.Field,
+		EventType: "unknown", Payload: string(change.Value),
+	})
+	s.markWebhook(creds.InstanceID)
+}
+
+func (s *Service) applyTemplateUpdate(instanceID string, raw json.RawMessage) {
+	var v TemplateStatusUpdateValue
 	if json.Unmarshal(raw, &v) != nil {
 		return
 	}
@@ -414,10 +453,7 @@ func (s *Service) applyTemplateUpdate(instanceID string, raw json.RawMessage) {
 }
 
 func (s *Service) applyPhoneQuality(instanceID string, raw json.RawMessage) {
-	var v struct {
-		QualityRating string `json:"quality_rating"`
-		DisplayPhone  string `json:"display_phone_number"`
-	}
+	var v PhoneQualityUpdateValue
 	if json.Unmarshal(raw, &v) != nil {
 		return
 	}
@@ -432,19 +468,23 @@ func (s *Service) applyPhoneQuality(instanceID string, raw json.RawMessage) {
 }
 
 func (s *Service) applyUserPreference(instanceID string, raw json.RawMessage) {
-	var v struct {
-		UserID          string `json:"user_id"`
-		WAID            string `json:"wa_id"`
-		MarketingOptOut *bool  `json:"marketing_opt_out"`
-	}
+	var v UserPreferencesValue
 	if json.Unmarshal(raw, &v) != nil {
 		return
 	}
 	contactID := ""
 	if v.UserID != "" {
-		contactID = "bsuid:" + v.UserID
+		if c, err := s.repo.FindContactByBSUID(instanceID, v.UserID); err == nil && c != nil {
+			contactID = c.ContactID
+		} else {
+			contactID = "bsuid:" + v.UserID
+		}
 	} else if v.WAID != "" {
-		contactID = "phone:" + digits(v.WAID)
+		if c, err := s.repo.FindContactByWAID(instanceID, digits(v.WAID)); err == nil && c != nil {
+			contactID = c.ContactID
+		} else {
+			contactID = "phone:" + digits(v.WAID)
+		}
 	}
 	if contactID == "" {
 		return

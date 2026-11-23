@@ -10,6 +10,27 @@
   default with `CLOUD_API_ENABLED=false`.
 - Cloud sends never auto-retry a `POST /messages` after an ambiguous timeout;
   the operation is surfaced as `cloud_send_outcome_unknown`.
+- **BSUID identity continuity.** `user_id_update` merges old/new BSUIDs and phone
+  identities into one canonical contact in one transaction, preserving message
+  history and the latest service window. Contact/identity/reconcile endpoints and
+  the `CloudIdentityChanged` event make repairs auditable.
+- **Cloud observability and per-phone limits.** `/metrics` now exposes Graph
+  request counts/latency, send/webhook results, signature failures, window
+  expiries, media backlog, unknown outcomes and rate-limit state. Sends are paced
+  per phone number, with a Postgres `cloud_rate_buckets` bucket shared by replicas
+  and a memory/SQLite fallback.
+- **Typed webhooks and unknown-field fallback.** Every known webhook field has a
+  typed payload or explicit account-event handler; unknown fields return `200`
+  and are stored with `event_type=unknown` instead of being dropped.
+- **`wamuxctl`.** A separate operator CLI provides doctor, status, send,
+  template, account-event, contact, raw API and coverage commands, with dry-run
+  and token redaction.
+- **Business Management and payload expansion.** Instance-scoped phone/WABA
+  assets, code registration, analytics and catalog/product operations are
+  available, along with CTA URL, product, product-list, catalog and contact-request
+  message payloads.
+- **Embedded Signup.** Server-side OAuth state, encrypted token storage, asset
+  discovery and manager selection flow (`/cloud/embedded/*`).
 
 ### 🔧 CI
 - The archive comparison's "S3/HMAC/health" feature list is allowlisted, so gitleaks no longer treats it as a generic API key.

@@ -216,7 +216,46 @@ func (r *Router) SendProduct(data *send_service.ProductStruct, inst *instance_mo
 	if !isCloud(inst) {
 		return r.baileys.SendProduct(data, inst)
 	}
-	return nil, notImplemented("send/product")
+	res, err := r.cloud.SendProduct(context.Background(), inst, channel.ProductMessage{
+		To: data.Number, Recipient: data.Recipient, RecipientType: data.RecipientType,
+		CatalogID: data.CatalogId, ProductRetailerID: firstNonEmpty(data.ProductRetailerId, data.RetailerId, data.ProductId),
+		Body: data.Body, Footer: data.Footer, ReplyTo: data.Quoted.MessageID, OperationID: data.Id,
+	})
+	return toMessageSend(res, err), err
+}
+
+// SendCatalog is a Cloud-only catalog message.
+func (r *Router) SendCatalog(data *send_service.CatalogStruct, inst *instance_model.Instance) (*send_service.MessageSendStruct, error) {
+	if !isCloud(inst) {
+		return nil, unsupported("send/catalog")
+	}
+	res, err := r.cloud.SendCatalog(context.Background(), inst, channel.CatalogMessage{
+		To: data.Number, Recipient: data.Recipient, RecipientType: data.RecipientType,
+		Body: data.Body, Footer: data.Footer, ThumbnailProductRetailerID: data.ThumbnailProductRetailerId,
+		ReplyTo: data.Quoted.MessageID, OperationID: data.Id,
+	})
+	return toMessageSend(res, err), err
+}
+
+// SendContactRequest is a Cloud-only contact request message.
+func (r *Router) SendContactRequest(data *send_service.ContactRequestStruct, inst *instance_model.Instance) (*send_service.MessageSendStruct, error) {
+	if !isCloud(inst) {
+		return nil, unsupported("send/contact-request")
+	}
+	res, err := r.cloud.SendContactRequest(context.Background(), inst, channel.ContactRequestMessage{
+		To: data.Number, Recipient: data.Recipient, RecipientType: data.RecipientType,
+		Body: data.Body, ReplyTo: data.Quoted.MessageID, OperationID: data.Id,
+	})
+	return toMessageSend(res, err), err
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 func (r *Router) SendStatusText(data *send_service.StatusTextStruct, inst *instance_model.Instance) (*send_service.MessageSendStruct, error) {

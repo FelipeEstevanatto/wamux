@@ -258,3 +258,73 @@ type Result struct {
 	OperationID string
 	Raw         map[string]any
 }
+
+// CTAURLMessage is an interactive call-to-action link message.
+type CTAURLMessage struct {
+	To            string
+	Recipient     string
+	RecipientType string
+	Header        string
+	Body          string
+	Footer        string
+	DisplayText   string
+	URL           string
+	ReplyTo       string
+	OperationID   string
+}
+
+// ProductMessage is a single catalog product card.
+type ProductMessage struct {
+	To                string
+	Recipient         string
+	RecipientType     string
+	CatalogID         string
+	ProductRetailerID string
+	Header            string
+	Body              string
+	Footer            string
+	ReplyTo           string
+	OperationID       string
+}
+
+// ProductSection groups products in a product-list message.
+type ProductSection struct {
+	Title    string
+	Products []string
+}
+
+// ProductListMessage is a multi-product catalog message.
+type ProductListMessage struct {
+	To            string
+	Recipient     string
+	RecipientType string
+	CatalogID     string
+	Header        string
+	Body          string
+	Footer        string
+	Sections      []ProductSection
+	ReplyTo       string
+	OperationID   string
+}
+
+// CatalogMessage opens the business catalog.
+type CatalogMessage struct {
+	To                         string
+	Recipient                  string
+	RecipientType              string
+	Body                       string
+	Footer                     string
+	ThumbnailProductRetailerID string
+	ReplyTo                    string
+	OperationID                string
+}
+
+// ContactRequestMessage asks the customer to share a contact.
+type ContactRequestMessage struct {
+	To            string
+	Recipient     string
+	RecipientType string
+	Body          string
+	ReplyTo       string
+	OperationID   string
+}

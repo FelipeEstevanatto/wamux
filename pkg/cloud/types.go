@@ -95,3 +95,50 @@ type Diagnostics struct {
 	TemplatePending  int        `json:"templatesPending"`
 	TemplateRejected int        `json:"templatesRejected"`
 }
+
+// PhoneNumberInfo is one number returned by a WABA phone-number listing.
+type PhoneNumberInfo struct {
+	ID                     string `json:"id"`
+	DisplayPhoneNumber     string `json:"display_phone_number"`
+	VerifiedName           string `json:"verified_name"`
+	QualityRating          string `json:"quality_rating"`
+	Status                 string `json:"status"`
+	CodeVerificationStatus string `json:"code_verification_status"`
+	PlatformType           string `json:"platform_type"`
+	Throughput             any    `json:"throughput"`
+}
+
+// WABAInfo is the subset of a WhatsApp Business Account shown to operators.
+type WABAInfo struct {
+	ID                       string `json:"id"`
+	Name                     string `json:"name"`
+	Currency                 string `json:"currency"`
+	Timezone                 string `json:"timezone"`
+	AccountReviewStatus      string `json:"account_review_status"`
+	BusinessVerification     string `json:"business_verification_status"`
+	MessageTemplateNamespace string `json:"message_template_namespace"`
+}
+
+// CatalogInfo is one Meta product catalog.
+type CatalogInfo struct {
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	ProductCount int    `json:"product_count"`
+	Vertical     string `json:"vertical"`
+}
+
+// ProductInfo is one catalog product.
+type ProductInfo struct {
+	ID             string `json:"id"`
+	RetailerID     string `json:"retailer_id"`
+	Name           string `json:"name"`
+	Description    string `json:"description"`
+	Availability   string `json:"availability"`
+	Condition      string `json:"condition"`
+	Price          string `json:"price"`
+	Currency       string `json:"currency"`
+	ImageURL       string `json:"image_url"`
+	URL            string `json:"url"`
+	Brand          string `json:"brand"`
+	QuantityToSell int    `json:"quantity_to_sell_on_facebook"`
+}

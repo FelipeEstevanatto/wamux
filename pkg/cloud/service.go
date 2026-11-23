@@ -74,6 +74,11 @@ type Service struct {
 
 	lastWebhookMu sync.RWMutex
 	lastWebhook   map[string]time.Time
+	observer      Observer
+	phoneLimiter  PhoneLimiter
+
+	businessMu    sync.Mutex
+	businessCache map[string]analyticsCacheEntry
 }
 
 // NewService builds the Cloud service. A nil codec (no encryption key) makes
@@ -271,16 +276,19 @@ func (s *Service) SaveCredentials(instanceID string, in CredentialsInput) error 
 	}
 	if old != nil {
 		c.CreatedAt = old.CreatedAt
-		c.DisplayPhoneNumber = firstNonEmpty(c.DisplayPhoneNumber, old.DisplayPhoneNumber)
-		c.VerifiedName = old.VerifiedName
-		c.LastVerifiedAt = old.LastVerifiedAt
-		c.LastVerifyError = old.LastVerifyError
-		c.Registered = old.Registered
-		c.RegisteredAt = old.RegisteredAt
-		c.RegistrationStatus = old.RegistrationStatus
-		c.LastRegistrationErr = old.LastRegistrationErr
-		c.QualityRating = old.QualityRating
-		c.MessagingLimit = old.MessagingLimit
+		samePhone := old.PhoneNumberID == c.PhoneNumberID
+		if samePhone {
+			c.DisplayPhoneNumber = firstNonEmpty(c.DisplayPhoneNumber, old.DisplayPhoneNumber)
+			c.VerifiedName = old.VerifiedName
+			c.LastVerifiedAt = old.LastVerifiedAt
+			c.LastVerifyError = old.LastVerifyError
+			c.Registered = old.Registered
+			c.RegisteredAt = old.RegisteredAt
+			c.RegistrationStatus = old.RegistrationStatus
+			c.LastRegistrationErr = old.LastRegistrationErr
+			c.QualityRating = old.QualityRating
+			c.MessagingLimit = old.MessagingLimit
+		}
 	}
 	if c.WABAID == "" || c.PhoneNumberID == "" || strings.TrimSpace(in.AccessToken) == "" {
 		return errors.New("cloud: wabaId, phoneNumberId and accessToken are required")
@@ -444,6 +452,11 @@ func (s *Service) Diagnostics(instance *instance_model.Instance) (*Diagnostics, 
 		EffectiveRPS:    s.client.EffectiveRPS(),
 		LastWebhookAt:   s.LastWebhookAt(instance.Id),
 	}
+	if out.LastWebhookAt == nil {
+		if at, dbErr := s.repo.LatestWebhookAt(instance.Id); dbErr == nil && !at.IsZero() {
+			out.LastWebhookAt = &at
+		}
+	}
 	templates, _ := s.repo.ListTemplates(instance.Id)
 	for _, t := range templates {
 		switch strings.ToUpper(t.Status) {
@@ -481,7 +494,8 @@ func (s *Service) Delete(instanceID string) error {
 // --- sending ---------------------------------------------------------------
 
 // SendText sends a Cloud text message.
-func (s *Service) SendText(ctx context.Context, instance *instance_model.Instance, msg channel.TextMessage) (channel.Result, error) {
+func (s *Service) SendText(ctx context.Context, instance *instance_model.Instance, msg channel.TextMessage) (result channel.Result, err error) {
+	defer func() { s.observeSend("text", err) }()
 	if err := validateRecipientType(msg.RecipientType); err != nil {
 		return channel.Result{}, err
 	}
@@ -508,7 +522,7 @@ func (s *Service) SendText(ctx context.Context, instance *instance_model.Instanc
 	addTarget(payload, to, recipient)
 	addReply(payload, msg.ReplyTo)
 	addOperation(payload, msg.OperationID)
-	resp, err := s.client.SendMessage(ctx, token, c.PhoneNumberID, payload)
+	resp, err := s.sendPayload(ctx, token, c.PhoneNumberID, payload)
 	if err != nil {
 		return channel.Result{}, s.sendError(err)
 	}
@@ -516,7 +530,8 @@ func (s *Service) SendText(ctx context.Context, instance *instance_model.Instanc
 }
 
 // SendMedia sends a Cloud media message, uploading bytes first when needed.
-func (s *Service) SendMedia(ctx context.Context, instance *instance_model.Instance, msg channel.MediaMessage) (channel.Result, error) {
+func (s *Service) SendMedia(ctx context.Context, instance *instance_model.Instance, msg channel.MediaMessage) (result channel.Result, err error) {
+	defer func() { s.observeSend("media", err) }()
 	if err := validateRecipientType(msg.RecipientType); err != nil {
 		return channel.Result{}, err
 	}
@@ -592,7 +607,7 @@ func (s *Service) SendMedia(ctx context.Context, instance *instance_model.Instan
 	addTarget(payload, to, recipient)
 	addReply(payload, msg.ReplyTo)
 	addOperation(payload, msg.OperationID)
-	resp, err := s.client.SendMessage(ctx, token, c.PhoneNumberID, payload)
+	resp, err := s.sendPayload(ctx, token, c.PhoneNumberID, payload)
 	if err != nil {
 		return channel.Result{}, s.sendError(err)
 	}
@@ -606,7 +621,8 @@ func (s *Service) SendMedia(ctx context.Context, instance *instance_model.Instan
 }
 
 // SendTemplate sends an approved template.
-func (s *Service) SendTemplate(ctx context.Context, instance *instance_model.Instance, msg channel.TemplateMessage) (channel.Result, error) {
+func (s *Service) SendTemplate(ctx context.Context, instance *instance_model.Instance, msg channel.TemplateMessage) (result channel.Result, err error) {
+	defer func() { s.observeSend("template", err) }()
 	if err := validateRecipientType(msg.RecipientType); err != nil {
 		return channel.Result{}, err
 	}
@@ -633,7 +649,7 @@ func (s *Service) SendTemplate(ctx context.Context, instance *instance_model.Ins
 	}
 	addTarget(payload, to, recipient)
 	addOperation(payload, msg.OperationID)
-	resp, err := s.client.SendMessage(ctx, token, c.PhoneNumberID, payload)
+	resp, err := s.sendPayload(ctx, token, c.PhoneNumberID, payload)
 	if err != nil {
 		return channel.Result{}, s.sendError(err)
 	}
@@ -641,7 +657,8 @@ func (s *Service) SendTemplate(ctx context.Context, instance *instance_model.Ins
 }
 
 // SendLocation sends a Cloud location message.
-func (s *Service) SendLocation(ctx context.Context, instance *instance_model.Instance, msg channel.LocationMessage) (channel.Result, error) {
+func (s *Service) SendLocation(ctx context.Context, instance *instance_model.Instance, msg channel.LocationMessage) (result channel.Result, err error) {
+	defer func() { s.observeSend("location", err) }()
 	c, token, err := s.credentialsToken(instance.Id)
 	if err != nil {
 		return channel.Result{}, err
@@ -668,7 +685,7 @@ func (s *Service) SendLocation(ctx context.Context, instance *instance_model.Ins
 	}
 	addTarget(payload, to, recipient)
 	addReply(payload, msg.ReplyTo)
-	resp, err := s.client.SendMessage(ctx, token, c.PhoneNumberID, payload)
+	resp, err := s.sendPayload(ctx, token, c.PhoneNumberID, payload)
 	if err != nil {
 		return channel.Result{}, s.sendError(err)
 	}
@@ -676,7 +693,8 @@ func (s *Service) SendLocation(ctx context.Context, instance *instance_model.Ins
 }
 
 // SendContact sends one or more Cloud contacts.
-func (s *Service) SendContact(ctx context.Context, instance *instance_model.Instance, msg channel.ContactMessage) (channel.Result, error) {
+func (s *Service) SendContact(ctx context.Context, instance *instance_model.Instance, msg channel.ContactMessage) (result channel.Result, err error) {
+	defer func() { s.observeSend("contact", err) }()
 	c, token, err := s.credentialsToken(instance.Id)
 	if err != nil {
 		return channel.Result{}, err
@@ -712,7 +730,7 @@ func (s *Service) SendContact(ctx context.Context, instance *instance_model.Inst
 	}
 	addTarget(payload, to, recipient)
 	addReply(payload, msg.ReplyTo)
-	resp, err := s.client.SendMessage(ctx, token, c.PhoneNumberID, payload)
+	resp, err := s.sendPayload(ctx, token, c.PhoneNumberID, payload)
 	if err != nil {
 		return channel.Result{}, s.sendError(err)
 	}
@@ -720,7 +738,8 @@ func (s *Service) SendContact(ctx context.Context, instance *instance_model.Inst
 }
 
 // SendInteractive sends reply buttons or a list.
-func (s *Service) SendInteractive(ctx context.Context, instance *instance_model.Instance, msg channel.InteractiveMessage) (channel.Result, error) {
+func (s *Service) SendInteractive(ctx context.Context, instance *instance_model.Instance, msg channel.InteractiveMessage) (result channel.Result, err error) {
+	defer func() { s.observeSend("interactive", err) }()
 	if err := validateRecipientType(msg.RecipientType); err != nil {
 		return channel.Result{}, err
 	}
@@ -736,7 +755,26 @@ func (s *Service) SendInteractive(ctx context.Context, instance *instance_model.
 		return channel.Result{}, err
 	}
 	var interactive map[string]any
-	if len(msg.Buttons) > 0 {
+	isCTA := len(msg.Buttons) == 1 && strings.EqualFold(msg.Buttons[0].Type, "url")
+	if isCTA {
+		b := msg.Buttons[0]
+		if strings.TrimSpace(b.URL) == "" {
+			return channel.Result{}, &APIError{Status: http.StatusBadRequest, Code: "invalid_request", Message: "CTA URL is required"}
+		}
+		interactive = map[string]any{
+			"type": "cta_url",
+			"body": map[string]any{"text": msg.Body},
+			"action": map[string]any{"name": "cta_url", "parameters": map[string]any{
+				"display_text": firstNonEmpty(b.Text, "Open"), "url": b.URL,
+			}},
+		}
+		if msg.Header != "" {
+			interactive["header"] = map[string]any{"type": "text", "text": msg.Header}
+		}
+		if msg.Footer != "" {
+			interactive["footer"] = map[string]any{"text": msg.Footer}
+		}
+	} else if len(msg.Buttons) > 0 {
 		if len(msg.Buttons) > 3 {
 			return channel.Result{}, &APIError{Status: http.StatusUnprocessableEntity, Code: "invalid_request", Message: "Cloud interactive messages support at most 3 reply buttons"}
 		}
@@ -801,7 +839,7 @@ func (s *Service) SendInteractive(ctx context.Context, instance *instance_model.
 	addTarget(payload, to, recipient)
 	addReply(payload, msg.ReplyTo)
 	addOperation(payload, msg.OperationID)
-	resp, err := s.client.SendMessage(ctx, token, c.PhoneNumberID, payload)
+	resp, err := s.sendPayload(ctx, token, c.PhoneNumberID, payload)
 	if err != nil {
 		return channel.Result{}, s.sendError(err)
 	}
@@ -820,7 +858,7 @@ func (s *Service) MarkRead(ctx context.Context, instance *instance_model.Instanc
 	if typing {
 		payload["typing_indicator"] = map[string]any{"type": "text"}
 	}
-	_, err = s.client.SendMessage(ctx, token, c.PhoneNumberID, payload)
+	_, err = s.sendPayload(ctx, token, c.PhoneNumberID, payload)
 	if err != nil {
 		return s.sendError(err)
 	}
@@ -828,7 +866,8 @@ func (s *Service) MarkRead(ctx context.Context, instance *instance_model.Instanc
 }
 
 // SendReaction sends a Cloud reaction.
-func (s *Service) SendReaction(ctx context.Context, instance *instance_model.Instance, msg channel.ReactionMessage) (channel.Result, error) {
+func (s *Service) SendReaction(ctx context.Context, instance *instance_model.Instance, msg channel.ReactionMessage) (result channel.Result, err error) {
+	defer func() { s.observeSend("reaction", err) }()
 	c, token, err := s.credentialsToken(instance.Id)
 	if err != nil {
 		return channel.Result{}, err
@@ -847,17 +886,53 @@ func (s *Service) SendReaction(ctx context.Context, instance *instance_model.Ins
 		"reaction":          map[string]any{"message_id": msg.MessageID, "emoji": msg.Emoji},
 	}
 	addTarget(payload, to, recipient)
-	resp, err := s.client.SendMessage(ctx, token, c.PhoneNumberID, payload)
+	resp, err := s.sendPayload(ctx, token, c.PhoneNumberID, payload)
 	if err != nil {
 		return channel.Result{}, s.sendError(err)
 	}
 	return s.recordOutbound(instance, c, resp, to, recipient, "reaction", msg.Emoji, "", "", "", "")
 }
 
+// sendPayload applies the per-phone budget and feeds the adaptive bucket with
+// the Graph status. It deliberately does not retry POSTs: a duplicate customer
+// message is worse than an explicit unknown-outcome error.
+func (s *Service) sendPayload(ctx context.Context, token, phoneNumberID string, payload any) (SendResponse, error) {
+	if s.phoneLimiter != nil {
+		if err := s.phoneLimiter.Wait(ctx, phoneNumberID); err != nil {
+			return SendResponse{}, err
+		}
+	}
+	resp, err := s.client.SendMessage(ctx, token, phoneNumberID, payload)
+	if s.phoneLimiter != nil {
+		status := 0
+		if err != nil {
+			var ge *GraphError
+			if errors.As(err, &ge) {
+				status = ge.StatusCode
+			}
+		} else {
+			status = http.StatusOK
+		}
+		var retryAfter time.Duration
+		var ge *GraphError
+		if errors.As(err, &ge) {
+			retryAfter = ge.RetryAfter
+		}
+		s.phoneLimiter.Observe(phoneNumberID, status, retryAfter)
+		if s.observer != nil {
+			s.observer.ObserveCloudRateLimit("phone", s.phoneLimiter.EffectiveRPS(phoneNumberID))
+		}
+	}
+	return resp, err
+}
+
 func (s *Service) sendError(err error) error {
 	var ge *GraphError
 	if errors.As(err, &ge) {
 		return MapGraphError(ge)
+	}
+	if s.observer != nil {
+		s.observer.ObserveCloudUnknownOutcome()
 	}
 	return &APIError{Status: http.StatusAccepted, Code: "cloud_send_outcome_unknown", Message: "the Cloud API outcome is unknown; do not retry blindly"}
 }
@@ -928,11 +1003,17 @@ func (s *Service) ensureWindow(instance *instance_model.Instance, c *cloud_model
 	window, err := s.repo.GetWindow(instance.Id, contactID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
+			if s.observer != nil {
+				s.observer.ObserveCloudWindowExpired()
+			}
 			return &WindowExpiredError{ContactID: contactID}
 		}
 		return nil
 	}
 	if time.Now().After(window.ExpiresAt) {
+		if s.observer != nil {
+			s.observer.ObserveCloudWindowExpired()
+		}
 		return &WindowExpiredError{ContactID: contactID, ExpiresAt: window.ExpiresAt}
 	}
 	return nil
@@ -1146,4 +1227,459 @@ func (s *Service) RunCleanup(ctx context.Context) {
 			}
 		}
 	}
+}
+
+// IdentityUpdate is the BSUID transition payload from Meta.
+type IdentityUpdate struct {
+	WAID        string
+	OldBSUID    string
+	NewBSUID    string
+	UserID      string
+	ParentBSUID string
+	EventType   string
+	EventTime   time.Time
+	RawPayload  []byte
+}
+
+// HealthSnapshot is the process-wide Cloud view used by /server/health.
+type HealthSnapshot struct {
+	Credentials   int64     `json:"credentials"`
+	Registered    int64     `json:"registered"`
+	Verified      int64     `json:"verified"`
+	Contacts      int64     `json:"contacts"`
+	Templates     int64     `json:"templates"`
+	LastWebhookAt time.Time `json:"lastWebhookAt,omitempty"`
+}
+
+func (s *Service) CloudHealth() HealthSnapshot {
+	snap, err := s.repo.CloudHealthCounts()
+	if err != nil {
+		return HealthSnapshot{}
+	}
+	snap.LastWebhookAt = s.lastWebhookTime()
+	if at, dbErr := s.repo.LatestWebhookAt(""); dbErr == nil && at.After(snap.LastWebhookAt) {
+		snap.LastWebhookAt = at
+	}
+	return snap
+}
+
+func (s *Service) lastWebhookTime() time.Time {
+	s.lastWebhookMu.RLock()
+	defer s.lastWebhookMu.RUnlock()
+	var latest time.Time
+	for _, at := range s.lastWebhook {
+		if at.After(latest) {
+			latest = at
+		}
+	}
+	return latest
+}
+
+// ContactDetail is the manager/API view of a Cloud contact.
+type ContactDetail struct {
+	Contact      *cloud_model.Contact          `json:"contact"`
+	Identities   []cloud_model.ContactIdentity `json:"identities"`
+	Window       *cloud_model.ChatWindow       `json:"window,omitempty"`
+	MessageCount int64                         `json:"messageCount"`
+}
+
+// ApplyIdentityUpdate merges an old/new BSUID (and optional phone) into one
+// canonical contact. It is idempotent through the webhook event key.
+func (s *Service) ApplyIdentityUpdate(instanceID string, update IdentityUpdate) error {
+	newID := firstNonEmpty(update.NewBSUID, update.UserID)
+	if update.OldBSUID == "" && newID == "" && update.WAID == "" {
+		return nil
+	}
+	if update.EventTime.IsZero() {
+		update.EventTime = time.Now()
+	}
+	key := eventKey(instanceID, "identity", firstNonEmpty(update.OldBSUID, "-")+":"+newID+":"+digits(update.WAID), "")
+	claimed, err := s.repo.ClaimWebhookEvent(&cloud_model.WebhookEvent{
+		EventKey: key, InstanceID: instanceID, EventType: "identity",
+	})
+	if err != nil {
+		return err
+	}
+	if !claimed {
+		return nil
+	}
+	ok := false
+	defer func() {
+		if !ok {
+			_ = s.repo.ReleaseWebhookEvent(key, "identity processing failed")
+		}
+	}()
+
+	raw := update.RawPayload
+	if len(raw) == 0 || !json.Valid(raw) {
+		raw = []byte(`{}`)
+	}
+	event := &cloud_model.IdentityEvent{
+		InstanceID: instanceID, EventType: firstNonEmpty(update.EventType, "user_id_update"),
+		WaID: digits(update.WAID), OldBSUID: update.OldBSUID, NewBSUID: newID,
+		ParentBSUID: update.ParentBSUID, EventTime: update.EventTime,
+		Payload: string(raw),
+	}
+	if err := s.repo.AddIdentityEvent(event); err != nil {
+		return err
+	}
+
+	var oldContact, newContact, phoneContact *cloud_model.Contact
+	if update.OldBSUID != "" {
+		oldContact, _ = s.repo.FindContactByBSUID(instanceID, update.OldBSUID)
+	}
+	if newID != "" {
+		newContact, _ = s.repo.FindContactByBSUID(instanceID, newID)
+	}
+	if update.WAID != "" {
+		phoneContact, _ = s.repo.FindContactByWAID(instanceID, digits(update.WAID))
+	}
+	canonical := phoneContact
+	if canonical == nil {
+		canonical = oldContact
+	}
+	if canonical == nil {
+		canonical = newContact
+	}
+	contactID := ""
+	if canonical != nil {
+		contactID = canonical.ContactID
+	} else if update.WAID != "" {
+		contactID = "phone:" + digits(update.WAID)
+	} else {
+		contactID = "bsuid:" + newID
+	}
+	if canonical == nil {
+		canonical = &cloud_model.Contact{InstanceID: instanceID, ContactID: contactID}
+	}
+	canonical.ContactID = contactID
+	canonical.BSUID = firstNonEmpty(newID, canonical.BSUID)
+	canonical.ParentBSUID = firstNonEmpty(update.ParentBSUID, canonical.ParentBSUID)
+	canonical.WAID = firstNonEmpty(digits(update.WAID), canonical.WAID)
+	if canonical.DisplayName == "" && phoneContact != nil {
+		canonical.DisplayName = phoneContact.DisplayName
+	}
+	if canonical.Username == "" && phoneContact != nil {
+		canonical.Username = phoneContact.Username
+	}
+	oldID := ""
+	if oldContact != nil {
+		oldID = oldContact.ContactID
+	}
+	newContactID := ""
+	if newContact != nil {
+		newContactID = newContact.ContactID
+	}
+	if err := s.repo.MergeIdentity(IdentityMerge{
+		InstanceID: instanceID, Canonical: canonical,
+		OldContactID: oldID, NewContactID: newContactID,
+		OldBSUID: update.OldBSUID, NewBSUID: newID,
+		ParentBSUID: update.ParentBSUID, WAID: digits(update.WAID),
+		SourceEventID: event.ID, EventTime: update.EventTime,
+	}); err != nil {
+		event.Error = err.Error()
+		return err
+	}
+	_ = s.repo.MarkIdentityApplied(event.ID)
+	_ = s.repo.MarkWebhookProcessed(key)
+	ok = true
+
+	inst, _ := s.instanceFor(instanceID)
+	if inst != nil && s.events != nil {
+		payload := map[string]any{
+			"event": "CloudIdentityChanged", "instanceId": inst.Id, "instanceName": inst.Name,
+			"channel": "cloud",
+			"data": map[string]any{
+				"contactId": contactID, "waId": update.WAID,
+				"oldBsuid": update.OldBSUID, "newBsuid": newID,
+				"parentBsuid": update.ParentBSUID, "eventTime": update.EventTime,
+			},
+		}
+		s.emit(inst, "identity", payload)
+	}
+	return nil
+}
+
+func (s *Service) ListIdentityEvents(instanceID string, limit int) ([]cloud_model.IdentityEvent, error) {
+	return s.repo.ListIdentityEvents(instanceID, limit)
+}
+
+func (s *Service) ContactDetail(instanceID, contactID string) (*ContactDetail, error) {
+	c, err := s.repo.GetContact(instanceID, contactID)
+	if err != nil {
+		return nil, err
+	}
+	ids, err := s.repo.ListContactIdentities(instanceID, contactID)
+	if err != nil {
+		return nil, err
+	}
+	win, _ := s.repo.GetWindow(instanceID, contactID)
+	n, _ := s.repo.CountMessagesByContact(instanceID, contactID)
+	return &ContactDetail{Contact: c, Identities: ids, Window: win, MessageCount: n}, nil
+}
+
+func (s *Service) ListAccountEvents(instanceID, field string, limit, offset int) ([]cloud_model.AccountEvent, error) {
+	return s.repo.ListAccountEvents(instanceID, field, limit, offset)
+}
+
+func (s *Service) GetAccountEvent(instanceID, eventID string) (*cloud_model.AccountEvent, error) {
+	return s.repo.GetAccountEvent(instanceID, eventID)
+}
+
+func (s *Service) GetTemplate(instance *instance_model.Instance, name, language string) (*cloud_model.Template, error) {
+	t, err := s.repo.GetTemplate(instance.Id, name, language)
+	if err != nil {
+		return nil, &APIError{Status: http.StatusNotFound, Code: "not_found", Message: "template not found"}
+	}
+	return t, nil
+}
+
+// SendCTAURL sends an interactive call-to-action link.
+func (s *Service) SendCTAURL(ctx context.Context, instance *instance_model.Instance, msg channel.CTAURLMessage) (result channel.Result, err error) {
+	defer func() { s.observeSend("cta_url", err) }()
+	if strings.TrimSpace(msg.URL) == "" {
+		return channel.Result{}, &APIError{Status: http.StatusBadRequest, Code: "invalid_request", Message: "CTA URL is required"}
+	}
+	c, token, err := s.credentialsToken(instance.Id)
+	if err != nil {
+		return channel.Result{}, err
+	}
+	to, recipient, err := target(msg.To, msg.Recipient)
+	if err != nil {
+		return channel.Result{}, err
+	}
+	if err := s.ensureWindow(instance, c, msg.Recipient, msg.To, false); err != nil {
+		return channel.Result{}, err
+	}
+	interactive := map[string]any{
+		"type": "cta_url",
+		"body": map[string]any{"text": msg.Body},
+		"action": map[string]any{
+			"name": "cta_url",
+			"parameters": map[string]any{
+				"display_text": firstNonEmpty(msg.DisplayText, "Open"),
+				"url":          msg.URL,
+			},
+		},
+	}
+	if msg.Header != "" {
+		interactive["header"] = map[string]any{"type": "text", "text": msg.Header}
+	}
+	if msg.Footer != "" {
+		interactive["footer"] = map[string]any{"text": msg.Footer}
+	}
+	payload := map[string]any{
+		"messaging_product": "whatsapp", "recipient_type": recipientType(msg.RecipientType),
+		"type": "interactive", "interactive": interactive,
+	}
+	addTarget(payload, to, recipient)
+	addReply(payload, msg.ReplyTo)
+	addOperation(payload, msg.OperationID)
+	resp, err := s.sendPayload(ctx, token, c.PhoneNumberID, payload)
+	if err != nil {
+		return channel.Result{}, s.sendError(err)
+	}
+	return s.recordOutbound(instance, c, resp, to, recipient, "interactive", msg.Body, "", "", "", msg.OperationID)
+}
+
+// SendProduct sends one product from a Meta catalog.
+func (s *Service) SendProduct(ctx context.Context, instance *instance_model.Instance, msg channel.ProductMessage) (result channel.Result, err error) {
+	defer func() { s.observeSend("product", err) }()
+	if strings.TrimSpace(msg.CatalogID) == "" || strings.TrimSpace(msg.ProductRetailerID) == "" {
+		return channel.Result{}, &APIError{Status: http.StatusBadRequest, Code: "invalid_request", Message: "catalogId and productRetailerId are required"}
+	}
+	c, token, err := s.credentialsToken(instance.Id)
+	if err != nil {
+		return channel.Result{}, err
+	}
+	to, recipient, err := target(msg.To, msg.Recipient)
+	if err != nil {
+		return channel.Result{}, err
+	}
+	if err := s.ensureWindow(instance, c, msg.Recipient, msg.To, false); err != nil {
+		return channel.Result{}, err
+	}
+	interactive := map[string]any{
+		"type": "product",
+		"action": map[string]any{
+			"catalog_id": msg.CatalogID, "product_retailer_id": msg.ProductRetailerID,
+		},
+	}
+	if msg.Header != "" {
+		interactive["header"] = map[string]any{"type": "text", "text": msg.Header}
+	}
+	if msg.Body != "" {
+		interactive["body"] = map[string]any{"text": msg.Body}
+	}
+	if msg.Footer != "" {
+		interactive["footer"] = map[string]any{"text": msg.Footer}
+	}
+	payload := map[string]any{
+		"messaging_product": "whatsapp", "recipient_type": recipientType(msg.RecipientType),
+		"type": "interactive", "interactive": interactive,
+	}
+	addTarget(payload, to, recipient)
+	addReply(payload, msg.ReplyTo)
+	addOperation(payload, msg.OperationID)
+	resp, err := s.sendPayload(ctx, token, c.PhoneNumberID, payload)
+	if err != nil {
+		return channel.Result{}, s.sendError(err)
+	}
+	return s.recordOutbound(instance, c, resp, to, recipient, "interactive", "product", "", "", "", msg.OperationID)
+}
+
+// SendProductList sends a catalog-backed multiple-product message.
+func (s *Service) SendProductList(ctx context.Context, instance *instance_model.Instance, msg channel.ProductListMessage) (result channel.Result, err error) {
+	defer func() { s.observeSend("product_list", err) }()
+	if strings.TrimSpace(msg.CatalogID) == "" {
+		return channel.Result{}, &APIError{Status: http.StatusBadRequest, Code: "invalid_request", Message: "catalogId is required"}
+	}
+	sections := make([]map[string]any, 0, len(msg.Sections))
+	total := 0
+	for _, sec := range msg.Sections {
+		items := make([]map[string]any, 0, len(sec.Products))
+		for _, p := range sec.Products {
+			if strings.TrimSpace(p) == "" {
+				continue
+			}
+			items = append(items, map[string]any{"product_retailer_id": p})
+			total++
+		}
+		if len(items) > 0 {
+			sections = append(sections, map[string]any{"title": sec.Title, "product_items": items})
+		}
+	}
+	if total == 0 || total > 30 {
+		return channel.Result{}, &APIError{Status: http.StatusUnprocessableEntity, Code: "invalid_request", Message: "product lists require 1 to 30 products"}
+	}
+	c, token, err := s.credentialsToken(instance.Id)
+	if err != nil {
+		return channel.Result{}, err
+	}
+	to, recipient, err := target(msg.To, msg.Recipient)
+	if err != nil {
+		return channel.Result{}, err
+	}
+	if err := s.ensureWindow(instance, c, msg.Recipient, msg.To, false); err != nil {
+		return channel.Result{}, err
+	}
+	interactive := map[string]any{
+		"type":   "product_list",
+		"action": map[string]any{"catalog_id": msg.CatalogID, "sections": sections},
+	}
+	if msg.Header != "" {
+		interactive["header"] = map[string]any{"type": "text", "text": msg.Header}
+	}
+	if msg.Body != "" {
+		interactive["body"] = map[string]any{"text": msg.Body}
+	}
+	if msg.Footer != "" {
+		interactive["footer"] = map[string]any{"text": msg.Footer}
+	}
+	payload := map[string]any{
+		"messaging_product": "whatsapp", "recipient_type": recipientType(msg.RecipientType),
+		"type": "interactive", "interactive": interactive,
+	}
+	addTarget(payload, to, recipient)
+	addReply(payload, msg.ReplyTo)
+	addOperation(payload, msg.OperationID)
+	resp, err := s.sendPayload(ctx, token, c.PhoneNumberID, payload)
+	if err != nil {
+		return channel.Result{}, s.sendError(err)
+	}
+	return s.recordOutbound(instance, c, resp, to, recipient, "interactive", "product_list", "", "", "", msg.OperationID)
+}
+
+// SendCatalog opens a business catalog.
+func (s *Service) SendCatalog(ctx context.Context, instance *instance_model.Instance, msg channel.CatalogMessage) (result channel.Result, err error) {
+	defer func() { s.observeSend("catalog", err) }()
+	c, token, err := s.credentialsToken(instance.Id)
+	if err != nil {
+		return channel.Result{}, err
+	}
+	to, recipient, err := target(msg.To, msg.Recipient)
+	if err != nil {
+		return channel.Result{}, err
+	}
+	if err := s.ensureWindow(instance, c, msg.Recipient, msg.To, false); err != nil {
+		return channel.Result{}, err
+	}
+	action := map[string]any{"name": "catalog_message"}
+	if msg.ThumbnailProductRetailerID != "" {
+		action["parameters"] = map[string]any{"thumbnail_product_retailer_id": msg.ThumbnailProductRetailerID}
+	}
+	interactive := map[string]any{"type": "catalog_message", "action": action}
+	if msg.Body != "" {
+		interactive["body"] = map[string]any{"text": msg.Body}
+	}
+	if msg.Footer != "" {
+		interactive["footer"] = map[string]any{"text": msg.Footer}
+	}
+	payload := map[string]any{
+		"messaging_product": "whatsapp", "recipient_type": recipientType(msg.RecipientType),
+		"type": "interactive", "interactive": interactive,
+	}
+	addTarget(payload, to, recipient)
+	addReply(payload, msg.ReplyTo)
+	addOperation(payload, msg.OperationID)
+	resp, err := s.sendPayload(ctx, token, c.PhoneNumberID, payload)
+	if err != nil {
+		return channel.Result{}, s.sendError(err)
+	}
+	return s.recordOutbound(instance, c, resp, to, recipient, "interactive", "catalog", "", "", "", msg.OperationID)
+}
+
+// SendContactRequest asks the recipient to share a contact.
+func (s *Service) SendContactRequest(ctx context.Context, instance *instance_model.Instance, msg channel.ContactRequestMessage) (result channel.Result, err error) {
+	defer func() { s.observeSend("contact_request", err) }()
+	c, token, err := s.credentialsToken(instance.Id)
+	if err != nil {
+		return channel.Result{}, err
+	}
+	to, recipient, err := target(msg.To, msg.Recipient)
+	if err != nil {
+		return channel.Result{}, err
+	}
+	if err := s.ensureWindow(instance, c, msg.Recipient, msg.To, false); err != nil {
+		return channel.Result{}, err
+	}
+	interactive := map[string]any{
+		"type":   "request_contact_info",
+		"action": map[string]any{"name": "request_contact_info"},
+	}
+	if msg.Body != "" {
+		interactive["body"] = map[string]any{"text": msg.Body}
+	}
+	payload := map[string]any{
+		"messaging_product": "whatsapp", "recipient_type": recipientType(msg.RecipientType),
+		"type": "interactive", "interactive": interactive,
+	}
+	addTarget(payload, to, recipient)
+	addReply(payload, msg.ReplyTo)
+	addOperation(payload, msg.OperationID)
+	resp, err := s.sendPayload(ctx, token, c.PhoneNumberID, payload)
+	if err != nil {
+		return channel.Result{}, s.sendError(err)
+	}
+	return s.recordOutbound(instance, c, resp, to, recipient, "interactive", "contact_request", "", "", "", msg.OperationID)
+}
+
+// Deregister removes the instance's phone from Cloud API registration.
+func (s *Service) Deregister(instance *instance_model.Instance) (*CloudStatus, error) {
+	c, token, err := s.credentialsToken(instance.Id)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.client.DeregisterPhone(context.Background(), token, c.PhoneNumberID); err != nil {
+		apiErr := MapGraphError(err)
+		c.LastRegistrationErr = apiErr.Message
+		_ = s.repo.SaveCredentials(c)
+		return nil, apiErr
+	}
+	c.Registered = false
+	c.RegisteredAt = nil
+	c.RegistrationStatus = "deregistered"
+	c.LastRegistrationErr = ""
+	_ = s.repo.SaveCredentials(c)
+	return s.statusFrom(c), nil
 }

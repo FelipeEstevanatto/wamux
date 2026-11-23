@@ -2,11 +2,14 @@ package server_handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	cloud_service "github.com/felipeestevanatto/wamux/pkg/cloud"
 	whatsmeow_service "github.com/felipeestevanatto/wamux/pkg/whatsmeow/service"
 	"github.com/gin-gonic/gin"
 )
@@ -147,4 +150,63 @@ func (f fakeHealthOverview) ResolveSenders(string, string, []string) map[string]
 func (f fakeHealthOverview) WhatsAppWebVersion() string { return "" }
 func (f fakeHealthOverview) RuntimeStats() whatsmeow_service.RuntimeStats {
 	return f.stats
+}
+
+type fakeCloudHealth struct{ snap cloud_service.HealthSnapshot }
+
+func (f fakeCloudHealth) CloudHealth() cloud_service.HealthSnapshot { return f.snap }
+
+func TestCloudMetricsAndHealthShape(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	o := NewObservability(nil, nil)
+	o.ObserveCloudGraph("messages", 12*time.Millisecond, nil)
+	o.ObserveCloudGraph("messages", 20*time.Millisecond, errors.New("boom"))
+	o.ObserveCloudSend("text", "ok")
+	o.ObserveCloudWebhook("messages", "ok")
+	o.ObserveCloudWebhookSignatureFailure()
+	o.ObserveCloudUnknownField("future")
+	o.ObserveCloudWindowExpired()
+	o.ObserveCloudMediaJob("stored")
+	o.ObserveCloudRateLimit("phone", 7.5)
+	o.ObserveCloudUnknownOutcome()
+	o.SetCloudMediaQueueDepth(4)
+	o.SetCloudHealth(fakeCloudHealth{snap: cloud_service.HealthSnapshot{
+		Credentials: 2, Registered: 1, Verified: 2, Contacts: 10, Templates: 3,
+		LastWebhookAt: time.Now().Add(-time.Minute),
+	}})
+	h := &serverHandler{observability: o, version: "test"}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	h.MetricsHandler(c)
+	body := w.Body.String()
+	for _, want := range []string{
+		`wamux_cloud_graph_requests_total{operation="messages",result="ok"} 1`,
+		`wamux_cloud_graph_requests_total{operation="messages",result="error"} 1`,
+		`wamux_cloud_send_total{type="text",result="ok"} 1`,
+		`wamux_cloud_webhook_signature_failures_total 1`,
+		`wamux_cloud_webhook_unknown_total{field="future"} 1`,
+		`wamux_cloud_window_expired_total 1`,
+		`wamux_cloud_media_jobs_total{status="stored"} 1`,
+		`wamux_cloud_media_queue_depth 4`,
+		`wamux_cloud_send_outcome_unknown_total 1`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("missing %q in:\n%s", want, body)
+		}
+	}
+	if strings.Contains(body, "5511") {
+		t.Fatalf("metrics leaked a phone number:\n%s", body)
+	}
+
+	w = httptest.NewRecorder()
+	c, _ = gin.CreateTestContext(w)
+	h.HealthHandler(c)
+	var payload map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	cloud, ok := payload["cloud"].(map[string]any)
+	if !ok || cloud["credentials"].(float64) != 2 || cloud["lastWebhookAgeSeconds"] == nil {
+		t.Fatalf("health = %+v", payload)
+	}
 }

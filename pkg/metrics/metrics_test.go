@@ -87,3 +87,23 @@ func TestGaugeVecDelete(t *testing.T) {
 		t.Fatalf("deleted series still rendered:\n%s", r.Render())
 	}
 }
+
+func TestCounterVec2RendersSeparateLabels(t *testing.T) {
+	r := NewRegistry()
+	c := r.CounterVec2("requests_total", "requests", "operation", "result")
+	c.Inc("messages", "ok")
+	c.Inc("messages", "ok")
+	c.Inc("media", "error")
+	out := r.Render()
+	for _, want := range []string{
+		`requests_total{operation="messages",result="ok"} 2`,
+		`requests_total{operation="media",result="error"} 1`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("missing %q in:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "|") {
+		t.Fatalf("combined labels leaked into output:\n%s", out)
+	}
+}

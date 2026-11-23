@@ -280,8 +280,12 @@ func setupRouter(db *gorm.DB, authDB *sql.DB, sqliteDB *sql.DB, config *config.C
 	baileysSendService := send_service.NewSendService(clientPointer, whatsmeowService, config, loggerWrapper, messageRepository, observability)
 	cloudRepo := cloud_service.NewRepository(db)
 	cloudClient := cloud_service.NewClient(config, loggerWrapper)
+	cloudClient.SetObserver(observability)
 	cloudService := cloud_service.NewService(cloudRepo, cloudClient, config, loggerWrapper, messageRepository, whatsmeowService, whatsmeowService, nil)
+	cloudService.SetObserver(observability)
+	cloudService.SetPhoneLimiter(cloud_service.NewPhoneLimiter(db, config.CloudAPIRPS))
 	cloudService.SetInstanceLookup(instanceRepository)
+	observability.SetCloudHealth(cloudService)
 	if err := cloudService.SeedConfigApp(); err != nil {
 		applog.Logger.LogWarn("[CLOUD] could not seed Meta app from environment: %v", err)
 	}
@@ -568,6 +572,9 @@ func migrate(db *gorm.DB) {
 		&cloud_model.StatusEvent{},
 		&cloud_model.AccountEvent{},
 		&cloud_model.UserPreference{},
+		&cloud_model.ContactIdentity{},
+		&cloud_model.IdentityEvent{},
+		&cloud_model.RateBucket{},
 		&label_model.Label{},
 		&typebot_model.Typebot{},
 		&typebot_model.TypebotSession{},

@@ -126,6 +126,9 @@ func (s *Service) RunMediaWorker(ctx context.Context) {
 }
 
 func (s *Service) runMediaBatch(ctx context.Context) {
+	if pending, err := s.repo.CountPendingMediaJobs(); err == nil && s.observer != nil {
+		s.observer.SetCloudMediaQueueDepth(pending)
+	}
 	jobs, err := s.repo.PendingMediaJobs(5)
 	if err != nil {
 		return
@@ -177,6 +180,7 @@ func (s *Service) processMediaJob(ctx context.Context, job *cloud_model.MediaJob
 	job.LastError = ""
 	job.CompletedAt = &now
 	_ = s.repo.UpdateMediaJob(job)
+	s.observeMedia(job.Status)
 }
 
 func (s *Service) failMediaJob(job *cloud_model.MediaJob, err error) {
@@ -190,6 +194,7 @@ func (s *Service) failMediaJob(job *cloud_model.MediaJob, err error) {
 		job.NextAttemptAt = time.Now().Add(backoff)
 	}
 	_ = s.repo.UpdateMediaJob(job)
+	s.observeMedia(job.Status)
 }
 
 // StoreMedia is exposed for tests and future admin retry endpoints.

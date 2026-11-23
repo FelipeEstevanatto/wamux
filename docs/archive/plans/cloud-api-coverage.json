@@ -1,0 +1,198 @@
+{
+  "version": 1,
+  "updated": "2026-11-22",
+  "operations": [
+    {
+      "operation": "send text",
+      "method": "POST",
+      "endpoint": "POST /{phone-number-id}/messages",
+      "permission": "whatsapp_business_messaging",
+      "status": "implemented",
+      "tests": "cloud_test.go"
+    },
+    {
+      "operation": "send media",
+      "method": "POST",
+      "endpoint": "POST /{phone-number-id}/messages",
+      "permission": "whatsapp_business_messaging",
+      "status": "implemented",
+      "tests": "cloud_test.go"
+    },
+    {
+      "operation": "send template",
+      "method": "POST",
+      "endpoint": "POST /{phone-number-id}/messages",
+      "permission": "whatsapp_business_messaging",
+      "status": "implemented",
+      "tests": "cloud_test.go"
+    },
+    {
+      "operation": "cta url",
+      "method": "POST",
+      "endpoint": "POST /{phone-number-id}/messages",
+      "permission": "whatsapp_business_messaging",
+      "status": "implemented",
+      "tests": "cloud_test.go"
+    },
+    {
+      "operation": "product",
+      "method": "POST",
+      "endpoint": "POST /{phone-number-id}/messages",
+      "permission": "whatsapp_business_messaging",
+      "status": "implemented",
+      "tests": "cloud_test.go"
+    },
+    {
+      "operation": "product list",
+      "method": "POST",
+      "endpoint": "POST /{phone-number-id}/messages",
+      "permission": "whatsapp_business_messaging",
+      "status": "implemented",
+      "tests": "cloud_test.go"
+    },
+    {
+      "operation": "catalog message",
+      "method": "POST",
+      "endpoint": "POST /{phone-number-id}/messages",
+      "permission": "whatsapp_business_messaging",
+      "status": "implemented",
+      "tests": "cloud_test.go"
+    },
+    {
+      "operation": "contact request",
+      "method": "POST",
+      "endpoint": "POST /{phone-number-id}/messages",
+      "permission": "whatsapp_business_messaging",
+      "status": "implemented",
+      "tests": "cloud_test.go"
+    },
+    {
+      "operation": "phone list",
+      "method": "GET",
+      "endpoint": "GET /{waba-id}/phone_numbers",
+      "permission": "whatsapp_business_management",
+      "status": "implemented",
+      "tests": "cloud_test.go"
+    },
+    {
+      "operation": "phone verify",
+      "method": "GET",
+      "endpoint": "GET /{phone-number-id}",
+      "permission": "whatsapp_business_management",
+      "status": "implemented",
+      "tests": "cloud_test.go"
+    },
+    {
+      "operation": "phone register",
+      "method": "POST",
+      "endpoint": "POST /{phone-number-id}/register",
+      "permission": "whatsapp_business_management",
+      "status": "implemented",
+      "tests": "cloud_test.go"
+    },
+    {
+      "operation": "phone deregister",
+      "method": "POST",
+      "endpoint": "POST /{phone-number-id}/deregister",
+      "permission": "whatsapp_business_management",
+      "status": "implemented",
+      "tests": "cloud_test.go"
+    },
+    {
+      "operation": "request code",
+      "method": "POST",
+      "endpoint": "POST /{phone-number-id}/request_code",
+      "permission": "whatsapp_business_management",
+      "status": "implemented",
+      "tests": "cloud_test.go"
+    },
+    {
+      "operation": "verify code",
+      "method": "POST",
+      "endpoint": "POST /{phone-number-id}/verify_code",
+      "permission": "whatsapp_business_management",
+      "status": "implemented",
+      "tests": "cloud_test.go"
+    },
+    {
+      "operation": "waba assets",
+      "method": "GET",
+      "endpoint": "GET /{waba-id}",
+      "permission": "whatsapp_business_management",
+      "status": "implemented",
+      "tests": "cloud_test.go"
+    },
+    {
+      "operation": "analytics",
+      "method": "GET",
+      "endpoint": "GET /{waba-id}/analytics",
+      "permission": "whatsapp_business_management",
+      "status": "implemented",
+      "tests": "cloud_test.go"
+    },
+    {
+      "operation": "catalogs",
+      "method": "GET,POST",
+      "endpoint": "GET/POST /{business-id}/owned_product_catalogs",
+      "permission": "catalog_management",
+      "status": "implemented",
+      "tests": "cloud_test.go"
+    },
+    {
+      "operation": "products",
+      "method": "GET,POST",
+      "endpoint": "GET/POST /{catalog-id}/products",
+      "permission": "catalog_management",
+      "status": "implemented",
+      "tests": "cloud_test.go"
+    },
+    {
+      "operation": "embedded signup",
+      "method": "POST",
+      "endpoint": "POST /cloud/embedded/start",
+      "permission": "whatsapp_business_management",
+      "status": "implemented",
+      "tests": "cloud_test.go"
+    },
+    {
+      "operation": "groups",
+      "method": "POST",
+      "endpoint": "POST /{phone-number-id}/groups",
+      "permission": "whatsapp_business_management",
+      "status": "separate",
+      "tests": "\u2014"
+    },
+    {
+      "operation": "calling",
+      "method": "POST",
+      "endpoint": "POST /{phone-number-id}/calls",
+      "permission": "whatsapp_business_messaging",
+      "status": "separate",
+      "tests": "\u2014"
+    },
+    {
+      "operation": "flows",
+      "method": "POST",
+      "endpoint": "POST /{phone-number-id}/flows",
+      "permission": "whatsapp_business_management",
+      "status": "separate",
+      "tests": "\u2014"
+    },
+    {
+      "operation": "templates",
+      "method": "GET,POST",
+      "endpoint": "GET/POST /{waba-id}/message_templates",
+      "permission": "whatsapp_business_messaging",
+      "status": "implemented",
+      "tests": "cloud_test.go"
+    },
+    {
+      "operation": "subscribe app",
+      "method": "POST",
+      "endpoint": "POST /{waba-id}/subscribed_apps",
+      "permission": "whatsapp_business_messaging",
+      "status": "implemented",
+      "tests": "cloud_test.go"
+    }
+  ]
+}

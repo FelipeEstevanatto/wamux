@@ -51,13 +51,15 @@ type scalar struct {
 }
 
 type labelledFamily struct {
-	name      string
-	help      string
-	labelName string
-	kind      scalarKind
-	mu        sync.RWMutex
-	series    map[string]*atomic.Int64 // key -> value; key is the label value
+	name       string
+	help       string
+	labelNames []string
+	kind       scalarKind
+	mu         sync.RWMutex
+	series     map[string]*atomic.Int64 // key -> value; key joins label values with labelSep
 }
+
+const labelSep = "\x1f"
 
 // NewRegistry builds an empty registry.
 func NewRegistry() *Registry { return &Registry{} }
@@ -83,19 +85,25 @@ func (r *Registry) scalar(name, help string, kind scalarKind) *scalar {
 
 // CounterVec is a counter with a fixed label name.
 func (r *Registry) CounterVec(name, help, label string) *CounterVec {
-	return &CounterVec{fam: r.family(name, help, label, kindCounter), label: label}
+	return &CounterVec{fam: r.family(name, help, kindCounter, label), label: label}
 }
 
 // GaugeVec is a gauge with a fixed label name.
 func (r *Registry) GaugeVec(name, help, label string) *GaugeVec {
-	return &GaugeVec{fam: r.family(name, help, label, kindGauge), label: label}
+	return &GaugeVec{fam: r.family(name, help, kindGauge, label), label: label}
 }
 
-func (r *Registry) family(name, help, label string, kind scalarKind) *labelledFamily {
+// CounterVec2 is a counter with two labels. It keeps the exposition format
+// standard instead of asking dashboards to split a combined label value.
+func (r *Registry) CounterVec2(name, help, label1, label2 string) *CounterVec2 {
+	return &CounterVec2{fam: r.family(name, help, kindCounter, label1, label2)}
+}
+
+func (r *Registry) family(name, help string, kind scalarKind, labels ...string) *labelledFamily {
 	if existing, ok := r.families.Load(name); ok {
 		return existing.(*labelledFamily)
 	}
-	f := &labelledFamily{name: name, help: help, labelName: label, kind: kind, series: map[string]*atomic.Int64{}}
+	f := &labelledFamily{name: name, help: help, labelNames: labels, kind: kind, series: map[string]*atomic.Int64{}}
 	actual, _ := r.families.LoadOrStore(name, f)
 	return actual.(*labelledFamily)
 }
@@ -136,7 +144,16 @@ type CounterVec struct {
 
 // WithLabelInc increments the series for labelValue.
 func (c *CounterVec) WithLabelInc(labelValue string) {
-	c.fam.value(c.label, labelValue).Add(1)
+	c.fam.value(labelValue).Add(1)
+}
+
+// CounterVec2 is a counter partitioned by two labels.
+type CounterVec2 struct {
+	fam *labelledFamily
+}
+
+func (c *CounterVec2) Inc(label1, label2 string) {
+	c.fam.value(label1, label2).Add(1)
 }
 
 // GaugeVec is a gauge partitioned by one label.
@@ -147,12 +164,12 @@ type GaugeVec struct {
 
 // Set sets the value for labelValue.
 func (g *GaugeVec) Set(labelValue string, n int64) {
-	g.fam.value(g.label, labelValue).Store(n)
+	g.fam.value(labelValue).Store(n)
 }
 
 // Add adjusts the value for labelValue.
 func (g *GaugeVec) Add(labelValue string, n int64) {
-	g.fam.value(g.label, labelValue).Add(n)
+	g.fam.value(labelValue).Add(n)
 }
 
 // Delete drops a series (e.g. an instance that no longer exists).
@@ -176,9 +193,10 @@ func (g *GaugeVec) DeleteMissing(keep map[string]struct{}) {
 	}
 }
 
-func (f *labelledFamily) value(_, labelValue string) *atomic.Int64 {
+func (f *labelledFamily) value(labelValues ...string) *atomic.Int64 {
+	key := strings.Join(labelValues, labelSep)
 	f.mu.RLock()
-	v, ok := f.series[labelValue]
+	v, ok := f.series[key]
 	f.mu.RUnlock()
 	if ok {
 		return v
@@ -186,11 +204,11 @@ func (f *labelledFamily) value(_, labelValue string) *atomic.Int64 {
 
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if v, ok := f.series[labelValue]; ok {
+	if v, ok := f.series[key]; ok {
 		return v
 	}
 	v = &atomic.Int64{}
-	f.series[labelValue] = v
+	f.series[key] = v
 	return v
 }
 
@@ -231,7 +249,19 @@ func (r *Registry) Render() string {
 		}
 		sort.Strings(keys)
 		for _, k := range keys {
-			fmt.Fprintf(&b, "%s{%s=\"%s\"} %d\n", name, f.labelName, escape(k), f.series[k].Load())
+			parts := strings.Split(k, labelSep)
+			fmt.Fprintf(&b, "%s{", name)
+			for i, label := range f.labelNames {
+				if i > 0 {
+					b.WriteByte(',')
+				}
+				value := ""
+				if i < len(parts) {
+					value = parts[i]
+				}
+				fmt.Fprintf(&b, "%s=\"%s\"", label, escape(value))
+			}
+			fmt.Fprintf(&b, "} %d\n", f.series[k].Load())
 		}
 		f.mu.RUnlock()
 	}

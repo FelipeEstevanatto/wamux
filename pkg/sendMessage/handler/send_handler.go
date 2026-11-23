@@ -38,6 +38,15 @@ type SendHandler interface {
 	SendStatusText(ctx *gin.Context)
 	SendStatusMedia(ctx *gin.Context)
 	SendTemplate(ctx *gin.Context)
+	SendCatalog(ctx *gin.Context)
+	SendContactRequest(ctx *gin.Context)
+}
+
+// cloudExtras is implemented by the send router. Keeping it optional avoids
+// forcing every Baileys-only fake to grow Cloud methods.
+type cloudExtras interface {
+	SendCatalog(*send_service.CatalogStruct, *instance_model.Instance) (*send_service.MessageSendStruct, error)
+	SendContactRequest(*send_service.ContactRequestStruct, *instance_model.Instance) (*send_service.MessageSendStruct, error)
 }
 
 type sendHandler struct {
@@ -981,6 +990,64 @@ func (s *sendHandler) SendTemplate(ctx *gin.Context) {
 		return
 	}
 	message, err := s.sendMessageService.SendTemplate(data, instance)
+	if err != nil {
+		writeSendError(ctx, err)
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": message})
+}
+
+// SendCatalog sends a Cloud catalog message.
+func (s *sendHandler) SendCatalog(ctx *gin.Context) {
+	instance, ok := ctx.MustGet("instance").(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+	data := &send_service.CatalogStruct{}
+	if err := ctx.ShouldBindJSON(data); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if data.Number == "" && data.Recipient == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number or recipient is required"})
+		return
+	}
+	extras, ok := s.sendMessageService.(cloudExtras)
+	if !ok {
+		ctx.JSON(http.StatusNotImplemented, gin.H{"error": "not_implemented_on_channel", "message": "catalog messages are not supported on this channel"})
+		return
+	}
+	message, err := extras.SendCatalog(data, instance)
+	if err != nil {
+		writeSendError(ctx, err)
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": message})
+}
+
+// SendContactRequest sends a Cloud contact-request interactive message.
+func (s *sendHandler) SendContactRequest(ctx *gin.Context) {
+	instance, ok := ctx.MustGet("instance").(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+	data := &send_service.ContactRequestStruct{}
+	if err := ctx.ShouldBindJSON(data); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if data.Number == "" && data.Recipient == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number or recipient is required"})
+		return
+	}
+	extras, ok := s.sendMessageService.(cloudExtras)
+	if !ok {
+		ctx.JSON(http.StatusNotImplemented, gin.H{"error": "not_implemented_on_channel", "message": "contact requests are not supported on this channel"})
+		return
+	}
+	message, err := extras.SendContactRequest(data, instance)
 	if err != nil {
 		writeSendError(ctx, err)
 		return

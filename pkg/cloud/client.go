@@ -65,6 +65,7 @@ type Client struct {
 	mediaClient  *http.Client
 	timeout      time.Duration
 	mediaTimeout time.Duration
+	observer     Observer
 }
 
 // ClientOption customises the Graph client.
@@ -316,10 +317,16 @@ func (c *Client) withTimeout(ctx context.Context, timeout time.Duration) (contex
 	return context.WithTimeout(ctx, timeout)
 }
 
-func (c *Client) doRaw(ctx context.Context, token, method, path, contentType string, body []byte, out any, idempotent bool) error {
+func (c *Client) doRaw(ctx context.Context, token, method, path, contentType string, body []byte, out any, idempotent bool) (retErr error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	start := time.Now()
+	defer func() {
+		if c.observer != nil {
+			c.observer.ObserveCloudGraph(graphOperation(path), time.Since(start), retErr)
+		}
+	}()
 	if idempotent {
 		if err := c.limiter.Wait(ctx); err != nil {
 			return err
@@ -335,7 +342,9 @@ func (c *Client) doRaw(ctx context.Context, token, method, path, contentType str
 		if err != nil {
 			return err
 		}
-		req.Header.Set("Authorization", "Bearer "+token)
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
 		if contentType != "" {
 			req.Header.Set("Content-Type", contentType)
 		}
@@ -482,6 +491,27 @@ func (l *adaptiveLimiter) RPS() float64 {
 	return l.currentRPS
 }
 
+func (l *adaptiveLimiter) penalizeLocked() {
+	if l.baseRPS <= 0 {
+		return
+	}
+	l.currentRPS /= 2
+	if min := l.baseRPS / 16; l.currentRPS < min {
+		l.currentRPS = min
+	}
+	l.lastRaise = time.Now()
+}
+
+func (l *adaptiveLimiter) recoverLocked() {
+	if l.currentRPS < l.baseRPS && time.Since(l.lastRaise) > 2*time.Second {
+		l.currentRPS *= 1.1
+		if l.currentRPS > l.baseRPS {
+			l.currentRPS = l.baseRPS
+		}
+		l.lastRaise = time.Now()
+	}
+}
+
 func (l *adaptiveLimiter) Wait(ctx context.Context) error {
 	if ctx == nil {
 		ctx = context.Background()
@@ -520,31 +550,19 @@ func (l *adaptiveLimiter) Observe(resp *http.Response) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if resp.StatusCode == http.StatusTooManyRequests && l.baseRPS > 0 {
-		l.currentRPS /= 2
-		if min := l.baseRPS / 16; l.currentRPS < min {
-			l.currentRPS = min
-		}
-		l.lastRaise = time.Now()
+		l.penalizeLocked()
 	}
 	// X-Business-Use-Case-Usage carries percentage objects; a value near 90
 	// is treated as a soft 429.
 	for _, header := range []string{"X-Business-Use-Case-Usage", "X-RateLimit-Remaining"} {
 		if v := strings.TrimSpace(resp.Header.Get(header)); v != "" {
 			if pct, ok := usagePercent(v); ok && pct >= 90 {
-				l.currentRPS /= 2
-				if min := l.baseRPS / 16; l.currentRPS < min {
-					l.currentRPS = min
-				}
-				l.lastRaise = time.Now()
+				l.penalizeLocked()
 			}
 		}
 	}
-	if time.Since(l.lastRaise) > 10*time.Second && l.currentRPS < l.baseRPS {
-		l.currentRPS *= 1.25
-		if l.currentRPS > l.baseRPS {
-			l.currentRPS = l.baseRPS
-		}
-		l.lastRaise = time.Now()
+	if time.Since(l.lastRaise) > 10*time.Second {
+		l.recoverLocked()
 	}
 }
 
@@ -576,4 +594,28 @@ func usagePercent(raw string) (float64, bool) {
 	}
 	walk(v)
 	return max, max > 0
+}
+
+func graphOperation(path string) string {
+	p := strings.ToLower(path)
+	switch {
+	case strings.Contains(p, "/messages"):
+		return "messages"
+	case strings.Contains(p, "/media"):
+		return "media"
+	case strings.Contains(p, "/message_templates"):
+		return "templates"
+	case strings.Contains(p, "/subscribed_apps"):
+		return "subscribe"
+	case strings.Contains(p, "register"):
+		return "register"
+	case strings.Contains(p, "analytics"):
+		return "analytics"
+	case strings.Contains(p, "catalog"):
+		return "catalog"
+	case strings.Contains(p, "phone_numbers"):
+		return "phone_numbers"
+	default:
+		return "graph"
+	}
 }

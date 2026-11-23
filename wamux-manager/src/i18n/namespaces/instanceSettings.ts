@@ -107,6 +107,7 @@ export const instanceSettingsNs: {
     'instanceSettings.events.NEWSLETTER': 'Newsletter',
     'instanceSettings.events.TEMPLATE': 'Template',
     'instanceSettings.events.CLOUD_ACCOUNT': 'Conta Cloud',
+    'instanceSettings.events.IDENTITY': 'Identidade',
 
     'instanceSettings.option.default': 'Padrão',
     'instanceSettings.option.enabled': 'Habilitado',
@@ -368,6 +369,7 @@ export const instanceSettingsNs: {
     'instanceSettings.events.NEWSLETTER': 'Newsletter',
     'instanceSettings.events.TEMPLATE': 'Template',
     'instanceSettings.events.CLOUD_ACCOUNT': 'Cloud account',
+    'instanceSettings.events.IDENTITY': 'Identity',
 
     'instanceSettings.option.default': 'Default',
     'instanceSettings.option.enabled': 'Enabled',

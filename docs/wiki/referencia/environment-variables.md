@@ -290,6 +290,11 @@ para armazenar o token de acesso criptografado.
 | `CLOUD_API_ENFORCE_WINDOW` | `true` | Bloqueia mensagens livres fora da janela |
 | `CLOUD_API_RPS` | `8` | Piso do limitador adaptativo |
 | `CLOUD_API_RETRY_MAX` | `3` | Tentativas para requisições idempotentes |
+| `CLOUD_API_EMBEDDED_CONFIG_ID` | vazio | Configuration ID do Facebook Login for Business para Embedded Signup |
+| `CLOUD_API_EMBEDDED_REDIRECT_URI` | vazio | Redirect URI exato do Embedded Signup |
+| `CLOUD_GROUPS` | `false` | Flag do programa separado de Groups; não altera o envio core |
+| `CLOUD_CALLING` | `false` | Flag do programa separado de Calling; exige infraestrutura WebRTC/SIP |
+| `CLOUD_FLOWS` | `false` | Flag do programa separado de Flows |
 
 > Envios `POST /messages` nunca são repetidos automaticamente. Um timeout é
 > reportado como resultado incerto; o chamador deve consultar a operação em vez

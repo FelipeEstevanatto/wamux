@@ -1,12 +1,28 @@
 # WABA / Cloud API — next work plan
 
-**Status:** proposed; builds on the implemented Cloud channel.
+**Status:** implemented (core waves 1–4); Groups/Calling/Flows remain separate programs.
 **Baseline:** `develop` after `581471c` / Cloud Phase 1–3, latest migration `0029`.
 **Parent plan:** [`waba-cloud-api.md`](./waba-cloud-api.md).
 **Companion references:** [`wapi.go`](https://github.com/wapikit/wapi.go),
 [`piusalfred/whatsapp`](https://github.com/piusalfred/whatsapp),
 [`waba-cli`](https://github.com/jjuanrivvera/waba-cli) and the
 [official Meta Cloud API docs](https://developers.facebook.com/documentation/business-messaging/whatsapp/overview).
+
+---
+
+## 0. Implementation status (2026-11-22)
+
+Wave 1–4 core work is implemented in this branch:
+
+- identity continuity, typed webhooks, metrics/health, per-phone limiter;
+- `wamuxctl`, template/account-event UI and coverage manifest;
+- Business Management assets/analytics/catalogs and payload expansion;
+- Embedded Signup backend + manager selection flow.
+
+Groups, Calling and Flows remain deliberately separate programs
+(`pkg/cloud/{groups,calling,flows}`, `CLOUD_GROUPS`, `CLOUD_CALLING`,
+`CLOUD_FLOWS`) with their own plans under `docs/archive/plans/cloud-*.md`.
+Live Meta staging validation is still an external acceptance step.
 
 ---
 
@@ -1157,14 +1173,14 @@ defaults in places). Keep WaMux's configurable `v27.0` and contract tests.
 
 ## 25. Definition of done
 
-- [ ] Wave 1 identity/metrics/limiter/webhooks merged and flagged.
-- [ ] `wamuxctl` doctor/dry-run/coverage merged.
-- [ ] Template creation and account-event UI merged.
-- [ ] Payload expansion fixtures and handlers merged.
-- [ ] Business phone/WABA/analytics/catalog API merged.
-- [ ] Embedded Signup wizard merged and sandbox-tested.
-- [ ] Groups/Calling/Flows each have separate plans, flags and estimates.
-- [ ] Full Go race suite, lint, manager tests/lint/build, docs check and image
+- [x] Wave 1 identity/metrics/limiter/webhooks merged and flagged.
+- [x] `wamuxctl` doctor/dry-run/coverage merged.
+- [x] Template creation and account-event UI merged.
+- [x] Payload expansion fixtures and handlers merged.
+- [x] Business phone/WABA/analytics/catalog API merged.
+- [x] Embedded Signup wizard merged (sandbox test pending external credentials).
+- [x] Groups/Calling/Flows each have separate plans, flags and estimates.
+- [x] Full Go race suite, lint, manager tests/lint/build, docs check and image
       smoke pass.
 - [ ] Staging Meta test number validates BSUID change, templates, media and
       business assets.

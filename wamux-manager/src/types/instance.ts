@@ -243,3 +243,33 @@ export interface InstanceHealth {
   conflicts?: number;
   blockedReason?: string;
 }
+
+export interface CloudAccountEvent {
+  id: string;
+  instanceId: string;
+  field: string;
+  eventType?: string;
+  payload?: string;
+  receivedAt?: string;
+}
+
+export interface CloudTemplateInput {
+  name?: string;
+  language?: string;
+  category?: string;
+  components?: unknown;
+}
+
+export interface EmbeddedAsset {
+  businessId: string;
+  wabaId: string;
+  wabaName?: string;
+  phoneNumberId: string;
+  displayPhoneNumber?: string;
+  verifiedName?: string;
+}
+
+export interface EmbeddedStart {
+  url: string;
+  state: string;
+}

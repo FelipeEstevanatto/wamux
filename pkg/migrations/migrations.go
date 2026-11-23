@@ -754,6 +754,97 @@ var steps = []migration{
 			)`,
 		},
 	},
+	{
+		Name: "0030_cloud_contact_identities",
+		Postgres: []string{
+			`CREATE TABLE IF NOT EXISTS cloud_contact_identities (
+				id UUID PRIMARY KEY,
+				instance_id UUID NOT NULL REFERENCES instances(id) ON DELETE CASCADE,
+				contact_id TEXT NOT NULL,
+				identity_type TEXT NOT NULL,
+				identity_value TEXT NOT NULL,
+				valid_from TIMESTAMPTZ NOT NULL,
+				valid_to TIMESTAMPTZ,
+				source_event_id TEXT
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_cloud_contact_identities_lookup ON cloud_contact_identities (instance_id, identity_type, identity_value)`,
+			`CREATE INDEX IF NOT EXISTS idx_cloud_contact_identities_contact ON cloud_contact_identities (instance_id, contact_id)`,
+		},
+		SQLite: []string{
+			`CREATE TABLE IF NOT EXISTS cloud_contact_identities (
+				id TEXT PRIMARY KEY,
+				instance_id TEXT NOT NULL,
+				contact_id TEXT NOT NULL,
+				identity_type TEXT NOT NULL,
+				identity_value TEXT NOT NULL,
+				valid_from TIMESTAMP NOT NULL,
+				valid_to TIMESTAMP,
+				source_event_id TEXT
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_cloud_contact_identities_lookup ON cloud_contact_identities (instance_id, identity_type, identity_value)`,
+			`CREATE INDEX IF NOT EXISTS idx_cloud_contact_identities_contact ON cloud_contact_identities (instance_id, contact_id)`,
+		},
+	},
+	{
+		Name: "0031_cloud_identity_events",
+		Postgres: []string{
+			`CREATE TABLE IF NOT EXISTS cloud_identity_events (
+				id UUID PRIMARY KEY,
+				instance_id UUID NOT NULL REFERENCES instances(id) ON DELETE CASCADE,
+				event_type TEXT NOT NULL,
+				wa_id TEXT,
+				old_bsuid TEXT,
+				new_bsuid TEXT,
+				parent_bsuid TEXT,
+				event_time TIMESTAMPTZ NOT NULL,
+				received_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				payload JSONB NOT NULL,
+				applied_at TIMESTAMPTZ,
+				error TEXT
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_cloud_identity_events_instance ON cloud_identity_events (instance_id, received_at DESC)`,
+		},
+		SQLite: []string{
+			`CREATE TABLE IF NOT EXISTS cloud_identity_events (
+				id TEXT PRIMARY KEY,
+				instance_id TEXT NOT NULL,
+				event_type TEXT NOT NULL,
+				wa_id TEXT,
+				old_bsuid TEXT,
+				new_bsuid TEXT,
+				parent_bsuid TEXT,
+				event_time TIMESTAMP NOT NULL,
+				received_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				payload TEXT NOT NULL,
+				applied_at TIMESTAMP,
+				error TEXT
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_cloud_identity_events_instance ON cloud_identity_events (instance_id, received_at DESC)`,
+		},
+	},
+	{
+		Name: "0032_cloud_rate_buckets",
+		Postgres: []string{
+			`CREATE TABLE IF NOT EXISTS cloud_rate_buckets (
+				phone_number_id TEXT PRIMARY KEY,
+				tokens DOUBLE PRECISION NOT NULL,
+				effective_rps DOUBLE PRECISION NOT NULL,
+				updated_at TIMESTAMPTZ NOT NULL,
+				last_429_at TIMESTAMPTZ,
+				paused_until TIMESTAMPTZ
+			)`,
+		},
+		SQLite: []string{
+			`CREATE TABLE IF NOT EXISTS cloud_rate_buckets (
+				phone_number_id TEXT PRIMARY KEY,
+				tokens REAL NOT NULL,
+				effective_rps REAL NOT NULL,
+				updated_at TIMESTAMP NOT NULL,
+				last_429_at TIMESTAMP,
+				paused_until TIMESTAMP
+			)`,
+		},
+	},
 }
 
 const createMigrationsTable = `

@@ -172,8 +172,9 @@ Two credentials, both sent in the `apikey` header:
 - **Instances** — create, connect, pair (QR / pairing code), proxy, per-instance
   overview (profile picture, platform, contact/chat/message counts).
 - **Official WhatsApp Cloud API (WABA)** — opt-in second channel with encrypted
-  Meta credentials, BSUID/phone recipients, signed webhooks, phone registration,
-  text/media/templates/interactive messages and diagnostics. Enable with
+  Meta credentials, BSUID identity continuity, signed/typed webhooks, phone
+  registration, per-phone rate limiting, metrics, templates, interactive/product
+  payloads, Business Management queries and Embedded Signup. Enable with
   `CLOUD_API_ENABLED=true`; see
   [`docs/wiki/guias-api/api-cloud.md`](./docs/wiki/guias-api/api-cloud.md).
 - **Messaging** — text, media, location, contact, polls, stickers, buttons,
@@ -211,6 +212,11 @@ The full endpoint list is in the
 | `GET/PUT` | `/cloud/credentials` | instance | Read (safe summary) or update encrypted Meta credentials |
 | `POST` | `/cloud/verify` · `/cloud/register` · `/cloud/read` | instance | Verify/subscribe, register the phone, mark read |
 | `GET` | `/cloud/diagnostics` · `/cloud/templates` | instance | Cloud health and cached templates |
+| `GET` | `/cloud/contacts/:contactId` · `/cloud/identity-events` | instance | BSUID identity continuity and reconciliation |
+| `GET` | `/cloud/account-events` | instance | Typed account/template webhook history |
+| `GET/POST` | `/cloud/business/*` | instance | Phone/WABA assets, analytics and catalogs |
+| `POST` | `/cloud/embedded/start` | instance | Start Embedded Signup (Meta OAuth) |
+| `POST` | `/send/catalog` · `/send/contact-request` | instance | Cloud catalog and contact-request messages |
 
 Full list: `GET /swagger/doc.json`.
 

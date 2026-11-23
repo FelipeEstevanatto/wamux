@@ -28,14 +28,20 @@ import (
 
 // ProductStruct is the body of POST /send/product.
 type ProductStruct struct {
-	Number string `json:"number" example:"5511999999999"`
-	Id     string `json:"id,omitempty" example:"3EB0A1B2C3D4E5F6A7B8C9"`
+	Number        string `json:"number" example:"5511999999999"`
+	Recipient     string `json:"recipient,omitempty" example:"US.13491208655302741918"`
+	RecipientType string `json:"recipientType,omitempty" example:"individual"`
+	Id            string `json:"id,omitempty" example:"3EB0A1B2C3D4E5F6A7B8C9"`
 
 	// Product data shown on the card. ProductId must be the product's ID in your
 	// catalog -- get it from the official app / Commerce Manager.
-	ProductId   string `json:"productId" example:"1234567890123456"`
-	Title       string `json:"title" example:"Camiseta WaMux"`
-	Description string `json:"description,omitempty" example:"Camiseta oficial 100% algodao"`
+	ProductId string `json:"productId" example:"1234567890123456"`
+	// CatalogId is the Meta catalog that owns the product. Required by Cloud.
+	CatalogId string `json:"catalogId,omitempty" example:"9876543210"`
+	// ProductRetailerId is the retailer/SKU id used by Cloud product messages.
+	ProductRetailerId string `json:"productRetailerId,omitempty" example:"SKU-001"`
+	Title             string `json:"title" example:"Camiseta WaMux"`
+	Description       string `json:"description,omitempty" example:"Camiseta oficial 100% algodao"`
 	// Price in thousandths of the currency unit: R$ 10,00 => 10000.
 	Price      int64  `json:"price" example:"10000"`
 	Currency   string `json:"currency" example:"BRL"`

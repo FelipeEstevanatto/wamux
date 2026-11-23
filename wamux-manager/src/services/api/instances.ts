@@ -22,6 +22,10 @@ import type {
   CloudStatus,
   CloudDiagnostics,
   CloudTemplate,
+  CloudAccountEvent,
+  CloudTemplateInput,
+  EmbeddedAsset,
+  EmbeddedStart,
 } from '@/types/instance';
 import type { LogEntry } from '@/utils/instanceLogs';
 
@@ -655,4 +659,76 @@ export const deleteCloudTemplate = async (
     { headers: { apikey: instanceToken } }
   );
   return response.data;
+};
+
+export const deregisterCloudPhone = async (instanceToken: string): Promise<CloudStatus> => {
+  const response = await apiClient.post('/cloud/deregister', {}, {
+    headers: { apikey: instanceToken },
+  });
+  return response.data.data;
+};
+
+export const listCloudAccountEvents = async (
+  instanceToken: string,
+  params: { field?: string; limit?: number; offset?: number } = {}
+): Promise<CloudAccountEvent[]> => {
+  const response = await apiClient.get('/cloud/account-events', {
+    headers: { apikey: instanceToken },
+    params,
+  });
+  return response.data.data;
+};
+
+export const createCloudTemplate = async (
+  instanceToken: string,
+  payload: CloudTemplateInput
+): Promise<CloudTemplate> => {
+  const response = await apiClient.post('/cloud/templates', payload, {
+    headers: { apikey: instanceToken },
+  });
+  return response.data.data;
+};
+
+export const updateCloudTemplate = async (
+  instanceToken: string,
+  name: string,
+  language: string,
+  payload: CloudTemplateInput
+): Promise<CloudTemplate> => {
+  const response = await apiClient.put(
+    `/cloud/templates/${encodeURIComponent(name)}/${encodeURIComponent(language)}`,
+    payload,
+    { headers: { apikey: instanceToken } }
+  );
+  return response.data.data;
+};
+
+export const startEmbeddedSignup = async (instanceToken: string): Promise<EmbeddedStart> => {
+  const response = await apiClient.post('/cloud/embedded/start', {}, {
+    headers: { apikey: instanceToken },
+  });
+  return response.data.data;
+};
+
+export const listEmbeddedAssets = async (
+  instanceToken: string,
+  state: string
+): Promise<EmbeddedAsset[]> => {
+  const response = await apiClient.get('/cloud/embedded/assets', {
+    headers: { apikey: instanceToken },
+    params: { state },
+  });
+  return response.data.data;
+};
+
+export const selectEmbeddedAsset = async (
+  instanceToken: string,
+  state: string,
+  wabaId: string,
+  phoneNumberId: string
+): Promise<CloudStatus> => {
+  const response = await apiClient.post('/cloud/embedded/select', { state, wabaId, phoneNumberId }, {
+    headers: { apikey: instanceToken },
+  });
+  return response.data.data;
 };

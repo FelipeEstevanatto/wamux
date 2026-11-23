@@ -98,6 +98,7 @@ const availableEvents = [
   "NEWSLETTER",
   "TEMPLATE",
   "CLOUD_ACCOUNT",
+  "IDENTITY",
 ];
 
 export default function InstanceSettings() {

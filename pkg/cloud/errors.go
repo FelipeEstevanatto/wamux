@@ -38,6 +38,8 @@ func MapGraphError(err error) *APIError {
 		details["fbtraceId"] = ge.TraceID
 	}
 	switch ge.Code {
+	case 10, 200:
+		return &APIError{Status: http.StatusForbidden, Code: "cloud_permission_denied", Message: "the Meta app lacks permission for this Business Management operation", Details: details}
 	case 190:
 		return &APIError{Status: http.StatusBadGateway, Code: "cloud_auth_failed", Message: "the Meta access token is invalid or expired", Details: details}
 	case 131009:
