@@ -330,6 +330,10 @@ func (c *cli) cloud(inv invocation) int {
 		return c.request(inv, http.MethodGet, "/cloud/contacts/"+args[1], nil, "")
 	case "business":
 		return c.business(inv, args)
+	case "groups":
+		return c.groups(inv, args)
+	case "flows":
+		return c.flows(inv, args)
 	case "api":
 		return c.rawAPI(inv, args)
 	case "coverage":
@@ -512,6 +516,116 @@ func (c *cli) templates(inv invocation, args []string) int {
 	}
 }
 
+func (c *cli) groups(inv invocation, args []string) int {
+	if len(args) == 0 {
+		return c.usage()
+	}
+	switch args[0] {
+	case "list":
+		return c.request(inv, http.MethodGet, "/cloud/groups", nil, "")
+	case "get":
+		if len(args) < 2 {
+			return c.usage()
+		}
+		return c.request(inv, http.MethodGet, "/cloud/groups/"+url.PathEscape(args[1]), nil, "")
+	case "create":
+		payload := map[string]any{
+			"subject":      c.value(inv, "subject", "", ""),
+			"participants": splitCSV(c.value(inv, "participants", "", "")),
+		}
+		if desc := c.value(inv, "description", "", ""); desc != "" {
+			payload["description"] = desc
+		}
+		body, ct := jsonBody(payload)
+		return c.request(inv, http.MethodPost, "/cloud/groups", body, ct)
+	case "delete":
+		if len(args) < 2 || (!inv.flags["yes"] && !inv.flags["dry-run"]) {
+			_, _ = fmt.Fprintln(c.stderr, "delete requires GROUP_ID and --yes")
+			return 2
+		}
+		return c.request(inv, http.MethodDelete, "/cloud/groups/"+url.PathEscape(args[1]), nil, "")
+	case "send":
+		if len(args) < 2 {
+			return c.usage()
+		}
+		body, err := c.readBody(inv)
+		if err != nil {
+			payload := map[string]any{"type": "text", "text": map[string]string{"body": c.value(inv, "text", "", "")}}
+			body, _ = json.Marshal(payload)
+		}
+		return c.request(inv, http.MethodPost, "/cloud/groups/"+url.PathEscape(args[1])+"/messages", body, "application/json")
+	case "invite":
+		if len(args) < 2 {
+			return c.usage()
+		}
+		return c.request(inv, http.MethodPost, "/cloud/groups/"+url.PathEscape(args[1])+"/invite-link", []byte("{}"), "application/json")
+	case "events":
+		return c.request(inv, http.MethodGet, "/cloud/groups/events"+query(inv, "groupId"), nil, "")
+	default:
+		return c.usage()
+	}
+}
+
+func (c *cli) flows(inv invocation, args []string) int {
+	if len(args) == 0 {
+		return c.usage()
+	}
+	switch args[0] {
+	case "list":
+		return c.request(inv, http.MethodGet, "/cloud/flows", nil, "")
+	case "get":
+		if len(args) < 2 {
+			return c.usage()
+		}
+		return c.request(inv, http.MethodGet, "/cloud/flows/"+url.PathEscape(args[1]), nil, "")
+	case "create":
+		body, err := c.readBody(inv)
+		if err != nil {
+			_, _ = fmt.Fprintln(c.stderr, err)
+			return 2
+		}
+		return c.request(inv, http.MethodPost, "/cloud/flows", body, "application/json")
+	case "publish":
+		if len(args) < 2 {
+			return c.usage()
+		}
+		return c.request(inv, http.MethodPost, "/cloud/flows/"+url.PathEscape(args[1])+"/publish", []byte("{}"), "application/json")
+	case "send":
+		if len(args) < 2 {
+			return c.usage()
+		}
+		payload := map[string]any{
+			"number":  c.value(inv, "to", "", ""),
+			"body":    c.value(inv, "text", "", ""),
+			"flowCta": c.value(inv, "cta", "Open", ""),
+		}
+		if raw := c.value(inv, "flow-payload", "", ""); raw != "" {
+			var v any
+			if err := json.Unmarshal([]byte(raw), &v); err != nil {
+				_, _ = fmt.Fprintln(c.stderr, "invalid --flow-payload:", err)
+				return 2
+			}
+			payload["flowActionPayload"] = v
+		}
+		body, ct := jsonBody(payload)
+		return c.request(inv, http.MethodPost, "/cloud/flows/"+url.PathEscape(args[1])+"/send", body, ct)
+	case "events":
+		return c.request(inv, http.MethodGet, "/cloud/flows/events"+query(inv, "flowId"), nil, "")
+	default:
+		return c.usage()
+	}
+}
+
+func splitCSV(raw string) []string {
+	var out []string
+	for _, v := range strings.Split(raw, ",") {
+		if v = strings.TrimSpace(v); v != "" {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
 func (c *cli) business(inv invocation, args []string) int {
 	if len(args) == 0 {
 		return c.usage()
@@ -692,6 +806,8 @@ Usage:
   wamuxctl cloud templates list|sync|create|update|delete
   wamuxctl cloud account-events list
   wamuxctl cloud business phone-numbers|waba|wabas|analytics|catalogs|products
+  wamuxctl cloud groups list|get|create|delete|send|invite|events
+  wamuxctl cloud flows list|get|create|publish|send|events
   wamuxctl cloud contacts get|identities CONTACT_ID
   wamuxctl cloud api METHOD PATH [--body FILE]
   wamuxctl cloud coverage

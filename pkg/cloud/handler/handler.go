@@ -13,19 +13,27 @@ import (
 	"github.com/felipeestevanatto/wamux/pkg/audit"
 	cloud_service "github.com/felipeestevanatto/wamux/pkg/cloud"
 	cloud_flows "github.com/felipeestevanatto/wamux/pkg/cloud/flows"
+	cloud_groups "github.com/felipeestevanatto/wamux/pkg/cloud/groups"
 	"github.com/felipeestevanatto/wamux/pkg/config"
 	instance_model "github.com/felipeestevanatto/wamux/pkg/instance/model"
 	"github.com/gin-gonic/gin"
 )
 
 type Handler struct {
-	svc   *cloud_service.Service
-	cfg   *config.Config
-	flows *cloud_flows.Handler
+	svc    *cloud_service.Service
+	cfg    *config.Config
+	flows  *cloud_flows.Handler
+	groups *cloud_groups.Handler
 }
 
 func New(svc *cloud_service.Service, cfg *config.Config) *Handler {
 	h := &Handler{svc: svc, cfg: cfg}
+	if cfg != nil && cfg.CloudGroupsEnabled && svc != nil {
+		groupSvc := cloud_groups.New(svc)
+		_ = groupSvc.Migrate()
+		svc.AddWebhookHook(groupSvc.HandleCloudChange)
+		h.groups = cloud_groups.NewHandler(groupSvc)
+	}
 	if cfg != nil && cfg.CloudFlowsEnabled && svc != nil {
 		flowSvc := cloud_flows.New(svc)
 		svc.AddWebhookHook(flowSvc.HandleCloudChange)
@@ -42,6 +50,9 @@ func (h *Handler) RegisterFeatureRoutes(r *gin.RouterGroup) {
 	}
 	if h.flows != nil {
 		h.flows.RegisterRoutes(r.Group("/flows"))
+	}
+	if h.groups != nil {
+		h.groups.RegisterRoutes(r.Group("/groups"))
 	}
 }
 

@@ -1,6 +1,6 @@
 # Cloud Groups API — separate program
 
-Status: **not implemented**. Flag: `CLOUD_GROUPS=false`.
+Status: **implemented opt-in**. Flag: `CLOUD_GROUPS=false` by default.
 
 ## Scope
 
@@ -13,8 +13,10 @@ Status: **not implemented**. Flag: `CLOUD_GROUPS=false`.
 
 ## Boundary
 
-Package `pkg/cloud/groups`, own handler/routes and own webhook path. It must not
-change `pkg/cloud` send behavior or expose routes when the flag is off.
+Package `pkg/cloud/groups`, routes under `/cloud/groups`, group event storage and
+the main signed WABA webhook hook. It must not expose routes when the flag is off.
+The group send path uses the core phone limiter and Cloud send observer but does
+not create a direct-contact message row.
 
 ## Estimate
 

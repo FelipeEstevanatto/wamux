@@ -244,6 +244,46 @@ lock so replicas share a budget; SQLite and tests fall back to a process-local
 bucket. A 429 halves only the affected phone's rate; POSTs are never retried
 automatically.
 
+## Separate opt-in programs
+
+Groups, Calling and Flows are not enabled by the core cloud flag. Each has its
+own flag and route namespace. The manager and CLI only show them when enabled.
+
+### Flows (`CLOUD_FLOWS=true`)
+
+```text
+GET/POST /cloud/flows
+GET      /cloud/flows/:id
+POST     /cloud/flows/:id
+POST     /cloud/flows/:id/publish
+POST     /cloud/flows/:id/deprecate
+DELETE   /cloud/flows/:id
+GET      /cloud/flows/:id/assets
+POST     /cloud/flows/:id/send
+GET      /cloud/flows/events
+POST     /webhook/cloud/flows/:instanceId   (signed)
+```
+
+### Groups (`CLOUD_GROUPS=true`)
+
+```text
+GET/POST /cloud/groups
+GET      /cloud/groups/:id
+DELETE   /cloud/groups/:id
+GET/POST /cloud/groups/:id/participants
+DELETE   /cloud/groups/:id/participants
+POST     /cloud/groups/:id/invite-link
+GET      /cloud/groups/:id/join-requests
+POST     /cloud/groups/:id/join-requests/:requestId
+POST     /cloud/groups/:id/settings
+POST     /cloud/groups/:id/messages
+GET      /cloud/groups/events
+```
+
+Groups are OBA-only and limited to 8 participants per group. Only text, media
+and template messages are accepted; interactive/commerce/calling payloads are
+rejected before the Graph call.
+
 ## Templates
 
 ```text

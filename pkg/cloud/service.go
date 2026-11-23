@@ -1822,3 +1822,41 @@ func (s *Service) SendFlow(ctx context.Context, instance *instance_model.Instanc
 	}
 	return s.recordOutbound(instance, c, resp, to, recipient, "interactive", "flow", "", "", "", msg.OperationID)
 }
+
+// SendGroupPayload is the core transport for the separate Groups program. It
+// uses the same per-phone limiter and observer as direct sends but does not
+// create a direct-contact message row.
+func (s *Service) SendGroupPayload(ctx context.Context, instance *instance_model.Instance, payload map[string]any) (SendResponse, error) {
+	c, token, err := s.credentialsToken(instance.Id)
+	if err != nil {
+		return SendResponse{}, err
+	}
+	if s.phoneLimiter != nil {
+		if err := s.phoneLimiter.Wait(ctx, c.PhoneNumberID); err != nil {
+			return SendResponse{}, err
+		}
+	}
+	resp, err := s.client.SendMessage(ctx, token, c.PhoneNumberID, payload)
+	if s.phoneLimiter != nil {
+		status := 0
+		if err != nil {
+			var ge *GraphError
+			if errors.As(err, &ge) {
+				status = ge.StatusCode
+			}
+		} else {
+			status = http.StatusOK
+		}
+		s.phoneLimiter.Observe(c.PhoneNumberID, status, 0)
+	}
+	if err != nil {
+		if s.observer != nil {
+			s.observer.ObserveCloudSend("group", "error")
+		}
+		return SendResponse{}, s.sendError(err)
+	}
+	if s.observer != nil {
+		s.observer.ObserveCloudSend("group", "ok")
+	}
+	return resp, nil
+}

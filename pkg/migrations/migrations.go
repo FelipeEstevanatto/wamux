@@ -872,6 +872,31 @@ var steps = []migration{
 			`CREATE INDEX IF NOT EXISTS idx_cloud_flow_events_instance ON cloud_flow_events (instance_id, received_at DESC)`,
 		},
 	},
+	{
+		Name: "0034_cloud_group_events",
+		Postgres: []string{
+			`CREATE TABLE IF NOT EXISTS cloud_group_events (
+				id UUID PRIMARY KEY,
+				instance_id UUID NOT NULL REFERENCES instances(id) ON DELETE CASCADE,
+				group_id TEXT,
+				event_type TEXT NOT NULL,
+				payload JSONB NOT NULL,
+				received_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_cloud_group_events_instance ON cloud_group_events (instance_id, received_at DESC)`,
+		},
+		SQLite: []string{
+			`CREATE TABLE IF NOT EXISTS cloud_group_events (
+				id TEXT PRIMARY KEY,
+				instance_id TEXT NOT NULL,
+				group_id TEXT,
+				event_type TEXT NOT NULL,
+				payload TEXT NOT NULL,
+				received_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_cloud_group_events_instance ON cloud_group_events (instance_id, received_at DESC)`,
+		},
+	},
 }
 
 const createMigrationsTable = `

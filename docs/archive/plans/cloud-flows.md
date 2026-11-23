@@ -1,6 +1,6 @@
 # Cloud Flows API — separate program
 
-Status: **not implemented**. Flag: `CLOUD_FLOWS=false`.
+Status: **implemented opt-in**. Flag: `CLOUD_FLOWS=false` by default.
 
 ## Scope
 
@@ -9,9 +9,10 @@ Status: **not implemented**. Flag: `CLOUD_FLOWS=false`.
 
 ## Boundary
 
-Package `pkg/cloud/flows`, own routes and webhook field handlers. Core typed
-webhooks may store a Flow field as a known account event, but the Flow program
-owns its typed contract.
+Package `pkg/cloud/flows`, routes under `/cloud/flows`, `cloud_flow_events`,
+Flow JSON lifecycle/assets, an interactive Flow send entry point and signed
+endpoint callbacks. Core typed webhooks may also store a Flow status field; the
+Flow program owns its typed contract.
 
 ## Estimate
 
