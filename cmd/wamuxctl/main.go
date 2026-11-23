@@ -328,6 +328,8 @@ func (c *cli) cloud(inv invocation) int {
 			return c.usage()
 		}
 		return c.request(inv, http.MethodGet, "/cloud/contacts/"+args[1], nil, "")
+	case "business":
+		return c.business(inv, args)
 	case "api":
 		return c.rawAPI(inv, args)
 	case "coverage":
@@ -510,6 +512,46 @@ func (c *cli) templates(inv invocation, args []string) int {
 	}
 }
 
+func (c *cli) business(inv invocation, args []string) int {
+	if len(args) == 0 {
+		return c.usage()
+	}
+	switch args[0] {
+	case "phone-numbers":
+		return c.request(inv, http.MethodGet, "/cloud/business/phone-numbers", nil, "")
+	case "waba":
+		return c.request(inv, http.MethodGet, "/cloud/business/waba", nil, "")
+	case "wabas":
+		return c.request(inv, http.MethodGet, "/cloud/business/wabas"+query(inv, "scope"), nil, "")
+	case "analytics":
+		return c.request(inv, http.MethodGet, "/cloud/business/analytics"+query(inv, "start", "end", "granularity", "phoneNumbers"), nil, "")
+	case "catalogs":
+		if len(args) > 1 && args[1] == "create" {
+			body, ct := jsonBody(map[string]string{"name": c.value(inv, "name", "", "")})
+			return c.request(inv, http.MethodPost, "/cloud/business/catalogs", body, ct)
+		}
+		return c.request(inv, http.MethodGet, "/cloud/business/catalogs", nil, "")
+	case "products":
+		catalogID := c.value(inv, "catalog", "", "")
+		if catalogID == "" {
+			_, _ = fmt.Fprintln(c.stderr, "--catalog is required")
+			return 2
+		}
+		path := "/cloud/business/catalogs/" + url.PathEscape(catalogID) + "/products"
+		if len(args) > 1 && args[1] == "create" {
+			body, err := c.readBody(inv)
+			if err != nil {
+				_, _ = fmt.Fprintln(c.stderr, err)
+				return 2
+			}
+			return c.request(inv, http.MethodPost, path, body, "application/json")
+		}
+		return c.request(inv, http.MethodGet, path, nil, "")
+	default:
+		return c.usage()
+	}
+}
+
 func (c *cli) rawAPI(inv invocation, args []string) int {
 	if len(args) < 2 {
 		return c.usage()
@@ -649,6 +691,7 @@ Usage:
   wamuxctl cloud send text|media|template --to NUMBER ...
   wamuxctl cloud templates list|sync|create|update|delete
   wamuxctl cloud account-events list
+  wamuxctl cloud business phone-numbers|waba|wabas|analytics|catalogs|products
   wamuxctl cloud contacts get|identities CONTACT_ID
   wamuxctl cloud api METHOD PATH [--body FILE]
   wamuxctl cloud coverage

@@ -84,29 +84,41 @@ func (c *Client) DiscoverEmbeddedAssets(ctx context.Context, token string) (stri
 		return "", nil, errors.New("cloud: Meta did not return a business id")
 	}
 	var all []EmbeddedAsset
-	after := ""
-	for page := 0; page < 20; page++ {
-		wabas, next, err := c.ListBusinessWABAs(ctx, token, businessID, true, after)
-		if err != nil {
-			return "", nil, err
-		}
-		for _, waba := range wabas {
-			phones, _, err := c.ListPhoneNumbers(ctx, token, waba.ID, "")
+	seenWABA := map[string]bool{}
+	// An app can own WABAs or have client access to them; both are valid
+	// Embedded Signup outcomes.
+	for _, owned := range []bool{true, false} {
+		after := ""
+		for page := 0; page < 20; page++ {
+			wabas, next, err := c.ListBusinessWABAs(ctx, token, businessID, owned, after)
 			if err != nil {
-				continue
+				break
 			}
-			for _, phone := range phones {
-				all = append(all, EmbeddedAsset{
-					BusinessID: businessID, WABAID: waba.ID, WABAName: waba.Name,
-					PhoneNumberID: phone.ID, DisplayPhone: phone.DisplayPhoneNumber,
-					VerifiedName: phone.VerifiedName,
-				})
+			for _, waba := range wabas {
+				if seenWABA[waba.ID] {
+					continue
+				}
+				seenWABA[waba.ID] = true
+				phones, _, err := c.ListPhoneNumbers(ctx, token, waba.ID, "")
+				if err != nil {
+					continue
+				}
+				for _, phone := range phones {
+					all = append(all, EmbeddedAsset{
+						BusinessID: businessID, WABAID: waba.ID, WABAName: waba.Name,
+						PhoneNumberID: phone.ID, DisplayPhone: phone.DisplayPhoneNumber,
+						VerifiedName: phone.VerifiedName,
+					})
+				}
 			}
+			if next == "" || next == after {
+				break
+			}
+			after = next
 		}
-		if next == "" || next == after {
-			break
-		}
-		after = next
+	}
+	if len(all) == 0 {
+		return businessID, all, nil
 	}
 	return businessID, all, nil
 }

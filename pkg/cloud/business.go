@@ -415,3 +415,27 @@ type analyticsCacheEntry struct {
 	raw     json.RawMessage
 	expires time.Time
 }
+
+func (s *Service) ListBusinessWABAs(instance *instance_model.Instance, owned bool) ([]WABAInfo, error) {
+	c, token, err := s.credentialsToken(instance.Id)
+	if err != nil {
+		return nil, err
+	}
+	if c.BusinessID == "" {
+		return nil, &APIError{Status: http.StatusBadRequest, Code: "invalid_request", Message: "business id is not configured for this instance"}
+	}
+	var all []WABAInfo
+	after := ""
+	for page := 0; page < 50; page++ {
+		items, next, err := s.client.ListBusinessWABAs(context.Background(), token, c.BusinessID, owned, after)
+		if err != nil {
+			return nil, MapGraphError(err)
+		}
+		all = append(all, items...)
+		if next == "" || next == after {
+			break
+		}
+		after = next
+	}
+	return all, nil
+}

@@ -178,6 +178,7 @@ POST /cloud/business/phone-numbers/:id/deregister
 POST /cloud/business/phone-numbers/:id/request-code
 POST /cloud/business/phone-numbers/:id/verify-code
 GET  /cloud/business/waba
+GET  /cloud/business/wabas?scope=owned|client
 GET  /cloud/business/analytics?start=&end=&granularity=DAY
 GET  /cloud/business/catalogs
 POST /cloud/business/catalogs
@@ -221,6 +222,8 @@ wamuxctl cloud doctor --instance-token "$INSTANCE_TOKEN"
 wamuxctl cloud send text --instance-token "$INSTANCE_TOKEN" --to 5511999999999 --text "Hello"
 wamuxctl cloud send template --instance-token "$INSTANCE_TOKEN" --to 5511999999999 --name order_update --lang en_US --dry-run
 wamuxctl cloud account-events list --instance-token "$INSTANCE_TOKEN"
+wamuxctl cloud business phone-numbers --instance-token "$INSTANCE_TOKEN"
+wamuxctl cloud business analytics --instance-token "$INSTANCE_TOKEN" --start 2026-01-01 --end 2026-01-31 --granularity DAY
 wamuxctl cloud coverage --json
 ```
 

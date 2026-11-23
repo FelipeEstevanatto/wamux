@@ -703,3 +703,18 @@ func (h *Handler) AdminDiagnostics(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"data": diag})
 }
+
+func (h *Handler) ListBusinessWABAs(c *gin.Context) {
+	inst, ok := c.MustGet("instance").(*instance_model.Instance)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+	owned := c.DefaultQuery("scope", "owned") != "client"
+	items, err := h.svc.ListBusinessWABAs(inst, owned)
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": items})
+}
