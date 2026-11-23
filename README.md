@@ -174,7 +174,8 @@ Two credentials, both sent in the `apikey` header:
 - **Official WhatsApp Cloud API (WABA)** — opt-in second channel with encrypted
   Meta credentials, BSUID identity continuity, signed/typed webhooks, phone
   registration, per-phone rate limiting, metrics, templates, interactive/product
-  payloads, Business Management queries and Embedded Signup. Enable with
+  payloads, Business Management queries, Embedded Signup and opt-in Groups,
+  Calling (control plane) and Flows programs. Enable with
   `CLOUD_API_ENABLED=true`; see
   [`docs/wiki/guias-api/api-cloud.md`](./docs/wiki/guias-api/api-cloud.md).
 - **Messaging** — text, media, location, contact, polls, stickers, buttons,

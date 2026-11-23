@@ -31,6 +31,9 @@
   message payloads.
 - **Embedded Signup.** Server-side OAuth state, encrypted token storage, asset
   discovery and manager selection flow (`/cloud/embedded/*`).
+- **Opt-in Groups, Calling and Flows programs.** Separate packages, routes,
+  flags, migrations and CLI commands. Calling is a control plane only; media
+  actions return an explicit 501 until a TURN/SFU service is attached.
 
 ### 🔧 CI
 - The archive comparison's "S3/HMAC/health" feature list is allowlisted, so gitleaks no longer treats it as a generic API key.

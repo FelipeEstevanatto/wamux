@@ -316,8 +316,9 @@ caches them for the manager and does not bypass Meta approval.
 
 ## Unsupported / deferred
 
-- Groups, Calling and Flows are separate programs with their own flags and
-  operational estimates; they are not core channel features.
+- Groups, Calling and Flows are separate opt-in programs with their own flags.
+  Calling's control plane is present, but WebRTC/SIP media still needs an
+  external TURN/SFU service.
 - Albums, polls, carousels (unless passed as approved template components),
   status/stories, communities, newsletters and full presence do not have a
   Cloud equivalent.

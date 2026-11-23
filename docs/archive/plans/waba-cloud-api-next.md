@@ -19,10 +19,11 @@ Wave 1–4 core work is implemented in this branch:
 - Business Management assets/analytics/catalogs and payload expansion;
 - Embedded Signup backend + manager selection flow.
 
-Groups, Calling and Flows remain deliberately separate programs
+Groups, Calling and Flows are now implemented as separate opt-in programs
 (`pkg/cloud/{groups,calling,flows}`, `CLOUD_GROUPS`, `CLOUD_CALLING`,
-`CLOUD_FLOWS`) with their own plans under `docs/archive/plans/cloud-*.md`.
-Live Meta staging validation is still an external acceptance step.
+`CLOUD_FLOWS`). Calling owns the control plane only; WebRTC/SIP media remains an
+external TURN/SFU service. Live Meta staging validation is still an external
+acceptance step.
 
 ---
 
@@ -1179,7 +1180,7 @@ defaults in places). Keep WaMux's configurable `v27.0` and contract tests.
 - [x] Payload expansion fixtures and handlers merged.
 - [x] Business phone/WABA/analytics/catalog API merged.
 - [x] Embedded Signup wizard merged (sandbox test pending external credentials).
-- [x] Groups/Calling/Flows each have separate plans, flags and estimates.
+- [x] Groups/Calling/Flows each have separate plans, flags and estimates, plus opt-in implementations.
 - [x] Full Go race suite, lint, manager tests/lint/build, docs check and image
       smoke pass.
 - [ ] Staging Meta test number validates BSUID change, templates, media and
