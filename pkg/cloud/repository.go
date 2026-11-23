@@ -304,6 +304,8 @@ func (r *Repository) DeleteInstanceData(instanceID string) error {
 		for _, table := range []any{
 			&cloud_model.StatusEvent{},
 			&cloud_model.AccountEvent{},
+			&cloud_model.IdentityEvent{},
+			&cloud_model.ContactIdentity{},
 			&cloud_model.UserPreference{},
 			&cloud_model.MediaJob{},
 			&cloud_model.WebhookEvent{},
@@ -341,6 +343,11 @@ func (r *Repository) Cleanup(now time.Time, webhookDays, statusDays, accountDays
 		}
 		if accountDays > 0 {
 			res := tx.Where("received_at < ?", now.AddDate(0, 0, -accountDays)).Delete(&cloud_model.AccountEvent{})
+			if res.Error != nil {
+				return res.Error
+			}
+			total += res.RowsAffected
+			res = tx.Where("received_at < ?", now.AddDate(0, 0, -accountDays)).Delete(&cloud_model.IdentityEvent{})
 			if res.Error != nil {
 				return res.Error
 			}

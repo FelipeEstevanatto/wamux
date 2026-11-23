@@ -140,6 +140,12 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 		eng.GET("/cloud/embedded/callback", r.cloudHandler.EmbeddedCallback)
 	}
 
+	if r.cloudHandler != nil {
+		adminCloud := eng.Group("/cloud/admin")
+		adminCloud.Use(r.authMiddleware.AuthAdmin)
+		adminCloud.GET("/instances/:instanceId/diagnostics", r.cloudHandler.AdminDiagnostics)
+	}
+
 	eng.GET("/", r.serverHandler.Root)
 	eng.GET("/server/ok", r.serverHandler.ServerOk)
 	// Observability. /server/health is a compact JSON readiness probe; /metrics

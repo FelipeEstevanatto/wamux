@@ -13,6 +13,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -538,8 +539,17 @@ func (c *cli) doctor(inv invocation) int {
 	path := "/cloud/diagnostics"
 	auth := c.value(inv, "instance-token", "WAMUX_INSTANCE_TOKEN", "")
 	if auth == "" {
-		path = "/server/health"
-		auth = c.value(inv, "api-key", "WAMUX_API_KEY", "")
+		if id := inv.vals["instance"]; id != "" {
+			if admin := c.value(inv, "api-key", "WAMUX_API_KEY", ""); admin != "" {
+				path = "/cloud/admin/instances/" + url.PathEscape(id) + "/diagnostics"
+				auth = admin
+			} else {
+				path = "/server/health"
+			}
+		} else {
+			path = "/server/health"
+			auth = c.value(inv, "api-key", "WAMUX_API_KEY", "")
+		}
 	}
 	r, err := c.do(inv, http.MethodGet, path, nil, "", auth)
 	if err != nil {

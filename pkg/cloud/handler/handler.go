@@ -687,3 +687,19 @@ func (h *Handler) SelectEmbeddedAsset(c *gin.Context) {
 	})
 	c.JSON(http.StatusOK, gin.H{"data": status})
 }
+
+// AdminDiagnostics lets an operator run doctor against an instance id without
+// knowing that instance's token. It is mounted behind AuthAdmin.
+func (h *Handler) AdminDiagnostics(c *gin.Context) {
+	inst, err := h.svc.ResolveInstance(c.Param("instanceId"))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "instance not found"})
+		return
+	}
+	diag, err := h.svc.Diagnostics(inst)
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": diag})
+}

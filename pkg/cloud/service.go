@@ -1683,3 +1683,16 @@ func (s *Service) Deregister(instance *instance_model.Instance) (*CloudStatus, e
 	_ = s.repo.SaveCredentials(c)
 	return s.statusFrom(c), nil
 }
+
+// ResolveInstance is the admin-facing lookup used by doctor. It never exposes
+// the instance's Meta token.
+func (s *Service) ResolveInstance(instanceID string) (*instance_model.Instance, error) {
+	if s.instances == nil {
+		return nil, errors.New("cloud: instance lookup is not configured")
+	}
+	inst, err := s.instances.GetInstanceByID(instanceID)
+	if err != nil || inst == nil {
+		return nil, ErrNotFound
+	}
+	return inst, nil
+}
