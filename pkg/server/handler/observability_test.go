@@ -184,7 +184,7 @@ func TestCloudMetricsAndHealthShape(t *testing.T) {
 		`wamux_cloud_graph_requests_total{operation="messages",result="error"} 1`,
 		`wamux_cloud_send_total{type="text",result="ok"} 1`,
 		`wamux_cloud_webhook_signature_failures_total 1`,
-		`wamux_cloud_webhook_unknown_total{field="future"} 1`,
+		`wamux_cloud_webhook_unknown_total 1`,
 		`wamux_cloud_window_expired_total 1`,
 		`wamux_cloud_media_jobs_total{status="stored"} 1`,
 		`wamux_cloud_media_queue_depth 4`,

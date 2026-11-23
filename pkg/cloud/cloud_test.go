@@ -738,3 +738,14 @@ func TestSignedUserIDUpdateWebhookMergesIdentity(t *testing.T) {
 		t.Fatalf("contact = %+v err=%v", contact, err)
 	}
 }
+
+func TestEveryKnownWebhookFieldHasTypedPayload(t *testing.T) {
+	for field := range knownWebhookFields {
+		if field == "messages" {
+			continue
+		}
+		if _, ok := typedWebhookFields[field]; !ok {
+			t.Fatalf("webhook field %q has no typed payload or explicit fallback", field)
+		}
+	}
+}

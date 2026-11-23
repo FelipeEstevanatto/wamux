@@ -1,5 +1,7 @@
 package cloud
 
+import "encoding/json"
+
 // Typed payloads for the webhook fields Wamux understands. Keep unknown fields
 // additive: Meta may add keys at any time, and the raw value is always retained
 // in cloud_account_events.
@@ -117,3 +119,53 @@ func isKnownWebhookField(field string) bool {
 	_, ok := knownWebhookFields[field]
 	return ok
 }
+
+// typedWebhookFields is the coverage table used by tests and future handler
+// dispatch. "messages" has its own multi-part shape and is handled first.
+var typedWebhookFields = map[string]any{
+	"user_id_update":                     UserIDUpdateValue{},
+	"customer_identity_changed":          CustomerIdentityChangedValue{},
+	"customer_number_changed":            CustomerIdentityChangedValue{},
+	"message_template_status_update":     TemplateStatusUpdateValue{},
+	"message_template_quality_update":    TemplateQualityUpdateValue{},
+	"template_category_update":           TemplateCategoryUpdateValue{},
+	"message_template_components_update": TemplateComponentsUpdateValue{},
+	"phone_number_quality_update":        PhoneQualityUpdateValue{},
+	"account_alerts":                     AccountAlertValue{},
+	"account_review_update":              AccountReviewUpdateValue{},
+	"business_capability_update":         BusinessCapabilityUpdateValue{},
+	"security":                           SecurityValue{},
+	"business_username_updates":          BusinessUsernameUpdateValue{},
+	"user_preferences":                   UserPreferencesValue{},
+	"payment_configuration_update":       PaymentConfigurationUpdateValue{},
+	"partner_solutions":                  PartnerSolutionsValue{},
+	"history":                            HistoryValue{},
+	"smb_message_echoes":                 SmbMessageEchoesValue{},
+	"calls":                              CallsValue{},
+}
+
+type CustomerIdentityChangedValue struct {
+	WAID         string `json:"wa_id,omitempty"`
+	UserID       string `json:"user_id,omitempty"`
+	OldUserID    string `json:"old_user_id,omitempty"`
+	NewUserID    string `json:"new_user_id,omitempty"`
+	ParentUserID string `json:"parent_user_id,omitempty"`
+	Timestamp    int64  `json:"timestamp,omitempty"`
+}
+
+type TemplateQualityUpdateValue = TemplateStatusUpdateValue
+type TemplateComponentsUpdateValue = TemplateStatusUpdateValue
+
+type PartnerSolutionsValue struct {
+	ID      string `json:"id,omitempty"`
+	Name    string `json:"name,omitempty"`
+	Status  string `json:"status,omitempty"`
+	Event   string `json:"event,omitempty"`
+	Details any    `json:"details,omitempty"`
+}
+
+type CallsValue struct {
+	Calls []json.RawMessage `json:"calls,omitempty"`
+}
+
+type SmbMessageEchoesValue = MessageEchoValue

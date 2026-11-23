@@ -72,7 +72,7 @@ type Observability struct {
 	cloudSend           *metrics.CounterVec2
 	cloudWebhook        *metrics.CounterVec2
 	cloudSignatureFail  *metrics.Counter
-	cloudUnknownField   *metrics.CounterVec
+	cloudUnknownField   *metrics.Counter
 	cloudMedia          *metrics.CounterVec
 	cloudWindowExpired  *metrics.Counter
 	cloudUnknownOutcome *metrics.Counter
@@ -109,7 +109,7 @@ func NewObservability(provider MetricsProvider, webhook MetricsSource) *Observab
 		cloudSend:             reg.CounterVec2("wamux_cloud_send_total", "Cloud sends by message type and result", "type", "result"),
 		cloudWebhook:          reg.CounterVec2("wamux_cloud_webhook_total", "Cloud webhook changes by field and result", "field", "result"),
 		cloudSignatureFail:    reg.Counter("wamux_cloud_webhook_signature_failures_total", "Cloud webhook POSTs rejected because the signature did not verify"),
-		cloudUnknownField:     reg.CounterVec("wamux_cloud_webhook_unknown_total", "Cloud webhook changes with a field this build does not type", "field"),
+		cloudUnknownField:     reg.Counter("wamux_cloud_webhook_unknown_total", "Cloud webhook changes with a field this build does not type"),
 		cloudMedia:            reg.CounterVec("wamux_cloud_media_jobs_total", "Cloud inbound media jobs by final status", "status"),
 		cloudWindowExpired:    reg.Counter("wamux_cloud_window_expired_total", "Cloud sends rejected because the customer service window was closed"),
 		cloudUnknownOutcome:   reg.Counter("wamux_cloud_send_outcome_unknown_total", "Cloud sends whose Graph outcome is unknown (timeout/network)"),
@@ -164,9 +164,9 @@ func (o *Observability) ObserveCloudWebhookSignatureFailure() {
 	}
 }
 
-func (o *Observability) ObserveCloudUnknownField(field string) {
+func (o *Observability) ObserveCloudUnknownField(string) {
 	if o != nil && o.cloudUnknownField != nil {
-		o.cloudUnknownField.WithLabelInc(field)
+		o.cloudUnknownField.Inc()
 	}
 }
 

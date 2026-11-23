@@ -170,7 +170,11 @@ func (s *Service) ReceiveWebhook(raw []byte, signature, appID string) error {
 var errSkipChange = errors.New("cloud: skip webhook change")
 
 func (s *Service) processChange(entry webhookEntry, change webhookChange) (err error) {
-	defer func() { s.observeWebhook(change.Field, err) }()
+	metricField := change.Field
+	if !isKnownWebhookField(metricField) {
+		metricField = "unknown"
+	}
+	defer func() { s.observeWebhook(metricField, err) }()
 	switch change.Field {
 	case "messages":
 		var value messageValue

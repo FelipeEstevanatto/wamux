@@ -351,8 +351,10 @@ func (r *Routes) AssignRoutes(eng *gin.Engine) {
 			routes.POST("/carousel", r.withIdempotency(r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendCarousel)...)
 			routes.POST("/event", r.withIdempotency(r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendEvent)...)
 			routes.POST("/product", r.withIdempotency(r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendProduct)...)
+			routes.POST("/product-list", r.withIdempotency(r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendProductList)...)
 			routes.POST("/catalog", r.withIdempotency(r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendCatalog)...)
 			routes.POST("/contact-request", r.withIdempotency(r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendContactRequest)...)
+			routes.POST("/request-contact-info", r.withIdempotency(r.jidValidationMiddleware.ValidateNumberFieldWithFormatJid(), r.sendHandler.SendContactRequest)...)
 			routes.POST("/status/text", r.withIdempotency(r.sendHandler.SendStatusText)...)
 			routes.POST("/status/media", r.withIdempotency(r.uploadGuard(), r.sendHandler.SendStatusMedia)...)
 		}

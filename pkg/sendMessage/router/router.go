@@ -224,6 +224,23 @@ func (r *Router) SendProduct(data *send_service.ProductStruct, inst *instance_mo
 	return toMessageSend(res, err), err
 }
 
+// SendProductList is a Cloud-only multi-product message.
+func (r *Router) SendProductList(data *send_service.ProductListStruct, inst *instance_model.Instance) (*send_service.MessageSendStruct, error) {
+	if !isCloud(inst) {
+		return nil, unsupported("send/product-list")
+	}
+	sections := make([]channel.ProductSection, 0, len(data.Sections))
+	for _, sec := range data.Sections {
+		sections = append(sections, channel.ProductSection{Title: sec.Title, Products: sec.ProductRetailerIds})
+	}
+	res, err := r.cloud.SendProductList(context.Background(), inst, channel.ProductListMessage{
+		To: data.Number, Recipient: data.Recipient, RecipientType: data.RecipientType,
+		CatalogID: data.CatalogId, Header: data.Header, Body: data.Body, Footer: data.Footer,
+		Sections: sections, ReplyTo: data.Quoted.MessageID, OperationID: data.Id,
+	})
+	return toMessageSend(res, err), err
+}
+
 // SendCatalog is a Cloud-only catalog message.
 func (r *Router) SendCatalog(data *send_service.CatalogStruct, inst *instance_model.Instance) (*send_service.MessageSendStruct, error) {
 	if !isCloud(inst) {

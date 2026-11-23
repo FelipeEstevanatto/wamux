@@ -39,6 +39,7 @@ type SendHandler interface {
 	SendStatusMedia(ctx *gin.Context)
 	SendTemplate(ctx *gin.Context)
 	SendCatalog(ctx *gin.Context)
+	SendProductList(ctx *gin.Context)
 	SendContactRequest(ctx *gin.Context)
 }
 
@@ -46,6 +47,7 @@ type SendHandler interface {
 // forcing every Baileys-only fake to grow Cloud methods.
 type cloudExtras interface {
 	SendCatalog(*send_service.CatalogStruct, *instance_model.Instance) (*send_service.MessageSendStruct, error)
+	SendProductList(*send_service.ProductListStruct, *instance_model.Instance) (*send_service.MessageSendStruct, error)
 	SendContactRequest(*send_service.ContactRequestStruct, *instance_model.Instance) (*send_service.MessageSendStruct, error)
 }
 
@@ -1019,6 +1021,35 @@ func (s *sendHandler) SendCatalog(ctx *gin.Context) {
 		return
 	}
 	message, err := extras.SendCatalog(data, instance)
+	if err != nil {
+		writeSendError(ctx, err)
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "data": message})
+}
+
+// SendProductList sends a Cloud catalog-backed multi-product message.
+func (s *sendHandler) SendProductList(ctx *gin.Context) {
+	instance, ok := ctx.MustGet("instance").(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+	data := &send_service.ProductListStruct{}
+	if err := ctx.ShouldBindJSON(data); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if data.Number == "" && data.Recipient == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "phone number or recipient is required"})
+		return
+	}
+	extras, ok := s.sendMessageService.(cloudExtras)
+	if !ok {
+		ctx.JSON(http.StatusNotImplemented, gin.H{"error": "not_implemented_on_channel", "message": "product lists are not supported on this channel"})
+		return
+	}
+	message, err := extras.SendProductList(data, instance)
 	if err != nil {
 		writeSendError(ctx, err)
 		return

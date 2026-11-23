@@ -3874,3 +3874,23 @@ type ContactRequestStruct struct {
 	Body          string       `json:"body,omitempty" example:"Compartilhe um contato"`
 	Quoted        QuotedStruct `json:"quoted,omitempty"`
 }
+
+// ProductListSection groups retailer ids under a heading.
+type ProductListSection struct {
+	Title              string   `json:"title" example:"Featured"`
+	ProductRetailerIds []string `json:"productRetailerIds" example:"SKU-1,SKU-2"`
+}
+
+// ProductListStruct is the body for POST /send/product-list.
+type ProductListStruct struct {
+	Number        string               `json:"number" example:"5511999999999"`
+	Recipient     string               `json:"recipient,omitempty"`
+	RecipientType string               `json:"recipientType,omitempty"`
+	Id            string               `json:"id,omitempty"`
+	CatalogId     string               `json:"catalogId,omitempty" example:"9876543210"`
+	Header        string               `json:"header,omitempty"`
+	Body          string               `json:"body,omitempty"`
+	Footer        string               `json:"footer,omitempty"`
+	Sections      []ProductListSection `json:"sections"`
+	Quoted        QuotedStruct         `json:"quoted,omitempty"`
+}
