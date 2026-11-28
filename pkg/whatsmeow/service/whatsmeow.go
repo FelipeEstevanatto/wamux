@@ -13,6 +13,7 @@ import (
 	"github.com/felipeestevanatto/wamux/pkg/safemap"
 	"image/png"
 	"io"
+	"math"
 	"math/rand"
 	"net/http"
 	"os"
@@ -245,8 +246,10 @@ func clampUint32(v int) uint32 {
 	if v < 0 {
 		return 0
 	}
-	if uint64(v) > uint64(^uint32(0)) {
-		return ^uint32(0)
+	// Use a named constant from math: static analysis only recognises bounds
+	// checks against constants, not expressions such as ^uint32(0).
+	if uint64(v) > math.MaxUint32 {
+		return math.MaxUint32
 	}
 	return uint32(v)
 }
