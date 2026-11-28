@@ -144,12 +144,12 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - uses: github/codeql-action/init@v3
+      - uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.language == 'go' && 'autobuild' || 'none' }}
 
-      - uses: github/codeql-action/analyze@v3
+      - uses: github/codeql-action/analyze@v4
 
   dependency-review:
     name: dependency review
@@ -202,6 +202,9 @@ jobs:
       - name: Test
         working-directory: wamux-manager
         run: bun run test
+
+      - name: Brand check
+        run: make brand-check
 
   secret-scan:
     name: secret scan (gitleaks)

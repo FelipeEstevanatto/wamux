@@ -237,6 +237,20 @@ type clientVersion struct {
 	Patch int
 }
 
+// clampUint32 converts a signed setting to the uint32 the registration
+// protobuf expects. Values come from the environment or from a fetched web
+// page, so they can be negative or wider than uint32; clamping keeps a bogus
+// value from wrapping into an unrelated version or quota.
+func clampUint32(v int) uint32 {
+	if v < 0 {
+		return 0
+	}
+	if uint64(v) > uint64(^uint32(0)) {
+		return ^uint32(0)
+	}
+	return uint32(v)
+}
+
 type whatsmeowService struct {
 	instanceRepository instance_repository.InstanceRepository
 	authDB             *sql.DB
@@ -1335,24 +1349,24 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		historyQuotaMB = 10240
 	}
 	store.DeviceProps.HistorySyncConfig = &waCompanionReg.DeviceProps_HistorySyncConfig{
-		FullSyncDaysLimit:   proto.Uint32(uint32(historyDays)),
-		FullSyncSizeMbLimit: proto.Uint32(uint32(historyMaxMB)),
-		StorageQuotaMb:      proto.Uint32(uint32(historyQuotaMB)),
+		FullSyncDaysLimit:   proto.Uint32(clampUint32(historyDays)),
+		FullSyncSizeMbLimit: proto.Uint32(clampUint32(historyMaxMB)),
+		StorageQuotaMb:      proto.Uint32(clampUint32(historyQuotaMB)),
 	}
 
 	if w.config.WhatsappVersionMajor != 0 && w.config.WhatsappVersionMinor != 0 && w.config.WhatsappVersionPatch != 0 {
 		w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] Setting whatsapp version to %d.%d.%d", cd.Instance.Id, w.config.WhatsappVersionMajor, w.config.WhatsappVersionMinor, w.config.WhatsappVersionPatch)
 		version.Major = w.config.WhatsappVersionMajor
 		if err == nil {
-			store.DeviceProps.Version.Primary = proto.Uint32(uint32(version.Major))
+			store.DeviceProps.Version.Primary = proto.Uint32(clampUint32(version.Major))
 		}
 		version.Minor = w.config.WhatsappVersionMinor
 		if err == nil {
-			store.DeviceProps.Version.Secondary = proto.Uint32(uint32(version.Minor))
+			store.DeviceProps.Version.Secondary = proto.Uint32(clampUint32(version.Minor))
 		}
 		version.Patch = w.config.WhatsappVersionPatch
 		if err == nil {
-			store.DeviceProps.Version.Tertiary = proto.Uint32(uint32(version.Patch))
+			store.DeviceProps.Version.Tertiary = proto.Uint32(clampUint32(version.Patch))
 		}
 	} else {
 		// Try to fetch version from WhatsApp Web
@@ -1362,9 +1376,9 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		} else {
 			w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] Setting whatsapp version from web to %d.%d.%d", cd.Instance.Id, webVersion.Major, webVersion.Minor, webVersion.Patch)
 			version = *webVersion
-			store.DeviceProps.Version.Primary = proto.Uint32(uint32(version.Major))
-			store.DeviceProps.Version.Secondary = proto.Uint32(uint32(version.Minor))
-			store.DeviceProps.Version.Tertiary = proto.Uint32(uint32(version.Patch))
+			store.DeviceProps.Version.Primary = proto.Uint32(clampUint32(version.Major))
+			store.DeviceProps.Version.Secondary = proto.Uint32(clampUint32(version.Minor))
+			store.DeviceProps.Version.Tertiary = proto.Uint32(clampUint32(version.Patch))
 		}
 	}
 

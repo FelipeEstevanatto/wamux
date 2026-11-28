@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import apiClient from '@/services/api/client';
 import useAuthStore from '@/store/authStore';
-import { AUTH_STORAGE_KEY, removeLegacyCredentials } from './authStorage';
+import { AUTH_STORAGE_KEY } from './authStorage';
 
 function seedCredentials() {
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ state: { apiKey: 'test-key' } }));
@@ -41,16 +41,4 @@ describe('stored credentials', () => {
     expect(localStorage.getItem(AUTH_STORAGE_KEY)).toBeNull();
   });
 
-  it('removes copies of the key left by older versions, and only those', () => {
-    localStorage.setItem('egogo_dash_key', 'old-key');
-    localStorage.setItem('egogo_dash_base', 'http://api.test');
-    localStorage.setItem('evolution-auth', '{"state":{"apiKey":"old-key"}}');
-
-    removeLegacyCredentials();
-
-    expect(localStorage.getItem('egogo_dash_key')).toBeNull();
-    expect(localStorage.getItem('egogo_dash_base')).toBeNull();
-    expect(localStorage.getItem('evolution-auth')).toBeNull();
-    expect(localStorage.getItem(AUTH_STORAGE_KEY)).not.toBeNull();
-  });
 });

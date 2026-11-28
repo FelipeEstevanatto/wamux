@@ -3,6 +3,7 @@ package server_handler
 import (
 	"encoding/json"
 	"errors"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -208,5 +209,17 @@ func TestCloudMetricsAndHealthShape(t *testing.T) {
 	cloud, ok := payload["cloud"].(map[string]any)
 	if !ok || cloud["credentials"].(float64) != 2 || cloud["lastWebhookAgeSeconds"] == nil {
 		t.Fatalf("health = %+v", payload)
+	}
+}
+
+func TestGaugeInt64NeverWraps(t *testing.T) {
+	if got := gaugeInt64(^uint64(0)); got != math.MaxInt64 {
+		t.Fatalf("gaugeInt64(max uint64) = %d, want MaxInt64", got)
+	}
+	if got := gaugeInt64(math.MaxInt64); got != math.MaxInt64 {
+		t.Fatalf("gaugeInt64(MaxInt64) = %d, want MaxInt64", got)
+	}
+	if got := gaugeInt64(42); got != 42 {
+		t.Fatalf("gaugeInt64(42) = %d, want 42", got)
 	}
 }

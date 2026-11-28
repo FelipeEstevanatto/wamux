@@ -1,6 +1,7 @@
 package server_handler
 
 import (
+	"math"
 	"sync/atomic"
 	"time"
 
@@ -265,15 +266,18 @@ func (o *Observability) Render() string {
 	// Process resources. These are per-process, not host values, so they stay
 	// meaningful inside a container and can alert on a leak or an impending OOM.
 	ps := procstats.Read()
-	setGauge(o.registry, "evo_process_rss_bytes", "Resident set size of this process", int64(ps.RSSBytes))
-	setGauge(o.registry, "evo_process_peak_rss_bytes", "Peak resident set size of this process", int64(ps.PeakRSSBytes))
-	setGauge(o.registry, "evo_process_virtual_bytes", "Virtual memory size of this process", int64(ps.VMSizeBytes))
-	setGauge(o.registry, "evo_process_heap_alloc_bytes", "Go heap bytes currently allocated", int64(ps.HeapAllocBytes))
-	setGauge(o.registry, "evo_process_heap_inuse_bytes", "Go heap bytes in use", int64(ps.HeapInuseBytes))
-	setGauge(o.registry, "evo_process_sys_bytes", "Go runtime bytes obtained from the OS", int64(ps.SysBytes))
+	// /proc and cgroup counters are uint64. Clamp before reporting them as the
+	// int64 the metric registry accepts: a value above MaxInt64 must never wrap
+	// into a negative gauge.
+	setGauge(o.registry, "evo_process_rss_bytes", "Resident set size of this process", gaugeInt64(ps.RSSBytes))
+	setGauge(o.registry, "evo_process_peak_rss_bytes", "Peak resident set size of this process", gaugeInt64(ps.PeakRSSBytes))
+	setGauge(o.registry, "evo_process_virtual_bytes", "Virtual memory size of this process", gaugeInt64(ps.VMSizeBytes))
+	setGauge(o.registry, "evo_process_heap_alloc_bytes", "Go heap bytes currently allocated", gaugeInt64(ps.HeapAllocBytes))
+	setGauge(o.registry, "evo_process_heap_inuse_bytes", "Go heap bytes in use", gaugeInt64(ps.HeapInuseBytes))
+	setGauge(o.registry, "evo_process_sys_bytes", "Go runtime bytes obtained from the OS", gaugeInt64(ps.SysBytes))
 	setGauge(o.registry, "evo_process_goroutines", "Goroutines currently running", int64(ps.NumGoroutines))
-	setGauge(o.registry, "evo_process_cgroup_memory_bytes", "Container cgroup memory usage", int64(ps.CgroupMemoryBytes))
-	setGauge(o.registry, "evo_process_cgroup_memory_limit_bytes", "Container cgroup memory limit", int64(ps.CgroupMemoryLimit))
+	setGauge(o.registry, "evo_process_cgroup_memory_bytes", "Container cgroup memory usage", gaugeInt64(ps.CgroupMemoryBytes))
+	setGauge(o.registry, "evo_process_cgroup_memory_limit_bytes", "Container cgroup memory limit", gaugeInt64(ps.CgroupMemoryLimit))
 	setGauge(o.registry, "evo_process_cgroup_cpu_quota_milli", "Container cgroup CPU quota in millicores", int64(ps.CgroupCPUQuota))
 	setGauge(o.registry, "evo_uptime_seconds", "Seconds since this process started", int64(time.Since(time.Unix(o.startedAt.Load(), 0)).Seconds()))
 
@@ -281,7 +285,7 @@ func (o *Observability) Render() string {
 		o.registry.Counter(name, help).Set(v)
 	}
 	setCounter("evo_process_gc_count_total", "Go garbage collections completed", int64(ps.NumGC))
-	setCounter("evo_process_gc_pause_milliseconds_total", "Cumulative Go GC pause time in milliseconds", int64(ps.GCPauseTotalNs/1e6))
+	setCounter("evo_process_gc_pause_milliseconds_total", "Cumulative Go GC pause time in milliseconds", gaugeInt64(ps.GCPauseTotalNs/1e6))
 	setCounter("evo_process_cpu_seconds_total", "CPU seconds consumed by this process", int64(ps.CPUSeconds))
 
 	setGauge(o.registry, "evo_process_start_timestamp", "Unix time this process started", o.startedAt.Load())
@@ -311,6 +315,16 @@ func healthVerdictValue(verdict string) int64 {
 // new series additive: adding a metric does not require touching a central list.
 func setGauge(reg *metrics.Registry, name, help string, v int64) {
 	reg.Gauge(name, help).Set(v)
+}
+
+// gaugeInt64 converts an unsigned counter to the int64 the registry accepts
+// without wrapping. Counters can legitimately be huge (or malformed in /proc),
+// but a negative gauge would be worse than a saturated one.
+func gaugeInt64(v uint64) int64 {
+	if v > math.MaxInt64 {
+		return math.MaxInt64
+	}
+	return int64(v)
 }
 
 // MetricsHandler serves GET /metrics in the Prometheus text format.

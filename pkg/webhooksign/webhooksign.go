@@ -61,7 +61,10 @@ var ErrEmptySecret = errors.New("webhooksign: secret must not be empty")
 // DeriveEncryptionKey turns an arbitrary-length secret into a 32-byte AES key.
 // SHA-256 gives a fixed-size, uniformly distributed key for any input, so an
 // operator can use a passphrase of any length (or a hex/base64 blob) and the
-// same secret always yields the same key.
+// same secret always yields the same key. This is a key-derivation step over a
+// secret, not password storage: there is no verifier or salted hash to attack
+// offline, and generated secrets are 256-bit random. A deliberately slow KDF
+// would change every derived key and break ciphertext written by older builds.
 func DeriveEncryptionKey(secret string) ([]byte, error) {
 	if strings.TrimSpace(secret) == "" {
 		return nil, ErrEmptySecret

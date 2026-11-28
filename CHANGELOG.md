@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+### 🧹 Cleanup
+- Removed the unreferenced upstream brand/donation images under `public/images/`
+  and the manager's legacy upstream `localStorage` cleanup. The manager bundle
+  was rebuilt without those strings; `make brand-check` guards shipped paths.
+
+### 🔒 Security
+- Upgraded `github.com/gorilla/websocket` to the patched revision that fixes
+  GO-2026-6278 (weak PRNG for WebSocket mask keys), clearing the eight
+  govulncheck findings. CodeQL actions moved from v3 to v4 (Node 24).
+- Clamped unsigned resource counters before publishing them as int64 metrics and
+  signed version/quota settings before converting them to uint32, so malformed
+  values can no longer wrap into unrelated numbers.
+- Reject non-directory instance ids in the logger, contain media and log paths
+  explicitly under their configured roots, and refuse to adopt a temp file from
+  outside the media store. Log queries are now capped at 1000 entries so a query
+  parameter cannot trigger an unbounded allocation.
+
 ### 🚀 Features
 - **WhatsApp Cloud API (WABA) channel.** Instances can select
   `WHATSAPP-BUSINESS` with encrypted Meta credentials, BSUID/phone identity,

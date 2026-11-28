@@ -660,6 +660,8 @@ export default function Messages() {
   const objectUrlRef = useRef('');
 
   // setAttachment swaps the pending file, revoking the previous preview URL.
+  // The preview is an opaque blob: URL from the browser, and React escapes the
+  // src attribute, so it is never parsed as markup.
   const setAttachment = (file: File | null) => {
     if (objectUrlRef.current) {
       URL.revokeObjectURL(objectUrlRef.current);

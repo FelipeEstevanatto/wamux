@@ -16,3 +16,18 @@ func TestGetLogsRejectsNonUUID(t *testing.T) {
 		}
 	}
 }
+
+func TestClampLogLimit(t *testing.T) {
+	cases := []struct{ in, want int }{
+		{-5, 100},
+		{0, 100},
+		{10, 10},
+		{1000, 1000},
+		{1 << 20, 1000},
+	}
+	for _, tc := range cases {
+		if got := clampLogLimit(tc.in); got != tc.want {
+			t.Errorf("clampLogLimit(%d) = %d, want %d", tc.in, got, tc.want)
+		}
+	}
+}

@@ -284,6 +284,9 @@ lint: ## Executa gofmt e golangci-lint
 docs-check: ## Confere AGENTS.md e as variáveis de ambiente documentadas
 	bash scripts/check-docs.sh
 
+brand-check: ## Falha se artefatos de marca upstream voltarem aos paths publicados
+	bash scripts/check-branding.sh
+
 smoke: ## Builda a imagem e sobe contra um Postgres real
 	docker build -t wamux:smoke .
 	bash scripts/image-smoke.sh wamux:smoke

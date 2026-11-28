@@ -138,3 +138,21 @@ func TestLoggerManagerFlushUnknownInstance(t *testing.T) {
 	lm := NewLoggerManager(&config.Config{LogDirectory: t.TempDir()})
 	lm.Flush("does-not-exist")
 }
+
+// An id that is not a single directory name must not create a log file outside
+// LogDirectory (or anywhere at all).
+func TestLoggerManagerRejectsTraversalID(t *testing.T) {
+	dir := t.TempDir()
+	lm := NewLoggerManager(&config.Config{LogDirectory: dir, LogMaxSize: 100, LogMaxBackups: 1, LogMaxAge: 1})
+
+	for _, id := range []string{"../escape", "a/b", `a\b`, "..", ".", ""} {
+		if got := lm.GetLogger(id); got != discardLogger {
+			t.Errorf("GetLogger(%q) did not reject an unsafe id", id)
+		}
+	}
+	if entries, err := os.ReadDir(dir); err != nil {
+		t.Fatalf("ReadDir: %v", err)
+	} else if len(entries) != 0 {
+		t.Fatalf("unsafe ids created %d directories under the log root", len(entries))
+	}
+}

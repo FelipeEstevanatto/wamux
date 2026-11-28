@@ -45,10 +45,10 @@ func OpenPDFPreview(instanceID, messageID string) (*os.File, fs.FileInfo, error)
 	if s == nil {
 		return nil, nil, ErrNotConfigured
 	}
-	if !safeName(instanceID) || !safeName(messageID) {
-		return nil, nil, errors.New("invalid media id")
+	source, err := messagePath(s, instanceID, messageID)
+	if err != nil {
+		return nil, nil, err
 	}
-	source := filepath.Join(s.root, instanceID, messageID)
 	preview := source + previewSuffix
 
 	if file, info, err := openPreview(preview); err == nil {

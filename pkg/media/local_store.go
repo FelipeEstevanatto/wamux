@@ -58,6 +58,20 @@ func safeName(name string) bool {
 	return !strings.ContainsAny(name, `/\`)
 }
 
+// messagePath builds the one path every read/write of a message's media goes
+// through. safeName keeps each id to a single path segment; the explicit parent
+// check is defence in depth and makes containment obvious to static analysis.
+func messagePath(s *LocalStore, instanceID, messageID string) (string, error) {
+	if !safeName(instanceID) || !safeName(messageID) {
+		return "", errors.New("invalid media id")
+	}
+	path := filepath.Join(s.root, instanceID, messageID)
+	if filepath.Dir(filepath.Dir(path)) != filepath.Clean(s.root) {
+		return "", errors.New("invalid media id")
+	}
+	return path, nil
+}
+
 // URLPath is the authenticated API path that serves a stored message's media.
 func URLPath(messageID string) string {
 	return "/chat/media/" + messageID
@@ -69,14 +83,14 @@ func Save(instanceID, messageID string, data []byte) error {
 	if s == nil {
 		return ErrNotConfigured
 	}
-	if !safeName(instanceID) || !safeName(messageID) {
-		return errors.New("invalid media id")
-	}
-	dir := filepath.Join(s.root, instanceID)
-	if err := os.MkdirAll(dir, 0o751); err != nil {
+	path, err := messagePath(s, instanceID, messageID)
+	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(dir, messageID), data, 0o640)
+	if err := os.MkdirAll(filepath.Dir(path), 0o751); err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o640)
 }
 
 // Open returns the stored file for one message plus its stat info.
@@ -85,10 +99,10 @@ func Open(instanceID, messageID string) (*os.File, fs.FileInfo, error) {
 	if s == nil {
 		return nil, nil, ErrNotConfigured
 	}
-	if !safeName(instanceID) || !safeName(messageID) {
-		return nil, nil, errors.New("invalid media id")
+	path, err := messagePath(s, instanceID, messageID)
+	if err != nil {
+		return nil, nil, err
 	}
-	path := filepath.Join(s.root, instanceID, messageID)
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, nil, err
@@ -104,10 +118,14 @@ func Open(instanceID, messageID string) (*os.File, fs.FileInfo, error) {
 // Exists reports whether a message's media is stored.
 func Exists(instanceID, messageID string) bool {
 	s := current()
-	if s == nil || !safeName(instanceID) || !safeName(messageID) {
+	if s == nil {
 		return false
 	}
-	_, err := os.Stat(filepath.Join(s.root, instanceID, messageID))
+	path, err := messagePath(s, instanceID, messageID)
+	if err != nil {
+		return false
+	}
+	_, err = os.Stat(path)
 	return err == nil
 }
 
@@ -117,12 +135,12 @@ func Remove(instanceID, messageID string) error {
 	if s == nil {
 		return nil
 	}
-	if !safeName(instanceID) || !safeName(messageID) {
+	path, err := messagePath(s, instanceID, messageID)
+	if err != nil {
 		return nil
 	}
-	path := filepath.Join(s.root, instanceID, messageID)
 	_ = os.Remove(path + previewSuffix) // Most files never had one.
-	err := os.Remove(path)
+	err = os.Remove(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil
 	}
@@ -172,17 +190,30 @@ func Adopt(instanceID, messageID, tempPath string) error {
 	if s == nil {
 		return ErrNotConfigured
 	}
-	if !safeName(instanceID) || !safeName(messageID) {
-		return errors.New("invalid media id")
+	path, err := messagePath(s, instanceID, messageID)
+	if err != nil {
+		return err
 	}
-	dir := filepath.Join(s.root, instanceID)
-	if err := os.MkdirAll(dir, 0o751); err != nil {
+	// tempPath is supplied by SaveFrom, but Adopt is exported: never let a
+	// caller rename an arbitrary file into the store as a message.
+	absRoot, err := filepath.Abs(s.root)
+	if err != nil {
+		return err
+	}
+	absTemp, err := filepath.Abs(tempPath)
+	if err != nil {
+		return err
+	}
+	if filepath.Dir(absTemp) != absRoot {
+		return errors.New("invalid temp path")
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o751); err != nil {
 		return err
 	}
 	if err := os.Chmod(tempPath, 0o640); err != nil {
 		return err
 	}
-	return os.Rename(tempPath, filepath.Join(dir, messageID))
+	return os.Rename(tempPath, path)
 }
 
 // RemoveInstance deletes everything stored for one instance.

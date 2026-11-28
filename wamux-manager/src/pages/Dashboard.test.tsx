@@ -153,7 +153,6 @@ describe('Dashboard page', () => {
     await render();
 
     expect(document.querySelector('iframe')).toBeNull();
-    expect(localStorage.getItem('egogo_dash_key')).toBeNull();
   });
 
   it('formats numbers in the chosen language', async () => {

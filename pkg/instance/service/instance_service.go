@@ -1407,10 +1407,7 @@ func (i instances) GetLogs(instanceId string, startDate, endDate time.Time, leve
 	// already emitted for this instance has reached the file before reading it.
 	i.loggerWrapper.Flush(instanceId)
 
-	// Define valores padrão
-	if limit <= 0 {
-		limit = 100 // Limite padrão de 100 registros
-	}
+	limit = clampLogLimit(limit)
 
 	// Se não foi fornecida data inicial, usa 7 dias atrás
 	if startDate.IsZero() {
@@ -1456,6 +1453,9 @@ func (i instances) GetLogs(instanceId string, startDate, endDate time.Time, leve
 
 	// Lê os logs do arquivo
 	logPath := filepath.Join(i.config.LogDirectory, instanceId, "instance.log")
+	if filepath.Dir(filepath.Dir(filepath.Clean(logPath))) != filepath.Clean(i.config.LogDirectory) {
+		return logs, fmt.Errorf("invalid instance id")
+	}
 	file, err := os.Open(logPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -1474,6 +1474,21 @@ func (i instances) GetLogs(instanceId string, startDate, endDate time.Time, leve
 	}
 
 	return readLogTail(file, size, startDate, endDate, levelArray, limit)
+}
+
+// clampLogLimit bounds the caller-supplied limit before it becomes a slice
+// capacity in readLogTail. An unbounded query parameter could otherwise ask
+// for billions of entries and allocate enough memory to kill the process.
+func clampLogLimit(limit int) int {
+	const defaultLimit = 100
+	const maxLimit = 1000
+	if limit <= 0 {
+		return defaultLimit
+	}
+	if limit > maxLimit {
+		return maxLimit
+	}
+	return limit
 }
 
 // readLogTail reads up to limit entries matching the date/level filters, newest

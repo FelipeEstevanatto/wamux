@@ -38,6 +38,10 @@ and why.
 - WaMux is an independent project, originally forked from Evolution Go. It is
   **not** affiliated with, endorsed by, or an official release of Evolution
   Foundation.
+- Upstream brand assets are not shipped: the unreferenced images under
+  `public/images/` were removed, and the manager no longer cleans up legacy
+  upstream `localStorage` keys. `make brand-check` keeps them out of the source
+  and built assets. The copyright and trademark notices above stay in place.
 
 ## Operational notes
 

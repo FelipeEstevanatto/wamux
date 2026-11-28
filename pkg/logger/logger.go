@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -95,6 +96,13 @@ func NewLoggerManager(config *config.Config) *LoggerManager {
 }
 
 func (lm *LoggerManager) GetLogger(instanceId string) *Logger {
+	// The id becomes a directory name under LogDirectory. Instance ids are
+	// normally UUIDs, but this method also takes internal labels such as
+	// "startup"; reject anything that could escape the log root.
+	if !safeLogID(instanceId) {
+		return discardLogger
+	}
+
 	lm.mu.RLock()
 	logger, exists := lm.loggers[instanceId]
 	_, removed := lm.removed[instanceId]
@@ -163,9 +171,24 @@ func (lm *LoggerManager) Flush(instanceId string) {
 	}
 }
 
+// safeLogID reports whether id is usable as a single directory name. It allows
+// internal labels but not separators or dot segments, so filepath.Join cannot
+// leave LogDirectory.
+func safeLogID(id string) bool {
+	if id == "" || id == "." || id == ".." {
+		return false
+	}
+	return !strings.ContainsAny(id, `/\`)
+}
+
 func newLogger(instanceId string, config *config.Config) *Logger {
 	// Garante que o diretório existe
 	logPath := filepath.Join(config.LogDirectory, instanceId)
+	// Belt and braces: even if a caller bypassed GetLogger, the directory must
+	// remain an immediate child of the configured root.
+	if filepath.Dir(filepath.Clean(logPath)) != filepath.Clean(config.LogDirectory) {
+		return discardLogger
+	}
 	_ = os.MkdirAll(logPath, 0755) // Opening the file below reports any failure.
 
 	logFile := filepath.Join(logPath, "instance.log")

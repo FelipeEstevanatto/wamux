@@ -256,3 +256,24 @@ func TestSaveFromCleansUpAfterAFailure(t *testing.T) {
 		t.Errorf("left behind: %v", entries)
 	}
 }
+
+func TestAdoptRejectsTempPathOutsideRoot(t *testing.T) {
+	if err := Configure(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(resetStore)
+
+	outside, err := os.CreateTemp("", "wamux-outside-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(outside.Name())
+	outside.Close()
+
+	if err := Adopt("inst", "msg", outside.Name()); err == nil {
+		t.Fatal("Adopt accepted a temp file from outside the store root")
+	}
+	if _, err := os.Stat(outside.Name()); err != nil {
+		t.Fatal("Adopt moved a file it should have refused")
+	}
+}
