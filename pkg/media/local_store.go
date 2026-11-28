@@ -59,14 +59,25 @@ func safeName(name string) bool {
 }
 
 // messagePath builds the one path every read/write of a message's media goes
-// through. safeName keeps each id to a single path segment; the explicit parent
-// check is defence in depth and makes containment obvious to static analysis.
+// through. Ids must be single path components; the resolved path is then
+// checked to be inside the store root. Both checks are deliberately explicit
+// so static analysis can follow them.
 func messagePath(s *LocalStore, instanceID, messageID string) (string, error) {
-	if !safeName(instanceID) || !safeName(messageID) {
-		return "", errors.New("invalid media id")
+	for _, part := range []string{instanceID, messageID} {
+		if part == "" || part == "." || part == ".." ||
+			strings.Contains(part, "/") || strings.Contains(part, "\\") || strings.Contains(part, "..") {
+			return "", errors.New("invalid media id")
+		}
 	}
-	path := filepath.Join(s.root, instanceID, messageID)
-	if filepath.Dir(filepath.Dir(path)) != filepath.Clean(s.root) {
+	root, err := filepath.Abs(s.root)
+	if err != nil {
+		return "", err
+	}
+	path, err := filepath.Abs(filepath.Join(root, instanceID, messageID))
+	if err != nil {
+		return "", err
+	}
+	if !strings.HasPrefix(path, root+string(os.PathSeparator)) {
 		return "", errors.New("invalid media id")
 	}
 	return path, nil
@@ -204,16 +215,16 @@ func Adopt(instanceID, messageID, tempPath string) error {
 	if err != nil {
 		return err
 	}
-	if filepath.Dir(absTemp) != absRoot {
+	if filepath.Dir(absTemp) != absRoot || !strings.HasPrefix(absTemp, absRoot+string(os.PathSeparator)) {
 		return errors.New("invalid temp path")
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o751); err != nil {
 		return err
 	}
-	if err := os.Chmod(tempPath, 0o640); err != nil {
+	if err := os.Chmod(absTemp, 0o640); err != nil {
 		return err
 	}
-	return os.Rename(tempPath, path)
+	return os.Rename(absTemp, path)
 }
 
 // RemoveInstance deletes everything stored for one instance.
