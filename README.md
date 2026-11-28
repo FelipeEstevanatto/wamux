@@ -139,7 +139,7 @@ A few of the most-used settings:
 | `AVATAR_RATE_LIMIT_PER_MINUTE` | Profile-picture queries per instance (`0` disables) | `30` |
 | `AVATAR_RATE_LIMIT_BURST` | Burst for the avatar limiter (`0` disables) | `5` |
 | `SSRF_PROTECTION` | Opt-in: refuse outbound fetches to loopback/private/link-local hosts | `false` |
-| `WEBHOOK_HMAC_KEY` | Global key for webhook HMAC signing | — |
+| `WEBHOOK_HMAC_KEY` | Global key for webhook HMAC signing | none |
 | `RATE_LIMIT_PER_MINUTE` | Requests per credential / per IP (`0` disables) | `600` |
 | `WEBHOOK_BASE64_MAX_BYTES` | Largest file embedded as base64 in an event; larger files stream to storage and the event carries `mediaUrl` (`0` never embeds) | `5242880` |
 | `MAX_UPLOAD_BYTES` | Largest file `/send/media` accepts; files over 64 MiB stream through disk and must be a document or an MP4 video | `2147483648` |
@@ -151,7 +151,7 @@ A few of the most-used settings:
 
 RabbitMQ, NATS and MinIO settings are in the same `.env.example`.
 
-> **`/swagger` is public by default.** It is not gated by `GLOBAL_API_KEY` — set
+> **`/swagger` is public by default.** It is not gated by `GLOBAL_API_KEY`; set
 > `SWAGGER_ENABLED=false` on an internet-facing deployment.
 >
 > **`/metrics` requires the global API key by default** (`METRICS_AUTH=admin`).
@@ -162,27 +162,27 @@ RabbitMQ, NATS and MinIO settings are in the same `.env.example`.
 
 Two credentials, both sent in the `apikey` header:
 
-- **Global API key** (`GLOBAL_API_KEY`) — admin routes: `/instance/all`,
+- **Global API key** (`GLOBAL_API_KEY`) covers admin routes: `/instance/all`,
   `/instance/create`, `/instance/delete/:id`, `/server/stats`,
   `/instance/overview/:id`, `/instance/proxy/:id`, `/instance/limits/:id`.
-- **Instance token** (returned by `/instance/create`, shown in the Manager) —
+- **Instance token** (returned by `/instance/create`, shown in the Manager):
   everything scoped to one instance: `/send/*`, `/message/*`, `/chat/*`,
   `/group/*`, `/user/*`, `/typebot/*`, `/instance/connect`, `/instance/qr`.
 
 ## Features
 
-- **Instances** — create, connect, pair (QR / pairing code), proxy, per-instance
+- **Instances**: create, connect, pair (QR / pairing code), proxy, per-instance
   overview (profile picture, platform, contact/chat/message counts).
-- **Messaging** — text, media, location, contact, polls, stickers, buttons,
+- **Messaging**: text, media, location, contact, polls, stickers, buttons,
   lists, carousels, events and product cards; reactions, edits, deletes, presence.
-- **Events** — per-instance webhooks (with HMAC signing), RabbitMQ, NATS and a
+- **Events**: per-instance webhooks (with HMAC signing), RabbitMQ, NATS and a
   WebSocket stream. See [`docs/wiki/recursos-avancados/events-system.md`](./docs/wiki/recursos-avancados/events-system.md).
-- **Media** — inbound media to MinIO/S3 (globally or per instance), optional
+- **Media**: inbound media to MinIO/S3 (globally or per instance), optional
   local copies for in-thread previews.
-- **History** — message persistence with readback (`GET /chat/history`,
+- **History**: message persistence with readback (`GET /chat/history`,
   `GET /chat/chats`, `GET /chat/media/:messageId`).
-- **Typebot** — optional chatbot integration (inert until configured).
-- **Manager** — React admin panel with a dashboard (source in
+- **Typebot**: optional chatbot integration (inert until configured).
+- **Manager**: React admin panel with a dashboard (source in
   [`wamux-manager/`](./wamux-manager)).
 
 The full endpoint list is in the
@@ -194,8 +194,8 @@ The full endpoint list is in the
 | `GET` | `/instance/overview/:instanceId` | global | Profile picture, push name, device platform, contact/chat/message counts |
 | `GET` | `/instance/inventory` | global | Monitoring-safe fleet view: no tokens, hashed owner |
 | `GET` | `/server/stats` | global | Runtime/host metrics, message aggregates, running version |
-| `GET` | `/server/health` · `/server/ok` | — | Readiness / liveness probes |
-| `GET` | `/metrics` | — | Prometheus metrics |
+| `GET` | `/server/health` · `/server/ok` | none | Readiness / liveness probes |
+| `GET` | `/metrics` | none | Prometheus metrics |
 | `GET` | `/chat/history` · `/chat/chats` · `/chat/media/:messageId` | instance | Stored messages / conversations / attachments |
 | `GET` | `/chat/history/capabilities` | instance | History pagination contract (`keyset`, max page size) |
 | `POST` | `/chat/lidMapping` | instance | Batch LID ↔ phone-number resolution (up to 200) |
@@ -296,7 +296,7 @@ wamux/
 
 Issues and pull requests are welcome in this repository.
 
-- Do **not** open a public issue for security problems — see [`SECURITY.md`](./SECURITY.md).
+- Do **not** open a public issue for security problems; see [`SECURITY.md`](./SECURITY.md).
 - Development setup and conventions: [`docs/wiki/desenvolvimento/development-guide.md`](./docs/wiki/desenvolvimento/development-guide.md) and [`docs/wiki/desenvolvimento/contributing.md`](./docs/wiki/desenvolvimento/contributing.md).
 
 ## License & attribution
