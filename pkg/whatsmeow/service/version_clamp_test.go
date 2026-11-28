@@ -1,6 +1,9 @@
 package whatsmeow_service
 
-import "testing"
+import (
+	"math"
+	"testing"
+)
 
 func TestClampUint32(t *testing.T) {
 	cases := []struct {
@@ -11,7 +14,8 @@ func TestClampUint32(t *testing.T) {
 		{0, 0},
 		{2, 2},
 		{3000, 3000},
-		{1 << 32, ^uint32(0)},
+		{math.MaxInt32, math.MaxInt32},
+		{1 << 32, math.MaxInt32},
 	}
 	for _, tc := range cases {
 		if got := clampUint32(tc.in); got != tc.want {
