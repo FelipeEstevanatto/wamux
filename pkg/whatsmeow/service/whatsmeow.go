@@ -239,19 +239,20 @@ type clientVersion struct {
 }
 
 // clampUint32 converts a signed setting to the uint32 the registration
-// protobuf expects. Values come from the environment or from a fetched web
-// page, so they can be negative or wider than uint32; clamping keeps a bogus
-// value from wrapping into an unrelated version or quota.
+// protobuf expects. Values come from strconv.Atoi, so they can be negative or
+// too large; bounding v itself against a constant before the conversion keeps
+// a bogus value from wrapping into an unrelated version or quota.
 func clampUint32(v int) uint32 {
+	// Guard v directly with a constant lower and upper bound in the same
+	// branch as the narrowing conversion: that is the pattern static analysis
+	// recognises as safe. MaxInt32 keeps this valid on 32-bit platforms too.
+	if v >= 0 && v <= math.MaxInt32 {
+		return uint32(v)
+	}
 	if v < 0 {
 		return 0
 	}
-	// Use a named constant from math: static analysis only recognises bounds
-	// checks against constants, not expressions such as ^uint32(0).
-	if uint64(v) > math.MaxUint32 {
-		return math.MaxUint32
-	}
-	return uint32(v)
+	return math.MaxInt32
 }
 
 type whatsmeowService struct {
