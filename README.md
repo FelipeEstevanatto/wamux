@@ -22,9 +22,11 @@ fully operational and never contacts a third party on its own.
 
 | | |
 |---|---|
-| **Documentation** | [`docs/wiki/`](./docs/wiki) — guides, API reference, deployment |
+| **Documentation** | [`docs/wiki/`](./docs/wiki): guides, API reference, deployment |
 | **Container image** | `ghcr.io/felipeestevanatto/wamux` |
-| **License** | Apache-2.0 — [`LICENSE`](./LICENSE) · [`NOTICE`](./NOTICE) · [`TRADEMARKS.md`](./TRADEMARKS.md) |
+| **Stack** | Go · whatsmeow · PostgreSQL · React · Docker |
+| **Based on** | Forked from [Evolution Go](https://github.com/evolution-foundation/evolution-go) by Evolution Foundation (not affiliated) |
+| **License** | Apache-2.0: [`LICENSE`](./LICENSE) · [`NOTICE`](./NOTICE) · [`TRADEMARKS.md`](./TRADEMARKS.md) |
 | **Security** | [`SECURITY.md`](./SECURITY.md) · what changed vs. upstream: [`FORK_NOTES.md`](./FORK_NOTES.md) |
 
 ## Quick start
